@@ -1,0 +1,312 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov  5 22:00:35 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>DCONF</title>
+
+</head>
+<body>
+
+<h1 align="center">DCONF</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PROFILES">PROFILES</a><br>
+<a href="#KEY FILES">KEY FILES</a><br>
+<a href="#LOCKS">LOCKS</a><br>
+<a href="#PORTABILITY">PORTABILITY</a><br>
+<a href="#API STABILITY">API STABILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#NOTES">NOTES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dconf &minus; A
+configuration systen</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dconf is a
+simple key/value storage system that is heavily optimised
+for reading. This makes it an ideal system for storing user
+preferences (which are read 1000s of times for each time the
+user changes one). It was created with this usecase in
+mind.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All preferences
+are stored in a single large binary file. Layering of
+preferences is possible using multiple files (ie: for site
+defaults). Lock&minus;down is also supported. The binary
+file for the defaults can optionally be compiled from a set
+of plain text keyfiles.</p>
+
+<p style="margin-left:11%; margin-top: 1em">dconf has a
+partial client/server architecture. It uses D&minus;Bus. The
+server is only involved in writes (and is not activated in
+the user session until the user modifies a preference). The
+service is stateless and can exit freely at any time (and is
+therefore robust against crashes). The list of paths that
+each process is watching is stored within the D&minus;Bus
+daemon itself (as D&minus;Bus signal match rules).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Reads are
+performed by direct access (via mmap) to the on&minus;disk
+database which is essentially a hashtable. For this reason,
+dconf reads typically involve zero system calls and are
+comparable to a hashtable lookup in terms of speed.
+Practically speaking, in simple non&minus;layered setups,
+dconf is less than 10 times slower than GHashTable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Writes are
+assumed only to happen in response to explicit user
+interaction (like clicking on a checkbox in a preferences
+dialog) and are therefore not optimised at all. On some file
+systems, dconf&minus;service will call fsync() for every
+write, which can introduce a latency of up to 100ms. This
+latency is hidden by the client libraries through a clever
+&quot;fast&quot; mechanism that records the outstanding
+changes locally (so they can be read back immediately) until
+the service signals that a write has completed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The binary
+database format that dconf uses by default is not suitable
+for use on NFS, where mmap does not work well. To handle
+this common use case, dconf can be configured to place its
+binary database in <b>XDG_RUNTIME_DIR</b> (which is
+guaranteed to be local, but non&minus;persistent) and
+synchronize it with a plain text keyfile in the users home
+directory.</p>
+
+<h2>PROFILES
+<a name="PROFILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A profile is a
+list of configuration databases that dconf consults to find
+the value for a key. The user's personal database always
+takes the highest priority, followed by the system databases
+in the order prescribed by the profile.</p>
+
+<p style="margin-left:11%; margin-top: 1em">On startup,
+dconf consults the <b>DCONF_PROFILE</b> environment
+variable. If set, dconf will attempt to open the named
+profile, aborting if that fails. If the environment variable
+is not set, it will attempt to open the profile named
+&quot;user&quot; and if that fails, it will fall back to an
+internal hard&minus;wired configuration. dconf stores its
+profiles in text files. <b>DCONF_PROFILE</b> can specify a
+relative path to a file in /etc/dconf/profile/, or an
+absolute path (such as in a user's home directory). The
+profile name can only use alphanumeric characters or
+'_'.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A profile file
+might look like the following:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">user&minus;db:user
+<br>
+system&minus;db:local <br>
+system&minus;db:site</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each line in a
+profile specifies one dconf database. The first line
+indicates the database used to write changes, and the
+remaining lines indicate read&minus;only databases. (The
+first line should specify a user&minus;db or
+service&minus;db, so that users can actually make
+configuration changes.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&quot;user&minus;db&quot; line specifies a user database.
+These databases are found in <b>$XDG_CONFIG_HOME</b>/dconf/.
+The name of the file to open in that directory is exactly as
+it is written in the profile. This file is expected to be in
+the binary dconf database format. Note that
+<b>XDG_CONFIG_HOME</b> cannot be set/modified per terminal
+or session, because then the writer and reader would be
+working on different DBs (the writer is started by DBus and
+cannot see that variable).</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&quot;service&minus;db&quot; line instructs dconf to place
+the binary database file for the user database in
+<b>XDG_RUNTIME_DIR</b>. Since this location is not
+persistent, the rest of the line instructs dconf how to
+store the database persistently. A typical line is
+service&minus;db:keyfile/user, which tells dconf to
+synchronize the binary database with a plain text keyfile in
+<b>$XDG_CONFIG_HOME</b>/dconf/user.txt. The synchronization
+is bi&minus;directional.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&quot;system&minus;db&quot; line specifies a system
+database. These databases are found in /etc/dconf/db/.
+Again, the name of the file to open in that directory is
+exactly as it is written in the profile and the file is
+expected to be in the dconf database format.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<b>DCONF_PROFILE</b> environment variable is unset and the
+&quot;user&quot; profile can not be opened, then the effect
+is as if the profile was specified by this file:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">user&minus;db:user</p>
+
+<p style="margin-left:11%; margin-top: 1em">That is, the
+user's personal database is consulted and there are no
+system settings.</p>
+
+<h2>KEY FILES
+<a name="KEY FILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To facilitate
+system configuration with a text editor, dconf can populate
+databases from plain text keyfiles. For any given system
+database, keyfiles can be placed into the
+/etc/dconf/db/<i>database</i>.d/ directory. The keyfiles
+contain groups of settings as follows:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># Some useful
+default settings for our site</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">[system/proxy/http]
+<br>
+host='172.16.0.1' <br>
+enabled=true</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">[org/gnome/desktop/background]
+<br>
+
+picture&minus;uri='file:///usr/local/rupert&minus;corp/company&minus;wallpaper.jpeg'</p>
+
+<p style="margin-left:11%; margin-top: 1em">After changing
+keyfiles, the database needs to be updated with the
+<b>dconf</b>(1) tool.</p>
+
+<h2>LOCKS
+<a name="LOCKS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">System
+databases can contain 'locks' for keys. If a lock for a
+particular key or subpath is installed into a database then
+no database listed above that one in the profile will be
+able to modify any of the affected settings. This can be
+used to enforce mandatory settings.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To add locks to
+a database, place text files in the
+/etc/dconf/db/<i>database</i>.d/locks directory, where
+<i>database</i> is the name of a system database, as
+specified in the profile. The files contain list of keys to
+lock, on per line. Lines starting with a # are ignored. Here
+is an example:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># prevent
+changes to the company wallpaper <br>
+/org/gnome/desktop/background/picture&minus;uri</p>
+
+<p style="margin-left:11%; margin-top: 1em">After changing
+locks, the database needs to be updated with the
+<b>dconf</b>(1) tool.</p>
+
+<h2>PORTABILITY
+<a name="PORTABILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dconf mostly
+targets Free Software operating systems. It will
+theoretically run on Mac OS but there isn't much point to
+that (since Mac OS applications want to store preferences in
+plist files). It is not possible to use dconf on Windows
+because of the inability to rename over a file that's still
+in use (which is what the dconf&minus;service does on every
+write).</p>
+
+<h2>API STABILITY
+<a name="API STABILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The dconf API
+is not particularly friendly, and is not guaranteed to be
+stable. Because of this and the lack of portability, you
+almost certainly want to use some sort of wrapper API around
+it. The wrapper API used by GTK+ and GNOME applications is
+<b><font color="#0000FF">GSettings</font></b>
+<small><font color="#000000">[1]</font></small>
+<font color="#000000">, which is included as part of GLib.
+GSettings has backends for Windows (using the registry) and
+Mac OS (using property lists) as well as its dconf backend
+and is the proper API to use for graphical
+applications.</font></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><font color="#000000"><b>dconf-service</b>(1),
+<b>dconf-editor</b>(1), <b>dconf</b>(1),</font>
+<b><font color="#0000FF">GSettings</font></b>
+<small><font color="#000000">[1]</font></small></p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="12%"></td>
+<td width="3%">
+
+
+
+<p style="margin-top: 1em"><font color="#000000">1.</font></p> </td>
+<td width="2%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><font color="#000000">GSettings</font></p> </td>
+<td width="69%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%;"><font color="#000000">http://developer.gnome.org/gio/stable/GSettings.html</font></p>
+<hr>
+</body>
+</html>

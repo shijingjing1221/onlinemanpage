@@ -1,0 +1,307 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov  5 22:51:20 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>TIMER_CREATE(2) Linux Programmer s Manual
+TIMER_CREATE(2)</p>
+
+<p>NAME timer_create - create a POSIX per-process timer</p>
+
+<p>SYNOPSIS #include &lt;signal.h&gt; #include
+&lt;time.h&gt;</p>
+
+<p>int timer_create(clockid_t clockid, struct sigevent
+*evp, timer_t *timerid);</p>
+
+<p>Link with -lrt.</p>
+
+<p>Feature Test Macro Requirements for glibc (see
+feature_test_macros(7)):</p>
+
+<p>timer_create(): _POSIX_C_SOURCE &gt;= 199309</p>
+
+<p>DESCRIPTION timer_create() creates a new per-process
+interval timer. The ID of the new timer is returned in the
+buffer pointed to by timerid, which must be a non-NULL
+pointer. This ID is unique within the process, until the
+timer is deleted. The new timer is initially disarmed.</p>
+
+<p>The clockid argument specifies the clock that the new
+timer uses to measure time. It can be specified as one of
+the following values:</p>
+
+<p>CLOCK_REALTIME A settable system-wide real-time
+clock.</p>
+
+<p>CLOCK_MONOTONIC A non-settable monotonically increasing
+clock that measures time from some unspecified point in the
+past that does not change after system startup.</p>
+
+<p>CLOCK_PROCESS_CPUTIME_ID (since Linux 2.6.12) A clock
+that measures (user and system) CPU time consumed by (all of
+the threads in) the calling process.</p>
+
+<p>CLOCK_THREAD_CPUTIME_ID (since Linux 2.6.12) A clock
+that measures (user and system) CPU time consumed by the
+calling thread.</p>
+
+<p>As well as the above values, clockid can be specified as
+the clockid returned by a call to clock_getcpuclockid(3) or
+pthread_getcpu- clockid(3).</p>
+
+<p>The evp argument points to a sigevent structure that
+specifies how the caller should be notified when the timer
+expires. This structure is defined something like the
+following:</p>
+
+<p>union sigval { int sival_int; void *sival_ptr; };</p>
+
+<p>struct sigevent { int sigev_notify; /* Notification
+method */ int sigev_signo; /* Timer expiration signal */
+union sigval sigev_value; /* Value accompanying signal or
+passed to thread function */ void (*sigev_notify_function)
+(union sigval); /* Function used for thread notifications
+(SIGEV_THREAD) */ void *sigev_notify_attributes; /*
+Attributes for notification thread (SIGEV_THREAD) */ pid_t
+sigev_notify_thread_id; /* ID of thread to signal
+(SIGEV_THREAD_ID) */ };</p>
+
+<p>Some of these fields may be defined as part of a union:
+a program should only employ those fields relevant to the
+value specified in sigev_notify. This field can have the
+following values:</p>
+
+<p>SIGEV_NONE Don t asynchronously notify when the timer
+expires. Progress of the timer can be monitored using
+timer_gettime(2).</p>
+
+<p>SIGEV_SIGNAL Upon timer expiration, generate the signal
+sigev_signo for the process. If sigev_signo is a real-time
+signal, then it will be accompanied by the data specified in
+sigev_value (like the sig- nal-accompanying data for
+sigqueue(2)). At any point in time, at most one signal is
+queued to the process for a given timer; see
+timer_getoverrun(2) for more details.</p>
+
+<p>SIGEV_THREAD Upon timer expiration, invoke
+sigev_notify_function as if it were the start function of a
+new thread. (Among the implementa- tion possibilities here
+are that each timer notification could result in the
+creation of a new thread, or that a single thread is created
+to receive all notifications.) The function is invoked with
+sigev_value as its sole argument. If sigev_notify_attributes
+is not NULL, it should point to a pthread_attr_t structure
+that defines attributes for the new thread (see
+pthread_attr_init(3).</p>
+
+<p>SIGEV_THREAD_ID (Linux-specific) As for SIGEV_SIGNAL,
+but the signal is targeted at the thread whose ID is given
+in sigev_notify_thread_id, which must be a thread in the
+same process as the caller. The sigev_notify_thread_id field
+specifies a kernel thread ID, that is, the value returned by
+clone(2) or gettid(2). This flag is only intended for use by
+threading libraries.</p>
+
+<p>Specifying evp as NULL is equivalent to specifying a
+pointer to a sigevent structure in which sigev_notify is
+SIGEV_SIGNAL, sigev_signo is SIGALRM, and
+sigev_value.sival_int is the timer ID.</p>
+
+<p>RETURN VALUE On success, timer_create() returns 0, and
+the ID of the new timer is placed in *timerid. On failure,
+-1 is returned, and errno is set to indicate the error.</p>
+
+<p>ERRORS EAGAIN Temporary error during kernel allocation
+of timer structures.</p>
+
+<p>EINVAL Clock ID, sigev_notify, sigev_signo,
+sigev_notify_thread_id is invalid.</p>
+
+<p>ENOMEM Could not allocate memory.</p>
+
+<p>VERSIONS This system call is available since Linux
+2.6.</p>
+
+<p>CONFORMING TO POSIX.1-2001</p>
+
+<p>NOTES A program may create multiple interval timers
+using timer_create().</p>
+
+<p>Timers are not inherited by the child of a fork(2), and
+are disarmed and deleted during an execve(2).</p>
+
+<p>The kernel preallocates a &quot;queued real-time
+signal&quot; for each timer cre- ated using timer_create().
+Consequently, the number of timers is lim- ited by the
+RLIMIT_SIGPENDING resource limit (see setrlimit(2)).</p>
+
+<p>The timers created by timer_create() are commonly known
+as &quot;POSIX (interval) timers&quot;. The POSIX timers API
+consists of the following interfaces:</p>
+
+<p>* timer_create(): Create a timer.</p>
+
+<p>* timer_settime(2): Arm (start) or disarm (stop) a
+timer.</p>
+
+<p>* timer_gettime(2): Fetch the time remaining until the
+next expiration of a timer, along with the interval setting
+of the timer.</p>
+
+<p>* timer_getoverrun(2): Return the overrun count for the
+last timer expiration.</p>
+
+<p>* timer_delete(2): Disarm and delete a timer.</p>
+
+<p>Part of the implementation of the POSIX timers API is
+provided by glibc. In particular:</p>
+
+<p>* The functionality for SIGEV_THREAD is implemented
+within glibc, rather than the kernel.</p>
+
+<p>* The timer IDs presented at user level are maintained
+by glibc, which maps these IDs to the timer IDs employed by
+the kernel.</p>
+
+<p>The POSIX timers system calls first appeared in Linux
+2.6. Prior to this, glibc provided an incomplete userspace
+implementation (CLOCK_REALTIME timers only) using POSIX
+threads, and current glibc falls back to this implementation
+on systems running pre-2.6 Linux ker- nels.</p>
+
+<p>EXAMPLE The program below takes two arguments: a sleep
+period in seconds, and a timer frequency in nanoseconds. The
+program establishes a handler for the signal it uses for the
+timer, blocks that signal, creates and arms a timer that
+expires with the given frequency, sleeps for the specified
+number of seconds, and then unblocks the timer signal.
+Assuming that the timer expired at least once while the
+program slept, the signal handler will be invoked, and the
+handler displays some information about the timer
+notification. The program terminates after one invoca- tion
+of the signal handler.</p>
+
+<p>In the following example run, the program sleeps for 1
+second, after creating a timer that has a frequency of 100
+nanoseconds. By the time the signal is unblocked and
+delivered, there have been around ten mil- lion
+overruns.</p>
+
+<p>$ ./a.out 1 10 Establishing handler for signal 34
+Blocking signal 34 timer ID is 0x804c008 Sleeping for 1
+seconds Unblocking signal 34 Caught signal 34 sival_ptr =
+0xbfb174f4; *sival_ptr = 0x804c008 overrun count =
+10004886</p>
+
+<p>Program Source</p>
+
+<p>#include &lt;stdlib.h&gt; #include &lt;unistd.h&gt;
+#include &lt;stdio.h&gt; #include &lt;signal.h&gt; #include
+&lt;time.h&gt;</p>
+
+<p>#define CLOCKID CLOCK_REALTIME #define SIG SIGRTMIN</p>
+
+<p>#define errExit(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>static void print_siginfo(siginfo_t *si) { timer_t
+*tidp; int or;</p>
+
+<p>tidp = si-&gt;si_value.sival_ptr;</p>
+
+<p>printf(&quot; sival_ptr = %p; &quot;,
+si-&gt;si_value.sival_ptr); printf(&quot; *sival_ptr =
+0x%lx0, (long) *tidp);</p>
+
+<p>or = timer_getoverrun(*tidp); if (or == -1)
+errExit(&quot;timer_getoverrun&quot;); else printf(&quot;
+overrun count = %d0, or); }</p>
+
+<p>static void handler(int sig, siginfo_t *si, void *uc) {
+/* Note: calling printf() from a signal handler is not
+strictly correct, since printf() is not async-signal-safe;
+see signal(7) */</p>
+
+<p>printf(&quot;Caught signal %d0, sig); print_siginfo(si);
+signal(sig, SIG_IGN); }</p>
+
+<p>int main(int argc, char *argv[]) { timer_t timerid;
+struct sigevent sev; struct itimerspec its; long long
+freq_nanosecs; sigset_t mask; struct sigaction sa;</p>
+
+<p>if (argc != 3) { fprintf(stderr, &quot;Usage: %s
+&lt;sleep-secs&gt; &lt;freq-nanosecs&gt;0, argv[0]);
+exit(EXIT_FAILURE); }</p>
+
+<p>/* Establish handler for timer signal */</p>
+
+<p>printf(&quot;Establishing handler for signal %d0, SIG);
+sa.sa_flags = SA_SIGINFO; sa.sa_sigaction = handler;
+sigemptyset(&amp;sa.sa_mask); if (sigaction(SIG, &amp;sa,
+NULL) == -1) errExit(&quot;sigaction&quot;);</p>
+
+<p>/* Block timer signal temporarily */</p>
+
+<p>printf(&quot;Blocking signal %d0, SIG);
+sigemptyset(&amp;mask); sigaddset(&amp;mask, SIG); if
+(sigprocmask(SIG_SETMASK, &amp;mask, NULL) == -1)
+errExit(&quot;sigprocmask&quot;);</p>
+
+<p>/* Create the timer */</p>
+
+<p>sev.sigev_notify = SIGEV_SIGNAL; sev.sigev_signo = SIG;
+sev.sigev_value.sival_ptr = &amp;timerid; if
+(timer_create(CLOCKID, &amp;sev, &amp;timerid) == -1)
+errExit(&quot;timer_create&quot;);</p>
+
+<p>printf(&quot;timer ID is 0x%lx0, (long) timerid);</p>
+
+<p>/* Start the timer */</p>
+
+<p>freq_nanosecs = atoll(argv[2]); its.it_value.tv_sec =
+freq_nanosecs / 1000000000; its.it_value.tv_nsec =
+freq_nanosecs % 1000000000; its.it_interval.tv_sec =
+its.it_value.tv_sec; its.it_interval.tv_nsec =
+its.it_value.tv_nsec;</p>
+
+<p>if (timer_settime(timerid, 0, &amp;its, NULL) == -1)
+errExit(&quot;timer_settime&quot;);</p>
+
+<p>/* Sleep for a while; meanwhile, the timer may expire
+multiple times */</p>
+
+<p>printf(&quot;Sleeping for %d seconds0, atoi(argv[1]));
+sleep(atoi(argv[1]));</p>
+
+<p>/* Unlock the timer signal, so that timer notification
+can be delivered */</p>
+
+<p>printf(&quot;Unblocking signal %d0, SIG); if
+(sigprocmask(SIG_UNBLOCK, &amp;mask, NULL) == -1)
+errExit(&quot;sigprocmask&quot;);</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO clock_gettime(2), setitimer(2),
+timer_delete(2), timer_settime(2), timer_getoverrun(2),
+timerfd_create(2), clock_getcpuclockid(3),
+pthread_getcpuclockid(3), pthreads(7), signal(7),
+time(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-02-20 TIMER_CREATE(2)</p>
+<hr>
+</body>
+</html>

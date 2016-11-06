@@ -1,0 +1,2133 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov  5 22:50:58 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SUDOERS(5) BSD File Formats Manual SUDOERS(5)</p>
+
+<p>NAME sudoers - default sudo security policy module</p>
+
+<p>DESCRIPTION The sudoers policy module determines a user
+s sudo privileges. It is the default sudo policy plugin. The
+policy is driven by the /etc/sudoers file or, optionally in
+LDAP. The policy format is described in detail in the
+SUDOERS FILE FORMAT section. For information on storing
+sudoers pol- icy information in LDAP, please see
+sudoers.ldap(5).</p>
+
+<p>Authentication and logging The sudoers security policy
+requires that most users authenticate them- selves before
+they can use sudo. A password is not required if the
+invoking user is root, if the target user is the same as the
+invoking user, or if the policy has disabled authentication
+for the user or com- mand. Unlike su(1), when sudoers
+requires authentication, it validates the invoking user s
+credentials, not the target users (or roots) cre- dentials.
+This can be changed via the rootpw, targetpw and runaspw
+flags, described later.</p>
+
+<p>If a user who is not listed in the policy tries to run a
+command via sudo, mail is sent to the proper authorities.
+The address used for such mail is configurable via the
+mailto Defaults entry (described later) and defaults to
+root.</p>
+
+<p>Note that mail will not be sent if an unauthorized user
+tries to run sudo with the -l or -v option. This allows
+users to determine for themselves whether or not they are
+allowed to use sudo.</p>
+
+<p>If sudo is run by root and the SUDO_USER environment
+variable is set, the sudoers policy will use this value to
+determine who the actual user is. This can be used by a user
+to log commands through sudo even when a root shell has been
+invoked. It also allows the -e option to remain useful even
+when invoked via a sudo-run script or program. Note,
+however, that the sudoers lookup is still done for root, not
+the user specified by SUDO_USER.</p>
+
+<p>sudoers uses time stamp files for credential caching.
+Once a user has been authenticated, the time stamp is
+updated and the user may then use sudo without a password
+for a short period of time (5 minutes unless overridden by
+the timeout option). By default, sudoers uses a tty-based
+time stamp which means that there is a separate time stamp
+for each of a user s login sessions. The tty_tickets option
+can be disabled to force the use of a single time stamp for
+all of a users sessions.</p>
+
+<p>sudoers can log both successful and unsuccessful
+attempts (as well as errors) to syslog(3), a log file, or
+both. By default, sudoers will log via syslog(3) but this is
+changeable via the syslog and logfile Defaults settings.</p>
+
+<p>sudoers also supports logging a commands input and
+output streams. I/O logging is not on by default but can be
+enabled using the log_input and log_output Defaults flags as
+well as the LOG_INPUT and LOG_OUTPUT command tags.</p>
+
+<p>Command environment Since environment variables can
+influence program behavior, sudoers pro- vides a means to
+restrict which variables from the user s environment are
+inherited by the command to be run. There are two distinct
+ways sudoers can deal with environment variables.</p>
+
+<p>By default, the env_reset option is enabled. This causes
+commands to be executed with a new, minimal environment. On
+AIX (and Linux systems without PAM), the environment is
+initialized with the contents of the /etc/environment file.
+The new environment contains the TERM, PATH, HOME, MAIL,
+SHELL, LOGNAME, USER, USERNAME and SUDO_* variables in addi-
+tion to variables from the invoking process permitted by the
+env_check and env_keep options. This is effectively a
+whitelist for environment variables.</p>
+
+<p>If, however, the env_reset option is disabled, any
+variables not explic- itly denied by the env_check and
+env_delete options are inherited from the invoking process.
+In this case, env_check and env_delete behave like a
+blacklist. Since it is not possible to blacklist all
+potentially dan- gerous environment variables, use of the
+default env_reset behavior is encouraged.</p>
+
+<p>In all cases, environment variables with a value
+beginning with () are removed as they could be interpreted
+as bash functions. The list of environment variables that
+sudo allows or denies is contained in the out- put of sudo
+-V when run as root.</p>
+
+<p>Note that the dynamic linker on most operating systems
+will remove vari- ables that can control dynamic linking
+from the environment of setuid executables, including sudo.
+Depending on the operating system this may include _RLD*,
+DYLD_*, LD_*, LDR_*, LIBPATH, SHLIB_PATH, and others. These
+type of variables are removed from the environment before
+sudo even begins execution and, as such, it is not possible
+for sudo to preserve them.</p>
+
+<p>As a special case, if sudos -i option (initial login) is
+specified, sudoers will initialize the environment
+regardless of the value of env_reset. The DISPLAY, PATH and
+TERM variables remain unchanged; HOME, MAIL, SHELL, USER,
+and LOGNAME are set based on the target user. On AIX (and
+Linux systems without PAM), the contents of /etc/environment
+are also included. All other environment variables are
+removed.</p>
+
+<p>Finally, if the env_file option is defined, any
+variables present in that file will be set to their
+specified values as long as they would not con- flict with
+an existing environment variable.</p>
+
+<p>SUDOERS FILE FORMAT The sudoers file is composed of two
+types of entries: aliases (basically variables) and user
+specifications (which specify who may run what).</p>
+
+<p>When multiple entries match for a user, they are applied
+in order. Where there are multiple matches, the last match
+is used (which is not neces- sarily the most specific
+match).</p>
+
+<p>The sudoers grammar will be described below in Extended
+Backus-Naur Form (EBNF). Dont despair if you are unfamiliar
+with EBNF; it is fairly sim- ple, and the definitions below
+are annotated.</p>
+
+<p>Quick guide to EBNF EBNF is a concise and exact way of
+describing the grammar of a language. Each EBNF definition
+is made up of production rules. E.g.,</p>
+
+<p>symbol ::= definition | alternate1 | alternate2 ...</p>
+
+<p>Each production rule references others and thus makes up
+a grammar for the language. EBNF also contains the following
+operators, which many readers will recognize from regular
+expressions. Do not, however, con- fuse them with wildcard
+characters, which have different meanings.</p>
+
+<p>? Means that the preceding symbol (or group of symbols)
+is optional. That is, it may appear once or not at all.</p>
+
+<p>* Means that the preceding symbol (or group of symbols)
+may appear zero or more times.</p>
+
+<p>+ Means that the preceding symbol (or group of symbols)
+may appear one or more times.</p>
+
+<p>Parentheses may be used to group symbols together. For
+clarity, we will use single quotes ( ) to designate what is
+a verbatim character string (as opposed to a symbol
+name).</p>
+
+<p>Aliases There are four kinds of aliases: User_Alias,
+Runas_Alias, Host_Alias and Cmnd_Alias.</p>
+
+<p>Alias ::= User_Alias User_Alias (: User_Alias)* |
+Runas_Alias Runas_Alias (: Runas_Alias)* | Host_Alias
+Host_Alias (: Host_Alias)* | Cmnd_Alias Cmnd_Alias (:
+Cmnd_Alias)*</p>
+
+<p>User_Alias ::= NAME = User_List</p>
+
+<p>Runas_Alias ::= NAME = Runas_List</p>
+
+<p>Host_Alias ::= NAME = Host_List</p>
+
+<p>Cmnd_Alias ::= NAME = Cmnd_List</p>
+
+<p>NAME ::= [A-Z]([A-Z][0-9]_)*</p>
+
+<p>Each alias definition is of the form</p>
+
+<p>Alias_Type NAME = item1, item2, ...</p>
+
+<p>where Alias_Type is one of User_Alias, Runas_Alias,
+Host_Alias, or Cmnd_Alias. A NAME is a string of uppercase
+letters, numbers, and under- score characters (_). A NAME
+must start with an uppercase letter. It is possible to put
+several alias definitions of the same type on a single line,
+joined by a colon (:). E.g.,</p>
+
+<p>Alias_Type NAME = item1, item2, item3 : NAME = item4,
+item5</p>
+
+<p>The definitions of what constitutes a valid alias member
+follow.</p>
+
+<p>User_List ::= User | User , User_List</p>
+
+<p>User ::= !* user name | !* #uid | !* %group | !* %#gid |
+!* +netgroup | !* %:nonunix_group | !* %:#nonunix_gid | !*
+User_Alias</p>
+
+<p>A User_List is made up of one or more user names, user
+ids (prefixed with #), system group names and ids (prefixed
+with % and %# respec- tively), netgroups (prefixed with +),
+non-Unix group names and IDs (prefixed with %: and %:#
+respectively) and User_Aliases. Each list item may be
+prefixed with zero or more ! operators. An odd number of !
+operators negate the value of the item; an even number just
+cancel each other out.</p>
+
+<p>A user name, uid, group, gid, netgroup, nonunix_group or
+nonunix_gid may be enclosed in double quotes to avoid the
+need for escaping special char- acters. Alternately, special
+characters may be specified in escaped hex mode, e.g. 0 for
+space. When using double quotes, any prefix charac- ters
+must be included inside the quotes.</p>
+
+<p>The actual nonunix_group and nonunix_gid syntax depends
+on the underlying group provider plugin (see the
+group_plugin description below). For instance, the QAS AD
+plugin supports the following formats:</p>
+
+<p>&middot; Group in the same domain: &quot;%:Group
+Name&quot;</p>
+
+<p>&middot; Group in any domain: &quot;%:Group
+Name@FULLY.QUALIFIED.DOMAIN&quot;</p>
+
+<p>&middot; Group SID:
+&quot;%:S-1-2-34-5678901234-5678901234-5678901234-567&quot;</p>
+
+<p>Note that quotes around group names are optional.
+Unquoted strings must use a backslash () to escape spaces
+and special characters. See Other special characters and
+reserved words for a list of characters that need to be
+escaped.</p>
+
+<p>Runas_List ::= Runas_Member | Runas_Member ,
+Runas_List</p>
+
+<p>Runas_Member ::= !* user name | !* #uid | !* %group | !*
+%#gid | !* %:nonunix_group | !* %:#nonunix_gid | !*
++netgroup | !* Runas_Alias</p>
+
+<p>A Runas_List is similar to a User_List except that
+instead of User_Aliases it can contain Runas_Aliases. Note
+that user names and groups are matched as strings. In other
+words, two users (groups) with the same uid (gid) are
+considered to be distinct. If you wish to match all user
+names with the same uid (e.g. root and toor), you can use a
+uid instead (#0 in the example given).</p>
+
+<p>Host_List ::= Host | Host , Host_List</p>
+
+<p>Host ::= !* host name | !* ip_addr | !*
+network(/netmask)? | !* +netgroup | !* Host_Alias</p>
+
+<p>A Host_List is made up of one or more host names, IP
+addresses, network numbers, netgroups (prefixed with + ) and
+other aliases. Again, the value of an item may be negated
+with the ! operator. If you do not specify a netmask along
+with the network number, sudo will query each of the local
+host s network interfaces and, if the network number corre-
+sponds to one of the hosts s network interfaces, the
+corresponding net- mask will be used. The netmask may be
+specified either in standard IP address notation (e.g.
+255.255.255.0 or ffff:ffff:ffff:ffff::), or CIDR notation
+(number of bits, e.g. 24 or 64). A host name may include
+shell- style wildcards (see the Wildcards section below),
+but unless the host name command on your machine returns the
+fully qualified host name, youll need to use the fqdn option
+for wildcards to be useful. Note that sudo only inspects
+actual network interfaces; this means that IP address
+127.0.0.1 (localhost) will never match. Also, the host name
+localhost will only match if that is the actual host name,
+which is usually only the case for non-networked
+systems.</p>
+
+<p>Cmnd_List ::= Cmnd | Cmnd , Cmnd_List</p>
+
+<p>command name ::= file name | file name args | file name
+&quot;&quot;</p>
+
+<p>Cmnd ::= !* command name | !* directory | !*
+&quot;sudoedit&quot; | !* Cmnd_Alias</p>
+
+<p>A Cmnd_List is a list of one or more command names,
+directories, and other aliases. A command name is a fully
+qualified file name which may include shell-style wildcards
+(see the Wildcards section below). A sim- ple file name
+allows the user to run the command with any arguments he/she
+wishes. However, you may also specify command line arguments
+(including wildcards). Alternately, you can specify
+&quot;&quot; to indicate that the command may only be run
+without command line arguments. A directory is a fully
+qualified path name ending in a /. When you specify a
+directory in a Cmnd_List, the user will be able to run any
+file within that directory (but not in any sub-directories
+therein).</p>
+
+<p>If a Cmnd has associated command line arguments, then
+the arguments in the Cmnd must match exactly those given by
+the user on the command line (or match the wildcards if
+there are any). Note that the following char- acters must be
+escaped with a if they are used in command arguments: ,, :,
+=, . The special command sudoedit is used to permit a user
+to run sudo with the -e option (or as sudoedit). It may take
+com- mand line arguments just as a normal command does.</p>
+
+<p>Defaults Certain configuration options may be changed
+from their default values at run-time via one or more
+Default_Entry lines. These may affect all users on any host,
+all users on a specific host, a specific user, a specific
+command, or commands being run as a specific user. Note that
+per-command entries may not include command line arguments.
+If you need to specify arguments, define a Cmnd_Alias and
+reference that instead.</p>
+
+<p>Default_Type ::= Defaults | Defaults @ Host_List |
+Defaults : User_List | Defaults ! Cmnd_List | Defaults &gt;
+Runas_List</p>
+
+<p>Default_Entry ::= Default_Type Parameter_List</p>
+
+<p>Parameter_List ::= Parameter | Parameter ,
+Parameter_List</p>
+
+<p>Parameter ::= Parameter = Value | Parameter += Value |
+Parameter -= Value | !* Parameter</p>
+
+<p>Parameters may be flags, integer values, strings, or
+lists. Flags are implicitly boolean and can be turned off
+via the ! operator. Some integer, string and list parameters
+may also be used in a boolean context to disable them.
+Values may be enclosed in double quotes (&quot;&quot;) when
+they contain multiple words. Special characters may be
+escaped with a back- slash ().</p>
+
+<p>Lists have two additional assignment operators, += and
+-=. These opera- tors are used to add to and delete from a
+list respectively. It is not an error to use the -= operator
+to remove an element that does not exist in a list.</p>
+
+<p>Defaults entries are parsed in the following order:
+generic, host and user Defaults first, then runas Defaults
+and finally command defaults.</p>
+
+<p>See SUDOERS OPTIONS for a list of supported Defaults
+parameters.</p>
+
+<p>User specification User_Spec ::= User_List Host_List =
+Cmnd_Spec_List (: Host_List = Cmnd_Spec_List)*</p>
+
+<p>Cmnd_Spec_List ::= Cmnd_Spec | Cmnd_Spec ,
+Cmnd_Spec_List</p>
+
+<p>Cmnd_Spec ::= Runas_Spec? SELinux_Spec? Tag_Spec*
+Cmnd</p>
+
+<p>Runas_Spec ::= ( Runas_List? (: Runas_List)? )</p>
+
+<p>SELinux_Spec ::= (ROLE=role | TYPE=type)</p>
+
+<p>Tag_Spec ::= (NOPASSWD: | PASSWD: | NOEXEC: | EXEC: |
+SETENV: | NOSETENV: | LOG_INPUT: | NOLOG_INPUT: |
+LOG_OUTPUT: | NOLOG_OUTPUT:)</p>
+
+<p>A user specification determines which commands a user
+may run (and as what user) on specified hosts. By default,
+commands are run as root, but this can be changed on a
+per-command basis.</p>
+
+<p>The basic structure of a user specification is who where
+= (as_whom) what. Lets break that down into its constituent
+parts:</p>
+
+<p>Runas_Spec A Runas_Spec determines the user and/or the
+group that a command may be run as. A fully-specified
+Runas_Spec consists of two Runas_Lists (as defined above)
+separated by a colon (:) and enclosed in a set of paren-
+theses. The first Runas_List indicates which users the
+command may be run as via sudos -u option. The second
+defines a list of groups that can be specified via sudos -g
+option. If both Runas_Lists are speci- fied, the command may
+be run with any combination of users and groups listed in
+their respective Runas_Lists. If only the first is
+specified, the command may be run as any user in the list
+but no -g option may be specified. If the first Runas_List
+is empty but the second is specified, the command may be run
+as the invoking user with the group set to any listed in the
+Runas_List. If both Runas_Lists are empty, the command may
+only be run as the invoking user. If no Runas_Spec is
+specified the com- mand may be run as root and no group may
+be specified.</p>
+
+<p>A Runas_Spec sets the default for the commands that
+follow it. What this means is that for the entry:</p>
+
+<p>dgb boulder = (operator) /bin/ls, /bin/kill,
+/usr/bin/lprm</p>
+
+<p>The user dgb may run /bin/ls, /bin/kill, and
+/usr/bin/lprm but only as operator. E.g.,</p>
+
+<p>$ sudo -u operator /bin/ls</p>
+
+<p>It is also possible to override a Runas_Spec later on in
+an entry. If we modify the entry like so:</p>
+
+<p>dgb boulder = (operator) /bin/ls, (root) /bin/kill,
+/usr/bin/lprm</p>
+
+<p>Then user dgb is now allowed to run /bin/ls as operator,
+but /bin/kill and /usr/bin/lprm as root.</p>
+
+<p>We can extend this to allow dgb to run /bin/ls with
+either the user or group set to operator:</p>
+
+<p>dgb boulder = (operator : operator) /bin/ls, (root)
+/bin/kill, /usr/bin/lprm</p>
+
+<p>Note that while the group portion of the Runas_Spec
+permits the user to run as command with that group, it does
+not force the user to do so. If no group is specified on the
+command line, the command will run with the group listed in
+the target users password database entry. The following
+would all be permitted by the sudoers entry above:</p>
+
+<p>$ sudo -u operator /bin/ls $ sudo -u operator -g
+operator /bin/ls $ sudo -g operator /bin/ls</p>
+
+<p>In the following example, user tcm may run commands that
+access a modem device file with the dialer group.</p>
+
+<p>tcm boulder = (:dialer) /usr/bin/tip, /usr/bin/cu,
+/usr/local/bin/minicom</p>
+
+<p>Note that in this example only the group will be set,
+the command still runs as user tcm. E.g.</p>
+
+<p>$ sudo -g dialer /usr/bin/cu</p>
+
+<p>Multiple users and groups may be present in a
+Runas_Spec, in which case the user may select any
+combination of users and groups via the -u and -g options.
+In this example:</p>
+
+<p>alan ALL = (root, bin : operator, system) ALL</p>
+
+<p>user alan may run any command as either user root or
+bin, optionally set- ting the group to operator or
+system.</p>
+
+<p>SELinux_Spec On systems with SELinux support, sudoers
+entries may optionally have an SELinux role and/or type
+associated with a command. If a role or type is specified
+with the command it will override any default values
+specified in sudoers. A role or type specified on the
+command line, however, will supersede the values in
+sudoers.</p>
+
+<p>Tag_Spec A command may have zero or more tags associated
+with it. There are ten possible tag values: NOPASSWD,
+PASSWD, NOEXEC, EXEC, SETENV, NOSETENV, LOG_INPUT,
+NOLOG_INPUT, LOG_OUTPUT and NOLOG_OUTPUT. Once a tag is set
+on a Cmnd, subsequent Cmnds in the Cmnd_Spec_List, inherit
+the tag unless it is overridden by the opposite tag (in
+other words, PASSWD overrides NOPASSWD and NOEXEC overrides
+EXEC).</p>
+
+<p>NOPASSWD and PASSWD</p>
+
+<p>By default, sudo requires that a user authenticate him
+or herself before running a command. This behavior can be
+modified via the NOPASSWD tag. Like a Runas_Spec, the
+NOPASSWD tag sets a default for the commands that follow it
+in the Cmnd_Spec_List. Conversely, the PASSWD tag can be
+used to reverse things. For example:</p>
+
+<p>ray rushmore = NOPASSWD: /bin/kill, /bin/ls,
+/usr/bin/lprm</p>
+
+<p>would allow the user ray to run /bin/kill, /bin/ls, and
+/usr/bin/lprm as root on the machine rushmore without
+authenticating himself. If we only want ray to be able to
+run /bin/kill without a password the entry would be:</p>
+
+<p>ray rushmore = NOPASSWD: /bin/kill, PASSWD: /bin/ls,
+/usr/bin/lprm</p>
+
+<p>Note, however, that the PASSWD tag has no effect on
+users who are in the group specified by the exempt_group
+option.</p>
+
+<p>By default, if the NOPASSWD tag is applied to any of the
+entries for a user on the current host, he or she will be
+able to run sudo -l without a password. Additionally, a user
+may only run sudo -v without a pass- word if the NOPASSWD
+tag is present for all a users entries that pertain to the
+current host. This behavior may be overridden via the
+verifypw and listpw options.</p>
+
+<p>NOEXEC and EXEC</p>
+
+<p>If sudo has been compiled with noexec support and the
+underlying operat- ing system supports it, the NOEXEC tag
+can be used to prevent a dynami- cally-linked executable
+from running further commands itself.</p>
+
+<p>In the following example, user aaron may run
+/usr/bin/more and /usr/bin/vi but shell escapes will be
+disabled.</p>
+
+<p>aaron shanty = NOEXEC: /usr/bin/more, /usr/bin/vi</p>
+
+<p>See the Preventing shell escapes section below for more
+details on how NOEXEC works and whether or not it will work
+on your system.</p>
+
+<p>SETENV and NOSETENV</p>
+
+<p>These tags override the value of the setenv option on a
+per-command basis. Note that if SETENV has been set for a
+command, the user may dis- able the env_reset option from
+the command line via the -E option. Addi- tionally,
+environment variables set on the command line are not
+subject to the restrictions imposed by env_check,
+env_delete, or env_keep. As such, only trusted users should
+be allowed to set variables in this man- ner. If the command
+matched is ALL, the SETENV tag is implied for that command;
+this default may be overridden by use of the NOSETENV
+tag.</p>
+
+<p>LOG_INPUT and NOLOG_INPUT</p>
+
+<p>These tags override the value of the log_input option on
+a per-command basis. For more information, see the
+description of log_input in the SUDOERS OPTIONS section
+below.</p>
+
+<p>LOG_OUTPUT and NOLOG_OUTPUT</p>
+
+<p>These tags override the value of the log_output option
+on a per-command basis. For more information, see the
+description of log_output in the SUDOERS OPTIONS section
+below.</p>
+
+<p>Wildcards sudo allows shell-style wildcards (aka meta or
+glob characters) to be used in host names, path names and
+command line arguments in the sudoers file. Wildcard
+matching is done via the POSIX glob(3) and fnmatch(3)
+routines. Note that these are not regular expressions.</p>
+
+<p>* Matches any set of zero or more characters.</p>
+
+<p>? Matches any single character.</p>
+
+<p>[...] Matches any character in the specified range.</p>
+
+<p>[!...] Matches any character not in the specified
+range.</p>
+
+<p>For any character x, evaluates to x. This is used to
+escape special characters such as: *, ?, [, and ].</p>
+
+<p>POSIX character classes may also be used if your systems
+glob(3) and fnmatch(3) functions support them. However,
+because the : character has special meaning in sudoers, it
+must be escaped. For example:</p>
+
+<p>/bin/ls [[alpha]]*</p>
+
+<p>Would match any file name beginning with a letter.</p>
+
+<p>Note that a forward slash ( / ) will not be matched by
+wildcards used in the path name. This is to make a path
+like:</p>
+
+<p>/usr/bin/*</p>
+
+<p>match /usr/bin/who but not /usr/bin/X11/xterm.</p>
+
+<p>When matching the command line arguments, however, a
+slash does get matched by wildcards since command line
+arguments may contain arbitrary strings and not just path
+names.</p>
+
+<p>Wildcards in command line arguments should be used with
+care. Because command line arguments are matched as a
+single, concatenated string, a wildcard such as ? or * can
+match multiple words. For example, while a sudoers entry
+like:</p>
+
+<p>%operator ALL = /bin/cat /var/log/messages*</p>
+
+<p>will allow command like:</p>
+
+<p>$ sudo cat /var/log/messages.1</p>
+
+<p>It will also allow:</p>
+
+<p>$ sudo cat /var/log/messages /etc/shadow</p>
+
+<p>which is probably not what was intended.</p>
+
+<p>Exceptions to wildcard rules The following exceptions
+apply to the above rules:</p>
+
+<p>&quot;&quot; If the empty string &quot;&quot; is the
+only command line argument in the sudoers entry it means
+that command is not allowed to be run with any
+arguments.</p>
+
+<p>sudoedit Command line arguments to the sudoedit built-in
+command should always be path names, so a forward slash (/)
+will not be matched by a wildcard.</p>
+
+<p>Including other files from within sudoers It is possible
+to include other sudoers files from within the sudoers file
+currently being parsed using the #include and #includedir
+direc- tives.</p>
+
+<p>This can be used, for example, to keep a site-wide
+sudoers file in addi- tion to a local, per-machine file. For
+the sake of this example the site-wide sudoers will be
+/etc/sudoers and the per-machine one will be
+/etc/sudoers.local. To include /etc/sudoers.local from
+within /etc/sudoers we would use the following line in
+/etc/sudoers:</p>
+
+<p>#include /etc/sudoers.local</p>
+
+<p>When sudo reaches this line it will suspend processing
+of the current file (/etc/sudoers) and switch to
+/etc/sudoers.local. Upon reaching the end of
+/etc/sudoers.local, the rest of /etc/sudoers will be
+processed. Files that are included may themselves include
+other files. A hard limit of 128 nested include files is
+enforced to prevent include file loops.</p>
+
+<p>If the path to the include file is not fully-qualified
+(does not begin with a /, it must be located in the same
+directory as the sudoers file it was included from. For
+example, if /etc/sudoers contains the line:</p>
+
+<p>#include sudoers.local</p>
+
+<p>the file that will be included is
+/etc/sudoers.local.</p>
+
+<p>The file name may also include the %h escape, signifying
+the short form of the host name. In other words, if the
+machines host name is xerxes, then</p>
+
+<p>#include /etc/sudoers.%h</p>
+
+<p>will cause sudo to include the file
+/etc/sudoers.xerxes.</p>
+
+<p>The #includedir directive can be used to create a sudo.d
+directory that the system package manager can drop sudoers
+rules into as part of package installation. For example,
+given:</p>
+
+<p>#includedir /etc/sudoers.d</p>
+
+<p>sudo will read each file in /etc/sudoers.d, skipping
+file names that end in ~ or contain a . character to avoid
+causing problems with package manager or editor
+temporary/backup files. Files are parsed in sorted lexical
+order. That is, /etc/sudoers.d/01_first will be parsed
+before /etc/sudoers.d/10_second. Be aware that because the
+sorting is lexical, not numeric, /etc/sudoers.d/1_whoops
+would be loaded after /etc/sudoers.d/10_second. Using a
+consistent number of leading zeroes in the file names can be
+used to avoid such problems.</p>
+
+<p>Note that unlike files included via #include, visudo
+will not edit the files in a #includedir directory unless
+one of them contains a syntax error. It is still possible to
+run visudo with the -f flag to edit the files directly.</p>
+
+<p>Other special characters and reserved words The pound
+sign (#) is used to indicate a comment (unless it is part of
+a #include directive or unless it occurs in the context of a
+user name and is followed by one or more digits, in which
+case it is treated as a uid). Both the comment character and
+any text after it, up to the end of the line, are
+ignored.</p>
+
+<p>The reserved word ALL is a built-in alias that always
+causes a match to succeed. It can be used wherever one might
+otherwise use a Cmnd_Alias, User_Alias, Runas_Alias, or
+Host_Alias. You should not try to define your own alias
+called ALL as the built-in alias will be used in prefer-
+ence to your own. Please note that using ALL can be
+dangerous since in a command context, it allows the user to
+run any command on the system.</p>
+
+<p>An exclamation point (!) can be used as a logical not
+operator in a list or alias as well as in front of a Cmnd.
+This allows one to exclude certain values. For the !
+operator to be effective, there must be something for it to
+exclude. For example, to match all users except for root one
+would use:</p>
+
+<p>ALL,!root</p>
+
+<p>If the ALL, is omitted, as in:</p>
+
+<p>!root</p>
+
+<p>it would explicitly deny root but not match any other
+users. This is different from a true negation operator.</p>
+
+<p>Note, however, that using a ! in conjunction with the
+built-in ALL alias to allow a user to run all but a few
+commands rarely works as intended (see SECURITY NOTES
+below).</p>
+
+<p>Long lines can be continued with a backslash () as the
+last character on the line.</p>
+
+<p>White space between elements in a list as well as
+special syntactic char- acters in a User Specification (=,
+:, (, )) is optional.</p>
+
+<p>The following characters must be escaped with a
+backslash () when used as part of a word (e.g. a user name
+or host name): !, =, : , ,, (, ), .</p>
+
+<p>SUDOERS OPTIONS sudo s behavior can be modified by
+Default_Entry lines, as explained ear- lier. A list of all
+supported Defaults parameters, grouped by type, are listed
+below.</p>
+
+<p>Boolean Flags:</p>
+
+<p>always_set_home If enabled, sudo will set the HOME
+environment variable to the home directory of the target
+user (which is root unless the -u option is used). This
+effectively means that the -H option is always implied. Note
+that HOME is already set when the the env_reset option is
+enabled, so always_set_home is only effective for con-
+figurations where either env_reset is disabled or HOME is
+present in the env_keep list. This flag is off by
+default.</p>
+
+<p>authenticate If set, users must authenticate themselves
+via a pass- word (or other means of authentication) before
+they may run commands. This default may be overridden via
+the PASSWD and NOPASSWD tags. This flag is on by
+default.</p>
+
+<p>closefrom_override If set, the user may use sudos -C
+option which over- rides the default starting point at which
+sudo begins closing open file descriptors. This flag is off
+by default.</p>
+
+<p>compress_io If set, and sudo is configured to log a
+commands input or output, the I/O logs will be compressed
+using zlib. This flag is on by default when sudo is compiled
+with zlib support.</p>
+
+<p>env_editor If set, visudo will use the value of the
+EDITOR or VISUAL environment variables before falling back
+on the default editor list. Note that this may create a
+secu- rity hole as it allows the user to run any arbitrary
+command as root without logging. A safer alternative is to
+place a colon-separated list of editors in the editor
+variable. visudo will then only use the EDITOR or VISUAL if
+they match a value specified in editor. This flag is on by
+default.</p>
+
+<p>env_reset If set, sudo will run the command in a minimal
+environ- ment containing the TERM, PATH, HOME, MAIL, SHELL,
+LOGNAME, USER, USERNAME and SUDO_* variables. Any variables
+in the callers environment that match the env_keep and
+env_check lists are then added, followed by any variables
+present in the file specified by the env_file option (if
+any). The default contents of the env_keep and env_check
+lists are displayed when sudo is run by root with the -V
+option. If the secure_path option is set, its value will be
+used for the PATH environment variable. This flag is on by
+default.</p>
+
+<p>fast_glob Normally, sudo uses the glob(3) function to do
+shell- style globbing when matching path names. However,
+since it accesses the file system, glob(3) can take a long
+time to complete for some patterns, especially when the
+pattern references a network file system that is mounted on
+demand (auto mounted). The fast_glob option causes sudo to
+use the fnmatch(3) function, which does not access the file
+system to do its match- ing. The disadvantage of fast_glob
+is that it is unable to match relative path names such as
+./ls or ../bin/ls. This has security implications when path
+names that include globbing characters are used with the
+negation operator, !, as such rules can be triv- ially
+bypassed. As such, this option should not be used when
+sudoers contains rules that contain negated path names which
+include globbing characters. This flag is off by
+default.</p>
+
+<p>fqdn Set this flag if you want to put fully qualified
+host names in the sudoers file when the local host name (as
+returned by the hostname command) does not contain the
+domain name. In other words, instead of myhost you would use
+myhost.mydomain.edu. You may still use the short form if you
+wish (and even mix the two). This option is only effective
+when the canonical host name, as returned by the
+getaddrinfo() or gethostbyname() function, is a
+fully-qualified domain name. This is usually the case when
+the system is con- figured to use DNS for host name
+resolution.</p>
+
+<p>If the system is configured to use the /etc/hosts file
+in preference to DNS, the canonical host name may not be
+fully-qualified. The order that sources are queried for
+hosts name resolution is usually specified in the
+/etc/nsswitch.conf, /etc/netsvc.conf, /etc/host.conf, or, in
+some cases, /etc/resolv.conf file. In the /etc/hosts file,
+the first host name of the entry is considered to be the
+canonical name; subsequent names are aliases that are not
+used by sudoers. For example, the following hosts file line
+for the machine xyzzy has the fully-qualified domain name as
+the canonical host name, and the short version as an
+alias.</p>
+
+<p>192.168.1.1 xyzzy.sudo.ws xyzzy</p>
+
+<p>If the machines hosts file entry is not formatted
+properly, the fqdn option will not be effective if it is
+queried before DNS.</p>
+
+<p>Beware that when using DNS for host name resolution,
+turning on fqdn requires sudoers to make DNS lookups which
+renders sudo unusable if DNS stops working (for example if
+the machine is disconnected from the net- work). Also note
+that just like with the hosts file, you must use the
+canonical name as DNS knows it. That is, you may not use a
+host alias (CNAME entry) due to performance issues and the
+fact that there is no way to get all aliases from DNS.</p>
+
+<p>This flag is off by default.</p>
+
+<p>ignore_dot If set, sudo will ignore &quot;.&quot; or
+&quot;&quot; (both denoting cur- rent directory) in the PATH
+environment variable; the PATH itself is not modified. This
+flag is on by default.</p>
+
+<p>ignore_local_sudoers If set via LDAP, parsing of
+/etc/sudoers will be skipped. This is intended for
+Enterprises that wish to prevent the usage of local sudoers
+files so that only LDAP is used. This thwarts the efforts of
+rogue opera- tors who would attempt to add roles to
+/etc/sudoers. When this option is present, /etc/sudoers does
+not even need to exist. Since this option tells sudo how to
+behave when no specific LDAP entries have been matched, this
+sudoOption is only meaningful for the cn=defaults section.
+This flag is off by default.</p>
+
+<p>insults If set, sudo will insult users when they enter
+an incorrect password. This flag is off by default.</p>
+
+<p>log_host If set, the host name will be logged in the
+(non-sys- log) sudo log file. This flag is off by
+default.</p>
+
+<p>log_input If set, sudo will run the command in a pseudo
+tty and log all user input. If the standard input is not
+con- nected to the user s tty, due to I/O redirection or
+because the command is part of a pipeline, that input is
+also captured and stored in a separate log file.</p>
+
+<p>Input is logged to the directory specified by the
+iolog_dir option (/var/log/sudo-io by default) using a
+unique session ID that is included in the normal sudo log
+line, prefixed with TSID= . The iolog_file option may be
+used to control the format of the session ID.</p>
+
+<p>Note that user input may contain sensitive information
+such as passwords (even if they are not echoed to the
+screen), which will be stored in the log file unen- crypted.
+In most cases, logging the command output via log_output is
+all that is required.</p>
+
+<p>log_output If set, sudo will run the command in a pseudo
+tty and log all output that is sent to the screen, similar
+to the script(1) command. If the standard output or stan-
+dard error is not connected to the users tty, due to I/O
+redirection or because the command is part of a pipeline,
+that output is also captured and stored in separate log
+files.</p>
+
+<p>Output is logged to the directory specified by the
+iolog_dir option (/var/log/sudo-io by default) using a
+unique session ID that is included in the normal sudo log
+line, prefixed with TSID= . The iolog_file option may be
+used to control the format of the session ID.</p>
+
+<p>Output logs may be viewed with the sudoreplay(8) util-
+ity, which can also be used to list or search the available
+logs.</p>
+
+<p>log_year If set, the four-digit year will be logged in
+the (non- syslog) sudo log file. This flag is off by
+default.</p>
+
+<p>long_otp_prompt When validating with a One Time Password
+(OTP) scheme such as S/Key or OPIE, a two-line prompt is
+used to make it easier to cut and paste the challenge to a
+local window. Its not as pretty as the default but some
+people find it more convenient. This flag is off by
+default.</p>
+
+<p>mail_always Send mail to the mailto user every time a
+users runs sudo. This flag is off by default.</p>
+
+<p>mail_badpass Send mail to the mailto user if the user
+running sudo does not enter the correct password. If the
+command the user is attempting to run is not permitted by
+sudoers and one of the mail_always, mail_no_host,
+mail_no_perms or mail_no_user flags are set, this flag will
+have no effect. This flag is off by default.</p>
+
+<p>mail_no_host If set, mail will be sent to the mailto
+user if the invoking user exists in the sudoers file, but is
+not allowed to run commands on the current host. This flag
+is off by default.</p>
+
+<p>mail_no_perms If set, mail will be sent to the mailto
+user if the invoking user is allowed to use sudo but the
+command they are trying is not listed in their sudoers file
+entry or is explicitly denied. This flag is off by
+default.</p>
+
+<p>mail_no_user If set, mail will be sent to the mailto
+user if the invoking user is not in the sudoers file. This
+flag is on by default.</p>
+
+<p>noexec If set, all commands run via sudo will behave as
+if the NOEXEC tag has been set, unless overridden by a EXEC
+tag. See the description of NOEXEC and EXEC below as well as
+the Preventing shell escapes section at the end of this
+manual. This flag is off by default.</p>
+
+<p>path_info Normally, sudo will tell the user when a
+command could not be found in their PATH environment
+variable. Some sites may wish to disable this as it could be
+used to gather information on the location of executables
+that the normal user does not have access to. The disadvan-
+tage is that if the executable is simply not in the user s
+PATH, sudo will tell the user that they are not allowed to
+run it, which can be confusing. This flag is on by
+default.</p>
+
+<p>passprompt_override The password prompt specified by
+passprompt will nor- mally only be used if the password
+prompt provided by systems such as PAM matches the string
+Password:. If passprompt_override is set, passprompt will
+always be used. This flag is off by default.</p>
+
+<p>preserve_groups By default, sudo will initialize the
+group vector to the list of groups the target user is in.
+When preserve_groups is set, the users existing group vec-
+tor is left unaltered. The real and effective group IDs,
+however, are still set to match the target user. This flag
+is off by default.</p>
+
+<p>pwfeedback By default, sudo reads the password like most
+other Unix programs, by turning off echo until the user hits
+the return (or enter) key. Some users become confused by
+this as it appears to them that sudo has hung at this point.
+When pwfeedback is set, sudo will provide visual feedback
+when the user presses a key. Note that this does have a
+security impact as an onlooker may be able to determine the
+length of the password being entered. This flag is off by
+default.</p>
+
+<p>requiretty If set, sudo will only run when the user is
+logged in to a real tty. When this flag is set, sudo can
+only be run from a login session and not via other means
+such as cron(8) or cgi-bin scripts. This flag is off by
+default.</p>
+
+<p>root_sudo If set, root is allowed to run sudo too.
+Disabling this prevents users from chaining sudo commands to
+get a root shell by doing something like sudo sudo /bin/sh .
+Note, however, that turning off root_sudo will also prevent
+root from running sudoedit. Dis- abling root_sudo provides
+no real additional security; it exists purely for historical
+reasons. This flag is on by default.</p>
+
+<p>rootpw If set, sudo will prompt for the root password
+instead of the password of the invoking user. This flag is
+off by default.</p>
+
+<p>runaspw If set, sudo will prompt for the password of the
+user defined by the runas_default option (defaults to root)
+instead of the password of the invoking user. This flag is
+off by default.</p>
+
+<p>set_home If enabled and sudo is invoked with the -s
+option the HOME environment variable will be set to the home
+directory of the target user (which is root unless the -u
+option is used). This effectively makes the -s option imply
+-H. Note that HOME is already set when the the env_reset
+option is enabled, so set_home is only effective for
+configurations where either env_reset is disabled or HOME is
+present in the env_keep list. This flag is off by
+default.</p>
+
+<p>set_logname Normally, sudo will set the LOGNAME, USER
+and USERNAME environment variables to the name of the target
+user (usually root unless the -u option is given). However,
+since some programs (including the RCS revision control
+system) use LOGNAME to determine the real identity of the
+user, it may be desirable to change this behavior. This can
+be done by negating the set_logname option. Note that if the
+env_reset option has not been dis- abled, entries in the
+env_keep list will override the value of set_logname. This
+flag is on by default.</p>
+
+<p>set_utmp When enabled, sudo will create an entry in the
+utmp (or utmpx) file when a pseudo-tty is allocated. A
+pseudo- tty is allocated by sudo when the log_input,
+log_output or use_pty flags are enabled. By default, the new
+entry will be a copy of the users existing utmp entry (if
+any), with the tty, time, type and pid fields updated. This
+flag is on by default.</p>
+
+<p>setenv Allow the user to disable the env_reset option
+from the command line via the -E option. Additionally,
+environ- ment variables set via the command line are not
+subject to the restrictions imposed by env_check,
+env_delete, or env_keep. As such, only trusted users should
+be allowed to set variables in this manner. This flag is off
+by default.</p>
+
+<p>shell_noargs If set and sudo is invoked with no
+arguments it acts as if the -s option had been given. That
+is, it runs a shell as root (the shell is determined by the
+SHELL environment variable if it is set, falling back on the
+shell listed in the invoking user s /etc/passwd entry if
+not). This flag is off by default.</p>
+
+<p>stay_setuid Normally, when sudo executes a command the
+real and effective UIDs are set to the target user (root by
+default). This option changes that behavior such that the
+real UID is left as the invoking users UID. In other words,
+this makes sudo act as a setuid wrapper. This can be useful
+on systems that disable some poten- tially dangerous
+functionality when a program is run setuid. This option is
+only effective on systems that support either the
+setreuid(2) or setresuid(2) system call. This flag is off by
+default.</p>
+
+<p>targetpw If set, sudo will prompt for the password of
+the user specified by the -u option (defaults to root)
+instead of the password of the invoking user. In addition,
+the time stamp file name will include the target users name.
+Note that this flag precludes the use of a uid not listed in
+the passwd database as an argument to the -u option. This
+flag is off by default.</p>
+
+<p>tty_tickets If set, users must authenticate on a per-tty
+basis. With this flag enabled, sudo will use a file named
+for the tty the user is logged in on in the users time stamp
+directory. If disabled, the time stamp of the directory is
+used instead. This flag is on by default.</p>
+
+<p>umask_override If set, sudo will set the umask as
+specified by sudoers without modification. This makes it
+possible to spec- ify a more permissive umask in sudoers
+than the users own umask and matches historical behavior. If
+umask_override is not set, sudo will set the umask to be the
+union of the users umask and what is specified in sudoers.
+This flag is off by default. If set, sudo will run the
+command in a pseudo-pty even if no I/O logging is being
+gone. A malicious program run under sudo could conceivably
+fork a background process that retains to the users terminal
+device after the main program has finished executing. Use of
+this option will make that impossible. This flag is off by
+default.</p>
+
+<p>utmp_runas If set, sudo will store the name of the runas
+user when updating the utmp (or utmpx) file. By default,
+sudo stores the name of the invoking user. This flag is off
+by default.</p>
+
+<p>visiblepw By default, sudo will refuse to run if the
+user must enter a password but it is not possible to disable
+echo on the terminal. If the visiblepw flag is set, sudo
+will prompt for a password even when it would be visi- ble
+on the screen. This makes it possible to run things like ssh
+somehost sudo ls since by default, ssh(1) does not allocate
+a tty when running a command. This flag is off by
+default.</p>
+
+<p>Integers:</p>
+
+<p>closefrom Before it executes a command, sudo will close
+all open file descriptors other than standard input,
+standard output and standard error (ie: file descriptors
+0-2). The closefrom option can be used to specify a
+different file descriptor at which to start closing. The
+default is 3.</p>
+
+<p>passwd_tries The number of tries a user gets to enter
+his/her pass- word before sudo logs the failure and exits.
+The default is 3.</p>
+
+<p>Integers that can be used in a boolean context:</p>
+
+<p>loglinelen Number of characters per line for the file
+log. This value is used to decide when to wrap lines for
+nicer log files. This has no effect on the syslog log file,
+only the file log. The default is 80 (use 0 or negate the
+option to disable word wrap).</p>
+
+<p>passwd_timeout Number of minutes before the sudo
+password prompt times out, or 0 for no timeout. The timeout
+may include a fractional component if minute granularity is
+insuffi- cient, for example 2.5. The default is 5.</p>
+
+<p>timestamp_timeout Number of minutes that can elapse
+before sudo will ask for a passwd again. The timeout may
+include a frac- tional component if minute granularity is
+insufficient, for example 2.5. The default is 5. Set this to
+0 to always prompt for a password. If set to a value less
+than 0 the user s time stamp will never expire. This can be
+used to allow users to create or delete their own time
+stamps via sudo -v and sudo -k respec- tively.</p>
+
+<p>umask Umask to use when running the command. Negate this
+option or set it to 0777 to preserve the users umask. The
+actual umask that is used will be the union of the user s
+umask and the value of the umask option, which defaults to
+0022. This guarantees that sudo never low- ers the umask
+when running a command. Note: on systems that use PAM, the
+default PAM configuration may specify its own umask which
+will override the value set in sudoers.</p>
+
+<p>Strings:</p>
+
+<p>badpass_message Message that is displayed if a user
+enters an incorrect password. The default is Sorry, try
+again. unless insults are enabled.</p>
+
+<p>editor A colon (: ) separated list of editors allowed to
+be used with visudo. visudo will choose the editor that
+matches the user s EDITOR environment variable if pos-
+sible, or the first editor in the list that exists and is
+executable. The default is /usr/local/bin/vi.</p>
+
+<p>iolog_dir The top-level directory to use when
+constructing the path name for the input/output log
+directory. Only used if the log_input or log_output options
+are enabled or when the LOG_INPUT or LOG_OUTPUT tags are
+present for a command. The session sequence number, if any,
+is stored in the directory. The default is
+/var/log/sudo-io.</p>
+
+<p>The following percent (%) escape sequences are sup-
+ported:</p>
+
+<p>%{seq} expanded to a monotonically increasing base-36
+sequence number, such as 0100A5, where every two digits are
+used to form a new directory, e.g. 01/00/A5</p>
+
+<p>%{user} expanded to the invoking users login name</p>
+
+<p>%{group} expanded to the name of the invoking users real
+group ID</p>
+
+<p>%{runas_user} expanded to the login name of the user the
+com- mand will be run as (e.g. root)</p>
+
+<p>%{runas_group} expanded to the group name of the user
+the com- mand will be run as (e.g. wheel)</p>
+
+<p>%{hostname} expanded to the local host name without the
+domain name</p>
+
+<p>%{command} expanded to the base name of the command
+being run</p>
+
+<p>In addition, any escape sequences supported by the sys-
+tem s strftime(3) function will be expanded.</p>
+
+<p>To include a literal % character, the string %% should
+be used.</p>
+
+<p>iolog_file The path name, relative to iolog_dir, in
+which to store input/output logs when the log_input or
+log_output options are enabled or when the LOG_INPUT or
+LOG_OUTPUT tags are present for a command. Note that
+iolog_file may contain directory components. The default is
+%{seq}.</p>
+
+<p>See the iolog_dir option above for a list of supported
+percent (%) escape sequences.</p>
+
+<p>In addition to the escape sequences, path names that end
+in six or more Xs will have the Xs replaced with a unique
+combination of digits and letters, similar to the mktemp(3)
+function.</p>
+
+<p>mailsub Subject of the mail sent to the mailto user. The
+escape %h will expand to the host name of the machine.
+Default is *** SECURITY information for %h ***.</p>
+
+<p>noexec_file This option is no longer supported. The path
+to the noexec file should now be set in the /etc/sudo.conf
+file.</p>
+
+<p>passprompt The default prompt to use when asking for a
+password; can be overridden via the -p option or the
+SUDO_PROMPT environment variable. The following percent (%)
+escape sequences are supported:</p>
+
+<p>%H expanded to the local host name including the domain
+name (only if the machines host name is fully qualified or
+the fqdn option is set)</p>
+
+<p>%h expanded to the local host name without the domain
+name</p>
+
+<p>%p expanded to the user whose password is being asked
+for (respects the rootpw, targetpw and runaspw flags in
+sudoers)</p>
+
+<p>%U expanded to the login name of the user the com- mand
+will be run as (defaults to root)</p>
+
+<p>%u expanded to the invoking users login name</p>
+
+<p>%% two consecutive % characters are collapsed into a
+single % character</p>
+
+<p>The default value is [sudo] password for %p:. The
+default SELinux role to use when constructing a new security
+context to run the command. The default role may be
+overridden on a per-command basis in sudoers or via command
+line options. This option is only avail- able when sudo is
+built with SELinux support.</p>
+
+<p>runas_default The default user to run commands as if the
+-u option is not specified on the command line. This
+defaults to root.</p>
+
+<p>syslog_badpri Syslog priority to use when user
+authenticates unsuc- cessfully. Defaults to alert.</p>
+
+<p>The following syslog priorities are supported: alert,
+crit, debug, emerg, err, info, notice, and warning.</p>
+
+<p>syslog_goodpri Syslog priority to use when user
+authenticates success- fully. Defaults to notice.</p>
+
+<p>See syslog_badpri for the list of supported syslog pri-
+orities.</p>
+
+<p>sudoers_locale Locale to use when parsing the sudoers
+file, logging commands, and sending email. Note that
+changing the locale may affect how sudoers is interpreted.
+Defaults to C.</p>
+
+<p>timestampdir The directory in which sudo stores its time
+stamp files. The default is /var/db/sudo.</p>
+
+<p>timestampowner The owner of the time stamp directory and
+the time stamps stored therein. The default is root.</p>
+
+<p>type The default SELinux type to use when constructing a
+new security context to run the command. The default type
+may be overridden on a per-command basis in sudoers or via
+command line options. This option is only avail- able when
+sudo is built with SELinux support.</p>
+
+<p>Strings that can be used in a boolean context:</p>
+
+<p>env_file The env_file option specifies the fully
+qualified path to a file containing variables to be set in
+the environment of the program being run. Entries in this
+file should either be of the form VARIABLE=value or export
+VARIABLE=value. The value may optionally be surrounded by
+single or double quotes. Variables in this file are subject
+to other sudo environment settings such as env_keep and
+env_check.</p>
+
+<p>exempt_group Users in this group are exempt from
+password and PATH requirements. The group name specified
+should not include a % prefix. This is not set by
+default.</p>
+
+<p>group_plugin A string containing a sudoers group plugin
+with optional arguments. This can be used to implement
+support for the nonunix_group syntax described earlier. The
+string should consist of the plugin path, either
+fully-qualified or rela- tive to the /usr/libexec directory,
+followed by any config- uration arguments the plugin
+requires. These arguments (if any) will be passed to the
+plugin s initialization func- tion. If arguments are
+present, the string must be enclosed in double quotes
+(&quot;&quot;).</p>
+
+<p>For example, given /etc/sudo-group, a group file in Unix
+group format, the sample group plugin can be used:</p>
+
+<p>Defaults group_plugin=&quot;sample_group.so
+/etc/sudo-group&quot;</p>
+
+<p>For more information see sudo_plugin(5).</p>
+
+<p>lecture This option controls when a short lecture will
+be printed along with the password prompt. It has the
+following pos- sible values:</p>
+
+<p>always Always lecture the user.</p>
+
+<p>never Never lecture the user.</p>
+
+<p>once Only lecture the user the first time they run
+sudo.</p>
+
+<p>If no value is specified, a value of once is implied.
+Negating the option results in a value of never being used.
+The default value is once.</p>
+
+<p>lecture_file Path to a file containing an alternate sudo
+lecture that will be used in place of the standard lecture
+if the named file exists. By default, sudo uses a built-in
+lecture.</p>
+
+<p>listpw This option controls when a password will be
+required when a user runs sudo with the -l option. It has
+the following possible values:</p>
+
+<p>all All the users sudoers entries for the current host
+must have the NOPASSWD flag set to avoid entering a
+password.</p>
+
+<p>always The user must always enter a password to use the
+-l option.</p>
+
+<p>any At least one of the users sudoers entries for the
+current host must have the NOPASSWD flag set to avoid
+entering a password.</p>
+
+<p>never The user need never enter a password to use the -l
+option.</p>
+
+<p>If no value is specified, a value of any is implied.
+Negating the option results in a value of never being used.
+The default value is any.</p>
+
+<p>logfile Path to the sudo log file (not the syslog log
+file). Set- ting a path turns on logging to a file; negating
+this option turns it off. By default, sudo logs via
+syslog.</p>
+
+<p>mailerflags Flags to use when invoking mailer. Defaults
+to -t.</p>
+
+<p>mailerpath Path to mail program used to send warning
+mail. Defaults to the path to sendmail found at configure
+time.</p>
+
+<p>mailfrom Address to use for the from address when
+sending warning and error mail. The address should be
+enclosed in double quotes (&quot;&quot;) to protect against
+sudo interpreting the @ sign. Defaults to the name of the
+user running sudo.</p>
+
+<p>mailto Address to send warning and error mail to. The
+address should be enclosed in double quotes (&quot;&quot;)
+to protect against sudo interpreting the @ sign. Defaults to
+root.</p>
+
+<p>secure_path Path used for every command run from sudo.
+If you dont trust the people running sudo to have a sane
+PATH environ- ment variable you may want to use this.
+Another use is if you want to have the root path be separate
+from the user path . Users in the group specified by the
+exempt_group option are not affected by secure_path. This
+option is not set by default.</p>
+
+<p>syslog Syslog facility if syslog is being used for
+logging (negate to disable syslog logging). Defaults to
+authpriv.</p>
+
+<p>The following syslog facilities are supported: authpriv
+(if your OS supports it), auth, daemon, user, local0,
+local1, local2, local3, local4, local5, local6, and
+local7.</p>
+
+<p>verifypw This option controls when a password will be
+required when a user runs sudo with the -v option. It has
+the following possible values:</p>
+
+<p>all All the users sudoers entries for the current host
+must have the NOPASSWD flag set to avoid entering a
+password.</p>
+
+<p>always The user must always enter a password to use the
+-v option.</p>
+
+<p>any At least one of the users sudoers entries for the
+current host must have the NOPASSWD flag set to avoid
+entering a password.</p>
+
+<p>never The user need never enter a password to use the -v
+option.</p>
+
+<p>If no value is specified, a value of all is implied.
+Negating the option results in a value of never being used.
+The default value is all.</p>
+
+<p>Lists that can be used in a boolean context:</p>
+
+<p>env_check Environment variables to be removed from the
+users environment if unless they are considered safe. For
+all variables except TZ, safe means that the vari- able s
+value does not contain any % or / charac- ters. This can be
+used to guard against printf-style format vulnerabilities in
+poorly-written programs. The TZ variable is considerd unsafe
+if any of the following are true:</p>
+
+<p>&middot; It consists of a fully-qualified path name,
+option- ally prefixed with a colon (: ), that does not match
+the location of the zoneinfo directory.</p>
+
+<p>&middot; It contains a .. path element.</p>
+
+<p>&middot; It contains white space or non-printable
+charac- ters.</p>
+
+<p>&middot; It is longer than the value of PATH_MAX.</p>
+
+<p>The argument may be a double-quoted, space-separated
+list or a single value without double-quotes. The list can
+be replaced, added to, deleted from, or disabled by using
+the =, +=, -=, and ! operators respectively. Regardless of
+whether the env_reset option is enabled or disabled,
+variables specified by env_check will be preserved in the
+environment if they pass the aforemen- tioned check. The
+default list of environment vari- ables to check is
+displayed when sudo is run by root with the -V option.</p>
+
+<p>env_delete Environment variables to be removed from the
+users environment when the env_reset option is not in
+effect. The argument may be a double-quoted, space-separated
+list or a single value without double-quotes. The list can
+be replaced, added to, deleted from, or disabled by using
+the =, +=, -=, and ! operators respectively. The default
+list of environment variables to remove is dis- played when
+sudo is run by root with the -V option. Note that many
+operating systems will remove poten- tially dangerous
+variables from the environment of any setuid process (such
+as sudo).</p>
+
+<p>env_keep Environment variables to be preserved in the
+users environment when the env_reset option is in effect.
+This allows fine-grained control over the environment
+sudo-spawned processes will receive. The argument may be a
+double-quoted, space-separated list or a single value
+without double-quotes. The list can be replaced, added to,
+deleted from, or disabled by using the =, +=, -=, and !
+operators respectively. The default list of variables to
+keep is displayed when sudo is run by root with the -V
+option.</p>
+
+<p>LOG FORMAT sudoers can log events using either syslog(3)
+or a simple log file. In each case the log format is almost
+identical.</p>
+
+<p>Accepted command log entries Commands that sudo runs are
+logged using the following format (split into multiple lines
+for readability):</p>
+
+<p>date hostname progname: username : TTY=ttyname ; PWD=cwd
+; USER=runasuser ; GROUP=runasgroup ; TSID=logid ;
+ENV=env_vars COMMAND=command</p>
+
+<p>Where the fields are as follows:</p>
+
+<p>date The date the command was run. Typically, this is in
+the format MMM, DD, HH:MM:SS . If logging via syslog(3), the
+actual date format is controlled by the syslog daemon. If
+logging to a file and the log_year option is enabled, the
+date will also include the year.</p>
+
+<p>hostname The name of the host sudo was run on. This
+field is only present when logging via syslog(3).</p>
+
+<p>progname The name of the program, usually sudo or
+sudoedit. This field is only present when logging via
+syslog(3).</p>
+
+<p>username The login name of the user who ran sudo.</p>
+
+<p>ttyname The short name of the terminal (e.g. console,
+tty01, or pts/0) sudo was run on, or unknown if there was no
+ter- minal present.</p>
+
+<p>cwd The current working directory that sudo was run
+in.</p>
+
+<p>runasuser The user the command was run as.</p>
+
+<p>runasgroup The group the command was run as if one was
+specified on the command line.</p>
+
+<p>logid An I/O log identifier that can be used to replay
+the com- mands output. This is only present when the
+log_input or log_output option is enabled.</p>
+
+<p>env_vars A list of environment variables specified on
+the command line, if specified.</p>
+
+<p>command The actual command that was executed.</p>
+
+<p>Messages are logged using the locale specified by
+sudoers_locale, which defaults to the C locale.</p>
+
+<p>Denied command log entries If the user is not allowed to
+run the command, the reason for the denial will follow the
+user name. Possible reasons include:</p>
+
+<p>user NOT in sudoers The user is not listed in the
+sudoers file.</p>
+
+<p>user NOT authorized on host The user is listed in the
+sudoers file but is not allowed to run com- mands on the
+host.</p>
+
+<p>command not allowed The user is listed in the sudoers
+file for the host but they are not allowed to run the
+specified command.</p>
+
+<p>3 incorrect password attempts The user failed to enter
+their password after 3 tries. The actual num- ber of tries
+will vary based on the number of failed attempts and the
+value of the passwd_tries option.</p>
+
+<p>a password is required sudos -n option was specified but
+a password was required.</p>
+
+<p>sorry, you are not allowed to set the following
+environment variables The user specified environment
+variables on the command line that were not allowed by
+sudoers.</p>
+
+<p>Error log entries If an error occurs, sudoers will log a
+message and, in most cases, send a message to the
+administrator via email. Possible errors include:</p>
+
+<p>parse error in /etc/sudoers near line N sudoers
+encountered an error when parsing the specified file. In
+some cases, the actual error may be one line above or below
+the line number listed, depending on the type of error.</p>
+
+<p>problem with defaults entries The sudoers file contains
+one or more unknown Defaults settings. This does not prevent
+sudo from running, but the sudoers file should be checked
+using visudo.</p>
+
+<p>timestamp owner (username): No such user The time stamp
+directory owner, as specified by the timestampowner set-
+ting, could not be found in the password database.</p>
+
+<p>unable to open/read /etc/sudoers The sudoers file could
+not be opened for reading. This can happen when the sudoers
+file is located on a remote file system that maps user ID 0
+to a different value. Normally, sudoers tries to open
+sudoers using group permissions to avoid this problem.
+Consider changing the owner- ship of /etc/sudoers by adding
+an option like sudoers_uid=N (where N is the user ID that
+owns the sudoers file) to the sudoers plugin line in the
+/etc/sudo.conf file.</p>
+
+<p>unable to stat /etc/sudoers The /etc/sudoers file is
+missing.</p>
+
+<p>/etc/sudoers is not a regular file The /etc/sudoers file
+exists but is not a regular file or symbolic link.</p>
+
+<p>/etc/sudoers is owned by uid N, should be 0 The sudoers
+file has the wrong owner. If you wish to change the sudoers
+file owner, please add sudoers_uid=N (where N is the user ID
+that owns the sudoers file) to the sudoers plugin line in
+the /etc/sudo.conf file.</p>
+
+<p>/etc/sudoers is world writable The permissions on the
+sudoers file allow all users to write to it. The sudoers
+file must not be world-writable, the default file mode is
+0440 (readable by owner and group, writable by none). The
+default mode may be changed via the sudoers_mode option to
+the sudoers plugin line in the /etc/sudo.conf file.</p>
+
+<p>/etc/sudoers is owned by gid N, should be 1 The sudoers
+file has the wrong group ownership. If you wish to change
+the sudoers file group ownership, please add sudoers_gid=N
+(where N is the group ID that owns the sudoers file) to the
+sudoers plugin line in the /etc/sudo.conf file.</p>
+
+<p>unable to open /var/db/sudo/username/ttyname sudoers was
+unable to read or create the users time stamp file.</p>
+
+<p>unable to write to /var/db/sudo/username/ttyname sudoers
+was unable to write to the users time stamp file.</p>
+
+<p>unable to mkdir to /var/db/sudo/username sudoers was
+unable to create the user s time stamp directory.</p>
+
+<p>Notes on logging via syslog By default, sudoers logs
+messages via syslog(3). The date, hostname, and progname
+fields are added by the syslog daemon, not sudoers itself.
+As such, they may vary in format on different systems.</p>
+
+<p>On most systems, syslog(3) has a relatively small log
+buffer. To prevent the command line arguments from being
+truncated, sudoers will split up log messages that are
+larger than 960 characters (not including the date,
+hostname, and the string sudo). When a message is split,
+additional parts will include the string (command continued)
+after the user name and before the continued command line
+arguments.</p>
+
+<p>Notes on logging to a file If the logfile option is set,
+sudoers will log to a local file, such as /var/log/sudo.
+When logging to a file, sudoers uses a format similar to
+syslog(3), with a few important differences:</p>
+
+<p>1. The progname and hostname fields are not present.</p>
+
+<p>2. If the log_year option is enabled, the date will also
+include the year.</p>
+
+<p>3. Lines that are longer than loglinelen characters (80
+by default) are word-wrapped and continued on the next line
+with a four character indent. This makes entries easier to
+read for a human being, but makes it more difficult to use
+grep(1) on the log files. If the loglinelen option is set to
+0 (or negated with a ! ), word wrap will be disabled.</p>
+
+<p>SUDO.CONF The /etc/sudo.conf file determines which
+plugins the sudo front end will load. If no /etc/sudo.conf
+file is present, or it contains no Plugin lines, sudo will
+use the sudoers security policy and I/O logging, which
+corresponds to the following /etc/sudo.conf file.</p>
+
+<p># # Default /etc/sudo.conf file # # Format: # Plugin
+plugin_name plugin_path plugin_options ... # Path askpass
+/path/to/askpass # Path noexec /path/to/sudo_noexec.so #
+Debug sudo /var/log/sudo_debug all@warn # Set
+disable_coredump true # # The plugin_path is relative to
+/usr/libexec unless # fully qualified. # The plugin_name
+corresponds to a global symbol in the plugin # that contains
+the plugin interface structure. # The plugin_options are
+optional. # Plugin policy_plugin sudoers.so Plugin io_plugin
+sudoers.so</p>
+
+<p>Plugin options Starting with sudo 1.8.5, it is possible
+to pass options to the sudoers plugin. Options may be listed
+after the path to the plugin (i.e. after sudoers.so);
+multiple options should be space-separated. For example:</p>
+
+<p>Plugin sudoers_policy sudoers.so
+sudoers_file=/etc/sudoers sudoers_uid=0 sudoers_gid=0
+sudoers_mode=0440</p>
+
+<p>The following plugin options are supported:</p>
+
+<p>sudoers_file=pathname The sudoers_file option can be
+used to override the default path to the sudoers file.</p>
+
+<p>sudoers_uid=uid The sudoers_uid option can be used to
+override the default owner of the sudoers file. It should be
+specified as a numeric user ID.</p>
+
+<p>sudoers_gid=gid The sudoers_gid option can be used to
+override the default group of the sudoers file. It should be
+specified as a numeric group ID.</p>
+
+<p>sudoers_mode=mode The sudoers_mode option can be used to
+override the default file mode for the sudoers file. It
+should be specified as an octal value.</p>
+
+<p>Debug flags Versions 1.8.4 and higher of the sudoers
+plugin supports a debugging framework that can help track
+down what the plugin is doing internally if there is a
+problem. This can be configured in the /etc/sudo.conf file
+as described in sudo(8).</p>
+
+<p>The sudoers plugin uses the same debug flag format as
+the sudo front-end: subsystem@priority.</p>
+
+<p>The priorities used by sudoers, in order of decreasing
+severity, are: crit, err, warn, notice, diag, info, trace
+and debug. Each priority, when specified, also includes all
+priorities higher than it. For exam- ple, a priority of
+notice would include debug messages logged at notice and
+higher.</p>
+
+<p>The following subsystems are used by sudoers:</p>
+
+<p>alias User_Alias, Runas_Alias, Host_Alias and Cmnd_Alias
+processing</p>
+
+<p>all matches every subsystem</p>
+
+<p>audit BSM and Linux audit code</p>
+
+<p>auth user authentication</p>
+
+<p>defaults sudoers Defaults settings</p>
+
+<p>env environment handling</p>
+
+<p>ldap LDAP-based sudoers</p>
+
+<p>logging logging support</p>
+
+<p>match matching of users, groups, hosts and netgroups in
+sudoers</p>
+
+<p>netif network interface handling</p>
+
+<p>nss network service switch handling in sudoers</p>
+
+<p>parser sudoers file parsing</p>
+
+<p>perms permission setting</p>
+
+<p>plugin The equivalent of main for the plugin.</p>
+
+<p>pty pseudo-tty related code</p>
+
+<p>rbtree redblack tree internals</p>
+
+<p>util utility functions</p>
+
+<p>FILES /etc/sudo.conf Sudo front end configuration</p>
+
+<p>/etc/sudoers List of who can run what</p>
+
+<p>/etc/group Local groups file</p>
+
+<p>/etc/netgroup List of network groups</p>
+
+<p>/var/log/sudo-io I/O log files</p>
+
+<p>/var/db/sudo Directory containing time stamps for the
+sudoers security policy</p>
+
+<p>/etc/environment Initial environment for -i mode on AIX
+and Linux systems</p>
+
+<p>EXAMPLES Below are example sudoers entries. Admittedly,
+some of these are a bit contrived. First, we allow a few
+environment variables to pass and then define our
+aliases:</p>
+
+<p># Run X applications through sudo; HOME is used to find
+the # .Xauthority file. Note that other programs use HOME to
+find # configuration files and this may lead to privilege
+escalation! Defaults env_keep += &quot;DISPLAY
+HOME&quot;</p>
+
+<p># User alias specification User_Alias FULLTIMERS =
+millert, mikef, dowdy User_Alias PARTTIMERS = bostley,
+jwfox, crawl User_Alias WEBMASTERS = will, wendy, wim</p>
+
+<p># Runas alias specification Runas_Alias OP = root,
+operator Runas_Alias DB = oracle, sybase Runas_Alias
+ADMINGRP = adm, oper</p>
+
+<p># Host alias specification Host_Alias SPARC = bigtime,
+eclipse, moet, anchor : SGI = grolsch, dandelion, black :
+ALPHA = widget, thalamus, foobar : HPPA = boa, nag, python
+Host_Alias CUNETS = 128.138.0.0/255.255.0.0 Host_Alias
+CSNETS = 128.138.243.0, 128.138.204.0/24, 128.138.242.0
+Host_Alias SERVERS = master, mail, www, ns Host_Alias CDROM
+= orion, perseus, hercules</p>
+
+<p># Cmnd alias specification Cmnd_Alias DUMPS =
+/usr/bin/mt, /usr/sbin/dump, /usr/sbin/rdump,
+/usr/sbin/restore, /usr/sbin/rrestore Cmnd_Alias KILL =
+/usr/bin/kill Cmnd_Alias PRINTING = /usr/sbin/lpc,
+/usr/bin/lprm Cmnd_Alias SHUTDOWN = /usr/sbin/shutdown
+Cmnd_Alias HALT = /usr/sbin/halt Cmnd_Alias REBOOT =
+/usr/sbin/reboot Cmnd_Alias SHELLS = /usr/bin/sh,
+/usr/bin/csh, /usr/bin/ksh, /usr/local/bin/tcsh,
+/usr/bin/rsh, /usr/local/bin/zsh Cmnd_Alias SU = /usr/bin/su
+Cmnd_Alias PAGERS = /usr/bin/more, /usr/bin/pg,
+/usr/bin/less</p>
+
+<p>Here we override some of the compiled in default values.
+We want sudo to log via syslog(3) using the auth facility in
+all cases. We dont want to subject the full time staff to
+the sudo lecture, user millert need not give a password, and
+we dont want to reset the LOGNAME, USER or USERNAME
+environment variables when running commands as root.
+Additionally, on the machines in the SERVERS Host_Alias, we
+keep an additional local log file and make sure we log the
+year in each log line since the log entries will be kept
+around for several years. Lastly, we disable shell escapes
+for the commands in the PAGERS Cmnd_Alias (/usr/bin/more,
+/usr/bin/pg and /usr/bin/less).</p>
+
+<p># Override built-in defaults Defaults syslog=auth
+Defaults&gt;root !set_logname Defaults:FULLTIMERS !lecture
+Defaults:millert !authenticate Defaults@SERVERS log_year,
+logfile=/var/log/sudo.log Defaults!PAGERS noexec</p>
+
+<p>The User specification is the part that actually
+determines who may run what.</p>
+
+<p>root ALL = (ALL) ALL %wheel ALL = (ALL) ALL</p>
+
+<p>We let root and any user in group wheel run any command
+on any host as any user.</p>
+
+<p>FULLTIMERS ALL = NOPASSWD: ALL</p>
+
+<p>Full time sysadmins (millert, mikef, and dowdy) may run
+any command on any host without authenticating
+themselves.</p>
+
+<p>PARTTIMERS ALL = ALL</p>
+
+<p>Part time sysadmins bostley, jwfox, and crawl) may run
+any command on any host but they must authenticate
+themselves first (since the entry lacks the NOPASSWD
+tag).</p>
+
+<p>jack CSNETS = ALL</p>
+
+<p>The user jack may run any command on the machines in the
+CSNETS alias (the networks 128.138.243.0, 128.138.204.0, and
+128.138.242.0). Of those networks, only 128.138.204.0 has an
+explicit netmask (in CIDR notation) indicating it is a class
+C network. For the other networks in CSNETS, the local
+machines netmask will be used during matching.</p>
+
+<p>lisa CUNETS = ALL</p>
+
+<p>The user lisa may run any command on any host in the
+CUNETS alias (the class B network 128.138.0.0).</p>
+
+<p>operator ALL = DUMPS, KILL, SHUTDOWN, HALT, REBOOT,
+PRINTING, sudoedit /etc/printcap, /usr/oper/bin/</p>
+
+<p>The operator user may run commands limited to simple
+maintenance. Here, those are commands related to backups,
+killing processes, the printing system, shutting down the
+system, and any commands in the directory
+/usr/oper/bin/.</p>
+
+<p>joe ALL = /usr/bin/su operator</p>
+
+<p>The user joe may only su(1) to operator.</p>
+
+<p>pete HPPA = /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd
+root</p>
+
+<p>%opers ALL = (: ADMINGRP) /usr/sbin/</p>
+
+<p>Users in the opers group may run commands in /usr/sbin/
+as themselves with any group in the ADMINGRP Runas_Alias
+(the adm and oper groups).</p>
+
+<p>The user pete is allowed to change anyones password
+except for root on the HPPA machines. Note that this assumes
+passwd(1) does not take multi- ple user names on the command
+line.</p>
+
+<p>bob SPARC = (OP) ALL : SGI = (OP) ALL</p>
+
+<p>The user bob may run anything on the SPARC and SGI
+machines as any user listed in the OP Runas_Alias (root and
+operator.)</p>
+
+<p>jim +biglab = ALL</p>
+
+<p>The user jim may run any command on machines in the
+biglab netgroup. sudo knows that biglab is a netgroup due to
+the + prefix.</p>
+
+<p>+secretaries ALL = PRINTING, /usr/bin/adduser,
+/usr/bin/rmuser</p>
+
+<p>Users in the secretaries netgroup need to help manage
+the printers as well as add and remove users, so they are
+allowed to run those commands on all machines.</p>
+
+<p>fred ALL = (DB) NOPASSWD: ALL</p>
+
+<p>The user fred can run commands as any user in the DB
+Runas_Alias (oracle or sybase) without giving a
+password.</p>
+
+<p>john ALPHA = /usr/bin/su [!-]*, !/usr/bin/su *root*</p>
+
+<p>On the ALPHA machines, user john may su to anyone except
+root but he is not allowed to specify any options to the
+su(1) command.</p>
+
+<p>jen ALL, !SERVERS = ALL</p>
+
+<p>The user jen may run any command on any machine except
+for those in the SERVERS Host_Alias (master, mail, www and
+ns).</p>
+
+<p>jill SERVERS = /usr/bin/, !SU, !SHELLS</p>
+
+<p>For any machine in the SERVERS Host_Alias, jill may run
+any commands in the directory /usr/bin/ except for those
+commands belonging to the SU and SHELLS Cmnd_Aliases.</p>
+
+<p>steve CSNETS = (operator) /usr/local/op_commands/</p>
+
+<p>The user steve may run any command in the directory
+/usr/local/op_com- mands/ but only as user operator.</p>
+
+<p>matt valkyrie = KILL</p>
+
+<p>On his personal workstation, valkyrie, matt needs to be
+able to kill hung processes.</p>
+
+<p>WEBMASTERS www = (www) ALL, (root) /usr/bin/su www</p>
+
+<p>On the host www, any user in the WEBMASTERS User_Alias
+(will, wendy, and wim), may run any command as user www
+(which owns the web pages) or sim- ply su(1) to www.</p>
+
+<p>ALL CDROM = NOPASSWD: /sbin/umount /CDROM, /sbin/mount
+-o nosuidnodev /dev/cd0a /CDROM</p>
+
+<p>Any user may mount or unmount a CD-ROM on the machines
+in the CDROM Host_Alias (orion, perseus, hercules) without
+entering a password. This is a bit tedious for users to
+type, so it is a prime candidate for encap- sulating in a
+shell script.</p>
+
+<p>SECURITY NOTES Limitations of the ! operator It is
+generally not effective to subtract commands from ALL using
+the ! operator. A user can trivially circumvent this by
+copying the desired command to a different name and then
+executing that. For exam- ple:</p>
+
+<p>bill ALL = ALL, !SU, !SHELLS</p>
+
+<p>Doesnt really prevent bill from running the commands
+listed in SU or SHELLS since he can simply copy those
+commands to a different name, or use a shell escape from an
+editor or other program. Therefore, these kind of
+restrictions should be considered advisory at best (and
+rein- forced by policy).</p>
+
+<p>In general, if a user has sudo ALL there is nothing to
+prevent them from creating their own program that gives them
+a root shell (or making their own copy of a shell)
+regardless of any ! elements in the user specifi-
+cation.</p>
+
+<p>Security implications of fast_glob If the fast_glob
+option is in use, it is not possible to reliably negate
+commands where the path name includes globbing (aka
+wildcard) characters. This is because the C librarys
+fnmatch(3) function cannot resolve rela- tive paths. While
+this is typically only an inconvenience for rules that grant
+privileges, it can result in a security issue for rules that
+sub- tract or revoke privileges.</p>
+
+<p>For example, given the following sudoers entry:</p>
+
+<p>john ALL = /usr/bin/passwd [a-zA-Z0-9]*, /usr/bin/chsh
+[a-zA-Z0-9]*, /usr/bin/chfn [a-zA-Z0-9]*, !/usr/bin/*
+root</p>
+
+<p>User john can still run /usr/bin/passwd root if
+fast_glob is enabled by changing to /usr/bin and running
+./passwd root instead.</p>
+
+<p>Preventing shell escapes Once sudo executes a program,
+that program is free to do whatever it pleases, including
+run other programs. This can be a security issue since it is
+not uncommon for a program to allow shell escapes, which
+lets a user bypass sudos access control and logging. Common
+programs that permit shell escapes include shells
+(obviously), editors, paginators, mail and terminal
+programs.</p>
+
+<p>There are two basic approaches to this problem:</p>
+
+<p>restrict Avoid giving users access to commands that
+allow the user to run arbitrary commands. Many editors have
+a restricted mode where shell escapes are disabled, though
+sudoedit is a better solution to running editors via sudo.
+Due to the large number of programs that offer shell
+escapes, restricting users to the set of programs that do
+not is often unworkable.</p>
+
+<p>noexec Many systems that support shared libraries have
+the ability to override default library functions by
+pointing an environment variable (usually LD_PRELOAD) to an
+alternate shared library. On such systems, sudos noexec
+functionality can be used to prevent a program run by sudo
+from executing any other pro- grams. Note, however, that
+this applies only to native dynami- cally-linked
+executables. Statically-linked executables and foreign
+executables running under binary emulation are not
+affected.</p>
+
+<p>The noexec feature is known to work on SunOS, Solaris,
+*BSD, Linux, IRIX, Tru64 UNIX, MacOS X, HP-UX 11.x and AIX
+5.3 and above. It should be supported on most operating
+systems that support the LD_PRELOAD environment variable.
+Check your oper- ating systems manual pages for the dynamic
+linker (usually ld.so, ld.so.1, dyld, dld.sl, rld, or
+loader) to see if LD_PRELOAD is supported.</p>
+
+<p>To enable noexec for a command, use the NOEXEC tag as
+docu- mented in the User Specification section above. Here
+is that example again:</p>
+
+<p>aaron shanty = NOEXEC: /usr/bin/more, /usr/bin/vi</p>
+
+<p>This allows user aaron to run /usr/bin/more and
+/usr/bin/vi with noexec enabled. This will prevent those two
+commands from executing other commands (such as a shell). If
+you are unsure whether or not your system is capable of
+supporting noexec you can always just try it out and check
+whether shell escapes work when noexec is enabled.</p>
+
+<p>Note that restricting shell escapes is not a panacea.
+Programs running as root are still capable of many
+potentially hazardous operations (such as changing or
+overwriting files) that could lead to unintended privilege
+escalation. In the specific case of an editor, a safer
+approach is to give the user permission to run sudoedit.</p>
+
+<p>Time stamp file checks sudoers will check the ownership
+of its time stamp directory (/var/db/sudo by default) and
+ignore the directorys contents if it is not owned by root or
+if it is writable by a user other than root. On systems that
+allow non-root users to give away files via chown(2), if the
+time stamp directory is located in a world-writable
+directory (e.g., /tmp), it is possible for a user to create
+the time stamp directory before sudo is run. However,
+because sudoers checks the ownership and mode of the
+directory and its contents, the only damage that can be done
+is to hide files by putting them in the time stamp dir. This
+is unlikely to happen since once the time stamp dir is owned
+by root and inaccessible by any other user, the user placing
+files there would be unable to get them back out.</p>
+
+<p>sudoers will not honor time stamps set far in the
+future. Time stamps with a date greater than current_time +
+2 * TIMEOUT will be ignored and sudo will log and complain.
+This is done to keep a user from creating his/her own time
+stamp with a bogus date on systems that allow users to give
+away files if the time stamp directory is located in a
+world- writable directory.</p>
+
+<p>On systems where the boot time is available, sudoers
+will ignore time stamps that date from before the machine
+booted.</p>
+
+<p>Since time stamp files live in the file system, they can
+outlive a users login session. As a result, a user may be
+able to login, run a command with sudo after authenticating,
+logout, login again, and run sudo without authenticating so
+long as the time stamp files modification time is within 5
+minutes (or whatever the timeout is set to in sudoers). When
+the tty_tickets option is enabled, the time stamp has
+per-tty granularity but still may outlive the users session.
+On Linux systems where the devpts filesystem is used,
+Solaris systems with the devices filesystem, as well as
+other systems that utilize a devfs filesystem that monotoni-
+cally increase the inode number of devices as they are
+created (such as Mac OS X), sudoers is able to determine
+when a tty-based time stamp file is stale and will ignore
+it. Administrators should not rely on this fea- ture as it
+is not universally available.</p>
+
+<p>SEE ALSO ssh(1), su(1), fnmatch(3), glob(3), mktemp(3),
+strftime(3), sudoers.ldap(5), sudo_plugin(8), sudo(8),
+visudo(8)</p>
+
+<p>CAVEATS The sudoers file should always be edited by the
+visudo command which locks the file and does grammatical
+checking. It is imperative that sudoers be free of syntax
+errors since sudo will not run with a syntacti- cally
+incorrect sudoers file.</p>
+
+<p>When using netgroups of machines (as opposed to users),
+if you store fully qualified host name in the netgroup (as
+is usually the case), you either need to have the machine s
+host name be fully qualified as returned by the hostname
+command or use the fqdn option in sudoers.</p>
+
+<p>BUGS If you feel you have found a bug in sudo, please
+submit a bug report at http://www.sudo.ws/sudo/bugs/</p>
+
+<p>SUPPORT Limited free support is available via the
+sudo-users mailing list, see
+http://www.sudo.ws/mailman/listinfo/sudo-users to subscribe
+or search the archives.</p>
+
+<p>DISCLAIMER sudo is provided AS IS and any express or
+implied warranties, includ- ing, but not limited to, the
+implied warranties of merchantability and fitness for a
+particular purpose are disclaimed. See the LICENSE file
+distributed with sudo or
+http://www.sudo.ws/sudo/license.html for com- plete
+details.</p>
+
+<p>Sudo 1.8.6p3 July 16, 2012 Sudo 1.8.6p3</p>
+<hr>
+</body>
+</html>
