@@ -1,0 +1,309 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Tue Nov  8 20:50:52 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>LVMCACHE(7) LVMCACHE(7)</p>
+
+<p>NAME lvmcache LVM caching</p>
+
+<p>DESCRIPTION The cache logical volume type uses a small
+and fast LV to improve the performance of a large and slow
+LV. It does this by storing the fre- quently used blocks on
+the faster LV. LVM refers to the small fast LV as a cache
+pool LV. The large slow LV is called the origin LV. Due to
+requirements from dm-cache (the kernel driver), LVM further
+splits the cache pool LV into two devices - the cache data
+LV and cache metadata LV. The cache data LV is where copies
+of data blocks are kept from the origin LV to increase
+speed. The cache metadata LV holds the account- ing
+information that specifies where data blocks are stored
+(e.g. on the origin LV or on the cache data LV). Users
+should be familiar with these LVs if they wish to create the
+best and most robust cached logi- cal volumes.</p>
+
+<p>Cache Terms origin LV OriginLV large slow LV cache data
+LV CacheDataLV small fast LV for cache pool data cache
+metadata LV CacheMetaLV small fast LV for cache pool
+metadata cache pool LV CachePoolLV CacheDataLV + CacheMetaLV
+cache LV CacheLV OriginLV + CachePoolLV</p>
+
+<p>Cache Usage The primary method for using a cache type
+logical volume:</p>
+
+<p>0. create OriginLV Create an LV or identify an existing
+LV to be the origin LV.</p>
+
+<p>lvcreate -n OriginLV -L LargeSize VG SlowPVs</p>
+
+<p>Example # lvcreate -n lvol0 -L 100G vg</p>
+
+<p>1. create CacheDataLV Create the cache data LV. This LV
+will hold data blocks from the OriginLV. The size of this LV
+is the size of the cache and will be reported as the size of
+the cache pool LV.</p>
+
+<p>lvcreate -n CacheDataLV -L CacheSize VG FastPVs</p>
+
+<p>Example # lvcreate -n cache0 -L 10G vg /dev/fast</p>
+
+<p>2. create CacheMetaLV Create the cache metadata LV. This
+LV will hold cache pool metadata. The size of this LV should
+be 1000 times smaller than the cache data LV, with a minimum
+size of 8MiB.</p>
+
+<p>lvcreate -n CacheMetaLV -L MetaSize VG FastPVs</p>
+
+<p>Example # lvcreate -n cache0meta -L 12M vg /dev/fast</p>
+
+<p># lvs -a vg LV VG Attr LSize Pool Origin cache0 vg
+-wi-a----- 10.00g cache0meta vg -wi-a----- 12.00m lvol0 vg
+-wi-a----- 100.00g</p>
+
+<p>3. create CachePoolLV Combine the data and metadata LVs
+into a cache pool LV. The behavior of the cache pool LV can
+be set in this step. CachePoolLV takes the name of
+CacheDataLV. CacheDataLV is renamed CachePoolLV_cdata and
+becomes hidden. CacheMetaLV is renamed CachePoolLV_cmeta and
+becomes hidden.</p>
+
+<p>lvconvert --type cache-pool --poolmetadata
+VG/CacheMetaLV VG/CacheDataLV</p>
+
+<p>Example # lvconvert --type cache-pool --poolmetadata
+vg/cache0meta vg/cache0</p>
+
+<p># lvs -a vg LV VG Attr LSize Pool Origin cache0 vg
+Cwi---C--- 10.00g [cache0_cdata] vg Cwi------- 10.00g
+[cache0_cmeta] vg ewi------- 12.00m lvol0 vg -wi-a-----
+100.00g</p>
+
+<p>4. create CacheLV Create a cache LV by linking the cache
+pool LV to the origin LV. The user accessible cache LV takes
+the name of the origin LV, while the origin LV becomes a
+hidden LV with the name OriginLV_corig. This can be done
+while the origin LV is in use. CacheLV takes the name of
+OriginLV. OriginLV is renamed OriginLV_corig and becomes
+hidden.</p>
+
+<p>lvconvert --type cache --cachepool VG/CachePoolLV
+VG/OriginLV</p>
+
+<p>Example # lvconvert --type cache --cachepool vg/cache0
+vg/lvol0</p>
+
+<p># lvs -a vg LV VG Attr LSize Pool Origin cache0 vg
+Cwi---C--- 10.00g [cache0_cdata] vg Cwi-ao---- 10.00g
+[cache0_cmeta] vg ewi-ao---- 12.00m lvol0 vg Cwi-a-C---
+100.00g cache0 [lvol0_corig] [lvol0_corig] vg -wi-ao----
+100.00g</p>
+
+<p>Cache Removal Split a cache pool LV off of a cache
+LV</p>
+
+<p>A cache pool LV can be disconnected from a cache LV,
+leaving an unused cache pool LV, and an uncached origin LV.
+This command writes back data from the cache pool to the
+origin LV when necessary.</p>
+
+<p>lvconvert --splitcache VG/CacheLV</p>
+
+<p>Removing a cache pool LV without removing its linked
+origin LV</p>
+
+<p>This writes back data from the cache pool to the origin
+LV when neces- sary, then removes the cache pool LV, leaving
+the uncached origin LV.</p>
+
+<p>lvremove VG/CachePoolLV</p>
+
+<p>An alternative command that also disconnects the cache
+pool from the cache LV, and deletes the cache pool:</p>
+
+<p>lvconvert --uncache VG/CacheLV</p>
+
+<p>Example # lvs vg LV VG Attr LSize Pool Origin cache0 vg
+Cwi---C--- 10.00g lvol0 vg Cwi-a-C--- 100.00g cache0
+[lvol0_corig]</p>
+
+<p># lvremove vg/cache0</p>
+
+<p># lvs vg LV VG Attr LSize Pool Origin lvol0 vg
+-wi-a----- 100.00g</p>
+
+<p>Removing a cache LV: both origin LV and the cache pool
+LV</p>
+
+<p>Removing a cache LV removes both the origin LV and the
+linked cache pool LV.</p>
+
+<p>lvremove VG/CacheLV</p>
+
+<p>Cache Topics Tolerate device failures in a cache pool
+LV</p>
+
+<p>Users who are concerned about the possibility of
+failures in their fast devices that could lead to data loss
+might consider making their cache pool sub-LVs
+redundant.</p>
+
+<p>0. Create an origin LV we wish to cache # lvcreate -L
+10G -n lv1 vg /dev/slow_devs</p>
+
+<p>1. Create a 2-way RAID1 cache data LV # lvcreate --type
+raid1 -m 1 -L 1G -n cache1 vg /dev/fast1 /dev/fast2</p>
+
+<p>2. Create a 2-way RAID1 cache metadata LV # lvcreate
+--type raid1 -m 1 -L 8M -n cache1meta vg /dev/fast1
+/dev/fast2</p>
+
+<p>3. Create a cache pool LV combining cache data LV and
+cache metadata LV # lvconvert --type cache-pool
+--poolmetadata vg/cache1meta vg/cache1</p>
+
+<p>4. Create a cached LV by combining the cache pool LV and
+origin LV # lvconvert --type cache --cachepool vg/cache1
+vg/lv1</p>
+
+<p>Cache mode</p>
+
+<p>The default cache mode is &quot;writethrough&quot;.
+Writethrough ensures that any data written will be stored
+both in the cache pool LV and on the origin LV. The loss of
+a device associated with the cache pool LV in this case
+would not mean the loss of any data.</p>
+
+<p>A second cache mode is &quot;writeback&quot;. Writeback
+delays writing data blocks from the cache pool back to the
+origin LV. This mode will increase performance, but the loss
+of a device associated with the cache pool LV can result in
+lost data.</p>
+
+<p>The cache mode can be specified with the --cachemode
+option when a cache pool LV is created.</p>
+
+<p>lvm.conf(5) cache_pool_cachemode defines the default
+cache mode.</p>
+
+<p>0. Create an origin LV we wish to cache (yours may
+already exist) # lvcreate -L 10G -n lv1 vg /dev/slow</p>
+
+<p>1. Create a cache data LV # lvcreate -L 1G -n cache1 vg
+/dev/fast</p>
+
+<p>2. Create a cache metadata LV # lvcreate -L 8M -n
+cache1meta vg /dev/fast</p>
+
+<p>3. Create a cache pool LV specifying cache mode
+&quot;writethrough&quot; # lvconvert --type cache-pool
+--poolmetadata vg/cache1meta --cachemode writethrough
+vg/cache1</p>
+
+<p>4. Create a cache LV by combining the cache pool LV and
+origin LV # lvconvert --type cache --cachepool vg/cache1
+vg/lv1</p>
+
+<p>Cache policy &amp; policy settings</p>
+
+<p>The cache subsystem has an additional per-LV parameter,
+namely the cache policy to use, and possibly the tunable
+parameters of the said cache policy. In the current
+implementation, two policies are avail- able, &quot;mq&quot;
+which is the default policy and &quot;cleaner&quot; which is
+used to force the cache to write back (flush) all cached
+writes to the origin LV. Moreover, the &quot;mq&quot; policy
+has a number of tunable parameters: the defaults are chosen
+to be suitable for the vast majority of systems. However,
+under special circumstances, changing the tunable settings
+of the cache policy can improve performance.</p>
+
+<p>On an existing cache LV, the policy can be set (to
+&quot;mq&quot;) and the cache settings can be changed using
+commands like these:</p>
+
+<p>Example</p>
+
+<p># lvchange --cachepolicy mq vg/lv1 # lvchange
+--cachesettings migration_threshold=2048 random_threshold=4
+vg/lv1</p>
+
+<p>Both commands can be combined, setting both cache policy
+and its set- tings together. Moreover, when creating a cache
+LV for the first time (using lvcreate), the --cachepolicy
+and --cachesettings parameters can be used as well. The
+current policy and the policy settings can be listed using
+the lvs command, using cache_policy and cache_settings
+fields:</p>
+
+<p># lvs -o +cache_policy,cache_settings</p>
+
+<p>Spare metadata LV</p>
+
+<p>See lvmthin(7) for a description of the &quot;pool
+metadata spare&quot; LV. The same concept is used for cache
+pools.</p>
+
+<p>Automatic pool metadata LV</p>
+
+<p>A cache data LV can be converted to cache pool LV
+without specifying a cache pool metadata LV. LVM will
+automatically create a metadata LV from the same VG.</p>
+
+<p>lvcreate -n CacheDataLV -L CacheSize VG lvconvert --type
+cache-pool VG/CacheDataLV</p>
+
+<p>Create a new cache LV without an existing origin LV</p>
+
+<p>A cache LV can be created using an existing cache pool
+without an existing origin LV. A new origin LV is created
+and linked to the cache pool in a single step.</p>
+
+<p>lvcreate --type cache -L LargeSize -n CacheLV
+--cachepool VG/CachePoolLV VG SlowPVs</p>
+
+<p>Single step cache pool LV creation</p>
+
+<p>A cache pool LV can be created with a single lvcreate
+command, rather than using lvconvert on existing LVs. This
+one command creates a cache data LV, a cache metadata LV,
+and combines the two into a cache pool LV.</p>
+
+<p>lvcreate --type cache-pool -L CacheSize -n CachePoolLV
+VG FastPVs</p>
+
+<p>Convert existing LVs to cache types</p>
+
+<p>When an existing origin LV is converted to a cache LV,
+the specified cache pool may be a normal LV, rather than a
+cache pool LV. In this case, lvm will first convert the
+normal LV to a cache pool LV. A pool metadata LV may
+optionally be specified.</p>
+
+<p>lvcreate -n OriginLV -L LargeSize VG lvcreate -n
+CacheDataLV -L CacheSize VG lvconvert --type cache
+--cachepool VG/CataDataLV VG/OriginLV</p>
+
+<p>This is equivalent to:</p>
+
+<p>lvcreate -n OriginLV -L LargeSize VG lvcreate -n
+CacheDataLV -L CacheSize VG lvconvert --type cache-pool
+VG/CacheDataLV lvconvert --type cache --cachepool
+VG/CachePoolLV VG/OriginLV</p>
+
+<p>SEE ALSO lvm.conf(5), lvchange(8), lvcreate(8),
+lvdisplay(8), lvextend(8), lvre- move(8), lvrename(8),
+lvresize(8), lvs(8), vgchange(8), vgmerge(8), vgreduce(8),
+vgsplit(8)</p>
+
+<p>Red Hat, Inc LVM TOOLS 2.02.118(2)-RHEL6 (2015-04-15)
+LVMCACHE(7)</p>
+<hr>
+</body>
+</html>
