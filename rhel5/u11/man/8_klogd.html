@@ -1,0 +1,362 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:19:19 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>KLOGD(8) Linux System Administration KLOGD(8)</p>
+
+<p>NAME klogd - Kernel Log Daemon</p>
+
+<p>SYNOPSIS klogd [ -c n ] [ -d ] [ -f fname ] [ -iI ] [ -n
+] [ -o ] [ -p ] [ -s ] [ -k fname ] [ -v ] [ -x ] [ -2 ]</p>
+
+<p>DESCRIPTION klogd is a system daemon which intercepts
+and logs Linux kernel mes- sages.</p>
+
+<p>OPTIONS -c n Sets the default log level of console
+messages to n.</p>
+
+<p>-d Enable debugging mode. This will generate LOTS of
+output to stderr.</p>
+
+<p>-f file Log messages to the specified filename rather
+than to the syslog facility.</p>
+
+<p>-i -I Signal the currently executing klogd daemon. Both
+of these switches control the loading/reloading of symbol
+information. The -i switch signals the daemon to reload the
+kernel module symbols. The -I switch signals for a reload of
+both the static kernel symbols and the kernel module
+symbols.</p>
+
+<p>-n Avoid auto-backgrounding. This is needed especially
+if the klogd is started and controlled by init(8).</p>
+
+<p>-o Execute in one-shot mode. This causes klogd to read
+and log all the messages that are found in the kernel
+message buffers. After a single read and log cycle the
+daemon exits.</p>
+
+<p>-p Enable paranoia. This option controls when klogd
+loads kernel module symbol information. Setting this switch
+causes klogd to load the kernel module symbol information
+whenever an Oops string is detected in the kernel message
+stream.</p>
+
+<p>-s Force klogd to use the system call interface to the
+kernel mes- sage buffers.</p>
+
+<p>-k file Use the specified file as the source of kernel
+symbol informa- tion.</p>
+
+<p>-v Print version and exit.</p>
+
+<p>-x Omits EIP translation and therefore doesn t read the
+System.map file.</p>
+
+<p>-2 When symbols are expanded, print the line twice. Once
+with addresses converted to symbols, once with the raw text.
+This allows external programs such as ksymoops do their own
+process- ing on the original data.</p>
+
+<p>OVERVIEW The functionality of klogd has been typically
+incorporated into other versions of syslogd but this seems
+to be a poor place for it. In the modern Linux kernel a
+number of kernel messaging issues such as sourc- ing,
+prioritization and resolution of kernel addresses must be
+addressed. Incorporating kernel logging into a separate
+process offers a cleaner separation of services.</p>
+
+<p>In Linux there are two potential sources of kernel log
+information: the /proc file system and the syscall
+(sys_syslog) interface, although ultimately they are one and
+the same. Klogd is designed to choose whichever source of
+information is the most appropriate. It does this by first
+checking for the presence of a mounted /proc file system. If
+this is found the /proc/kmsg file is used as the source of
+kernel log information. If the proc file system is not
+mounted klogd uses a sys- tem call to obtain kernel
+messages. The command line switch (-s) can be used to force
+klogd to use the system call interface as its messag- ing
+source.</p>
+
+<p>If kernel messages are directed through the syslogd
+daemon the klogd daemon, as of version 1.1, has the ability
+to properly prioritize ker- nel messages. Prioritization of
+the kernel messages was added to it at approximately version
+0.99pl13 of the kernel. The raw kernel messages are of the
+form:</p>
+
+<p>&lt;[0-7]&gt;Something said by the kernel.</p>
+
+<p>The priority of the kernel message is encoded as a
+single numeric digit enclosed inside the &lt;&gt; pair. The
+definitions of these values is given in the kernel include
+file kernel.h. When a message is received from the kernel
+the klogd daemon reads this priority level and assigns the
+appropriate priority level to the syslog message. If file
+output (-f) is used the prioritization sequence is left
+pre-pended to the kernel message.</p>
+
+<p>The klogd daemon also allows the ability to alter the
+presentation of kernel messages to the system console.
+Consequent with the prioritiza- tion of kernel messages was
+the inclusion of default messaging levels for the kernel. In
+a stock kernel the the default console log level is set to
+7. Any messages with a priority level numerically lower than
+7 (higher priority) appear on the console.</p>
+
+<p>Messages of priority level 7 are considered to be debug
+messages and will thus not appear on the console. Many
+administrators, particularly in a multi-user environment,
+prefer that all kernel messages be handled by klogd and
+either directed to a file or to the syslogd daemon. This
+prevents nuisance messages such as line printer out of paper
+or disk change detected from cluttering the console.</p>
+
+<p>When -c is given on the commandline the klogd daemon
+will execute a system call to inhibit all kernel messages
+from being displayed on the console. Former versions always
+issued this system call and defaulted to all kernel messages
+except for panics. This is handled differently nowardays so
+klogd doesn t need to set this value anymore. The argu- ment
+given to the -c switch specifies the priority level of
+messages which will be directed to the console. Note that
+messages of a prior- ity value LOWER than the indicated
+number will be directed to the con- sole.</p>
+
+<p>For example, to have the kernel display all messages
+with a pri- ority level of 3 (KERN_ERR) or more severe the
+following command would be executed:</p>
+
+<p>klogd -c 4</p>
+
+<p>The definitions of the numeric values for kernel
+messages are given in the file kernel.h which can be found
+in the /usr/include/linux direc- tory if the kernel sources
+are installed. These values parallel the syslog priority
+values which are defined in the file syslog.h found in the
+/usr/include/sys sub-directory.</p>
+
+<p>The klogd daemon can also be used in a one-shot mode for
+reading the kernel message buffers. One shot mode is
+selected by specifying the -o switch on the command line.
+Output will be directed to either the sys- logd daemon or to
+an alternate file specified by the -f switch.</p>
+
+<p>For example, to read all the kernel messages after a
+system boot and record them in a file called krnl.msg the
+following command would be given.</p>
+
+<p>klogd -o -f ./krnl.msg</p>
+
+<p>KERNEL ADDRESS RESOLUTION If the kernel detects an
+internal error condition a general protection fault will be
+triggered. As part of the GPF handling procedure the kernel
+prints out a status report indicating the state of the
+processor at the time of the fault. Included in this display
+are the contents of the microprocessors registers, the
+contents of the kernel stack and a tracing of what functions
+were being executed at the time of the fault.</p>
+
+<p>This information is EXTREMELY IMPORTANT in determining
+what caused the internal error condition. The difficulty
+comes when a kernel developer attempts to analyze this
+information. The raw numeric information present in the
+protection fault printout is of very little use to the
+developers. This is due to the fact that kernels are not
+identical and the addresses of variable locations or
+functions will not be the same in all kernels. In order to
+correctly diagnose the cause of failure a kernel developer
+needs to know what specific kernel functions or vari- able
+locations were involved in the error.</p>
+
+<p>As part of the kernel compilation process a listing is
+created which specified the address locations of important
+variables and function in the kernel being compiled. This
+listing is saved in a file called Sys- tem.map in the top of
+the kernel directory source tree. Using this listing a
+kernel developer can determine exactly what the kernel was
+doing when the error condition occurred.</p>
+
+<p>The process of resolving the numeric addresses from the
+protection fault printout can be done manually or by using
+the ksymoops program which is included in the kernel
+sources.</p>
+
+<p>As a convenience klogd will attempt to resolve kernel
+numeric addresses to their symbolic forms if a kernel symbol
+table is available at execu- tion time. If you require the
+original address of the symbol, use the -2 switch to
+preserve the numeric address. A symbol table may be spec-
+ified by using the -k switch on the command line. If a
+symbol file is not explicitly specified the following
+filenames will be tried:</p>
+
+<p>/boot/System.map /System.map
+/usr/src/linux/System.map</p>
+
+<p>Version information is supplied in the system maps as of
+kernel 1.3.43. This version information is used to direct an
+intelligent search of the list of symbol tables. This
+feature is useful since it provides sup- port for both
+production and experimental kernels.</p>
+
+<p>For example a production kernel may have its map file
+stored in /boot/System.map. If an experimental or test
+kernel is compiled with the sources in the standard location
+of /usr/src/linux the system map will be found in
+/usr/src/linux/System.map. When klogd starts under the
+experimental kernel the map in /boot/System.map will be
+bypassed in favor of the map in
+/usr/src/linux/System.map.</p>
+
+<p>Modern kernels as of 1.3.43 properly format important
+kernel addresses so that they will be recognized and
+translated by klogd. Earlier kernels require a source code
+patch be applied to the kernel sources. This patch is
+supplied with the sysklogd sources.</p>
+
+<p>The process of analyzing kernel protections faults works
+very well with a static kernel. Additional difficulties are
+encountered when attempt- ing to diagnose errors which occur
+in loadable kernel modules. Load- able kernel modules are
+used to implement kernel functionality in a form which can
+be loaded or unloaded at will. The use of loadable mod- ules
+is useful from a debugging standpoint and can also be useful
+in decreasing the amount of memory required by a kernel.</p>
+
+<p>The difficulty with diagnosing errors in loadable
+modules is due to the dynamic nature of the kernel modules.
+When a module is loaded the ker- nel will allocate memory to
+hold the module, when the module is unloaded this memory
+will be returned back to the kernel. This dynamic memory
+allocation makes it impossible to produce a map file which
+details the addresses of the variable and functions in a
+kernel load- able module. Without this location map it is
+not possible for a kernel developer to determine what went
+wrong if a protection fault involves a kernel module.</p>
+
+<p>klogd has support for dealing with the problem of
+diagnosing protection faults in kernel loadable modules. At
+program start time or in response to a signal the daemon
+will interrogate the kernel for a list- ing of all modules
+loaded and the addresses in memory they are loaded at.
+Individual modules can also register the locations of
+important functions when the module is loaded. The addresses
+of these exported symbols are also determined during this
+interrogation process.</p>
+
+<p>When a protection fault occurs an attempt will be made
+to resolve ker- nel addresses from the static symbol table.
+If this fails the symbols from the currently loaded modules
+are examined in an attempt to resolve the addresses. At the
+very minimum this allows klogd to indicate which loadable
+module was responsible for generating the protection fault.
+Additional information may be available if the module
+developer chose to export symbol information from the
+module.</p>
+
+<p>Proper and accurate resolution of addresses in kernel
+modules requires that klogd be informed whenever the kernel
+module status changes. The -i and -I switches can be used to
+signal the currently executing daemon that symbol
+information be reloaded. Of most importance to proper res-
+olution of module symbols is the -i switch. Each time a
+kernel module is loaded or removed from the kernel the
+following command should be executed:</p>
+
+<p>klogd -i</p>
+
+<p>The -p switch can also be used to insure that module
+symbol information is up to date. This switch instructs
+klogd to reload the module symbol information whenever a
+protection fault is detected. Caution should be used before
+invoking the program in &acute;paranoid&acute; mode. The
+stability of the kernel and the operating environment is
+always under question when a protection fault occurs. Since
+the klogd daemon must execute system calls in order to read
+the module symbol information there is the pos- sibility
+that the system may be too unstable to capture useful
+informa- tion. A much better policy is to insure that klogd
+is updated whenever a module is loaded or unloaded. Having
+uptodate symbol information loaded increases the probability
+of properly resolving a protection fault if it should
+occur.</p>
+
+<p>Included in the sysklogd source distribution is a patch
+to the mod- ules-2.0.0 package which allows the insmod,
+rmmod and modprobe utili- ties to automatically signal klogd
+whenever a module is inserted or removed from the kernel.
+Using this patch will insure that the symbol information
+maintained in klogd is always consistent with the current
+kernel state.</p>
+
+<p>SIGNAL HANDLING The klogd will respond to eight signals:
+SIGHUP, SIGINT, SIGKILL, SIGTERM, SIGTSTP, SIGUSR1, SIGUSR2
+and SIGCONT. The SIGINT, SIGKILL, SIGTERM and SIGHUP signals
+will cause the daemon to close its kernel log sources and
+terminate gracefully.</p>
+
+<p>The SIGTSTP and SIGCONT signals are used to start and
+stop kernel log- ging. Upon receipt of a SIGTSTP signal the
+daemon will close its log sources and spin in an idle loop.
+Subsequent receipt of a SIGCONT sig- nal will cause the
+daemon to go through its initialization sequence and
+re-choose an input source. Using SIGSTOP and SIGCONT in
+combination the kernel log input can be re-chosen without
+stopping and restarting the daemon. For example if the /proc
+file system is to be un-mounted the following command
+sequence should be used:</p>
+
+<p># kill -TSTP pid # umount /proc # kill -CONT pid</p>
+
+<p>Notations will be made in the system logs with LOG_INFO
+priority docu- menting the start/stop of logging.</p>
+
+<p>The SIGUSR1 and SIGUSR2 signals are used to initiate
+loading/reloading of kernel symbol information. Receipt of
+the SIGUSR1 signal will cause the kernel module symbols to
+be reloaded. Signaling the daemon with SIGUSR2 will cause
+both the static kernel symbols and the kernel module symbols
+to be reloaded.</p>
+
+<p>Provided that the System.map file is placed in an
+appropriate location the signal of generally greatest
+usefulness is the SIGUSR1 signal. This signal is designed to
+be used to signal the daemon when kernel modules are
+loaded/unloaded. Sending this signal to the daemon after a
+kernel module state change will insure that proper
+resolution of sym- bols will occur if a protection fault
+occurs in the address space occu- pied by a kernel
+module.</p>
+
+<p>FILES /proc/kmsg One Source for kernel messages klogd
+/var/run/klogd.pid The file containing the process id of
+klogd /boot/System.map, /System.map,
+/usr/src/linux/System.map Default locations for kernel
+system maps.</p>
+
+<p>BUGS Probably numerous. Well formed context diffs
+appreciated.</p>
+
+<p>AUTHOR The klogd was originally written by Steve Lord
+(lord@cray.com), Greg Wettstein made major improvements.</p>
+
+<p>Dr. Greg Wettstein (greg@wind.enjellic.com) Enjellic
+Systems Development</p>
+
+<p>Oncology Research Divsion Computing Facility Roger Maris
+Cancer Center Fargo, ND 58122</p>
+
+<p>Version 1.4 21 August, 1999 KLOGD(8)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:14:28 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>DC_CLIENT(1) distcache DC_CLIENT(1)</p>
+
+<p>NAME dc_client - Distributed session cache client
+proxy</p>
+
+<p>SYNOPSIS dc_client -server &lt;address&gt; [options]</p>
+
+<p>DESCRIPTION dc_client runs a client proxy to provide
+access to a remote cache server (typically over TCP/IPv4) by
+providing a local service (typi- cally over unix domain
+sockets). It starts listening on a configurable network
+address for connections and establishes a persistent
+connection to an instance of dc_server for proxying cache
+operations to. Incoming connections are expected to
+communicate using the distcache(8) proto- col, and would
+typically be applications using one of the distcache APIs in
+libdistcache to encapsulate these communications.</p>
+
+<p>The common use of dc_client is to run as a local agent
+on each host machine that requires use of the distributed
+cache, as the listening address should probably use unix
+domain sockets which are better suited to frequent (and
+temporary) connections being used for individual cache
+operations. Likewise, the connection dc_client makes to the
+cache server (dc_server) for proxying cache operations is
+typically over a genuine network to remote machine, using
+TCP/IPv4.</p>
+
+<p>OPTIONS -daemon After initialising, dc_client will
+detach from the parent process, close standard
+file-descriptors, etc. If this flag is not set, dc_client
+will run in the foreground. It is recommended to use this
+flag in combination with the pidfile flag to simplify
+stopping and restarting services.</p>
+
+<p>-user user This switch will attempt to change user
+privileges of dc_client to the given user ID after
+initialising its listening socket. On most systems, this can
+only work if dc_client is started as the root user. It is
+important to note that the change of user ID occurs after
+the listening socket is created but before any attempts are
+made to connect to distcache servers. This ensures that the
+listen- ing socket is created with the most restrictive
+permissions, and that the ability to connect to servers at
+run-time corresponds to the given user (rather than having
+unusual root permissions on startup).</p>
+
+<p>-listen address Configures the address on which
+dc_client should listen for incom- ing connections. The
+syntax is that defined by the libnal API. Though this can
+listen on any supported network transport, dc_client should
+be expected to receive a lot of short-lived (and frequest)
+connections, so unix domain sockets are generally prefer-
+able to TCP/IPv4. Eg.</p>
+
+<p># Listen on a unix domain socket in the /tmp directory
+dc_client -listen UNIX:/tmp/cacheclient</p>
+
+<p>The default value for this flag is: UNIX:/tmp/scache</p>
+
+<p>-sockowner user This switch is only useful when
+listening (see -listen) on unix domain sockets. It will
+attempt to change ownership of the created socket file.</p>
+
+<p>-sockgroup group This switch is only useful when
+listening (see -listen) on unix domain sockets. It will
+attempt to change group ownership of the created socket
+file.</p>
+
+<p>-sockperms perms This switch is only useful when
+listening (see -listen) on unix domain sockets. It will
+attempt to change file permissions for the created socket
+file, and is specified in the standard octal nota- tion used
+for unix file permissions. Eg. to start dc_client to run as
+the nobody user, listening on a unix domain socket that can
+only be connected to by the root user or members of the ssl
+group;</p>
+
+<p># dc_client -listen UNIX:/tmp/cacheclient -user nobody
+-sockgroup ssl -sockperms 440</p>
+
+<p>-server address -connect address These flags are
+identical, and specify the address of the cache server
+dc_client should connect to. Cache operations requested by
+clients of dc_client (using short-lived local connections to
+the service address specified by -listen) are multiplexed
+to/from the cache server over this persistent connection.
+The syntax is that defined by the libnal API and would
+typically be over TCP/IPv4, particularly if the cache server
+is running on a remote machine. Eg.</p>
+
+<p># Connect to a remote cache server listening on port
+9001 dc_client -listen UNIX:/tmp/cacheclient -server
+IP:cacheserver.localnet:9001</p>
+
+<p>-retry msecs Distcache is designed to be as
+fault-tolerant as possible, and part of this approach is to
+have dc_client manage the possible disap- pearance and
+subsequent reappearance of the remote instance of dc_server
+it proxies to. In actuality, this could happen for a variety
+of reasons including the cache server being restarted, or a
+network error at any point in between the two programs.
+During any period in which dc_client has lost communications
+with the cache server, any/all local connections and
+corresponding cache operation requests will be responded to
+directly by dc_client itself. The consequence is that cache
+operations return as failures during this time, so the
+application requesting the operations must make do without
+(eg. in SSL/TLS session caching, this means that attempts to
+resume SSL/TLS sessions fail and so full handshakes are
+required).</p>
+
+<p>The default behaviour of dc_client when losing
+communications with the instance of dc_server (as specified
+by -server or -connect) is to try to reestablish
+communications every 5 seconds. This flag allows the retry
+period to be configured to any number of millisec- onds.
+Note: confusing milliseconds with seconds can cause
+emotional disturbance and should be avoided at all
+costs.</p>
+
+<p>-idle msecs Normal behaviour with dc_client is to have
+its clients (applica- tions using distcache(8) APIs for
+communication) use temporary con- nections for each cache
+operation. However, there are modes of operation in those
+APIs that allow persistent connections to be used together
+with various associated options. This is especially
+important for any platforms that (for whatever reason) cant
+use unix domain sockets and don t want to bloat
+file-descriptor tables with IPv4 sockets sitting in
+TIME_WAIT state. For this reason, as well as resilience
+against client applications that hang, it useful to
+configure dc_client to automatically drop client connections
+that have been idle for some configurable period of
+time.</p>
+
+<p>This flag specifies the period of idle time after which
+client con- nections will be dropped, and is in units of
+milliseconds and not seconds. The default value is zero, and
+this means that client con- nections are never intentionally
+dropped.</p>
+
+<p>Note, provided client applications are appropriately
+configured they need not necessarily be vulnerable to race
+conditions when dc_client configures this flag. The
+distcache(8) DC_CTX API pro- vides additional persistence
+options such as fork(2)-checking and resistance against idle
+timeouts. Ie. if a request is commenced on a client
+connection that is in the process of being timed-out by
+dc_client, the DC_CTX will allow one retry with an immediate
+re- connection before considering the operation to have
+failed.</p>
+
+<p>-pidfile path This is a standard flag for many programs,
+and most useful in com- bination with -daemon. When -pidfile
+is specified dc_client will write its process ID to a file
+at the specified path upon success- ful initialisation. To
+use this path file to later kill the running dc_client
+instance, use something like (where pidfile.pid is what-
+ever path was);</p>
+
+<p>kill cat pidfile.pid</p>
+
+<p>-h, -help, -? Any of these flags will cause dc_client to
+display a brief usage summary to the console and exit
+cleanly. Any other flags are ignored.</p>
+
+<p>SEE ALSO dc_server(1) Distributed cache server.</p>
+
+<p>dc_snoop(1) Distcache protocol analyser and debugging
+tool.</p>
+
+<p>distcache(8) Overview of the distcache architecture.</p>
+
+<p>http://www.distcache.org/ Distcache home page.</p>
+
+<p>AUTHOR This toolkit was designed and implemented by
+Geoff Thorpe for Crypto- graphic Appliances Incorporated.
+Since the project was released into open source, it has a
+home page and a project environment where devel- opment,
+mailing lists, and releases are organised. For problems with
+the software or this man page please check for new releases
+at the project web-site below, mail the users mailing list
+described there, or contact the author at
+geoff@geoffthorpe.net.</p>
+
+<p>Home Page: http://www.distcache.org</p>
+
+<p>1.4.5 2004.03.23 DC_CLIENT(1)</p>
+<hr>
+</body>
+</html>

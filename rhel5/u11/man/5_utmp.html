@@ -1,0 +1,212 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:25:38 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>UTMP(5) Linux Programmer s Manual UTMP(5)</p>
+
+<p>NAME utmp, wtmp - login records</p>
+
+<p>SYNOPSIS #include &lt;utmp.h&gt;</p>
+
+<p>DESCRIPTION The utmp file allows one to discover
+information about who is currently using the system. There
+may be more users currently using the system, because not
+all programs use utmp logging.</p>
+
+<p>Warning: utmp must not be writable, because many system
+programs (fool- ishly) depend on its integrity. You risk
+faked system logfiles and modifications of system files if
+you leave utmp writable to any user.</p>
+
+<p>The file is a sequence of entries with the following
+structure declared in the include file (note that this is
+only one of several definitions around; details depend on
+the version of libc):</p>
+
+<p>#define UT_UNKNOWN 0 #define RUN_LVL 1 #define BOOT_TIME
+2 #define NEW_TIME 3 #define OLD_TIME 4 #define INIT_PROCESS
+5 #define LOGIN_PROCESS 6 #define USER_PROCESS 7 #define
+DEAD_PROCESS 8 #define ACCOUNTING 9</p>
+
+<p>#define UT_LINESIZE 12 #define UT_NAMESIZE 32 #define
+UT_HOSTSIZE 256</p>
+
+<p>struct exit_status { short int e_termination; /* process
+termination status */ short int e_exit; /* process exit
+status */ };</p>
+
+<p>struct utmp { short ut_type; /* type of login */ pid_t
+ut_pid; /* PID of login process */ char
+ut_line[UT_LINESIZE]; /* device name of tty -
+&quot;/dev/&quot; */ char ut_id[4]; /* init id or abbrev.
+ttyname */ char ut_user[UT_NAMESIZE]; /* user name */ char
+ut_host[UT_HOSTSIZE]; /* hostname for remote login */ struct
+exit_status ut_exit; /* The exit status of a process marked
+as DEAD_PROCESS */</p>
+
+<p>/* The ut_session and ut_tv fields must be the same size
+when compiled 32- and 64-bit. This allows data files and
+shared memory to be shared between 32- and 64-bit
+applications */ #if __WORDSIZE == 64 &amp;&amp; defined
+__WORDSIZE_COMPAT32 int32_t ut_session; /* Session ID, used
+for windowing */ struct { int32_t tv_sec; /* Seconds */
+int32_t tv_usec; /* Microseconds */ } ut_tv; /* Time entry
+was made */ #else long int ut_session; /* Session ID, used
+for windowing */ struct timeval ut_tv; /* Time entry was
+made */ #endif</p>
+
+<p>int32_t ut_addr_v6[4]; /* IP address of remote host */
+char __unused[20]; /* Reserved for future use */ };</p>
+
+<p>/* Backwards compatibility hacks. */ #define ut_name
+ut_user #ifndef _NO_UT_TIME #define ut_time ut_tv.tv_sec
+#endif #define ut_xtime ut_tv.tv_sec #define ut_addr
+ut_addr_v6[0]</p>
+
+<p>This structure gives the name of the special file
+associated with the user s terminal, the user s login name,
+and the time of login in the form of time(2). String fields
+are terminated b0 if they are shorter than the size of the
+field.</p>
+
+<p>The first entries ever created result from init(8)
+processing init- tab(5). Before an entry is processed,
+though, init(8) cleans up utmp by setting ut_type to
+DEAD_PROCESS, clearing ut_user, ut_host, and ut_time with
+null bytes for each record which ut_type is not DEAD_PRO-
+CESS or RUN_LVL and where no process with PID ut_pid exists.
+If no empty record with the needed ut_id can be found, init
+creates a new one. It sets ut_id from the inittab, ut_pid
+and ut_time to the current values, and ut_type to
+INIT_PROCESS.</p>
+
+<p>getty(8) locates the entry by the PID, changes ut_type
+to LOGIN_PRO- CESS, changes ut_time, sets ut_line, and waits
+for connection to be established. login(8), after a user has
+been authenticated, changes ut_type to USER_PROCESS, changes
+ut_time, and sets ut_host and ut_addr. Depending on getty(8)
+and login(8), records may be located by ut_line instead of
+the preferable ut_pid.</p>
+
+<p>When init(8) finds that a process has exited, it locates
+its utmp entry by ut_pid, sets ut_type to DEAD_PROCESS, and
+clears ut_user, ut_host and ut_time with null bytes.</p>
+
+<p>xterm(1) and other terminal emulators directly create a
+USER_PROCESS record and generate the ut_id by using the last
+two letters of /dev/ttyp%c or by using p%d for /dev/pts/%d.
+If they find a DEAD_PRO- CESS for this ID, they recycle it,
+otherwise they create a new entry. If they can, they will
+mark it as DEAD_PROCESS on exiting and it is advised that
+they null ut_line, ut_time, ut_user, and ut_host as
+well.</p>
+
+<p>xdm(8) should not create a utmp record, because there is
+no assigned terminal. Letting it create one will result in
+errors, such as fin- ger: cannot stat /dev/machine.dom . It
+should create wtmp entries, though, just like ftpd(8)
+does.</p>
+
+<p>telnetd(8) sets up a LOGIN_PROCESS entry and leaves the
+rest to login(8) as usual. After the telnet session ends,
+telnetd(8) cleans up utmp in the described way.</p>
+
+<p>The wtmp file records all logins and logouts. Its format
+is exactly like utmp except that a null user name indicates
+a logout on the asso- ciated terminal. Furthermore, the
+terminal name ~ with user name shut- down or reboot
+indicates a system shutdown or reboot and the pair of
+terminal names |/} logs the old/new system time when date(1)
+changes it. wtmp is maintained by login(1), init(1), and
+some versions of getty(1). Neither of these programs creates
+the file, so if it is removed, record-keeping is turned
+off.</p>
+
+<p>Note that on biarch platforms, i.e. systems which can
+run both 32-bit and 64-bit applications (x86-64, ppc64,
+s390x, etc.), ut_tv is the same size in 32-bit mode as in
+64-bit mode. The same goes for ut_session and ut_time if
+they are present. This allows data files and shared memory
+to be shared between 32-bit and 64-bit applications. Since
+ut_tv may not be the same as struct timeval, then instead of
+the call:</p>
+
+<p>gettimeofday((struct timeval *) &amp;ut.ut_tv,
+NULL);</p>
+
+<p>the following method of setting this field is
+recommended:</p>
+
+<p>struct utmp ut; struct timeval tv;</p>
+
+<p>gettimeofday(&amp;tv, NULL); ut.ut_tv.tv_sec =
+tv.tv_sec; ut.ut_tv.tv_usec = tv.tv_usec;</p>
+
+<p>FILES /var/run/utmp /var/log/wtmp</p>
+
+<p>CONFORMING TO Linux utmp entries conform neither to
+v7/BSD nor to System V; they are a mix of the two. v7/BSD
+has fewer fields; most importantly it lacks ut_type, which
+causes native v7/BSD-like programs to display (for exam-
+ple) dead or login entries. Further, there is no
+configuration file which allocates slots to sessions. BSD
+does so because it lacks ut_id fields. In Linux (as in
+System V), the ut_id field of a record will never change
+once it has been set, which reserves that slot without
+needing a configuration file. Clearing ut_id may result in
+race condi- tions leading to corrupted utmp entries and
+potential security holes. Clearing the above mentioned
+fields by filling them with null bytes is not required by
+System V semantics, but it allows to run many programs which
+assume BSD semantics and which do not modify utmp. Linux
+uses the BSD conventions for line contents, as documented
+above.</p>
+
+<p>System V only uses the type field to mark them and logs
+informative messages such as e.g. &quot;new time&quot; in
+the line field. UT_UNKNOWN seems to be a Linux invention.
+System V has no ut_host or ut_addr_v6 fields.</p>
+
+<p>Unlike various other systems, where utmp logging can be
+disabled by removing the file, utmp must always exist on
+Linux. If you want to disable who(1) then do not make utmp
+world readable.</p>
+
+<p>Note that the utmp struct from libc5 has changed in
+libc6. Because of this, binaries using the old libc5 struct
+will corrupt /var/run/utmp and/or /var/log/wtmp. Debian
+systems include a patched libc5 which uses the new utmp
+format. The problem still exists with wtmp since its
+accessed directly in libc5.</p>
+
+<p>RESTRICTIONS The file format is machine dependent, so it
+is recommended that it be processed only on the machine
+architecture where it was created.</p>
+
+<p>Note that on platforms which can run both 32-bit and
+64-bit applica- tions (x86-64, ppc64, s390x, etc.), the
+sizes of the fields of a struct utmp must be the same in
+32-bit mode as in 64-bit mode. This is achieved by changing
+the type of ut_session to int32_t, and that of ut_tv to a
+struct with two int32_t fields tv_sec and tv_usec. (Thus, in
+order to fill it, first get the time into a real struct
+timeval, then copy the two fields to ut_tv.)</p>
+
+<p>BUGS This manpage is based on the libc5 one, things may
+work differently now.</p>
+
+<p>SEE ALSO ac(1), date(1), last(1), login(1), who(1),
+getutent(3), updwtmp(3), init(8)</p>
+
+<p>File formats 2004-10-31 UTMP(5)</p>
+<hr>
+</body>
+</html>

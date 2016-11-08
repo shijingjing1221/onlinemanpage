@@ -1,0 +1,267 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:20:08 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>Libnetpbm Image Processing Manual(3) Libnetpbm Image
+Processing Manual(3)</p>
+
+<p>NAME libnetpbm_ug - netpbm sample code</p>
+
+<p>DESCRIPTION The Libnetpbm programming library is part of
+Netpbm(1).</p>
+
+<p>Example Here is an example of a C program that uses
+libnetpbm to read a Netpbm image input and produce a Netpbm
+image output.</p>
+
+<p>/* Example program fragment to read a PAM or PNM image
+from stdin, add up the values of every sample in it (I dont
+know why), and write the image unchanged to stdout. */</p>
+
+<p>#include &lt;netpbm/pam.h&gt;</p>
+
+<p>struct pam inpam, outpam; tuple * tuplerow; unsigned int
+row;</p>
+
+<p>pm_init(argv[0], 0);</p>
+
+<p>pnm_readpaminit(stdin, &amp;inpam,
+PAM_STRUCT_SIZE(tuple_type));</p>
+
+<p>outpam = inpam; outpam.file = stdout;</p>
+
+<p>pnm_writepaminit(&amp;outpam);</p>
+
+<p>tuplerow = pnm_allocpamrow(&amp;inpam);</p>
+
+<p>for (row = 0; row &lt; inpam.height; row++) { unsigned
+int column; pnm_readpamrow(&amp;inpam, tuplerow); for
+(column = 0; column &lt; inpam.width; ++column) { unsigned
+int plane; for (plane = 0; plane &lt; inpam.depth; ++plane)
+{ grand_total += tuplerow[column][plane]; } }
+pnm_writepamrow(&amp;outpam, tuplerow); }</p>
+
+<p>pnm_freepamrow(tuplerow);</p>
+
+<p>Guide To Using Libnetpbm libnetpbm classes In this
+section, we cover only the PAM functions in libnetpbm. As
+described in the introduction to libnetpbm (1), there are
+four other classes of image processing functions (PBM, PGM,
+PPM, PNM). They are less important, since you can do
+everything more easily with the PAM functions, but if youre
+working on old programs or need the extra efficiency those
+older functions can sometimes provide, you can find them
+documented as here: PBMFunctionManual(1),
+PGMFunctionManual(1), PPMFunctionManual(1),and
+PNMFunctionManual(1).</p>
+
+<p>In case youre wondering, what makes the PAM functions
+easier to use is:</p>
+
+<p>&middot; Each function handles all the formats. It does
+so without con- verting to a common format, so your program
+can treat the dif- ferent formats differently if it wants.
+However, the interface makes it easy for your program to
+ignore the differences between the formats if thats what you
+want.</p>
+
+<p>&middot; The PAM function parameter lists convey most
+information about the image with which youre working with a
+single pam structure, which you can build once and use over
+and over, whereas the older functions require you to pass up
+to 5 pieces of image information (height, width, etc.) as
+separate arguments to every function.</p>
+
+<p>THE pam STRUCTURE The PAM functions take most of their
+arguments in the form of a single pam structure. This is not
+an opaque object, but just a convenient way to organize the
+information upon which most the functions depend. So you are
+free to access or set the elements of the structure however
+you want. But you will find in most cases it is most
+convenient to call pnm_readpaminit() or pnm_writepaminit()
+to set the fields in the pam structure before calling any
+other pam functions, and then just to pass the structure
+unchanged in all future calls to pam functions.</p>
+
+<p>The fields are:</p>
+
+<p>size The storage size in bytes of this entire
+structure.</p>
+
+<p>len The length, in bytes, of the information in this
+structure. The information starts in the first byte and is
+contiguous. This cannot be greater than size. size and len
+can be used to make programs compatible with newer and older
+versions of the Netpbm libraries.</p>
+
+<p>file The file.</p>
+
+<p>format The format code of the image. This is PAM_FORMAT
+unless the PAM image is really a view of a PBM, PGM, or PPM
+image. Then its PBM_FORMAT, RPBM_FORMAT, etc.</p>
+
+<p>There is an important quirk in the meaning of this
+member when you use the pam structure to write an image:
+Only the type por- tion of it is meaningful. A Netpbm format
+code conveys two pieces of information: The format type
+(PBM, PGM, PPM, or PAM) and the plainness (plain PBM vs raw
+PBM, etc.). But when writ- ing, libnetpbm ignores the
+plainness part and instead takes the plainness from the
+plainformat member. So PBM_FORMAT and RPBM_FORMAT are
+identical when writing.</p>
+
+<p>This quirk exists for historical purposes; it s
+necessary for consistency with the older functions such as
+pnm_writepnmrow() whose format and forceplain arguments are
+analogous.</p>
+
+<p>Before Netpbm 10.32 (February 2006), libnetpbm did not
+ignore the plainness. This caused many programs to behave
+poorly, pro- ducing plain format output when they should,
+for backward com- patibility at the very least, produce raw
+format output.</p>
+
+<p>A common way to use this member is to copy it and the
+plainfor- mat member from a pam for an input image to a pam
+for an output image. When you do that, your output image
+will be raw format regardless of whether your input image
+was plain or raw, and this is the conventional behavior of
+Netpbm programs.</p>
+
+<p>plainformat This is a boolean value (0 = false, 1 =
+true), meaningful only when writing an image file. It means
+to write in the plain (text) version of the format indicated
+by format as oppposed to the raw (binary) version. Note that
+the format code in format would appear to completely specify
+the format, making plainfor- mat redundant. But see the
+description of format for why that isnt true.</p>
+
+<p>Until Netpbm 10.32 (Februrary 2006), this was defined a
+little differently. The format member did in fact completely
+identify the format and plainformat was redundant and
+existed as a sepa- rate member only for computational speed.
+But this was incon- sistent with the older libnetpbm
+interface (e.g. pnm_writepnm(), and it made it difficult to
+write backward compatible programs. Before Netpbm 10.32, it
+affected reading as well as writing.</p>
+
+<p>libnetpbm image reading functions set this field to
+false, for your convenience in building an output image pam
+from an input image pam.</p>
+
+<p>height The height of the image in rows.</p>
+
+<p>width The width of the image in number of columns
+(tuples per row).</p>
+
+<p>depth The depth of the image (degree of or number of
+samples in each tuple).</p>
+
+<p>maxval The maxval of the image. See definitions in
+pam(1).</p>
+
+<p>bytes_per_sample The number of bytes used to represent
+each sample in the image file. See the format definition in
+pam(1).This is entirely redundant with maxval. It exists as
+a separate member for com- putational speed.</p>
+
+<p>tuple_type The tuple type of the image. See definitions
+in pam(1).Netpbm- doesnotdefineanyvaluesforthis except the
+following, which are used for a PAM image which is really a
+view of a PBM, PGM, or PPM image: PAM_PBM_TUPLETYPE,
+PAM_PGM_TUPLETYPE, PAM_PPM_TUPLE- TYPE.</p>
+
+<p>allocation_depth The number of samples for which memory
+is allocated for any tuple associated with this PAM
+structure. This must be at least as great as depth. Only the
+first depth of the samples of a tuple are meaningful.</p>
+
+<p>The purpose of this is to make it possible for a program
+to change the type of a tuple to one with more or fewer
+planes.</p>
+
+<p>0 means the allocation depth is the same as the image
+depth.</p>
+
+<p>comment_p Pointer to a pointer to a NUL-terminated ASCII
+string of com- ments. When reading an image, this contains
+the comments from the image s PAM header; when writing, the
+image gets these as comments, right after the magic number
+line. The individual comments are delimited by newlines and
+are in the same order as in the PAM header. The # at the
+beginning of a PAM header line that indicates the line is a
+comment is not part of the comment.</p>
+
+<p>On output, NULL means no comments.</p>
+
+<p>On input, libnetpbm mallocs storage for the comments and
+placed the pointer at *comment_p. Caller must free it. NULL
+means libnetpbm does not return comments and does not
+allocate any storage.</p>
+
+<p>Examples:</p>
+
+<p>&lt;code&gt; const char * comments; ... pam.comment_p =
+&amp;comments; pnm_readpaminit(fileP, &amp;pam,
+PAM_STRUCT_SIZE(comment_p)); printf(The comments are:0);
+printf(%s, comments) free(comments); &lt;/code&gt;</p>
+
+<p>&lt;code&gt; const char * comments; ... comments =
+strdup(This is a comment 10his is comment 20); pam.comment_p
+= &amp;comments; pnm_writepaminit(&amp;pam); free(comments);
+&lt;/code&gt;</p>
+
+<p>This works only for PAM images. If you read a PNM image,
+you always get back a null string. If you write a PNM image,
+you always get an image that contains no comments.</p>
+
+<p>This member does not exist before Netpbm 10.35 (August
+2006). Before that, there is no way with libnetpbm to get or
+set com- ments. The macro PAM_HAVE_COMMENT_P is defined in
+pam.h where the member exists.</p>
+
+<p>PLAIN VERSUS RAW FORMAT The PNM formats each come in two
+varieties: the older plain (text) for- mat and the newer raw
+(binary) format. There are different format codes for the
+plain and raw formats, but which of the two formats the pnm
+and pam functions write is independent of the format code
+you pass to them.</p>
+
+<p>The pam functions always write raw formats. If you
+specify the format code for a plain format, a pam function
+assumes instead the raw version of that format.</p>
+
+<p>The pnm functions choose between plain and raw based on
+the forceplain parameter that every write-type pnm function
+has. If this boolean value is true, the function writes the
+plain version of the format specified by the format code. If
+it is false, the function writes the raw version of the
+format specified by the format code.</p>
+
+<p>We are trying to stamp out the older plain formats, so
+it would be a wise choice not to write a program that sets
+forceplain true under any circumstance. A user who needs a
+plain format can use the pnmto- plainpnm program to convert
+the output of your program to plain format.</p>
+
+<p>Reference The LibnetpbmNetpbmImage Processing Manual (1)
+describes the the lib- netpbm functions for processing image
+data.</p>
+
+<p>The LibnetpbmUtilityManual(1) describes the functions
+that are not specifically related to the Netpbm image
+formats.</p>
+
+<p>netpbm documentation Libnetpbm Image Processing
+Manual(3)</p>
+<hr>
+</body>
+</html>

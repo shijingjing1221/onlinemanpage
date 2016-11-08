@@ -1,0 +1,295 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:18:07 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>gnome-mount(1) gnome-mount(1)</p>
+
+<p>NAME gnome-mount - Mount drives and volumes using HAL
+and read settings from the GNOME desktop configuration
+system gconf.</p>
+
+<p>SYNOPSIS gnome-mount [-?|--help] [-v] [-n] [-t] [-b] [-d
+/dev/file | -h /org/fd/Hal/udi | -p nickname] [--unmount |
+--eject | --write-settings | --erase-settings |
+--show-settings] [--mount-point where-to-mount]
+[--mount-options opt1,opt2=foo,opt3] [--extra-mount-options
+opt4,opt5=bar] [--fstype fstype-to-use]</p>
+
+<p>DESCRIPTION This program is used to mount and unmount
+file systems for GNOME desk- top users. It can also be used
+to eject discs from CD drives and other devices that needs
+to be ejected. For example, iPods needs this to make the
+&quot;Do not disconnect&quot; message go away.</p>
+
+<p>Normally, this program is invoked by software in the
+GNOME stack (specifically gnome-vfs-daemon and
+gnome-volume-manager ). End users should never have to deal
+with gnome-mount directly on the command line, nor should
+they have to read this manual page.</p>
+
+<p>Mounting a file system into the root file system
+involves a certain degree of configuration and as such is
+subject to whatever preferences an user might have.
+gnome-mount allows the user to control the mount point
+location, the mount options and what file system to use for
+mounting a file system. The settings are read from the gconf
+database (which is per-user) and can also be overridden on
+the command line using the appropriate parameters. See
+below.</p>
+
+<p>SPECIFYING THE TARGET The target (e.g. the partition or
+file system to mount, unmount or eject) can be specified
+using the HAL UDI (Unique Device Identifier), e.g.
+/org/freedesktop/Hal/devices/volume_uuid_E18B_10EC , the
+name of the special device file, e.g. /dev/sda1 or a
+pseudonym. The latter is a textual string used to locate the
+target and it makes gnome-mount search for the target by
+comparing the given textual string to the mount points and
+file system labels.</p>
+
+<p>DETERMINING SETTINGS Settings (e.g. mount point, mount
+options, file system type) are read in the order below. Note
+that each option is treated individually; for example it is
+valid for a drive to only specify the mount point setting
+and not the mount options. Also note that the even if the
+drive speci- fies mount options, these can be overridden on
+a per-volume basis.</p>
+
+<p>FILE SYSTEM DEFAULTS First, default mount options are
+read from /system/stor- age/defaults/FS_TYPE/ for the probed
+file system type of the volume. The option uid=, is treated
+specially by gnome-mount and will be replaced by
+uid=UID_OF_USER to cope with the fact that the uid is a
+function of the user calling it.</p>
+
+<p>PER DRIVE Second, the gconf tree at
+/system/storage/drives/UDI_OF_DRIVE/ is consulted for
+options that depend on what drive the volume belongs to. For
+example, this is useful for configuring that volumes
+inserted into a given drive is always mounted at the same
+location. For example, this can be used to emulate
+/etc/fstab behaviour by where CD media is always mounted at
+e.g. /media/cdrom</p>
+
+<p>PER VOLUME Third, the gconf tree at
+/system/storage/drives/UDI_OF_VOLUME/ is consulted for
+options that are specific to a particular piece of media and
+as such depends on either the file system label (e.g.
+EOS_DIGITAL ) or the file system UUID (e.g. E18B_10EC ) or
+both.</p>
+
+<p>COMMANDLINE OPTIONS Users can pass --mount-point ,
+--mount-options or --fstype on the commandline to override
+settings.</p>
+
+<p>EXTRA COMMANDLINE OPTIONS Finally, if mount options are
+passed via --extra-mount-options these are not replacing the
+mount options, they are simply added. This is useful for
+doing e.g.</p>
+
+<p>gnome-mount --extra-mount-options remount,exec -d
+/dev/sda1</p>
+
+<p>to remount a volumes such that programs can be run from
+the media. This is useful for e.g. gnome-volume-manager if
+it dis- covers an autorun file on the media.</p>
+
+<p>PASSWORDED MEDIA gnome-mount supports passworded media
+through the org.freedesk- top.Hal.Device.Volume.Crypto
+interface supported by HAL and this includes volumes
+formatted in a way that adheres to the LUKS (Linux Unified
+Key Setup) specification. In addition, gnome-mount uses
+gnome- keyring to retrieve and store the pass phrase. If no
+key can be retrieved, gnome-mount will prompt the user for
+one. In addition, if the keyring is locked, the user may be
+prompted to unlock it via stan- dard gnome-keyring
+mechanisms.</p>
+
+<p>PRIVILEGES gnome-mount is intended for unprivileged
+users and HAL ultimately con- trols if the calling user is
+allowed to mount, unmount or eject volumes as well as what
+mount options are valid. As such, requests may be denied.
+See the (human readable) exception returned from HAL for
+details if a request fails.</p>
+
+<p>Note that HAL has a notion of what mount options are
+valid for a given volume. They are listed in the HAL
+property volume.mount.valid_options on the device object
+representing the volume to mount. Consult lshal(1) for
+details. Also note that HAL by default appends the options
+nosuid and nodev to prevent privilege escalation.</p>
+
+<p>In addition to using HAL as the mechanism for mounting
+file systems, the /etc/fstab file is also consulted as HAL
+will refuse to mount any file system listed in this file as
+it would violate system policy. If this is the case,
+gnome-mount will invoke mount(1) as the calling user rather
+than invoking the Mount method on the org.freedesk-
+top.Hal.Device.Volume interface on the device object
+representing the volume / drive. This means that settings
+(mount point, mount options, file system type) read by
+gnome-mount are not passed along as these are already
+specified in the /etc/fstab file and there are no mechanism
+to override them. When parsing the /etc/fstab file,
+gnome-mount (and also HAL for that matter) resolves symbolic
+links and also respects the LABEL= and UUID= notations. For
+example, if this line is in /etc/fstab</p>
+
+<p>LABEL=MyVolume /mnt/myvolume auto user,defaults 0 0</p>
+
+<p>then gnome-mount mounts the file system with the label
+MyVolume via mount(1) and /etc/fstab rather than using the
+HAL mechanisms.</p>
+
+<p>OPTIONS Options available for the gnome-mount
+command:</p>
+
+<p>-v, --verbose Verbose operation, shows debug
+messages.</p>
+
+<p>-n, --no-ui Don t show any dialogs the user needs to
+dismiss. If X11 is available, gnome-mount may pop up
+transient notification bubbles e.g. suggesting the user to
+remount a volume with different options to streamline access
+to file systems with ownership attributes. This is the
+option that storage policy daemons such as
+gnome-volume-manager should invoke gnome-mount in. File man-
+agers, however, such as Nautilus , should never use this
+option as the user should get e.g. an error dialog if he
+tries to access a volume with a missing, unsupported or
+unknown file sys- tem.</p>
+
+<p>-b, --block Allow gnome-mount to block even if an error
+occured. By default, gnome-mount will daemonize so it can
+return control to the invoking application as soon as
+possible (e.g. when an operation either fails or succeeds )
+while still showing an error dialog to the end user. Useful
+when debugging.</p>
+
+<p>-u, --unmount Use this for unmounting rather than
+mounting. If gnome-mount is invoked as gnome-umount (a
+symlink to gnome-mount ) then this option is automatically
+selected.</p>
+
+<p>-e, --eject Use this for ejecting rather than mounting.
+If gnome-mount is invoked as gnome-eject (a symlink to
+gnome-mount ) then this option is automatically
+selected.</p>
+
+<p>-d, --device Specify target volume by the special device
+file.</p>
+
+<p>-h, --hal-udi Specify target volume by HAL UDI (Unique
+Device Identifier).</p>
+
+<p>-p, --pseudonym Specify target volume by pseudonym. See
+above for how this works.</p>
+
+<p>-t, --text Never use X11 dialogs or notification bubbles
+even if an X11 server is available. Also prohibits the use
+of gnome-keyring to retrieve pass phrases for passworded
+media because this might require unlocking the keyring which
+happens through an X11 dia- log out of process. Useful for
+command line operation.</p>
+
+<p>-m, --mount-point Specify mount point to use; dont
+include /media as this is automatically appened by the
+mechanism used to mount, e.g. the HAL methods.</p>
+
+<p>-o, --mount-options Specify mount options. Separate by
+comma.</p>
+
+<p>-f, --fstype Specify file system type. This is useful
+for using e.g. the msdos file system instead of the vfat
+file system.</p>
+
+<p>--write-settings Instead of mounting a drive, specify
+what options to store in the gconf database. Can be used on
+both drives and volumes. Be careful using this with the
+--device option as optical drives (among others) use the
+same special device file for both the drive and the volume.
+One trick is to ensure the optical drive has no media when
+configuring it via this option. Another pos- sibility is to
+use the HAL UDI instead.</p>
+
+<p>--display-settings Display settings for a drive or
+volume.</p>
+
+<p>--erase-settings Erase settings for a drive or
+volume.</p>
+
+<p>RETURN CODES gnome-mount will return zero if the request
+succeeded or non-zero if it failed. Note that gnome-mount is
+specifically designed to run in a graphical user environment
+and as such all error reporting (and resolu- tion) is
+through X11 dialogs. For example, if HAL reports that a
+volume could not be mounted because of a missing file system
+driver, gnome- mount might, one day, launch a tool to ask
+the user if he wants to download and install the driver. In
+a similar way, all error dialogs are presented via X11
+dialogs to the user as well.</p>
+
+<p>EXAMPLE We want to make sure that the discs inserted
+into an optical drive are always mounted at
+/media/cdrecorder instead of using the default which is
+using the label specified in the iso9660 or udf file system
+header. Assuming that the drive is empty and the special
+device file for the drive is /dev/hdc the following command
+will work</p>
+
+<p>gnome-mount --write-settings --device /dev/hdc
+--mount-point cdrecorder</p>
+
+<p>This can be inspected via the --display-settings option
+and the set- tings can also be erased via the
+--erase-settings option. Also note that gconf-editor(1) can
+be used for tasks like these.</p>
+
+<p>HARDWARE THAT CANNOT BE POLLED HAL polls most storage
+devices for media insertion / removal and main- tains the
+list of devices exported. However, some hardware cannot be
+polled for media changes without making noise or for other
+reasons. PC floppy drives, Zip drives connected through an
+IDE interface and broken optical drives falls into this
+category.</p>
+
+<p>For such hardware HAL only exports the drive and rather
+than exporting volume as childs of the drive, the
+org.freedesktop.Hal.Device.Volume interface is exported on
+the drive itself. gnome-mount supports this but it means
+that it is impossible to know ahead of time what file sys-
+tem is on the media in the problematic drive, so in this
+case gnome- mount passes auto as the file system type and
+passes the mount options uid=UID_OF_USER as most media in
+such devices are formatted with either the vfat , udf or
+iso9660 file systems.</p>
+
+<p>This also means that per-volume settings are not
+possible; one can only specify settings per-drive.</p>
+
+<p>AUTHOR gnome-mount was written by David Zeuthen
+&lt;david@fubar.dk&gt;.</p>
+
+<p>SEE ALSO fstab(5), mount(8), umount(8), eject(1),
+cryptsetup(8), gconftool-2(1), gconf-editor(1), lshal(1)</p>
+
+<p>http://www.gnome.org/projects/gconf/</p>
+
+<p>http://en.wikipedia.org/wiki/GNOME_Keyring</p>
+
+<p>http://freedesktop.org/Software/hal</p>
+
+<p>http://luks.endorphin.org</p>
+
+<p>gnome-mount(1)</p>
+<hr>
+</body>
+</html>

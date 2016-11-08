@@ -1,0 +1,187 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Tue Nov  8 00:14:29 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>DC_TEST(1) distcache DC_TEST(1)</p>
+
+<p>NAME dc_test - Distributed session cache testing and
+benchmarking tool</p>
+
+<p>SYNOPSIS dc_test -connect &lt;addr&gt; [options]</p>
+
+<p>DESCRIPTION dc_test runs a configurable number of
+session caching operations against a given network address
+using the distcache(8) protocol. This is typically to verify
+an installation, to help diagnose problems, and to measure
+latency and/or throughput. The given address could be for an
+instance of dc_client or directly to a running instance of
+dc_server. Note that whenever the service is running over
+TCP/IPv4, use of the -persistent flag is advised because
+many systems will fairly quickly exhaust the limit of
+available file-descriptors and stop allowing new sockets
+until the closed connections finish with the TIME_WAIT
+state.</p>
+
+<p>dc_test runs one cache operation at a time, so it
+provides an accurate measurement of latency in the distcache
+architecture being tested. How- ever if one wants to test
+the potential throughput of the architecture when multiple
+cache operations occur in parallel (and distcache tools are
+asynchronous to scale well in such circumstances), it makes
+sense to launch multiple instances of dc_test in
+parallel.</p>
+
+<p>dc_test attempts to verify correctness of any
+optimisation caching tricks in distcache tools by creating
+an array of sessions in advance and then sending sending
+ADD, GET, and REMOVE requests on these sessions chosen
+completely at random. As such, many of these requests should
+fail, and dc_test will itself immediately halt with an error
+if any operation that should succeed fails or any operation
+that should fail succeeds.</p>
+
+<p>OPTIONS -connect address This flag specifies the address
+dc_test should connect and send cache operation requests
+to.</p>
+
+<p>-progress num Normally dc_test will remain silent while
+testing is in progress and will only produce output when
+complete (whether it is because an error was detected or
+because the required number of operations have completd).
+With this flag, a line of output is produced each time
+another num operations have been completed. This can be
+useful for giving an intuitive idea of the latency in the
+architecture and to verify that neither dc_test nor the
+tools it connects to have deadlocked.</p>
+
+<p>The default value for this flag is 0, which leaves
+dc_test silent until it has completed.</p>
+
+<p>-sessions num This flag controls the number of sample
+sessions created by dc_test before testing begins. The
+default value is 10.</p>
+
+<p>-datamin num -datamax num The sessions created by
+dc_test during initialisation have random session IDs
+between 10 and 63 bytes in length, and random session data
+of varying length also. The minimum length of the session
+data is set by the -datamin switch, and the maximum length
+is set by the -datamax switch. The default value for
+-datamin is 50, and the default for -datamax is 2100.</p>
+
+<p>-timeout secs -timevar secs The sessions created by
+dc_test during initialisation have random timeouts
+associated with them, so as to better probe for potential
+expiry-ordering bugs in a cache server. Each session
+addition to a cache server must specify an expiry period
+after which the cache will be automatically removed if it
+hasnt already been removed explicitly or implicitly because
+of the FIFO behaviour of a full cache. The -timeout switch
+specifies the average timeout for creat- ing sessions with,
+and the -timevar switch specifies the range above or below
+the average that session timeouts should be (ran- domly)
+chosen from.</p>
+
+<p>The default value for -timeout is 60 seconds, and the
+default value for -timevar is 5 seconds.</p>
+
+<p>If dc_server is not running as a daemon, then it can
+also be useful to watch its behaviour after testing has
+finished (or in the mid- dle of subsequent testing) because
+it should automatically scroll out test sessions as their
+expiry period runs out. See also the BUGS section.</p>
+
+<p>-ops num dc_test does not (yet) support running
+indefinitely (see the BUGS section for the primary reason),
+so it will run until any error has been observed or until it
+has successfully performed a configurable number of
+operations. The -ops switch can be used to set this num- ber
+of operations.</p>
+
+<p>If -ops is not supplied on the command-line, it s
+default value will be calculated from the number of sessions
+created (which is itself controlled by -sessions). This
+default is 10*(sessions^2). As the default number of
+sessions is 10, the default number of operations is thus
+1000.</p>
+
+<p>-persistent The default behaviour of dc_test is to open
+and close a connection to the target address (controlled by
+-connect) for every operation. This is the logical choice
+when connecting to an instance of dc_client as it is the
+mode of operation employed by most applica- tions that
+integrate with distcache. However, it can be desirable to
+measure the behaviour of the architecture when all
+operations are taking place over a single established
+persistent connec- tion. This is more certainly the case
+when connecting directly to an instance of dc_server over
+TCP/IPv4, as dc_server forks a child process for each
+connection and TCP/IPv4 does not react well to thousands of
+connections being opened and closed in a short space of
+time.</p>
+
+<p>Using the -persistent switch, a single connection will
+be opened to the target address when dc_test initialises,
+and all cache opera- tions will use this connection.</p>
+
+<p>-h, -help, -? Any of these flags will cause dc_test to
+display a brief usage sum- mary to the console and exit
+cleanly. Any other flags are ignored.</p>
+
+<p>BUGS dc_test will monitor each of the sessions it
+creates during intialisa- tion to determine whether it
+thinks it should already be present in the destination
+session cache or not. Using this state, it determines
+whether it expects a corresponding ADD, GET, or DELETE
+operation on the session to succeed or fail. GET and DELETE
+should fail if the session is not supposed to be in the
+cache (if it has never been added or was last seen in a
+DELETE operation). Likewise, ADD should fail if the session
+is supposed to be in the cache. None of this logic, however,
+pays any attention to the expiry period in each of these
+sessions and so if a long enough test is run (high value of
+ops or a slow architec- ture) and/or short session timeouts
+are used, it becomes possible for this state to become
+incorrect when the cache itself expires sessions that
+dc_test thinks should still be in the cache. This bug should
+be hard to trigger even with long tests or short timeouts,
+because a ses- sion needs to be added to the cache and then
+not DELETEd during a long enough period that the server gets
+a chance to expire it.</p>
+
+<p>SEE ALSO dc_client(1) Distributed caching client
+proxy.</p>
+
+<p>dc_server(1) Distributed cache server.</p>
+
+<p>dc_snoop(1) Distcache protocol analyser and debugging
+tool.</p>
+
+<p>distcache(8) Overview of the distcache architecture.</p>
+
+<p>http://www.distcache.org/ Distcache home page.</p>
+
+<p>AUTHOR This toolkit was designed and implemented by
+Geoff Thorpe for Crypto- graphic Appliances Incorporated.
+Since the project was released into open source, it has a
+home page and a project environment where devel- opment,
+mailing lists, and releases are organised. For problems with
+the software or this man page please check for new releases
+at the project web-site below, mail the users mailing list
+described there, or contact the author at
+geoff@geoffthorpe.net.</p>
+
+<p>Home Page: http://www.distcache.org</p>
+
+<p>1.4.5 2004.03.23 DC_TEST(1)</p>
+<hr>
+</body>
+</html>
