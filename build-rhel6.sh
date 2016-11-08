@@ -6,12 +6,15 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # global configs
 
+declare SUBPATH=$1
 declare -i IS_DEBUG=1
 declare PATH_THIS=$(realpath ${BASH_SOURCE[0]})
 declare DIR_THIS=$(dirname $PATH_THIS)
 declare BASE_THIS=$(basename $PATH_THIS)
-declare DIR_MAN=man
-declare PATH_INDEX=index.html
+declare DIR_MAN=$SUBPATH/man
+declare PATH_INDEX=$SUBPATH/index.html
+
+mkdir -p $SUBPATH
 
 declare INDEX_BEGIN='
 <html>
