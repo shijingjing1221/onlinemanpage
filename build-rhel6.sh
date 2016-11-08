@@ -67,7 +67,7 @@ function convertAll
         declare sDescription=$(echo $sLine | cut -d')' -f2|cut -d'-' -f2)
         declare sPathHtml=$DIR_MAN/${sSection}_${sName}.html
         declare rPatHtml=$RDIR_MAN/${sSection}_${sName}.html
-        if [ -f sPathHtml ]; then
+        if [ -f $sPathHtml ]; then
             echoError ERROR "Skip '${sSection}' '${sName}' due to duplicated"
             continue
         fi
