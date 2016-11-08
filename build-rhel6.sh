@@ -20,9 +20,9 @@ mkdir -p $DIR_MAN
 
 declare INDEX_BEGIN='
 <html>
-<head><title>Man Pages online</title></head>
+<head><title>Man Pages Online</title></head>
 <body bgcolor="white">
-<h1><a href="https://github.com/shijingjing1221/man-to-github-pages" target="_blank">Man Pages online</a></h1>
+<h1><a href="https://github.com/shijingjing1221/man-to-github-pages" target="_blank">Man Pages Online</a></h1>
 Use CTRL+F for searching.<br /> 
 <hr><table border="1">
 <tr><td>Section</td><td>Name</td><td>Description</td></tr>
