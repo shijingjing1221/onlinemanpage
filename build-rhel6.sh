@@ -57,7 +57,17 @@ function convertAll
         declare sSection=$(echo $sLine | cut -d')' -f1|cut -d'(' -f2)
         declare sDescription=$(echo $sLine | cut -d')' -f2|cut -d'-' -f2)
         declare sPathHtml=$DIR_MAN/${sSection}_${sName}.html
+        if [ -f sPathHtml ]; then
+            echoDebug DEBUG "Skip '${sSection}' '${sName}' due to duplicated"
+            continue
+        fi
+        man -P cat ${sSection} ${sName} > /dev/null
+        if [ $? -ne 0 ]; then
+            echoDebug DEBUG "Skip '${sSection}' '${sName}' due to non-exist"
+            continue
+        fi
         echoDebug DEBUG "generating '$sLine' to '$sPathHtml' ...."
+
         man -P cat ${sSection} ${sName}|groff -mandoc -Thtml > $sPathHtml
         echo "<tr><td>$sSection</td><td><a href='$sPathHtml' target='_blank'>$sName</a></td><td>$sDescription</td></tr>" >> $PATH_INDEX
     done
