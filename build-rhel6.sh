@@ -12,9 +12,11 @@ declare PATH_THIS=$(realpath ${BASH_SOURCE[0]})
 declare DIR_THIS=$(dirname $PATH_THIS)
 declare BASE_THIS=$(basename $PATH_THIS)
 declare DIR_MAN=$SUBPATH/man
+declare RDIR_MAN=man
 declare PATH_INDEX=$SUBPATH/index.html
 
 mkdir -p $SUBPATH
+mkdir -p $DIR_MAN
 
 declare INDEX_BEGIN='
 <html>
@@ -64,6 +66,7 @@ function convertAll
         declare sSection=$(echo $sLine | cut -d')' -f1|cut -d'(' -f2)
         declare sDescription=$(echo $sLine | cut -d')' -f2|cut -d'-' -f2)
         declare sPathHtml=$DIR_MAN/${sSection}_${sName}.html
+        declare rPatHtml=$RDIR_MAN/${sSection}_${sName}.html
         if [ -f sPathHtml ]; then
             echoError ERROR "Skip '${sSection}' '${sName}' due to duplicated"
             continue
@@ -76,7 +79,7 @@ function convertAll
         echoDebug DEBUG "generating '$sLine' to '$sPathHtml' ...."
 
         man -P cat ${sSection} ${sName}|groff -mandoc -Thtml > $sPathHtml
-        echo "<tr><td>$sSection</td><td><a href='$sPathHtml' target='_blank'>$sName</a></td><td>$sDescription</td></tr>" >> $PATH_INDEX
+        echo "<tr><td>$sSection</td><td><a href='$rPatHtml' target='_blank'>$sName</a></td><td>$sDescription</td></tr>" >> $PATH_INDEX
     done
     echo $INDEX_END >> $PATH_INDEX
     return $?
