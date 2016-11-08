@@ -45,6 +45,14 @@ function echoDebug
     fi
 }
 
+function echoError
+{
+    if [ 1 -eq ${IS_DEBUG} ]; then
+        echo -e "\e[31m[$$ $0 $(date +'%F %T') $1]\e[m $2" >&2
+    fi
+}
+
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # process functions
 
@@ -58,12 +66,12 @@ function convertAll
         declare sDescription=$(echo $sLine | cut -d')' -f2|cut -d'-' -f2)
         declare sPathHtml=$DIR_MAN/${sSection}_${sName}.html
         if [ -f sPathHtml ]; then
-            echoDebug DEBUG "Skip '${sSection}' '${sName}' due to duplicated"
+            echoError ERROR "Skip '${sSection}' '${sName}' due to duplicated"
             continue
         fi
         man -P cat ${sSection} ${sName} > /dev/null
         if [ $? -ne 0 ]; then
-            echoDebug DEBUG "Skip '${sSection}' '${sName}' due to non-exist"
+            echoError ERROR "Skip '${sSection}' '${sName}' due to non-exist"
             continue
         fi
         echoDebug DEBUG "generating '$sLine' to '$sPathHtml' ...."
