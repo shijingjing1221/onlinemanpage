@@ -1,5 +1,5 @@
-# man-to-github-pages
-Convert man pages to HTML on github pages
+# Online Man Page
+Find the different rhel linux man pages online
 
 [Live Demo](http://man.linuxtool.net)
 
