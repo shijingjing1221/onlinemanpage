@@ -19,7 +19,7 @@ declare INDEX_BEGIN='
 <html>
 <head><title>Man Pages Online</title></head>
 <body bgcolor="white">
-<h1><a href="https://github.com/shijingjing1221/man-to-github-pages" target="_blank">Man Pages Online</a></h1>
+<h1>Man Pages Online</h1>
 Use CTRL+F for searching.<br /> 
 <hr><table border="1">
 <tr><td>Section</td><td>Name</td><td>Description</td></tr>
