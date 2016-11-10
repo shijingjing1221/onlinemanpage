@@ -1,0 +1,635 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Thu Nov 10 03:58:49 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>MKFS.BTRFS</title>
+
+</head>
+<body>
+
+<h1 align="center">MKFS.BTRFS</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SIZE UNITS">SIZE UNITS</a><br>
+<a href="#MULTIPLE DEVICES">MULTIPLE DEVICES</a><br>
+<a href="#FILESYSTEM FEATURES">FILESYSTEM FEATURES</a><br>
+<a href="#BLOCK GROUPS, CHUNKS, RAID">BLOCK GROUPS, CHUNKS, RAID</a><br>
+<a href="#PROFILES">PROFILES</a><br>
+<a href="#DUP PROFILES ON A SINGLE DEVICE">DUP PROFILES ON A SINGLE DEVICE</a><br>
+<a href="#KNOWN ISSUES">KNOWN ISSUES</a><br>
+<a href="#AVAILABILITY">AVAILABILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">mkfs.btrfs
+&minus; create a btrfs filesystem</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>mkfs.btrfs</b>
+[&minus;A|&minus;&minus;alloc&minus;start
+&lt;alloc&minus;start&gt;]
+[&minus;b|&minus;&minus;byte&minus;count
+&lt;byte&minus;count&gt;] [&minus;d|&minus;&minus;data
+&lt;data&minus;profile&gt;] [&minus;m|&minus;&minus;metadata
+&lt;metadata profile&gt;] [&minus;M|&minus;&minus;mixed]
+[&minus;l|&minus;&minus;leafsize &lt;leafsize&gt;]
+[&minus;n|&minus;&minus;nodesize &lt;nodesize&gt;]
+[&minus;s|&minus;&minus;sectorsize &lt;sectorsize&gt;]
+[&minus;L|&minus;&minus;label &lt;label&gt;]
+[&minus;K|&minus;&minus;nodiscard]
+[&minus;r|&minus;&minus;rootdir &lt;rootdir&gt;]
+[&minus;O|&minus;&minus;features
+&lt;feature1&gt;[,&lt;feature2&gt;...]]
+[&minus;U|&minus;&minus;uuid &lt;UUID&gt;]
+[&minus;f|&minus;&minus;force]
+[&minus;q|&minus;&minus;quiet] [&minus;&minus;help]
+[&minus;V|&minus;&minus;version] &lt;device&gt;
+[&lt;device&gt;...]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>mkfs.btrfs</b>
+is used to create the btrfs filesystem on a single or
+multiple devices. <i>&lt;device&gt;</i> is typically a block
+device but can be a file&minus;backed image as well.
+Multiple devices are grouped by UUID of the filesystem.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Before mounting
+such filesystem, the kernel module must know all the devices
+either via preceding execution of <b>btrfs device scan</b>
+or using the <b>device</b> mount option. See section
+<b>MULTIPLE DEVICES</b> for more details.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;A|&minus;&minus;alloc&minus;start</b>
+<i>&lt;offset&gt;</i></p>
+
+<p style="margin-left:17%;">(An option to help debugging
+chunk allocator.) Specify the (physical) offset from the
+start of the device at which allocations start. The default
+value is zero.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;b|&minus;&minus;byte&minus;count</b>
+<i>&lt;size&gt;</i></p>
+
+<p style="margin-left:17%;">Specify the size of the
+filesystem. If this option is not used, mkfs.btrfs uses the
+entire device space for the filesystem.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;d|&minus;&minus;data</b>
+<i>&lt;profile&gt;</i></p>
+
+<p style="margin-left:17%;">Specify the profile for the
+data block groups. Valid values are <i>raid0</i>,
+<i>raid1</i>, <i>raid5</i>, <i>raid6</i>, <i>raid10</i> or
+<i>single</i> or dup (case does not matter).</p>
+
+<p style="margin-left:17%; margin-top: 1em">See <i>DUP
+PROFILES ON A SINGLE DEVICE</i> for more.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;m|&minus;&minus;metadata</b>
+<i>&lt;profile&gt;</i></p>
+
+<p style="margin-left:17%;">Specify the profile for the
+metadata block groups. Valid values are <i>raid0</i>,
+<i>raid1</i>, <i>raid5</i>, <i>raid6</i>, <i>raid10</i>,
+<i>single</i> or <i>dup</i>, (case does not matter).</p>
+
+<p style="margin-left:17%; margin-top: 1em">A single device
+filesystem will default to <i>DUP</i>, unless a SSD is
+detected. Then it will default to <i>single</i>. The
+detection is based on the value of
+<b>/sys/block/DEV/queue/rotational</b>, where <i>DEV</i> is
+the short name of the device.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that the
+rotational status can be arbitrarily set by the underlying
+block device driver and may not reflect the true status
+(network block device, memory&minus;backed SCSI devices
+etc). Use the options
+<i>&minus;&minus;data/&minus;&minus;metadata</i> to avoid
+confusion.</p>
+
+<p style="margin-left:17%; margin-top: 1em">See <i>DUP
+PROFILES ON A SINGLE DEVICE</i> for more details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;M|&minus;&minus;mixed</b></p>
+
+<p style="margin-left:17%;">Normally the data and metadata
+block groups are isolated. The <i>mixed</i> mode will remove
+the isolation and store both types in the same block group
+type. This helps to utilize the free space regardless of the
+purpose and is suitable for small devices. The separate
+allocation of block groups leads to a situation where the
+space is reserved for the other block group type, is not
+available for allocation and can lead to ENOSPC state.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The recommended
+size for the mixed mode is for filesystems less than 1GiB.
+The soft recommendation is to use it for filesystems smaller
+than 5GiB. The mixed mode may lead to degraded performance
+on larger filesystems, but is otherwise usable, even on
+multiple devices.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+<i>nodesize</i> and <i>sectorsize</i> must be equal, and the
+block group types must match.</p>
+
+
+<p style="margin-left:23%; margin-top: 1em"><b><big>Note</big></b>
+<br>
+versions up to 4.2.x forced the mixed mode for devices
+smaller than 1GiB. This has been removed in 4.3+ as it
+caused some usability issues.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><big>&minus;l|&minus;&minus;leafsize</big></b>
+<big><i>&lt;size&gt;</i></big></p>
+
+<p style="margin-left:17%;"><big>Alias for
+&minus;&minus;nodesize. Deprecated.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b>&minus;n|&minus;&minus;nodesize</b>
+<i>&lt;size&gt;</i></big></p>
+
+<p style="margin-left:17%;"><big>Specify the nodesize, the
+tree block size in which btrfs stores metadata. The default
+value is 16KiB (16384) or the page size, whichever is
+bigger. Must be a multiple of the sectorsize, but not larger
+than 64KiB (65536). Leafsize always equals nodesize and the
+options are aliases.</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>Smaller
+node size increases fragmentation but lead to higher
+b&minus;trees which in turn leads to lower locking
+contention. Higher node sizes give better packing and less
+fragmentation at the cost of more expensive memory
+operations while updating the metadata blocks.</big></p>
+
+
+<p style="margin-left:23%; margin-top: 1em"><big><b><big>Note</big></b>
+<br>
+versions up to 3.11 set the nodesize to 4k.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b><big>&minus;s|&minus;&minus;sectorsize</big></b>
+<big><i>&lt;size&gt;</i></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Specify the
+sectorsize, the minimum data block allocation
+unit.</big></big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big><big>The
+default value is the page size and is autodetected. If the
+sectorsize differs from the page size, the created
+filesystem may not be mountable by the kernel. Therefore it
+is not recommended to use this option unless you are going
+to mount it on a system with the appropriate page
+size.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;L|&minus;&minus;label</b>
+<i>&lt;string&gt;</i></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Specify a label for
+the filesystem. The <i>string</i> should be less than 256
+bytes and must not contain newline
+characters.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;K|&minus;&minus;nodiscard</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Do not perform whole
+device TRIM operation on devices that are capable of
+that.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;r|&minus;&minus;rootdir</b>
+<i>&lt;rootdir&gt;</i></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Populate the toplevel
+subvolume with files from <i>rootdir</i>. This does not
+require root permissions and does not mount the
+filesystem.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;O|&minus;&minus;features</b>
+<i>&lt;feature1&gt;</i><b>[,</b><i>&lt;feature2&gt;</i><b>...]</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>A list of filesystem
+features turned on at mkfs time. Not all features are
+supported by old kernels. To disable a feature, prefix it
+with <i>^</i>.</big></big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big><big>See
+section <b>FILESYSTEM FEATURES</b> for more details. To see
+all available features that mkfs.btrfs supports
+run:</big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><b>mkfs.btrfs
+&minus;O list&minus;all</b></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;f|&minus;&minus;force</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Forcibly overwrite
+the block devices when an existing filesystem is detected.
+By default, mkfs.btrfs will utilize <i>libblkid</i> to check
+for any known filesystem on the devices. Alternatively you
+can use the <b>wipefs</b> utility to clear the
+devices.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;q|&minus;&minus;quiet</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Print only error or
+warning messages. Options &minus;&minus;features or
+&minus;&minus;help are unaffected.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;U|&minus;&minus;uuid</b>
+<i>&lt;UUID&gt;</i></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Create the filesystem
+with the given <i>UUID</i>. The UUID must not exist on any
+filesystem currently present.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;V|&minus;&minus;version</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Print the
+<b>mkfs.btrfs</b> version and exit.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b>&minus;&minus;help</b></big></big></p>
+
+<p style="margin-left:17%;"><big><big>Print
+help.</big></big></p>
+
+<h2>SIZE UNITS
+<a name="SIZE UNITS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big>The
+default unit is <i>byte</i>. All size parameters accept
+suffixes in the 1024 base. The recognized suffixes are:
+<i>k</i>, <i>m</i>, <i>g</i>, <i>t</i>, <i>p</i>, <i>e</i>,
+both uppercase and lowercase.</big></big></p>
+
+<h2>MULTIPLE DEVICES
+<a name="MULTIPLE DEVICES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big>Before
+mounting a multiple device filesystem, the kernel module
+must know the association of the block devices that are
+attached to the filesystem UUID.</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big>There
+is typically no action needed from the user. On a system
+that utilizes a udev&minus;like daemon, any new block device
+is automatically registered. The rules call <b>btrfs device
+scan</b>.</big></big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big><big>The
+same command can be used to trigger the device scanning if
+the btrfs kernel module is reloaded (naturally all previous
+information about the device registration is
+lost).</big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big>Another
+possibility is to use the mount options <b>device</b> to
+specify the list of devices to scan at the time of
+mount.</big></big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big><big>#
+mount &minus;o device=/dev/sdb,device=/dev/sdc /dev/sda
+/mnt</big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><b><big>Note</big></b>
+<br>
+that this means only scanning, if the devices do not exist
+in the system, mount will fail anyway. This can happen on
+systems without initramfs/initrd and root partition created
+with RAID1/10/5/6 profiles. The mount action can happen
+before all block devices are discovered. The waiting is
+usually done on the initramfs/initrd
+systems.</big></big></p>
+
+<h2>FILESYSTEM FEATURES
+<a name="FILESYSTEM FEATURES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><b><big>mixed&minus;bg</big></b></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>mixed data and
+metadata block groups, also set by option
+<i>&minus;&minus;mixed</i></big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>extref</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>(default since
+btrfs&minus;progs 3.12, kernel support since
+3.7)</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>increased
+hardlink limit per file in a directory to 65536, older
+kernels supported a varying number of hardlinks depending on
+the sum of all file name sizes that can be stored into one
+metadata block</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>raid56</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>extended format
+for RAID5/6, also enabled if raid5 or raid6 block groups are
+selected</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>skinny&minus;metadata</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>(default since
+btrfs&minus;progs 3.18, kernel support since
+3.10)</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>reduced&minus;size
+metadata for extent references, saves a few percent of
+metadata</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>no&minus;holes</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>improved
+representation of file extents where holes are not
+explicitly stored as an extent, saves a few percent of
+metadata if sparse files are used</big></big></big></p>
+
+<h2>BLOCK GROUPS, CHUNKS, RAID
+<a name="BLOCK GROUPS, CHUNKS, RAID"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+highlevel organizational units of a filesystem are block
+groups of three types: data, metadata and
+system.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>DATA</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>store data
+blocks and nothing else</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>METADATA</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>store internal
+metadata in b&minus;trees, can store file data if they fit
+into the inline limit</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>SYSTEM</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>store structures
+that describe the mapping between the physical devices and
+the linear logical space representing the
+filesystem</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>Other
+terms commonly used:</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>block
+group</b>, <b>chunk</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>a logical range
+of space of a given profile, stores data, metadata or both;
+sometimes the terms are used
+interchangably</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>A
+typical size of metadata block group is 256MiB (filesystem
+smaller than 50GiB) and 1GiB (larger than 50GiB), for data
+it&rsquo;s 1GiB. The system block group size is a few
+megabytes.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>RAID</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>a block group
+profile type that utilizes RAID&minus;like features on
+multiple devices: striping, mirroring,
+parity</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>profile</b></big></big></big></p>
+
+<p style="margin-left:17%;"><big><big><big>when used in
+connection with block groups refers to the allocation
+strategy and constraints, see the section <i>PROFILES</i>
+for more details</big></big></big></p>
+
+<h2>PROFILES
+<a name="PROFILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>There
+are the following block group types
+available:</big></big></big></p>
+
+
+<p align="center" style="margin-top: 1em"><big><big><big><img src="grohtml-263321.png" alt="Image grohtml-263321.png"></big></big></big></p>
+
+<p style="margin-left:11%;"><big><big><big><i>Note:</i> DUP
+may exist on more than 1 device if it starts on a single
+device and another one is added, but <b>mkfs.btrfs</b> will
+not let you create DUP on multiple
+devices.</big></big></big></p>
+
+<h2>DUP PROFILES ON A SINGLE DEVICE
+<a name="DUP PROFILES ON A SINGLE DEVICE"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+mkfs utility will let the user create a filesystem with
+profiles that write the logical blocks to 2 physical
+locations. Whether there are really 2 physical copies highly
+depends on the underlying device type.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>For
+example, a SSD drive can remap the blocks internally to a
+single copy thus deduplicating them. This negates the
+purpose of increased redunancy and just wastes
+space.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+duplicated data/metadata may still be useful to
+statistically improve the chances on a device that might
+perform some internal optimizations. The actual details are
+not usually disclosed by vendors. As another example, the
+widely used USB flash or SD cards use a translation layer.
+The data lifetime may be affected by frequent plugging. The
+memory cells could get damaged, hopefully not destroying
+both copies of particular data.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+traditional rotational hard drives usually fail at the
+sector level.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>In
+any case, a device that starts to misbehave and repairs from
+the DUP copy should be replaced! <b>DUP is not
+backup</b>.</big></big></big></p>
+
+<h2>KNOWN ISSUES
+<a name="KNOWN ISSUES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>SMALL
+FILESYSTEMS AND LARGE NODESIZE</b></big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+combination of small filesystem size and large nodesize is
+not recommended in general and can lead to various
+ENOSPC&minus;related issues during mount time or
+runtime.</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>Since
+mixed block group creation is optional, we allow small
+filesystem instances with differing values for
+<i>sectorsize</i> and <i>nodesize</i> to be created and
+could end up in the following
+situation:</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>#
+mkfs.btrfs &minus;f &minus;n 65536 /dev/loop0 <br>
+btrfs&minus;progs v3.19&minus;rc2&minus;405&minus;g976307c
+<br>
+See http://btrfs.wiki.kernel.org for more
+information.</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>Performing
+full device TRIM (512.00MiB) ... <br>
+Label: (null) <br>
+UUID:
+49fab72e&minus;0c8b&minus;466b&minus;a3ca&minus;d1bfe56475f0
+<br>
+Node size: 65536 <br>
+Sector size: 4096 <br>
+Filesystem size: 512.00MiB <br>
+Block group profiles: <br>
+Data: single 8.00MiB <br>
+Metadata: DUP 40.00MiB <br>
+System: DUP 12.00MiB <br>
+SSD detected: no <br>
+Incompat features: extref, skinny&minus;metadata <br>
+Number of devices: 1 <br>
+Devices: <br>
+ID SIZE PATH <br>
+1 512.00MiB /dev/loop0</big></big></big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><big><big>#
+mount /dev/loop0 /mnt/ <br>
+mount: mount /dev/loop0 on /mnt failed: No space left on
+device</big></big></big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big>The
+ENOSPC occurs during the creation of the UUID tree. This is
+caused by large metadata blocks and space reservation
+strategy that allocates more than can fit into the
+filesystem.</big></big></big></p>
+
+<h2>AVAILABILITY
+<a name="AVAILABILITY"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><b>mkfs.btrfs</b>
+is part of btrfs&minus;progs. Please refer to the btrfs wiki
+<b><font color="#0000FF">http://btrfs.wiki.kernel.org</font></b>
+<font color="#000000">for further
+details.</font></big></big></big></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><big><big><font color="#000000"><b>btrfs</b>(8),
+<b>wipefs</b>(8)</font></big></big></big></p>
+<hr>
+</body>
+</html>
