@@ -4,7 +4,7 @@ Convert man pages to HTML on github pages
 [Live Demo](http://man.linuxtool.net)
 
 ### Snapshot
-![snapshot](http://man.linuxtool.net/img/snapshot.png)
+![snapshot](http://man.linuxtool.net/img/snapshot1.png)
 
 ### Usage
 ```sh
