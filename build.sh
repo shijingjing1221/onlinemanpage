@@ -56,9 +56,10 @@ function convertAll
         declare sSection=$(echo $sLine | cut -d')' -f1|cut -d'(' -f2)
         declare sDescription=$(echo $sLine | cut -d')' -f2|cut -d'-' -f2)
         declare sPathHtml=$DIR_MAN/${sSection}_${sName}.html
+        declare rPathHtml=$RDIR_MAN/${sSection}_${sName}.html
         echoDebug DEBUG "generating '$sLine' to '$sPathHtml' ...."
         man -Thtml ${sSection} ${sName} > $sPathHtml
-        echo "<tr><td>$sSection</td><td><a href='$sPathHtml' target='_blank'>$sName</a></td><td>$sDescription</td></tr>" >> $PATH_INDEX
+        echo "<tr><td>$sSection</td><td><a href='$rPathHtml' target='_blank'>$sName</a></td><td>$sDescription</td></tr>" >> $PATH_INDEX
     done
     echo $INDEX_END >> $PATH_INDEX
     return $?

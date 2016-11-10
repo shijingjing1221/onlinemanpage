@@ -1,0 +1,477 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Thu Nov 10 17:00:40 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>AUTOFS(5) AUTOFS(5)</p>
+
+<p>NAME autofs - Format of the automounter maps</p>
+
+<p>DESCRIPTION The automounter maps are FILE, NIS, NISPLUS
+or LDAP maps referred to by the master map of the
+automounter (see auto.master(5)). These maps describe how
+file systems below the mount point of the map (given in the
+master map) are to be mounted. This page describes the sun
+map format; if another map format, other than amd , is
+specified (e.g. hes- iod), this documentation does not
+apply.</p>
+
+<p>Indirect maps, except for the internal hosts map, can be
+changed on the fly and the automouter will recognize those
+changes on the next opera- tion it performs on that map.
+Direct maps require a HUP signal be sent to the daemon to
+refresh their contents as does the master map.</p>
+
+<p>SUN FORMAT This is a description of the text file
+format. Other methods of speci- fying these files may exist.
+All empty lines or lines beginning with # are ignored. The
+basic format of one line in such maps is:</p>
+
+<p>key [-options] location</p>
+
+<p>key For indirect mounts this is the part of the path
+name between the mount point and the path into the
+filesystem when it is mounted. Usually you can think about
+the key as a sub-directory name below the autofs managed
+mount point.</p>
+
+<p>For direct mounts this is the full path of each mount
+point. This map is always associated with the /- mount point
+in the master map.</p>
+
+<p>options Zero or more options may be given. Options can
+also be given in the auto.master file in which case both
+values are cumulative (this is a difference from SunOS). The
+options are a list of comma separated options as customary
+for the mount(8) command.</p>
+
+<p>There are several special options</p>
+
+<p>-fstype= is used to specify a filesystem type if the
+filesystem is not of the default NFS type. This option is
+processed by the automounter and not by the mount
+command.</p>
+
+<p>-strict is used to treat errors when mounting file
+systems as fatal. This is important when multiple file
+systems should be mounted ( multi-mounts ). If this option
+is given, no file system is mounted at all if at least one
+file system cant be mounted.</p>
+
+<p>-use-weight-only is used to make the weight the sole
+factor in selecting a server when multiple servers are
+present in a map entry. and</p>
+
+<p>-no-use-weight-only can be used to negate the option if
+it is present in the master map entry for the map but is not
+wanted for the given mount.</p>
+
+<p>location The location specifies from where the file
+system is to be mounted. In the most cases this will be an
+NFS volume and the usual notation host:pathname is used to
+indicate the remote filesystem and path to be mounted. If
+the filesystem to be mounted begins with a / (such as local
+/dev entries or smbfs shares) a : needs to be prefixed (e.g.
+:/dev/sda1).</p>
+
+<p>EXAMPLE Indirect map:</p>
+
+<p>kernel -ro,soft,intr ftp.kernel.org:/pub/linux boot
+-fstype=ext2 :/dev/hda1 windoze -fstype=smbfs ://windoze/c
+removable -fstype=ext2 :/dev/hdd cd -fstype=iso9660,ro
+:/dev/hdc floppy -fstype=auto :/dev/fd0 server -rw,hard,intr
+/ -ro myserver.me.org:/ /usr myserver.me.org:/usr /home
+myserver.me.org:/home</p>
+
+<p>In the first line we have a NFS remote mount of the
+kernel directory on ftp.kernel.org. This is mounted
+read-only. The second line mounts an ext2 volume from a
+local ide drive. The third makes a share exported from a
+Windows machine available for automounting. The rest should
+be fairly self-explanatory. The last entry (the last three
+lines) is an example of a multi-map (see below).</p>
+
+<p>If you use the automounter for a filesystem without
+access permissions (like vfat), users usually cant write on
+such a filesystem because it is mounted as user root. You
+can solve this problem by passing the option
+gid=&lt;gid&gt;, e.g. gid=floppy. The filesystem is then
+mounted as group floppy instead of root. Then you can add
+the users to this group, and they can write to the
+filesystem. Here s an example entry for an autofs map:</p>
+
+<p>floppy-vfat -fstype=vfat,sync,gid=floppy,umask=002
+:/dev/fd0</p>
+
+<p>Direct map:</p>
+
+<p>/nfs/apps/mozilla bogus:/usr/local/moxill
+/nfs/data/budgets tiger:/usr/local/budgets /tst/sbin
+bogus:/usr/sbin</p>
+
+<p>FEATURES Map Key Substitution An &amp; character in the
+location is expanded to the value of the key field that
+matched the line (which probably only makes sense together
+with a wildcard key).</p>
+
+<p>Wildcard Key A map key of * denotes a wild-card entry.
+This entry is consulted if the specified key does not exist
+in the map. A typical wild-card entry looks like this:</p>
+
+<p>* server:/export/home/&amp;</p>
+
+<p>The special character &amp; will be replaced by the
+provided key. So, in the example above, a lookup for the key
+foo would yield a mount of server:/export/home/foo.</p>
+
+<p>Variable Substitution The following special variables
+will be substituted in the location field of an automounter
+map entry if prefixed with $ as customary from shell scripts
+(curly braces can be used to separate the field name):</p>
+
+<p>ARCH Architecture (uname -m) CPU Processor Type HOST
+Hostname (uname -n) OSNAME Operating System (uname -s) OSREL
+Release of OS (uname -r) OSVERS Version of OS (uname -v)</p>
+
+<p>autofs provides additional variables that are set based
+on the user requesting the mount:</p>
+
+<p>USER The user login name UID The user login ID GROUP The
+user group name GID The user group ID HOME The user home
+directory SHOST Short hostname (domain part removed if
+present)</p>
+
+<p>If a program map is used these standard environment
+variables will have a prefix of &quot;AUTOFS_&quot; to
+prevent interpreted languages like python from being able to
+load and execute arbitray code from a user home direc-
+tory.</p>
+
+<p>Additional entries can be defined with the
+-Dvariable=Value map-option to automount(8).</p>
+
+<p>Executable Maps A map can be marked as executable. A
+program map will be called with the key as an argument. It
+may return no lines of output if theres an error, or one or
+more lines containing a map entry (with quoting line
+breaks). The map entry corresponds to what would normally
+follow a map key.</p>
+
+<p>An executable map can return an error code to indicate
+the failure in addition to no output at all. All output sent
+to stderr is logged into the system logs.</p>
+
+<p>Multiple Mounts A multi-mount map can be used to name
+multiple filesystems to mount. It takes the form:</p>
+
+<p>key [-options] [mount-point [-options]
+location...]...</p>
+
+<p>This may extend over multiple lines, quoting the
+line-breaks with &lsquo;&acute;. If present, the
+per-mountpoint mount-options are appended to the default
+mount-options.</p>
+
+<p>Replicated Server Multiple replicated hosts, same path:
+&lt;path&gt; host1,host2,hostn:/path/path</p>
+
+<p>Multiple hosts, some with same path, some with another
+&lt;path&gt; host1,host2:/blah host3:/some/other/path</p>
+
+<p>Multiple replicated hosts, different (potentially)
+paths: &lt;path&gt; host1:/path/pathA host2:/path/pathB</p>
+
+<p>Mutliple weighted, replicated hosts same path:
+&lt;path&gt; host1(5),host2(6),host3(1):/path/path</p>
+
+<p>Multiple weighted, replicated hosts different
+(potentially) paths: &lt;path&gt; host1(3):/path/pathA
+host2(5):/path/pathB</p>
+
+<p>Anything else is questionable and unsupported, but these
+variations will also work: &lt;path&gt;
+host1(3),host:/blah</p>
+
+<p>UNSUPPORTED This version of the automounter supports
+direct maps stored in FILE, NIS, NISPLUS and LDAP only.</p>
+
+<p>AMD FORMAT This is a description of the text file
+format. Other methods of speci- fying mount map entries may
+be required for different map sources. All empty lines or
+lines beginning with # are ignored. The basic format of one
+line in such maps is:</p>
+
+<p>key location-list</p>
+
+<p>key A key is a path (or a single path component alone)
+that may end in the wildcard key, &quot;*&quot;, or the
+wildcard key alone and must not begin with the &quot;/&quot;
+character.</p>
+
+<p>location-list Following the key is a mount
+location-list.</p>
+
+<p>A location-list list has the following syntax:</p>
+
+<p>location[ location[ ... ]] [|| location[ location[ ...
+]]</p>
+
+<p>A mount location-list can use the cut operator, ||, to
+specify loca- tions that should be tried if none of the
+locations to the left of it where selected for a mount
+attempt.</p>
+
+<p>A mount location consists of an optional colon seperated
+list of selec- tors, followed by a colon seperated list of
+option:=value pairs.</p>
+
+<p>The selectors that may be used return a value or boolean
+result. Those that return a value may be to used with the
+comparison operators == and != and those that return a
+boolean result may be negated with the !.</p>
+
+<p>For a location to be selected for a mount attempt all of
+its selectors must evaluate to true. If a location is
+selected for a mount attempt and succeeds the lookup is
+completed and returns success. If the mount attempt fails
+the proceedure continues with the next location until they
+have all been tried.</p>
+
+<p>In addition some selectors take no argumenets, some one
+argument and others optionally take two arguments.</p>
+
+<p>The selectors that take no arguments are:</p>
+
+<p>arch The machine architecture which, if not set in the
+confu- gration, is obtained using uname(2).</p>
+
+<p>karch The machine kernel architecture which, if not set
+in the confugration, is obtained using uname(2).</p>
+
+<p>os The operating system name, if not set in the
+confugra- tion, is obtained using uname(2).</p>
+
+<p>osver The operating system version, if not set in the
+confugra- tion, is obtained using uname(2).</p>
+
+<p>full_os The full operating system name, if not set in
+the confu- gration this selector has no value.</p>
+
+<p>vendor The operating system vendor name, if not set in
+the confugration this selector has the value
+&quot;unknown&quot;.</p>
+
+<p>byte The endianess of the hardware.</p>
+
+<p>cluster The name of the local cluster. It has a value
+only if it is set in the configuration.</p>
+
+<p>autodir The base path under which external mounts are
+done if they are needed. Most mounts are done in place but
+some can t be and this is the base path under which those
+mounts will be done.</p>
+
+<p>domain The local domain name. It is set to the value of
+the con- figuration option sub_domain. If sub_domain is not
+given in the configuration it is set to the domain part of
+the local host name, as given by gethostname(2).</p>
+
+<p>host The local host name, without the domain part, as
+given by gethostname(2).</p>
+
+<p>hostd The full host name. If sub_domain is given in the
+config- uration this is set to the contatenation of host and
+sub_domain deperated by a .. If sub_domain is not set in the
+configuration the value of domain is used instead of
+sub_domain.</p>
+
+<p>uid The numeric value of the uid of the user that first
+requested the mount. Note this is usual the same as that
+used by amd but can be different within autofs.</p>
+
+<p>gid The numeric value of the gid of the user that first
+requested the mount. Note this is usual the same as that
+used by amd but can be different within autofs.</p>
+
+<p>key The string value of the key being looked up.</p>
+
+<p>map The string value of the map name used to lookup
+keys.</p>
+
+<p>path The string value of the full path to the mount
+being requested.</p>
+
+<p>dollar Evaluates to the string &quot;$&quot;.</p>
+
+<p>The selectors that take one argument are:</p>
+
+<p>in_network(network) , network(network) ,
+netnumber(network) , wire(network) These selectors are all
+the same. in_network() is the preferred usage. The network
+argument is an address (which may include a subnet mask) or
+network name. The function compares network against each
+interface and returns true if network belongs to the network
+the inter- face is connected to.</p>
+
+<p>xhost(hostname) The xhost() selector compares hostname
+to the ${host} and if it doesnt match it attempts to lookup
+the cannonical name of hostname and compares it to {host} as
+well.</p>
+
+<p>exists(filename) Returns true if filename exits as
+determined by lstat(2).</p>
+
+<p>true() Evaluates to true, the argument is ignored and
+may be empty.</p>
+
+<p>false() Evaluates to false, the argument is ignored and
+may be empty.</p>
+
+<p>The selectors that take up to two arguments are:</p>
+
+<p>netgrp(netgroup[,hostname]) The netgrp() selector
+returns true if hostname is a mem- ber of the netgroup
+netgroup. If hostname is not given ${host} is used for the
+comparison.</p>
+
+<p>netgrpd(netgroup[,hostname]) The netgrpd()i selector
+behaves the same as netgrp() except that if hostname is not
+given ${hostd}, the fully qualified hostname, is used
+instead of ${host}.</p>
+
+<p>The options that may be used are:</p>
+
+<p>type This is the mount filesystem type. It can have a
+value of auto, link, linkx, host, lofs, ext2-4, xfs, nfs,
+nfsl or cdfs. Other types that are not yet implemented or
+are not available iin autofs are nfsx, lustre, jfs, program,
+cachefs and direct.</p>
+
+<p>maptype The maptype option specifies the type of the map
+source and can have a value of file, nis, nisplus, exec,
+ldap or hesiod. Map sources either not yet implemented or
+not available in autofs are sss, ndbm, passwd and union.</p>
+
+<p>fs The option fs is used to specify the local
+filesystem. The meaning of this option (and whether or not
+it is used) is dependent on the mount filesystem type.</p>
+
+<p>rhost The remote host name for network mount
+requests.</p>
+
+<p>rfs The remote host filesystem path for network mount
+requests.</p>
+
+<p>dev Must resolve to the device file for local device
+mount requests.</p>
+
+<p>sublink The sublink option is used to specify a
+subdirectory within the mount location to which this entry
+will point.</p>
+
+<p>pref The pref option is used to specify a prefix that is
+prepended to the lookup key before looking up the map entry
+key.</p>
+
+<p>opts The opts option is used to specify mount options to
+be used for the mount. If a &quot;-&quot; is given it is
+ignored. Options that may be used are dependend on the mount
+filesystem.</p>
+
+<p>addopts The addopts option is used to specify additional
+mount options used in addition to the default mount options
+for the mount location.</p>
+
+<p>remopts The addopts option is used to specify mount
+options used instead the options given in opts when the
+mount location is on a remote retwork.</p>
+
+<p>A number of options aren t available or aren t yet
+implemented within autofs, these are:</p>
+
+<p>cache The cache option isnt used by autofs. The map
+entry cache is continually updated and stale entries cleaned
+on re-load when map changes are detected so these configura-
+tion entries are not used. The regex map key matching is not
+implemented and may not be due to the potential over- head
+of the full map scans needed on every key lookup.</p>
+
+<p>cachedir The cachefs filesystem is not available on
+Linux, a dif- ferent implementation is used for caching
+network mounted file systems.</p>
+
+<p>mount , unmount , umount These options are used by the
+amd program mount type which is not yet implemented.</p>
+
+<p>delay This option is not used by the autofs
+implementation and is ignored.</p>
+
+<p>FEATURES Key Matching The amd parser key matching is
+unusual.</p>
+
+<p>The key string to be looked up is constructed by
+prepending the prefix, if there is one.</p>
+
+<p>The resulting relative path string is matched by first
+trying the sting itself. If no match is found the last
+component of the key string is replaced with the wilcard
+match cahracter (&quot;*&quot;) and a wildcard match is
+attemted. This process continues until a match is found or
+until the last match, against the wilcard match key alone,
+fails to match a map entry and the key lookup fails.</p>
+
+<p>Macro Usage Macros are used a lot in the autofs amd
+implementation.</p>
+
+<p>Many of the option values are set as macro variables
+corresponding to the option name during the map entry parse.
+So they may be used in sub- sequent option values. Beware
+though, the order in which option values is not necessarily
+left to right so you may get unexpected results.</p>
+
+<p>EXAMPLE Example NFS mount map:</p>
+
+<p>Assuming we have the autofs master map entry:</p>
+
+<p>/test file,amd:/etc/amd.test</p>
+
+<p>And the following map in /etc/amd.test:</p>
+
+<p>/defaults type:=nfs;rhost:=bilbo apps rfs:=/autofs util
+rhost:=zeus;rfs:=/work/util local
+rfs:=/shared;sublink:=local</p>
+
+<p>In the first line we have an NFS remote mount of the
+exported directory /autofs from host bilbo which would be
+mounted on /test/apps. Next another nfs mount for the
+exported directory /work/util from host zeus. This would be
+mounted on /test/util.</p>
+
+<p>Finally we have an example of the use of the sublink
+option. In this case the filesystem bilbo:/shared would be
+mounted on a path external the automount directory (under
+the direcory given by configuration option auto_dir) and the
+path /test/local either symlinked or bind mounted (depending
+on the setting autofs_use_lofs) to the &quot;local&quot;
+sub- directory of the external mount.</p>
+
+<p>SEE ALSO automount(8), auto.master(5), autofs(8),
+autofs.conf(5), mount(8). autofs_ldap_auth.conf(5)</p>
+
+<p>AUTHOR This manual page was written by Christoph Lameter
+&lt;chris@waterf.org&gt;, for the Debian GNU/Linux system.
+Edited by H. Peter Avian &lt;hpa@trans- meta.com&gt;, Jeremy
+Fitzhardinge &lt;jeremy@goop.org&gt; and Ian Kent
+&lt;raven@themaw.net&gt;.</p>
+
+<p>9 Feb 2014 AUTOFS(5)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Thu Nov 10 17:21:51 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>WDAEMON(1) [FIXME: manual] WDAEMON(1)</p>
+
+<p>NAME wdaemon - Wacom tablet hotplugging emulator</p>
+
+<p>SYNOPSIS wdaemon [options]</p>
+
+<p>DESCRIPTION wdaemon is an application to abstract Wacom
+tablet hotplugging. wdaemon creates virtual input devices
+using the uinput kernel module and makes them available
+while at run time keeps looking for specified devices to be
+plugged in.</p>
+
+<p>Instead of looking for the actual device, the X server
+is configured to look for the emulated device. wdaemon will
+provide the an identical device description, allowing the
+server to initialize properly. Once the physical device is
+plugged in, wdaemon will forward all events through the
+emulated device and thus to the X server.</p>
+
+<p>For easier recognition, the device name is prefixed with
+the string &quot;wdaemon&quot;. This can be disabled at
+configure time.</p>
+
+<p>OPTIONS -h Print a help message</p>
+
+<p>-p Path to the device file to monitor, load to or
+extract</p>
+
+<p>-t Device type, use -w to get a list</p>
+
+<p>-c file Use &lt;file&gt; as configuration file.</p>
+
+<p>-d N Enable debug messages up to level N</p>
+
+<p>-o file Redirect debug messages to file</p>
+
+<p>-f Fork on start and enter in daemon mode</p>
+
+<p>-w Get a list of supported devices and their numbers</p>
+
+<p>-a Autoconfigure, generate a configuration file based on
+currently plugged in tablets</p>
+
+<p>-l file Load a device description from file</p>
+
+<p>-x file Extract a device description into file</p>
+
+<p>-s Use syslog for debug messages (conflicts with -o)</p>
+
+<p>-v Print version number</p>
+
+<p>CONFIGURATION wdaemon requires configuration in the
+udev(7) system setup, the xorg.conf(5) configuration files
+and finally wdaemon itself.</p>
+
+<p>UDEV CONFIGURATION wdaemon requires a tablet to have a
+predictable unique device file. This is usually accomplished
+through udev rules. For example, on modern systems, a tablet
+may appear as</p>
+
+<p>/dev/input/by-id/usb-Tablet_PTZ-630-event-mouse</p>
+
+<p>which will point to the event device of a Intuos3 6x8.
+The wdaemon package provides udev rules to create symlinks
+to known tablet models in the form of</p>
+
+<p>/dev/input/wacomX,
+/dev/input/wacom-tablets/wacom-&lt;model&gt;-tabletX and
+/dev/input/wacom-tablets/wacom-&lt;model&gt;-tablet-&lt;phys
+path&gt;</p>
+
+<p>The last link provides unique type per USB port. Once a
+tablet reliably appears at a given device path, wdaemon may
+be configured to use it.</p>
+
+<p>The second step consists in creating a persistent name
+for uinput devices created by wdaemon, so you can configure
+your xorg.conf right. An example udev rule to do this:</p>
+
+<p>KERNEL=&quot;event*&quot;,
+PROGRAM=&quot;/lib/udev/wdaemon_is_uinput.sh&quot;,
+RESULT=&quot;056a-0000&quot;,
+SYMLINK=&quot;input/uinput-devices/uinput-wacom-penpartner-tablet%e&quot;</p>
+
+<p>This will create a symbolic link for penpartner tablets.
+Notice it needs wdaemon_is_uinput.sh script (included in
+this package). Also included in this package,
+11-uinput-wacom.rules has these rules done for most tablets.
+With the rule in place, a wdaemon-created device will have
+predictable device files. This makes xorg.conf configuration
+simpler.</p>
+
+<p>XORG.CONF CONFIGURATION The X server should be
+configured to use the devices by wdaemon instead of the
+actual physical devices. An xorg.conf(5) section may look
+like this:</p>
+
+<p>Section &quot;InputDevice&quot; Identifier
+&quot;cursor&quot; Driver &quot;wacom&quot; Option
+&quot;Type&quot; &quot;cursor&quot; Option
+&quot;Device&quot;
+&quot;/dev/input/uinput-devices/uinput-wacom-intuos3-6x8-tablet&quot;
+Option &quot;Mode&quot; &quot;relative&quot; Option
+&quot;Tilt&quot; &quot;on&quot; Option &quot;Threshold&quot;
+&quot;20&quot; Option &quot;Suppress&quot; &quot;6&quot;
+Option &quot;USB&quot; &quot;On&quot; EndSection</p>
+
+<p>Note that if the X server is configured to hotplug
+devices, it must ignore physical devices in use by wdaemon.
+Example xorg.conf.d(5) and fdi files are provided with this
+package.</p>
+
+<p>WDAEMON CONFIGURATION Now wdaemon must be configured to
+monitor the physical tablet and create matching uinput
+device. A /etc/wdaemon.conf for two devices may look like
+this:</p>
+
+<p>device = 36,/dev/input/wacom-tablets/intuos3-6x8-tablet
+device = 6,/dev/input/wacom-tablets/graphire4-4x5-tablet</p>
+
+<p>Notice the spaces. The wdaemon parser is very
+rudimentary at this point and can get easily confused. The
+device types 36 and 6 can be determined by running</p>
+
+<p>wdaemon -w</p>
+
+<p>When wdaemon is started, it will create devices of the
+types specified in the wdaemon.conf configuration file and
+monitor the device path. Whenever the physical tablet
+appears, wdaemon will forward events from the device to the
+uinput device.</p>
+
+<p>If the device type is unknown to wdaemon, see SAVING AND
+LOADING DEVICES below.</p>
+
+<p>AUTO-CONFIGURATION The -a option was added in 0.14 to
+generate a wdaemon.conf based on the currently plugged-in
+tablets. First, plug in all tablets that should be emulated
+by wdaemon in the future. Then run</p>
+
+<p>wdaemon -a</p>
+
+<p>This command prints a configuration file that can then
+be used for wdaemon.</p>
+
+<p>Auto-configuration only works with device types known to
+wdaemon.</p>
+
+<p>SAVING AND LOADING DEVICES wdaemon has the device
+descriptions for a number of devices built-in. For devices
+that are unknown to wdaemon the device description must be
+gathered from the physical device and loaded on startup.</p>
+
+<p>A device description may be extracted with the -x
+option:</p>
+
+<p>wdaemon -p
+/dev/input/by-id/usb-Tablet_PTZ-630-event-mouse -x
+Intuos3_6x8.desc</p>
+
+<p>The resulting device file is a description of the device
+currently available as /dev/input/event12. The description
+may be loaded again with the -l option:</p>
+
+<p>wdaemon -p
+/dev/input/by-id/usb-Tablet_PTZ-630-event-mouse -l
+Intuos3_6x8.desc</p>
+
+<p>wdaemon will initialize a device based on the
+description file and forward events from the specified
+device path.</p>
+
+<p>CONFIGURATION FILE FORMAT The configuration format
+supports the following keywords:</p>
+
+<p>debug = &lt;debuglevel&gt;</p>
+
+<p>Where debuglevel is an integer equal or larger than
+0.</p>
+
+<p>device = &lt;type&gt;,&lt;path&gt;</p>
+
+<p>Where type is an integer representing the device type
+and path the path to the device to monitor.</p>
+
+<p>description = &lt;desc&gt;,&lt;path&gt;</p>
+
+<p>Where desc is the path to a device file description and
+path the path to the device to monitor.</p>
+
+<p>wdaemon s parser is simple and the spaces in the
+configuration file must be exactly as above. That is, no
+space at the beginning of the line, a space before and after
+the = sign and no spaces elsewhere.</p>
+
+<p>ENVIRONMENT VARIABLES UINPUT_DEVICE Specifies the path
+to the uinput kernel device.</p>
+
+<p>VERSION 0.17</p>
+
+<p>AUTHORS This man page was written by Peter Hutterer
+&lt;peter.hutterer@redhat.com[1]&gt; based on the README
+provided by wdaemon.</p>
+
+<p>SEE ALSO xorg.conf(5), wacom(4)</p>
+
+<p>NOTES 1. peter.hutterer@redhat.com
+mailto:peter.hutterer@redhat.com</p>
+
+<p>[FIXME: source] 08/24/2012 WDAEMON(1)</p>
+<hr>
+</body>
+</html>
