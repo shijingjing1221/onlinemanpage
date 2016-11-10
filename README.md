@@ -1,32 +1,28 @@
 # man-to-github-pages
 Convert man pages to HTML on github pages
 
-[Live Demo](https://vbem.github.io/man-to-github-pages)
+[Live Demo](http://man.linuxtool.net)
 
 ### Snapshot
-![snapshot](https://raw.githubusercontent.com/vbem/man-to-github-pages/gh-pages/img/snapshot.png)
+![snapshot](http://man.linuxtool.net/onlinemanpage/img/snapshot.png)
 
 ### Usage
 ```sh
 # checkon github pages branch
 git checkout gh-pages
 
-# remove all old man pages' HTML flies
-sh clean.sh
 
-# build all man pages on your host into HTML flies
-sh build.sh
+# build all man pages on your host ofrhel7 or higher  into HTML flies
+sh build.sh rhel7/u3
 
-# ask git to track all new HTML files
-sh track.sh
+# build all man pages on your host ofrhel6 or lower into HTML flies
+sh build-rhel6.sh rhel6/u8
 
 # commit to repo
-git commit -m 'renew my man pages today'
+git add rhel7/u3
+git commit -m 'add man page for new version system'
 
 # push to your github pages
 git push
 ```
 
-### Q&A
-- Q: Aren't http://linux.die.net/man/ and http://man7.org/linux/man-pages/index.html enough for me?
-- A: Online man pages services always bind to specific commands and their versions. This project is useful for your own machine's man pages.
