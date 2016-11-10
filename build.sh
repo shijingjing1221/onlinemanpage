@@ -14,6 +14,7 @@ declare DIR_MAN=$SUBPATH/man
 declare PATH_INDEX=$SUBPATH/index.html
 
 mkdir -p $SUBPATH
+mkdir -p $DIR_MAN
 
 declare INDEX_BEGIN='
 <html>
