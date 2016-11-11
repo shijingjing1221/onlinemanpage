@@ -1,0 +1,525 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:57:55 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::SpamAssassin::BayesStore::Redis</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::SpamAssassin::BayesStore::Redis</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::SpamAssassin::BayesStore::Redis
+&minus; Redis Bayesian Storage Module Implementation</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+implementes a Redis based bayesian storage module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Apache
+SpamAssassin v3.4.0 introduces support for keeping a Bayes
+database on a Redis server, either running locally, or
+accessed over network. Similar to <small>SQL</small>
+backends, the database may be concurrently used by several
+hosts running SpamAssassin.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The current
+implementation only supports a global Bayes database, i.e.
+per-recipient sub-databases are not supported. The Redis
+2.6.* server supports access over IPv4 or over a Unix
+socket, starting with Redis version 2.8.0 also IPv6 is
+supported. Bear in mind that Redis server only offers
+limited access controls, so it is advisable to let the Redis
+server bind to a loopback interface only, or to use other
+mechanisms to limit access, such as local firewall
+rules.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Redis
+backend for Bayes can put a Lua scripting support in a Redis
+server to good use, improving performance. The Lua support
+is available in Redis server since version 2.6. In absence
+of a Lua support, the Redis backend uses batched (pipelined)
+traditional Redis commands, so it should work with a Redis
+server version 2.4 (untested), although this is not
+recommended for busy sites.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Expiration of
+token and &rsquo;seen&rsquo; message id entries is left to
+the Redis server. There is no provision for manually
+expiring a database, so it is highly recommended to leave
+the setting bayes_auto_expire to its default value 1 (i.e.
+enabled).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Example
+configuration:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  bayes_store_module  Mail::SpamAssassin::BayesStore::Redis
+  bayes_sql_dsn       server=127.0.0.1:6379;password=foo;database=2
+  bayes_token_ttl 21d
+  bayes_seen_ttl   8d
+  bayes_auto_expire 1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A redis server
+with a Lua support (2.6 or higher) is recommended for
+performance reasons.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+bayes_sql_dsn config variable has been hijacked for our
+purposes:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  bayes_sql_dsn
+    Optional config parameters affecting a connection to a redis server.
+    This is a semicolon&minus;separated list of option=value pairs, where an option
+    can be: server, password, database. Unrecognized options are silently
+    ignored.
+    The 'server' option specifies a socket on which a redis server is
+    listening. It can be an absolute path of a Unix socket, or a host:port
+    pair, where a host can be an IPv4 or IPv6 address or a host name.
+    An IPv6 address must be enclosed in brackets, e.g. [::1]:6379
+    (IPv6 support in a redis server is available since version 2.8.0).
+    A default is to connect to an INET socket at 127.0.0.1, port 6379.
+    The value of a 'password' option is sent in an AUTH command to a redis
+    server on connecting if a server requests authentication. A password is
+    sent in plain text and a redis server only offers an optional rudimentary
+    authentication. To limit access to a redis server use its 'bind' option
+    to bind to a specific interface (typically to a loopback interface),
+    or use a host&minus;based firewall.
+    The value of a 'database' option can be an non&minus;negative (small) integer,
+    which is passed to a redis server with a SELECT command on connecting,
+    and chooses a sub&minus;database index. A default database index is 0.
+    Example: server=localhost:6379;password=foo;database=2
+  bayes_token_ttl
+    Controls token expiry (ttl value in SECONDS, sent as&minus;is to Redis)
+    when bayes_auto_expire is true. Default value is 3 weeks (but check
+    Mail::SpamAssassin::Conf.pm to make sure).
+  bayes_seen_ttl
+    Controls 'seen' expiry (ttl value in SECONDS, sent as&minus;is to Redis)
+    when bayes_auto_expire is true. Default value is 8 days (but check
+    Mail::SpamAssassin::Conf.pm to make sure).</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Expiry is done
+internally in Redis using *_ttl settings mentioned above,
+but only if bayes_auto_expire is true (which is a default).
+This is why &minus;&minus;force&minus;expire etc does
+nothing, and token counts and atime values are shown as zero
+in statistics.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>LIMITATIONS:</small>
+Only global bayes storage is implemented, per-user bayes is
+not currently available. Dumping (sa-learn
+&minus;&minus;backup, or &minus;&minus;dump) of a huge
+database may not be possible if all keys do not fit into
+process memory.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>new</b> <br>
+public class (Mail::SpamAssassin::BayesStore::Redis) new
+(Mail::Spamassassin::Plugin::Bayes <tt>$bayes</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This methods creates a new instance of the
+Mail::SpamAssassin::BayesStore::Redis object. It expects to
+be passed an instance of the Mail::SpamAssassin:Bayes object
+which is passed into the Mail::SpamAssassin::BayesStore
+parent object.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>prefork_init</b>
+<br>
+public instance (Boolean) prefork_init ();</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This optional method is called in the parent process shortly
+before forking off child processes.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>spamd_child_init</b>
+<br>
+public instance (Boolean) spamd_child_init ();</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This optional method is called in a child process shortly
+after being spawned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tie_db_readonly</b>
+<br>
+public instance (Boolean) tie_db_readonly ();</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method ensures that the database connection is properly
+setup and working.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tie_db_writable</b>
+<br>
+public instance (Boolean) tie_db_writable ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method ensures that the database connection is properly
+setup and working. If necessary it will initialize the
+database so that they can begin using the database
+immediately.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>_open_db</b>
+<br>
+private instance (Boolean) _open_db (Boolean
+<tt>$writable</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method ensures that the database connection is properly
+setup and working. It will initialize bayes variables so
+that they can begin using the database immediately.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>untie_db</b>
+<br>
+public instance () untie_db ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+Closes any open db handles. You can safely call this at any
+time.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>sync_due</b>
+<br>
+public instance (Boolean) sync_due ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method determines if a database sync is currently
+required.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unused for
+Redis implementation.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>expiry_due</b>
+<br>
+public instance (Boolean) expiry_due ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This methods determines if an expire is due.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unused for
+Redis implementation.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>seen_get</b>
+<br>
+public instance (String) seen_get (string
+<tt>$msgid</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method retrieves the stored value, if any, for
+<tt>$msgid</tt>. The return value is the stored string
+(&rsquo;s&rsquo; for spam and &rsquo;h&rsquo; for ham) or
+undef if <tt>$msgid</tt> is not found.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>seen_put</b>
+<br>
+public (Boolean) seen_put (string <tt>$msgid</tt>, char
+<tt>$flag</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method records <tt>$msgid</tt> as the type given by
+<tt>$flag</tt>. <tt>$flag</tt> is one of two values
+&rsquo;s&rsquo; for spam and &rsquo;h&rsquo; for ham.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>seen_delete</b>
+<br>
+public instance (Boolean) seen_delete (string
+<tt>$msgid</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method removes <tt>$msgid</tt> from the database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_storage_variables</b>
+<br>
+public instance (@) get_storage_variables ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method retrieves the various administrative variables
+used by the Bayes process and database.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The values
+returned in the array are in the following order:</p>
+
+<p style="margin-left:11%; margin-top: 1em">0: scan count
+base 1: number of spam 2: number of ham 3: number of tokens
+in db 4: last expire atime 5: oldest token in db atime 6: db
+version value 7: last journal sync 8: last atime delta 9:
+last expire reduction count 10: newest token in db atime</p>
+
+<p style="margin-left:11%; margin-top: 1em">Only 1,2,6 are
+used with Redis, others return zero always.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_running_expire_tok</b>
+<br>
+public instance (String <tt>$time</tt>)
+get_running_expire_tok ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method determines if an expire is currently running and
+returns the last time set.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>set_running_expire_tok</b>
+<br>
+public instance (String <tt>$time</tt>)
+set_running_expire_tok ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method sets the time that an expire starts running.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>remove_running_expire_tok</b>
+<br>
+public instance (Boolean) remove_running_expire_tok ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method removes the row in the database that indicates
+that and expire is currently running.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>tok_get</b>
+<br>
+public instance (Integer, Integer, Integer) tok_get (String
+<tt>$token</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method retrieves a specificed token (<tt>$token</tt>)
+from the database and returns its spam_count, ham_count and
+last access time.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tok_get_all</b>
+<br>
+public instance (\@) tok_get (@ <tt>$tokens</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method retrieves the specified tokens
+(<tt>$tokens</tt>) from storage and returns a ref to arrays
+spam count, ham count and last access time.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tok_count_change</b>
+<br>
+public instance (Boolean) tok_count_change ( <br>
+Integer <tt>$dspam</tt>, Integer <tt>$dham</tt>, String
+<tt>$token</tt>, String <tt>$newatime</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method takes a <tt>$spam_count</tt> and
+<tt>$ham_count</tt> and adds it to <tt>$tok</tt> along with
+updating <tt>$tok</tt>s atime with <tt>$atime</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>multi_tok_count_change</b>
+<br>
+public instance (Boolean) multi_tok_count_change ( <br>
+Integer <tt>$dspam</tt>, Integer <tt>$dham</tt>, \%
+<tt>$tokens</tt>, String <tt>$newatime</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method takes a <tt>$dspam</tt> and <tt>$dham</tt> and
+adds it to all of the tokens in the <tt>$tokens</tt> hash
+ref along with updating each token&rsquo;s atime with
+<tt>$atime</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>nspam_nham_get</b>
+<br>
+public instance ($spam_count, <tt>$ham_count</tt>)
+nspam_nham_get ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method retrieves the total number of spam and the total
+number of ham learned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>nspam_nham_change</b>
+<br>
+public instance (Boolean) nspam_nham_change (Integer
+<tt>$num_spam</tt>, <br>
+Integer <tt>$num_ham</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method updates the number of spam and the number of ham
+in the database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tok_touch</b>
+<br>
+public instance (Boolean) tok_touch (String <tt>$token</tt>,
+<br>
+String <tt>$atime</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method updates the given tokens (<tt>$token</tt>)
+atime.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The assumption
+is that the token already exists in the database.</p>
+
+<p style="margin-left:11%; margin-top: 1em">We will never
+update to an older atime</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tok_touch_all</b>
+<br>
+public instance (Boolean) tok_touch (\@ <tt>$tokens</tt>
+<br>
+String <tt>$atime</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method does a mass update of the given list of tokens
+<tt>$tokens</tt>, if the existing token atime is &lt;
+<tt>$atime</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cleanup</b>
+<br>
+public instance (Boolean) cleanup ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method perfoms any cleanup necessary before moving onto
+the next operation.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_magic_re</b>
+<br>
+public instance (String) get_magic_re ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method returns a regexp which indicates a magic
+token.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>sync</b>
+<br>
+public instance (Boolean) sync (\% <tt>$opts</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method performs a sync of the database</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>perform_upgrade</b>
+<br>
+public instance (Boolean) perform_upgrade (\%
+<tt>$opts</tt>);</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+Performs an upgrade of the database from one version to
+another, not currently used in this implementation.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>clear_database</b>
+<br>
+public instance (Boolean) clear_database ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method deletes all records for a particular user.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Callers should
+be aware that any errors returned by this method could
+causes the database to be inconsistent for the given
+user.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>dump_db_toks</b>
+<br>
+public instance () dump_db_toks (String <tt>$template</tt>,
+String <tt>$regex</tt>, Array <tt>@vars</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method loops over all tokens, computing the probability
+for the token and then printing it out according to the
+passed in token.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>backup_database</b>
+<br>
+public instance (Boolean) backup_database ()</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method will dump the users database in a machine
+readable format.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>restore_database</b>
+<br>
+public instance (Boolean) restore_database (String
+<tt>$filename</tt>, Boolean <tt>$showdots</tt>)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method restores a database from the given filename,
+<tt>$filename</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Callers should
+be aware that any errors returned by this method could
+causes the database to be inconsistent for the given
+user.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>db_readable</b>
+<br>
+public instance (Boolean) <i>db_readable()</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method returns a boolean value indicating if the
+database is in a readable state.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>db_writable</b>
+<br>
+public instance (Boolean) <i>db_writable()</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Description:
+This method returns a boolean value indicating if the
+database is in a writable state.</p>
+<hr>
+</body>
+</html>

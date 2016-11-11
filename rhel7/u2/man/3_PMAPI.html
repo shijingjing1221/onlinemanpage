@@ -1,0 +1,550 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:08:12 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMAPI</title>
+
+</head>
+<body>
+
+<h1 align="center">PMAPI</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PERFORMANCE METRICS &minus; NAMES AND IDENTIFIERS">PERFORMANCE METRICS &minus; NAMES AND IDENTIFIERS</a><br>
+<a href="#PMAPI CONTEXT">PMAPI CONTEXT</a><br>
+<a href="#INSTANCE DOMAINS">INSTANCE DOMAINS</a><br>
+<a href="#THE TYPE OF METRIC VALUES">THE TYPE OF METRIC VALUES</a><br>
+<a href="#THE DIMENSIONALITY AND SCALE OF METRIC VALUES">THE DIMENSIONALITY AND SCALE OF METRIC VALUES</a><br>
+<a href="#INSTANCE PROFILE">INSTANCE PROFILE</a><br>
+<a href="#COLLECTION TIME">COLLECTION TIME</a><br>
+<a href="#GENERAL ISSUES OF PMAPI PROGRAMMING STYLE">GENERAL ISSUES OF PMAPI PROGRAMMING STYLE</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#MULTI-THREADED APPLICATIONS">MULTI-THREADED APPLICATIONS</a><br>
+<a href="#PCP ENVIRONMENT">PCP ENVIRONMENT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PMAPI</b>
+&minus; introduction to the Performance Metrics Application
+Programming Interface</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt;</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">... assorted
+routines ...</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Within the
+framework of the Performance Co-Pilot (PCP), client
+applications are developed using the Performance Metrics
+Application Programming Interface (PMAPI) that defines a
+procedural interface with services suited to the development
+of applications with a particular interest in performance
+metrics.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This
+description presents an overview of the PMAPI and the
+context in which PMAPI applications are run. The PMAPI is
+more fully described in the <i>Performance Co-Pilot
+Programmer&rsquo;s Guide</i>, and the manual pages for the
+individual PMAPI routines.</p>
+
+<h2>PERFORMANCE METRICS &minus; NAMES AND IDENTIFIERS
+<a name="PERFORMANCE METRICS &minus; NAMES AND IDENTIFIERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For a
+description of the Performance Metrics Name Space (PMNS) and
+associated terms and concepts, see <b>PCPIntro</b>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Not all PMIDs
+need be represented in the PMNS of every application. For
+example, an application which monitors disk traffic will
+likely use a name space which references only the PMIDs for
+I/O statistics.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Applications
+which use the PMAPI may have independent versions of a PMNS,
+constructed from an initialization file when the application
+starts; see <b>pmLoadASCIINameSpace</b>(3),
+<b>pmLoadNameSpace</b>(3), and <b>pmns</b>(5).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Internally
+(below the PMAPI) the implementation of the Performance
+Metrics Collection System (PMCS) uses only the PMIDs, and a
+PMNS provides an external mapping from a hierarchic taxonomy
+of names to PMIDs that is convenient in the context of a
+particular system or particular use of the PMAPI. For the
+applications programmer, the routines <b>pmLookupName</b>(3)
+and <b>pmNameID</b>(3) translate between names in a PMNS and
+PMIDs, and vice versa. The PMNS may be traversed using
+<b>pmGetChildren</b>(3).</p>
+
+<h2>PMAPI CONTEXT
+<a name="PMAPI CONTEXT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An application
+using the PMAPI may manipulate several concurrent contexts,
+each associated with a source of performance metrics, e.g.
+<b>pmcd</b>(1) on some host, or an archive log of
+performance metrics as created by <b>pmlogger</b>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Contexts are
+identified by a &lsquo;&lsquo;handle&rsquo;&rsquo;, a small
+integer value that is returned when the context is created;
+see <b>pmNewContext</b>(3) and <b>pmDupContext</b>(3). Some
+PMAPI functions require an explicit
+&lsquo;&lsquo;handle&rsquo;&rsquo; to identify the correct
+context, but more commonly the PMAPI function is executed in
+the &lsquo;&lsquo;current&rsquo;&rsquo; context. The current
+context may be discovered using <b>pmWhichContext</b>(3) and
+changed using <b>pmUseContext</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a PMAPI
+context has not been explicitly established (or the previous
+current context has been closed using
+<b>pmDestroyContext</b>(3)) then the current PMAPI context
+is undefined.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition to
+the source of the performance metrics, the context also
+includes the instance profile and collection time (both
+described below) which controls how much information is
+returned, and when the information was collected.</p>
+
+<h2>INSTANCE DOMAINS
+<a name="INSTANCE DOMAINS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When
+performance metric values are returned across the PMAPI to a
+requesting application, there may be more than one value for
+a particular metric. Multiple values, or <b>instances</b>,
+for a single metric are typically the result of
+instrumentation being implemented for each instance of a set
+of similar components or services in a system, e.g.
+independent counts for each CPU, or each process, or each
+disk, or each system call type, etc. This multiplicity of
+values is not enumerated in the name space but rather, when
+performance metrics are delivered across the PMAPI by
+<b>pmFetch</b>(3), the format of the result accommodates
+values for one or more instances, with an instance-value
+pair encoding the metric value for a particular
+instance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The instances
+are identified by an internal identifier assigned by the
+agent responsible for instantiating the values for the
+associated performance metric. Each instance identifier has
+a corresponding external instance identifier name (an ASCII
+string). The routines <b>pmGetInDom</b>(3),
+<b>pmLookupInDom</b>(3) and <b>pmNameInDom</b>(3) may be
+used to enumerate all instance identifiers, and to translate
+between internal and external instance identifiers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All of the
+instance identifiers for a particular performance metric are
+collectively known as an instance domain. Multiple
+performance metrics may share the same instance domain.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If only one
+instance is ever available for a particular performance
+metric, the instance identifier in the result from
+<b>pmFetch</b>(3) assumes the special value
+<b>PM_IN_NULL</b> and may be ignored by the application, and
+only one instance-value pair appears in the result for that
+metric. Under these circumstances, the associated instance
+domain (as returned via <b>pmLookupDesc</b>(3)) is set to
+<b>PM_INDOM_NULL</b> to indicate that values for this metric
+are singular.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The difficult
+issue of transient performance metrics (e.g. per-filesystem
+information, hot-plug replaceable hardware modules, etc.)
+means that repeated requests for the same PMID may return
+different numbers of values, and/or some changes in the
+particular instance identifiers returned. This means
+applications need to be aware that metric instantiation is
+guaranteed to be valid at the time of collection only.
+Similar rules apply to the transient semantics of the
+associated metric values. In general however, it is expected
+that the bulk of the performance metrics will have
+instantiation semantics that are fixed over the execution
+life-time of any PMAPI client.</p>
+
+<h2>THE TYPE OF METRIC VALUES
+<a name="THE TYPE OF METRIC VALUES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The PMAPI
+supports a wide range of format and type encodings for the
+values of performance metrics, namely signed and unsigned
+integers, floating point numbers, 32-bit and 64-bit
+encodings of all of the above, ASCII strings (C-style, NULL
+byte terminated), and arbitrary aggregates of binary
+data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The <i>type</i>
+field in the <i>pmDesc</i> structure returned by
+<b>pmLookupDesc</b>(3) identifies the format and type of the
+values for a particular performance metric within a
+particular PMAPI context.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+encoding of values for a particular performance metric may
+be different for different PMAPI contexts, due to
+differences in the underlying implementation for different
+contexts. However it is expected that the vast majority of
+performance metrics will have consistent value encoding
+across all versions of all implementations, and hence across
+all PMAPI contexts.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The PMAPI
+supports routines to automate the handling of the various
+value formats and types, particularly for the common case
+where conversion to a canonical format is desired, see
+<b>pmExtractValue</b>(3) and <b>pmPrintValue</b>(3).</p>
+
+<h2>THE DIMENSIONALITY AND SCALE OF METRIC VALUES
+<a name="THE DIMENSIONALITY AND SCALE OF METRIC VALUES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Independent of
+how the value is encoded, the value for a performance metric
+is assumed to be drawn from a set of values that can be
+described in terms of their dimensionality and scale by a
+compact encoding as follows. The dimensionality is defined
+by a power, or index, in each of 3 orthogonal dimensions,
+namely Space, Time and Count (or Events, which are
+dimensionless). For example I/O throughput might be
+represented as Space/Time, while the running total of system
+calls is Count, memory allocation is Space and average
+service time is Time/Count. In each dimension there are a
+number of common scale values that may be used to better
+encode ranges that might otherwise exhaust the precision of
+a 32-bit value. This information is encoded in the
+<i>pmUnits</i> structure which is embedded in the
+<i>pmDesc</i> structure returned from
+<b>pmLookupDesc</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The routine
+<b>pmConvScale</b>(3) is provided to convert values in
+conjunction with the <i>pmUnits</i> structures that defines
+the dimensionality and scale of the values for a particular
+performance metric as returned from <b>pmFetch</b>(3), and
+the desired dimensionality and scale of the value the PMAPI
+client wishes to manipulate.</p>
+
+<h2>INSTANCE PROFILE
+<a name="INSTANCE PROFILE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The set of
+instances for performance metrics returned from a
+<b>pmFetch</b>(3) call may be filtered or restricted using
+an instance profile. There is one instance profile for each
+PMAPI context the application creates, and each instance
+profile may include instances from one or more instance
+domains.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The routines
+<b>pmAddProfile</b>(3) and <b>pmDelProfile</b>(3) may be
+used to dynamically adjust the instance profile.</p>
+
+<h2>COLLECTION TIME
+<a name="COLLECTION TIME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For each set of
+values for performance metrics returned via
+<b>pmFetch</b>(3) there is an associated
+&lsquo;&lsquo;timestamp&rsquo;&rsquo; that serves to
+identify when the performance metric values were collected;
+for metrics being delivered from a real-time source (i.e.
+<b>pmcd</b>(1) on some host) this would typically be not
+long before they were exported across the PMAPI, and for
+metrics being delivered from an archive log, this would be
+the time when the metrics were written into the archive
+log.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is an
+issue here of exactly when individual metrics may have been
+collected, especially given their origin in potentially
+different Performance Metric Domains, and variability in the
+metric updating frequency at the lowest level of the
+Performance Metric Domain. The PMCS opts for the pragmatic
+approach, in which the PMAPI implementation undertakes to
+return all of the metrics with values accurate as of the
+timestamp, to the best of our ability. The belief is that
+the inaccuracy this introduces is small, and the additional
+burden of accurate individual timestamping for each returned
+metric value is neither warranted nor practical (from an
+implementation viewpoint).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Of course, in
+the case of collection of metrics from multiple hosts the
+PMAPI client must assume the sanity of the timestamps is
+constrained by the extent to which clock synchronization
+protocols are implemented across the network.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A PMAPI
+application may call <b>pmSetMode</b>(3) to vary the
+requested collection time, e.g. to rescan performance
+metrics values from the recent past, or to
+&lsquo;&lsquo;fast-forward&rsquo;&rsquo; through an archive
+log.</p>
+
+<h2>GENERAL ISSUES OF PMAPI PROGRAMMING STYLE
+<a name="GENERAL ISSUES OF PMAPI PROGRAMMING STYLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Across the
+PMAPI, all arguments and results involving a
+&lsquo;&lsquo;list of something&rsquo;&rsquo; are declared
+to be arrays with an associated argument or function value
+to identify the number of elements in the list. This has
+been done to avoid both the <b>varargs</b>(3) approach and
+sentinel-terminated lists.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Where the size
+of a result is known at the time of a call, it is the
+caller&rsquo;s responsibility to allocate (and possibly
+free) the storage, and the called function will assume the
+result argument is of an appropriate size. Where a result is
+of variable size and that size cannot be known in advance
+(e.g. for <b>pmGetChildren</b>(3), <b>pmGetInDom</b>(3),
+<b>pmNameInDom</b>(3), <b>pmNameID</b>(3),
+<b>pmLookupText</b>(3) and <b>pmFetch</b>(3)) the PMAPI
+implementation uses a range of dynamic allocation schemes in
+the called routine, with the caller responsible for
+subsequently releasing the storage when no longer required.
+In some cases this simply involves calls to <b>free</b>(3C),
+but in others (most notably for the result from
+<b>pmFetch</b>(3)), special routines (e.g.
+<b>pmFreeResult</b>(3)) should be used to release the
+storage.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As a general
+rule, if the called routine returns an error status then no
+allocation will have been done, and any pointer to a
+variable sized result is undefined.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Where error
+conditions may arise, the functions that comprise the PMAPI
+conform to a single, simple error notification scheme, as
+follows;</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>the function returns an integer</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>values &gt;= 0 indicate no error, and perhaps some
+positive status, e.g. the number of things really
+processed</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>values &lt; 0 indicate an error, with a global table of
+error conditions and error messages</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The PMAPI
+routine <b>pmErrStr</b>(3) translates error conditions into
+error messages. By convention, the small negative values are
+assumed to be negated versions of the Unix error codes as
+defined in <b>&lt;errno.h&gt;</b> and the strings returned
+are as per <b>strerror</b>(3C). The larger, negative error
+codes are PMAPI error conditions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">One error,
+common to all PMAPI routines that interact with
+<b>pmcd</b>(1) on some host is <b>PM_ERR_IPC</b>, which
+indicates the communication link to <b>pmcd</b>(1) has been
+lost.</p>
+
+<h2>MULTI-THREADED APPLICATIONS
+<a name="MULTI-THREADED APPLICATIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The original
+design for PCP was based around single-threaded
+applications, or more strictly applications in which only
+one thread was ever expected to call the PCP libraries. This
+restriction has been relaxed for <b>libpcp</b> to allow the
+most common PMAPI routines to be safely called from any
+thread in a multi-threaded application.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However the
+following groups of functions and services in <b>libpcp</b>
+are still restricted to being called from a single-thread,
+and this is enforced by returning <b>PM_ERR_THREAD</b> when
+an attempt to call the routines in each group from more than
+one thread is detected.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Any use of a
+<b>PM_CONTEXT_LOCAL</b> context, as the DSO PMDAs that are
+called directly from <b>libpcp</b> may not be
+thread-safe.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>The interval timer services use global state with
+semantics that demand it is only used in the context of a
+single thread, so <b>__pmAFregister</b>(3),
+<b>__pmAFunregister</b>(3), <b>__pmAFblock</b>(3),
+<b>__pmAFunblock (3)</b> and <b>__pmAFisempty</b>(3).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>The following (undocumented) access control manipulation
+routines that are principally intended for single-threaded
+applications: <b>__pmAccAddOp</b>, <b>__pmAccSaveHosts</b>,
+<b>__pmAccRestoreHosts</b>, <b>__pmAccFreeSavedHosts</b>,
+<b>__pmAccAddHost</b>, <b>__pmAccAddClient</b>,
+<b>__pmAccDelClient</b> and <b>__pmAccDumpHosts</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>4.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>The following (undocumented) routines that identify
+<i>pmlogger</i> control ports and are principally intended
+for single-threaded applications: <b>__pmLogFindPort</b> and
+<b>__pmLogFindLocalPorts</b>.</p> </td></tr>
+</table>
+
+<h2>PCP ENVIRONMENT
+<a name="PCP ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Most
+environment variables are described in <b>PCPIntro</b>(1).
+In addition, environment variables with the prefix
+<b>PCP_</b> are used to parameterize the file and directory
+names used by PCP. On each installation, the file
+<i>/etc/pcp.conf</i> contains the local values for these
+variables. The <b>$PCP_CONF</b> variable may be used to
+specify an alternative configuration file, as described in
+<b>pcp.conf</b>(5). Values for these variables may be
+obtained programmatically using the <b>pmGetConfig</b>(3)
+function.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PCPIntro</b>(1),
+<b>PCPIntro</b>(3), <b>PMAPI</b>(3), <b>pmda</b>(3),
+<b>pmGetConfig</b>(3), <b>pcp.conf</b>(5) and
+<b>pcp.env</b>(5).</p>
+<hr>
+</body>
+</html>

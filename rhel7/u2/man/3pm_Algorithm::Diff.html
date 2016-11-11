@@ -1,0 +1,1349 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:13:54 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Algorithm::Diff</title>
+
+</head>
+<body>
+
+<h1 align="center">Algorithm::Diff</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#INTRODUCTION">INTRODUCTION</a><br>
+<a href="#USAGE">USAGE</a><br>
+<a href="#KEY GENERATION FUNCTIONS">KEY GENERATION FUNCTIONS</a><br>
+<a href="#ERROR CHECKING">ERROR CHECKING</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#MAILING LIST">MAILING LIST</a><br>
+<a href="#CREDITS">CREDITS</a><br>
+<a href="#POD ERRORS">POD ERRORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Algorithm::Diff
+&minus; Compute &lsquo;intelligent&rsquo; differences
+between two files / lists</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    require Algorithm::Diff;
+    # This example produces traditional 'diff' output:
+    my $diff = Algorithm::Diff&minus;&gt;new( \@seq1, \@seq2 );
+    $diff&minus;&gt;Base( 1 );   # Return line numbers, not indices
+    while(  $diff&minus;&gt;Next()  ) {
+        next   if  $diff&minus;&gt;Same();
+        my $sep = '';
+        if(  ! $diff&minus;&gt;Items(2)  ) {
+            printf &quot;%d,%dd%d\n&quot;,
+                $diff&minus;&gt;Get(qw( Min1 Max1 Max2 ));
+        } elsif(  ! $diff&minus;&gt;Items(1)  ) {
+            printf &quot;%da%d,%d\n&quot;,
+                $diff&minus;&gt;Get(qw( Max1 Min2 Max2 ));
+        } else {
+            $sep = &quot;&minus;&minus;&minus;\n&quot;;
+            printf &quot;%d,%dc%d,%d\n&quot;,
+                $diff&minus;&gt;Get(qw( Min1 Max1 Min2 Max2 ));
+        }
+        print &quot;&lt; $_&quot;   for  $diff&minus;&gt;Items(1);
+        print $sep;
+        print &quot;&gt; $_&quot;   for  $diff&minus;&gt;Items(2);
+    }
+    # Alternate interfaces:
+    use Algorithm::Diff qw(
+        LCS LCS_length LCSidx
+        diff sdiff compact_diff
+        traverse_sequences traverse_balanced );
+    @lcs    = LCS( \@seq1, \@seq2 );
+    $lcsref = LCS( \@seq1, \@seq2 );
+    $count  = LCS_length( \@seq1, \@seq2 );
+    ( $seq1idxref, $seq2idxref ) = LCSidx( \@seq1, \@seq2 );
+    # Complicated interfaces:
+    @diffs  = diff( \@seq1, \@seq2 );
+    @sdiffs = sdiff( \@seq1, \@seq2 );
+    @cdiffs = compact_diff( \@seq1, \@seq2 );
+    traverse_sequences(
+        \@seq1,
+        \@seq2,
+        {   MATCH     =&gt; \&amp;callback1,
+            DISCARD_A =&gt; \&amp;callback2,
+            DISCARD_B =&gt; \&amp;callback3,
+        },
+        \&amp;key_generator,
+        @extra_args,
+    );
+    traverse_balanced(
+        \@seq1,
+        \@seq2,
+        {   MATCH     =&gt; \&amp;callback1,
+            DISCARD_A =&gt; \&amp;callback2,
+            DISCARD_B =&gt; \&amp;callback3,
+            CHANGE    =&gt; \&amp;callback4,
+        },
+        \&amp;key_generator,
+        @extra_args,
+    );</pre>
+
+
+<h2>INTRODUCTION
+<a name="INTRODUCTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">(by Mark-Jason
+Dominus)</p>
+
+<p style="margin-left:11%; margin-top: 1em">I once read an
+article written by the authors of <tt>&quot;diff&quot;</tt>;
+they said that they worked very hard on the algorithm until
+they found the right one.</p>
+
+<p style="margin-left:11%; margin-top: 1em">I think what
+they ended up using (and I hope someone will correct me,
+because I am not very confident about this) was the
+&lsquo;longest common subsequence&rsquo; method. In the
+<small>LCS</small> problem, you have two sequences of
+items:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a b c d f g h j q z
+    a b c d e f g i j k r x y z</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and you want to
+find the longest sequence of items that is present in both
+original sequences in the same order. That is, you want to
+find a new sequence <i>S</i> which can be obtained from the
+first sequence by deleting some items, and from the secend
+sequence by deleting other items. You also want <i>S</i> to
+be as long as possible. In this case <i>S</i> is</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a b c d f g j z</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">From there
+it&rsquo;s only a small step to get diff-like output:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    e   h i   k   q r x y
+    +   &minus; +   +   &minus; + + +</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+solves the <small>LCS</small> problem. It also includes a
+canned function to generate
+<tt>&quot;diff&quot;</tt>&minus;like output.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It might seem
+from the example above that the <small>LCS</small> of two
+sequences is always pretty obvious, but that&rsquo;s not
+always the case, especially when the two sequences have many
+repeated elements. For example, consider</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a x b y c z p d q
+    a b c a x b y c z</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A naive
+approach might start by matching up the
+<tt>&quot;a&quot;</tt> and <tt>&quot;b&quot;</tt> that
+appear at the beginning of each sequence, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a x b y c         z p d q
+    a   b   c a b y c z</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This finds the
+common subsequence <tt>&quot;a b c z&quot;</tt>. But
+actually, the <small>LCS</small> is <tt>&quot;a x b y c
+z&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">          a x b y c z p d q
+    a b c a x b y c z</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a       x b y c z p d q
+    a b c a x b y c z</pre>
+
+
+<h2>USAGE
+<a name="USAGE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">(See also the
+<small>README</small> file and several example scripts
+include with this module.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">This module now
+provides an object-oriented interface that uses less memory
+and is easier to use than most of the previous procedural
+interfaces. It also still provides several exportable
+functions. We&rsquo;ll deal with these in ascending order of
+difficulty: <tt>&quot;LCS&quot;</tt>,
+<tt>&quot;LCS_length&quot;</tt>,
+<tt>&quot;LCSidx&quot;</tt>, <small>OO</small> interface,
+<tt>&quot;prepare&quot;</tt>, <tt>&quot;diff&quot;</tt>,
+<tt>&quot;sdiff&quot;</tt>,
+<tt>&quot;traverse_sequences&quot;</tt>, and
+<tt>&quot;traverse_balanced&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;LCS&quot;</b>
+<br>
+Given references to two lists of items, <small>LCS</small>
+returns an array containing their longest common
+subsequence. In scalar context, it returns a reference to
+such a list.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @lcs    = LCS( \@seq1, \@seq2 );
+    $lcsref = LCS( \@seq1, \@seq2 );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;LCS&quot;
+may be passed an optional third parameter; this is a
+<small>CODE</small> reference to a key generation function.
+See &quot; <small>KEY GENERATION FUNCTIONS&quot;</small>
+.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @lcs    = LCS( \@seq1, \@seq2, \&amp;keyGen, @args );
+    $lcsref = LCS( \@seq1, \@seq2, \&amp;keyGen, @args );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Additional
+parameters, if any, will be passed to the key generation
+routine.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;LCS_length&quot;</b>
+<br>
+This is just like <tt>&quot;LCS&quot;</tt> except it only
+returns the length of the longest common subsequence. This
+provides a performance gain of about 9% compared to
+<tt>&quot;LCS&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;LCSidx&quot;</b>
+<br>
+Like <tt>&quot;LCS&quot;</tt> except it returns references
+to two arrays. The first array contains the indices into
+<tt>@seq1</tt> where the <small>LCS</small> items are
+located. The second array contains the indices into
+<tt>@seq2</tt> where the <small>LCS</small> items are
+located.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Therefore, the
+following three lists will contain the same values:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my( $idx1, $idx2 ) = LCSidx( \@seq1, \@seq2 );
+    my @list1 = @seq1[ @$idx1 ];
+    my @list2 = @seq2[ @$idx2 ];
+    my @list3 = LCS( \@seq1, \@seq2 );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;new&quot;</b></p>
+
+
+<pre style="margin-left:11%;">    $diff = Algorithm::Diffs&minus;&gt;new( \@seq1, \@seq2 );
+    $diff = Algorithm::Diffs&minus;&gt;new( \@seq1, \@seq2, \%opts );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;new&quot;
+computes the smallest set of additions and deletions
+necessary to turn the first sequence into the second and
+compactly records them in the object.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You use the
+object to iterate over <i>hunks</i>, where each hunk
+represents a contiguous section of items which should be
+added, deleted, replaced, or left unchanged.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The following
+summary of all of the methods looks a lot like Perl code but
+some of the symbols have different meanings:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    [ ]     Encloses optional arguments
+    :       Is followed by the default value for an optional argument
+    |       Separates alternate return results</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Method
+summary:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $obj        = Algorithm::Diff&minus;&gt;new( \@seq1, \@seq2, [ \%opts ] );
+    $pos        = $obj&minus;&gt;Next(  [ $count : 1 ] );
+    $revPos     = $obj&minus;&gt;Prev(  [ $count : 1 ] );
+    $obj        = $obj&minus;&gt;Reset( [ $pos : 0 ] );
+    $copy       = $obj&minus;&gt;Copy(  [ $pos, [ $newBase ] ] );
+    $oldBase    = $obj&minus;&gt;Base(  [ $newBase ] );</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Note that all
+of the following methods <tt>&quot;die&quot;</tt> if used on
+an object that is &quot;reset&quot; (not currently pointing
+at any hunk).</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $bits       = $obj&minus;&gt;Diff(  );
+    @items|$cnt = $obj&minus;&gt;Same(  );
+    @items|$cnt = $obj&minus;&gt;Items( $seqNum );
+    @idxs |$cnt = $obj&minus;&gt;Range( $seqNum, [ $base ] );
+    $minIdx     = $obj&minus;&gt;Min(   $seqNum, [ $base ] );
+    $maxIdx     = $obj&minus;&gt;Max(   $seqNum, [ $base ] );
+    @values     = $obj&minus;&gt;Get(   @names );</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Passing in
+<tt>&quot;undef&quot;</tt> for an optional argument is
+always treated the same as if no argument were passed
+in.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Next&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$pos =
+$diff&minus;&gt;Next(); # Move forward 1 hunk <br>
+$pos = $diff&minus;&gt;Next( 2 ); # Move forward 2 hunks
+<br>
+$pos = $diff&minus;&gt;Next(&minus;5); # Move backward 5
+hunks</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Next&quot;</tt>
+moves the object to point at the next hunk. The object
+starts out &quot;reset&quot;, which means it isn&rsquo;t
+pointing at any hunk. If the object is reset, then
+<tt>&quot;Next()&quot;</tt> moves to the first hunk.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Next&quot;</tt>
+returns a true value iff the move didn&rsquo;t go past the
+last hunk. So <tt>Next(0)</tt> will return true iff the
+object is not reset.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Actually,
+<tt>&quot;Next&quot;</tt> returns the object&rsquo;s new
+position, which is a number between 1 and the number of
+hunks (inclusive), or returns a false value.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Prev&quot;</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Prev($N)&quot;</tt>
+is almost identical to <tt>&quot;Next(&minus;$N)&quot;</tt>;
+it moves to the <tt>$Nth</tt> previous hunk. On a
+&rsquo;reset&rsquo; object, <tt>&quot;Prev()&quot;</tt> [and
+<tt>&quot;Next(&minus;1)&quot;</tt>] move to the last
+hunk.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The position
+returned by <tt>&quot;Prev&quot;</tt> is relative to the
+<i>end</i> of the hunks; &minus;1 for the last hunk,
+&minus;2 for the second-to-last, etc.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Reset&quot;</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$diff&minus;&gt;Reset();
+# Reset the object's position <br>
+$diff&minus;&gt;Reset($pos); # Move to the specified hunk
+<br>
+$diff&minus;&gt;Reset(1); # Move to the first hunk <br>
+$diff&minus;&gt;Reset(&minus;1); # Move to the last
+hunk</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Reset&quot;</tt>
+returns the object, so, for example, you could use
+<tt>&quot;$diff&minus;&gt;Reset()&minus;&gt;Next(&minus;1)&quot;</tt>
+to get the number of hunks.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Copy&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$copy =
+$diff&minus;&gt;Copy( $newPos, $newBase );</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Copy&quot;</tt>
+returns a copy of the object. The copy and the orignal
+object share most of their data, so making copies takes very
+little memory. The copy maintains its own position (separate
+from the original), which is the main purpose of copies. It
+also maintains its own base.</p>
+
+<p style="margin-left:17%; margin-top: 1em">By default, the
+copy&rsquo;s position starts out the same as the original
+object&rsquo;s position. But <tt>&quot;Copy&quot;</tt> takes
+an optional first argument to set the new position, so the
+following three snippets are equivalent:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $copy = $diff&minus;&gt;Copy($pos);
+    $copy = $diff&minus;&gt;Copy();
+    $copy&minus;&gt;Reset($pos);
+    $copy = $diff&minus;&gt;Copy()&minus;&gt;Reset($pos);</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Copy&quot;
+takes an optional second argument to set the base for the
+copy. If you wish to change the base of the copy but leave
+the position the same as in the original, here are two
+equivalent ways:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $copy = $diff&minus;&gt;Copy();
+    $copy&minus;&gt;Base( 0 );
+    $copy = $diff&minus;&gt;Copy(undef,0);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Here are two
+equivalent way to get a &quot;reset&quot; copy:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $copy = $diff&minus;&gt;Copy(0);
+    $copy = $diff&minus;&gt;Copy()&minus;&gt;Reset();</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Diff&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">$bits =
+$obj&minus;&gt;Diff();</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Diff&quot;
+returns a true value iff the current hunk contains items
+that are different between the two sequences. It actually
+returns one of the follow 4 values:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>3</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p><tt>&quot;3==(1|2)&quot;</tt>. This hunk contains items
+from <tt>@seq1</tt> and the items from <tt>@seq2</tt> that
+should replace them. Both sequence 1 and 2 contain changed
+items so both the 1 and 2 bits are set.</p></td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>2</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>This hunk only contains items from <tt>@seq2</tt> that
+should be inserted (not items from <tt>@seq1</tt>). Only
+sequence 2 contains changed items so only the 2 bit is
+set.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>1</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>This hunk only contains items from <tt>@seq1</tt> that
+should be deleted (not items from <tt>@seq2</tt>). Only
+sequence 1 contains changed items so only the 1 bit is
+set.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>0</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>This means that the items in this hunk are the same in
+both sequences. Neither sequence 1 nor 2 contain changed
+items so neither the 1 nor the 2 bits are set.</p></td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Same&quot;</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Same&quot;</tt>
+returns a true value iff the current hunk contains items
+that are the same in both sequences. It actually returns the
+list of items if they are the same or an emty list if they
+aren&rsquo;t. In a scalar context, it returns the size of
+the list.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Items&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$count =
+$diff&minus;&gt;Items(2); <br>
+@items = $diff&minus;&gt;Items($seqNum);</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Items&quot;</tt>
+returns the (number of) items from the specified sequence
+that are part of the current hunk.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If the current
+hunk contains only insertions, then
+<tt>&quot;$diff&minus;&gt;Items(1)&quot;</tt> will return an
+empty list (0 in a scalar conext). If the current hunk
+contains only deletions, then
+<tt>&quot;$diff&minus;&gt;Items(2)&quot;</tt> will return an
+empty list (0 in a scalar conext).</p>
+
+<p style="margin-left:17%; margin-top: 1em">If the hunk
+contains replacements, then both
+<tt>&quot;$diff&minus;&gt;Items(1)&quot;</tt> and
+<tt>&quot;$diff&minus;&gt;Items(2)&quot;</tt> will return
+different, non-empty lists.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Otherwise, the
+hunk contains identical items and all of the following will
+return the same lists:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    @items = $diff&minus;&gt;Items(1);
+    @items = $diff&minus;&gt;Items(2);
+    @items = $diff&minus;&gt;Same();</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Range&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">$count =
+$diff&minus;&gt;Range( $seqNum ); <br>
+@indices = $diff&minus;&gt;Range( $seqNum ); <br>
+@indices = $diff&minus;&gt;Range( $seqNum, $base );</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Range&quot;
+is like <tt>&quot;Items&quot;</tt> except that it returns a
+list of <i>indices</i> to the items rather than the items
+themselves. By default, the index of the first item (in each
+sequence) is 0 but this can be changed by calling the
+<tt>&quot;Base&quot;</tt> method. So, by default, the
+following two snippets return the same lists:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    @list = $diff&minus;&gt;Items(2);
+    @list = @seq2[ $diff&minus;&gt;Range(2) ];</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">You can also
+specify the base to use as the second argument. So the
+following two snippets <i>always</i> return the same
+lists:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    @list = $diff&minus;&gt;Items(1);
+    @list = @seq1[ $diff&minus;&gt;Range(1,0) ];</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Base&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">$curBase =
+$diff&minus;&gt;Base(); <br>
+$oldBase = $diff&minus;&gt;Base($newBase);</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;Base&quot;
+sets and/or returns the current base (usually 0 or 1) that
+is used when you request range information. The base
+defaults to 0 so that range information is returned as array
+indices. You can set the base to 1 if you want to report
+traditional line numbers instead.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Min&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$min1 =
+$diff&minus;&gt;Min(1); <br>
+$min = $diff&minus;&gt;Min( $seqNum, $base );</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Min&quot;</tt>
+returns the first value that <tt>&quot;Range&quot;</tt>
+would return (given the same arguments) or returns
+<tt>&quot;undef&quot;</tt> if <tt>&quot;Range&quot;</tt>
+would return an empty list.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Max&quot;</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Max&quot;</tt>
+returns the last value that <tt>&quot;Range&quot;</tt> would
+return or <tt>&quot;undef&quot;</tt>.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Get&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>( $n, $x,
+$r ) = $diff&minus;&gt;Get(qw( min1 max1 range1 )); <br>
+@values = $diff&minus;&gt;Get(qw( 0min2 1max2 range2 same
+base ));</tt></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;Get&quot;</tt>
+returns one or more scalar values. You pass in a list of the
+names of the values you want returned. Each name must match
+one of the following regexes:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    /^(&minus;?\d+)?(min|max)[12]$/i
+    /^(range[12]|same|diff|base)$/i</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The 1 or 2
+after a name says which sequence you want the information
+for (and where allowed, it is required). The optional number
+before &quot;min&quot; or &quot;max&quot; is the base to
+use. So the following equalities hold:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $diff&minus;&gt;Get('min1') == $diff&minus;&gt;Min(1)
+    $diff&minus;&gt;Get('0min2') == $diff&minus;&gt;Min(2,0)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Using
+<tt>&quot;Get&quot;</tt> in a scalar context when
+you&rsquo;ve passed in more than one name is a fatal error
+(<tt>&quot;die&quot;</tt> is called).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;prepare&quot;</b>
+<br>
+Given a reference to a list of items,
+<tt>&quot;prepare&quot;</tt> returns a reference to a hash
+which can be used when comparing this sequence to other
+sequences with <tt>&quot;LCS&quot;</tt> or
+<tt>&quot;LCS_length&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $prep = prepare( \@seq1 );
+    for $i ( 0 .. 10_000 )
+    {
+        @lcs = LCS( $prep, $seq[$i] );
+        # do something useful with @lcs
+    }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;prepare&quot;
+may be passed an optional third parameter; this is a
+<small>CODE</small> reference to a key generation function.
+See &quot; <small>KEY GENERATION FUNCTIONS&quot;</small>
+.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $prep = prepare( \@seq1, \&amp;keyGen );
+    for $i ( 0 .. 10_000 )
+    {
+        @lcs = LCS( $seq[$i], $prep, \&amp;keyGen );
+        # do something useful with @lcs
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Using
+<tt>&quot;prepare&quot;</tt> provides a performance gain of
+about 50% when calling <small>LCS</small> many times
+compared with not preparing.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;diff&quot;</b></p>
+
+
+<pre style="margin-left:11%;">    @diffs     = diff( \@seq1, \@seq2 );
+    $diffs_ref = diff( \@seq1, \@seq2 );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;diff&quot;
+computes the smallest set of additions and deletions
+necessary to turn the first sequence into the second, and
+returns a description of these changes. The description is a
+list of <i>hunks</i>; each hunk represents a contiguous
+section of items which should be added, deleted, or
+replaced. (Hunks containing unchanged items are not
+included.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The return
+value of <tt>&quot;diff&quot;</tt> is a list of hunks, or,
+in scalar context, a reference to such a list. If there are
+no differences, the list will be empty.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is an
+example. Calling <tt>&quot;diff&quot;</tt> for the following
+two sequences:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a b c e h j l m n p
+    b c d e f j k l m r s t</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">would produce
+the following list:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    (
+      [ [ '&minus;', 0, 'a' ] ],
+      [ [ '+', 2, 'd' ] ],
+      [ [ '&minus;', 4, 'h' ],
+        [ '+', 4, 'f' ] ],
+      [ [ '+', 6, 'k' ] ],
+      [ [ '&minus;',  8, 'n' ],
+        [ '&minus;',  9, 'p' ],
+        [ '+',  9, 'r' ],
+        [ '+', 10, 's' ],
+        [ '+', 11, 't' ] ],
+    )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">There are five
+hunks here. The first hunk says that the
+<tt>&quot;a&quot;</tt> at position 0 of the first sequence
+should be deleted (<tt>&quot;&minus;&quot;</tt>). The second
+hunk says that the <tt>&quot;d&quot;</tt> at position 2 of
+the second sequence should be inserted
+(<tt>&quot;+&quot;</tt>). The third hunk says that the
+<tt>&quot;h&quot;</tt> at position 4 of the first sequence
+should be removed and replaced with the
+<tt>&quot;f&quot;</tt> from position 4 of the second
+sequence. And so on.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;diff&quot;</tt>
+may be passed an optional third parameter; this is a
+<small>CODE</small> reference to a key generation function.
+See &quot; <small>KEY GENERATION FUNCTIONS&quot;</small>
+.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Additional
+parameters, if any, will be passed to the key generation
+routine.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;sdiff&quot;</b></p>
+
+
+<pre style="margin-left:11%;">    @sdiffs     = sdiff( \@seq1, \@seq2 );
+    $sdiffs_ref = sdiff( \@seq1, \@seq2 );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;sdiff&quot;
+computes all necessary components to show two sequences and
+their minimized differences side by side, just like the
+Unix-utility <i>sdiff</i> does:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    same             same
+    before     |     after
+    old        &lt;     &minus;
+    &minus;          &gt;     new</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It returns a
+list of array refs, each pointing to an array of display
+instructions. In scalar context it returns a reference to
+such a list. If there are no differences, the list will have
+one entry per item, each indicating that the item was
+unchanged.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Display
+instructions consist of three elements: A modifier indicator
+(<tt>&quot;+&quot;</tt>: Element added,
+<tt>&quot;&minus;&quot;</tt>: Element removed,
+<tt>&quot;u&quot;</tt>: Element unmodified,
+<tt>&quot;c&quot;</tt>: Element changed) and the value of
+the old and new elements, to be displayed side-by-side.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An
+<tt>&quot;sdiff&quot;</tt> of the following two
+sequences:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    a b c e h j l m n p
+    b c d e f j k l m r s t</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">results in</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    ( [ '&minus;', 'a', ''  ],
+      [ 'u', 'b', 'b' ],
+      [ 'u', 'c', 'c' ],
+      [ '+', '',  'd' ],
+      [ 'u', 'e', 'e' ],
+      [ 'c', 'h', 'f' ],
+      [ 'u', 'j', 'j' ],
+      [ '+', '',  'k' ],
+      [ 'u', 'l', 'l' ],
+      [ 'u', 'm', 'm' ],
+      [ 'c', 'n', 'r' ],
+      [ 'c', 'p', 's' ],
+      [ '+', '',  't' ],
+    )</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;sdiff&quot;
+may be passed an optional third parameter; this is a
+<small>CODE</small> reference to a key generation function.
+See &quot; <small>KEY GENERATION FUNCTIONS&quot;</small>
+.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Additional
+parameters, if any, will be passed to the key generation
+routine.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;compact_diff&quot;</b>
+<tt><br>
+&quot;compact_diff&quot;</tt> is much like
+<tt>&quot;sdiff&quot;</tt> except it returns a much more
+compact description consisting of just one flat list of
+indices. An example helps explain the format:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my @a = qw( a b c   e  h j   l m n p      );
+    my @b = qw(   b c d e f  j k l m    r s t );
+    @cdiff = compact_diff( \@a, \@b );
+    # Returns:
+    #   @a      @b       @a       @b
+    #  start   start   values   values
+    (    0,      0,   #       =
+         0,      0,   #    a  !
+         1,      0,   #  b c  =  b c
+         3,      2,   #       !  d
+         3,      3,   #    e  =  e
+         4,      4,   #    f  !  h
+         5,      5,   #    j  =  j
+         6,      6,   #       !  k
+         6,      7,   #  l m  =  l m
+         8,      9,   #  n p  !  r s t
+        10,     12,   #
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The 0th, 2nd,
+4th, etc. entries are all indices into <tt>@seq1</tt> (@a in
+the above example) indicating where a hunk begins. The 1st,
+3rd, 5th, etc. entries are all indices into <tt>@seq2</tt>
+(@b in the above example) indicating where the same hunk
+begins.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So each pair of
+indices (except the last pair) describes where a hunk begins
+(in each sequence). Since each hunk must end at the item
+just before the item that starts the next hunk, the next
+pair of indices can be used to determine where the hunk
+ends.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So, the first 4
+entries (0..3) describe the first hunk. Entries 0 and 1
+describe where the first hunk begins (and so are always both
+0). Entries 2 and 3 describe where the next hunk begins, so
+subtracting 1 from each tells us where the first hunk ends.
+That is, the first hunk contains items <tt>$diff[0]</tt>
+through <tt>&quot;$diff[2] &minus; 1&quot;</tt> of the first
+sequence and contains items <tt>$diff[1]</tt> through
+<tt>&quot;$diff[3] &minus; 1&quot;</tt> of the second
+sequence.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In other words,
+the first hunk consists of the following two lists of
+items:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">               #  1st pair     2nd pair
+               # of indices   of indices
+    @list1 = @a[ $cdiff[0] .. $cdiff[2]&minus;1 ];
+    @list2 = @b[ $cdiff[1] .. $cdiff[3]&minus;1 ];
+               # Hunk start   Hunk end</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+hunks will always alternate between those that are part of
+the <small>LCS</small> (those that contain unchanged items)
+and those that contain changes. This means that all we need
+to be told is whether the first hunk is a &rsquo;same&rsquo;
+or &rsquo;diff&rsquo; hunk and we can determine which of the
+other hunks contain &rsquo;same&rsquo; items or
+&rsquo;diff&rsquo; items.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By convention,
+we always make the first hunk contain unchanged items. So
+the 1st, 3rd, 5th, etc. hunks (all odd-numbered hunks if you
+start counting from 1) all contain unchanged items. And the
+2nd, 4th, 6th, etc. hunks (all even-numbered hunks if you
+start counting from 1) all contain changed items.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<tt>@a</tt> and <tt>@b</tt> don&rsquo;t begin with the same
+value, the first hunk in our example is empty (otherwise
+we&rsquo;d violate the above convention). Note that the
+first 4 index values in our example are all zero. Plug these
+values into our previous code block and we get:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @hunk1a = @a[ 0 .. 0&minus;1 ];
+    @hunk1b = @b[ 0 .. 0&minus;1 ];</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And
+<tt>&quot;0..&minus;1&quot;</tt> returns the empty list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Move down one
+pair of indices (2..5) and we get the offset ranges for the
+second hunk, which contains changed items.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<tt>@diff[2..5]</tt> contains (0,0,1,0) in our example, the
+second hunk consists of these two lists of items:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        @hunk2a = @a[ $cdiff[2] .. $cdiff[4]&minus;1 ];
+        @hunk2b = @b[ $cdiff[3] .. $cdiff[5]&minus;1 ];
+    # or
+        @hunk2a = @a[ 0 .. 1&minus;1 ];
+        @hunk2b = @b[ 0 .. 0&minus;1 ];
+    # or
+        @hunk2a = @a[ 0 .. 0 ];
+        @hunk2b = @b[ 0 .. &minus;1 ];
+    # or
+        @hunk2a = ( 'a' );
+        @hunk2b = ( );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">That is, we
+would delete item 0 (&rsquo;a&rsquo;) from <tt>@a</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<tt>@diff[4..7]</tt> contains (1,0,3,2) in our example, the
+third hunk consists of these two lists of items:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        @hunk3a = @a[ $cdiff[4] .. $cdiff[6]&minus;1 ];
+        @hunk3a = @b[ $cdiff[5] .. $cdiff[7]&minus;1 ];
+    # or
+        @hunk3a = @a[ 1 .. 3&minus;1 ];
+        @hunk3a = @b[ 0 .. 2&minus;1 ];
+    # or
+        @hunk3a = @a[ 1 .. 2 ];
+        @hunk3a = @b[ 0 .. 1 ];
+    # or
+        @hunk3a = qw( b c );
+        @hunk3a = qw( b c );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that this
+third hunk contains unchanged items as our convention
+demands.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can
+continue this process until you reach the last two indices,
+which will always be the number of items in each sequence.
+This is required so that subtracting one from each will give
+you the indices to the last items in each sequence.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;traverse_sequences&quot;</b>
+<tt><br>
+&quot;traverse_sequences&quot;</tt> used to be the most
+general facility provided by this module (the new
+<small>OO</small> interface is more powerful and much easier
+to use).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Imagine that
+there are two arrows. Arrow A points to an element of
+sequence A, and arrow B points to an element of the sequence
+B. Initially, the arrows point to the first elements of the
+respective sequences.
+<tt>&quot;traverse_sequences&quot;</tt> will advance the
+arrows through the sequences one element at a time, calling
+an appropriate user-specified callback function before each
+advance. It willadvance the arrows in such a way that if
+there are equal elements <tt>$A[$i]</tt> and <tt>$B[$j]</tt>
+which are equal and which are part of the
+<small>LCS,</small> there will be some moment during the
+execution of <tt>&quot;traverse_sequences&quot;</tt> when
+arrow A is pointing to <tt>$A[$i]</tt> and arrow B is
+pointing to <tt>$B[$j]</tt>. When this happens,
+<tt>&quot;traverse_sequences&quot;</tt> will call the
+<tt>&quot;MATCH&quot;</tt> callback function and then it
+will advance both arrows.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Otherwise, one
+of the arrows is pointing to an element of its sequence that
+is not part of the <small>LCS.</small>
+<tt>&quot;traverse_sequences&quot;</tt> will advance that
+arrow and will call the <tt>&quot;DISCARD_A&quot;</tt> or
+the <tt>&quot;DISCARD_B&quot;</tt> callback, depending on
+which arrow it advanced. If both arrows point to elements
+that are not part of the <small>LCS,</small> then
+<tt>&quot;traverse_sequences&quot;</tt> will advance one of
+them and call the appropriate callback, but it is not
+specified which it will call.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The arguments
+to <tt>&quot;traverse_sequences&quot;</tt> are the two
+sequences to traverse, and a hash which specifies the
+callback functions, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    traverse_sequences(
+        \@seq1, \@seq2,
+        {   MATCH =&gt; $callback_1,
+            DISCARD_A =&gt; $callback_2,
+            DISCARD_B =&gt; $callback_3,
+        }
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Callbacks for
+<small>MATCH, DISCARD_A,</small> and
+<small>DISCARD_B</small> are invoked with at least the
+indices of the two arrows as their arguments. They are not
+expected to return any values. If a callback is omitted from
+the table, it is not called.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Callbacks for
+A_FINISHED and B_FINISHED are invoked with at least the
+corresponding index in A or B.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If arrow A
+reaches the end of its sequence, before arrow B does,
+<tt>&quot;traverse_sequences&quot;</tt> will call the
+<tt>&quot;A_FINISHED&quot;</tt> callback when it advances
+arrow B, if there is such a function; if not it will call
+<tt>&quot;DISCARD_B&quot;</tt> instead. Similarly if arrow B
+finishes first. <tt>&quot;traverse_sequences&quot;</tt>
+returns when both arrows are at the ends of their respective
+sequences. It returns true on success and false on failure.
+At present there is no way to fail.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;traverse_sequences&quot;</tt>
+may be passed an optional fourth parameter; this is a
+<small>CODE</small> reference to a key generation function.
+See &quot; <small>KEY GENERATION FUNCTIONS&quot;</small>
+.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Additional
+parameters, if any, will be passed to the key generation
+function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you want to
+pass additional parameters to your callbacks, but
+don&rsquo;t need a custom key generation function, you can
+get the default by passing undef:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    traverse_sequences(
+        \@seq1, \@seq2,
+        {   MATCH =&gt; $callback_1,
+            DISCARD_A =&gt; $callback_2,
+            DISCARD_B =&gt; $callback_3,
+        },
+        undef,     # default key&minus;gen
+        $myArgument1,
+        $myArgument2,
+        $myArgument3,
+    );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;traverse_sequences&quot;
+does not have a useful return value; you are expected to
+plug in the appropriate behavior with the callback
+functions.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&quot;traverse_balanced&quot;</b>
+<tt><br>
+&quot;traverse_balanced&quot;</tt> is an alternative to
+<tt>&quot;traverse_sequences&quot;</tt>. It uses a different
+algorithm to iterate through the entries in the computed
+<small>LCS.</small> Instead of sticking to one side and
+showing element changes as insertions and deletions only, it
+will jump back and forth between the two sequences and
+report <i>changes</i> occurring as deletions on one side
+followed immediatly by an insertion on the other side.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition to
+the <tt>&quot;DISCARD_A&quot;</tt>,
+<tt>&quot;DISCARD_B&quot;</tt>, and
+<tt>&quot;MATCH&quot;</tt> callbacks supported by
+<tt>&quot;traverse_sequences&quot;</tt>,
+<tt>&quot;traverse_balanced&quot;</tt> supports a
+<tt>&quot;CHANGE&quot;</tt> callback indicating that one
+element got <tt>&quot;replaced&quot;</tt> by another:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    traverse_balanced(
+        \@seq1, \@seq2,
+        {   MATCH =&gt; $callback_1,
+            DISCARD_A =&gt; $callback_2,
+            DISCARD_B =&gt; $callback_3,
+            CHANGE    =&gt; $callback_4,
+        }
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If no
+<tt>&quot;CHANGE&quot;</tt> callback is specified,
+<tt>&quot;traverse_balanced&quot;</tt> will map
+<tt>&quot;CHANGE&quot;</tt> events to
+<tt>&quot;DISCARD_A&quot;</tt> and
+<tt>&quot;DISCARD_B&quot;</tt> actions, therefore resulting
+in a similar behaviour as
+<tt>&quot;traverse_sequences&quot;</tt> with different order
+of events.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;traverse_balanced&quot;</tt>
+might be a bit slower than
+<tt>&quot;traverse_sequences&quot;</tt>, noticable only
+while processing huge amounts of data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;sdiff&quot;</tt> function of this module is
+implemented as call to
+<tt>&quot;traverse_balanced&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;traverse_balanced&quot;</tt>
+does not have a useful return value; you are expected to
+plug in the appropriate behavior with the callback
+functions.</p>
+
+<h2>KEY GENERATION FUNCTIONS
+<a name="KEY GENERATION FUNCTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Most of the
+functions accept an optional extra parameter. This is a
+<small>CODE</small> reference to a key generating (hashing)
+function that should return a string that uniquely
+identifies a given element. It should be the case that if
+two elements are to be considered equal, their keys should
+be the same (and the other way around). If no key generation
+function is provided, the key will be the element as a
+string.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By default,
+comparisons will use &quot;eq&quot; and elements will be
+turned into keys using the default stringizing operator
+&rsquo;&quot;&quot;&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Where this is
+important is when you&rsquo;re comparing something other
+than strings. If it is the case that you have multiple
+different objects that should be considered to be equal, you
+should supply a key generation function. Otherwise, you have
+to make sure that your arrays contain unique references.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For instance,
+consider this example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    package Person;
+    sub new
+    {
+        my $package = shift;
+        return bless { name =&gt; '', ssn =&gt; '', @_ }, $package;
+    }
+    sub clone
+    {
+        my $old = shift;
+        my $new = bless { %$old }, ref($old);
+    }
+    sub hash
+    {
+        return shift()&minus;&gt;{'ssn'};
+    }
+    my $person1 = Person&minus;&gt;new( name =&gt; 'Joe', ssn =&gt; '123&minus;45&minus;6789' );
+    my $person2 = Person&minus;&gt;new( name =&gt; 'Mary', ssn =&gt; '123&minus;47&minus;0000' );
+    my $person3 = Person&minus;&gt;new( name =&gt; 'Pete', ssn =&gt; '999&minus;45&minus;2222' );
+    my $person4 = Person&minus;&gt;new( name =&gt; 'Peggy', ssn =&gt; '123&minus;45&minus;9999' );
+    my $person5 = Person&minus;&gt;new( name =&gt; 'Frank', ssn =&gt; '000&minus;45&minus;9999' );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you did
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $array1 = [ $person1, $person2, $person4 ];
+    my $array2 = [ $person1, $person3, $person4, $person5 ];
+    Algorithm::Diff::diff( $array1, $array2 );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">everything
+would work out <small>OK</small> (each of the objects would
+be converted into a string like
+&quot;Person=HASH(0x82425b0)&quot; for comparison).</p>
+
+<p style="margin-left:11%; margin-top: 1em">But if you did
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $array1 = [ $person1, $person2, $person4 ];
+    my $array2 = [ $person1, $person3, $person4&minus;&gt;clone(), $person5 ];
+    Algorithm::Diff::diff( $array1, $array2 );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">$person4 and
+<tt>$person4</tt>&minus;&gt;<i>clone()</i> (which have the
+same name and <small>SSN</small> ) would be seen as
+different objects. If you wanted them to be considered
+equivalent, you would have to pass in a key generation
+function:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $array1 = [ $person1, $person2, $person4 ];
+    my $array2 = [ $person1, $person3, $person4&minus;&gt;clone(), $person5 ];
+    Algorithm::Diff::diff( $array1, $array2, \&amp;Person::hash );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This would use
+the &rsquo;ssn&rsquo; field in each Person as a comparison
+key, and so would consider <tt>$person4</tt> and
+<tt>$person4</tt>&minus;&gt;<i>clone()</i> as equal.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You may also
+pass additional parameters to the key generation function if
+you wish.</p>
+
+<h2>ERROR CHECKING
+<a name="ERROR CHECKING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you pass
+these routines a non-reference and they expect a reference,
+they will die with a message.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This version
+released by Tye McQueen
+(http://perlmonks.org/?node=tye).</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Parts Copyright
+(c) 2000&minus;2004 Ned Konz. All rights reserved. Parts by
+Tye McQueen.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This program is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl.</p>
+
+<h2>MAILING LIST
+<a name="MAILING LIST"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Mark-Jason
+still maintains a mailing list. To join a low-volume mailing
+list for announcements related to diff and Algorithm::Diff,
+send an empty mail message to
+mjd&minus;perl&minus;diff&minus;request@plover.com.</p>
+
+<h2>CREDITS
+<a name="CREDITS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Versions
+through 0.59 (and much of this documentation) were written
+by:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Mark-Jason
+Dominus, mjd&minus;perl&minus;diff@plover.com</p>
+
+<p style="margin-left:11%; margin-top: 1em">This version
+borrows some documentation and routine names from
+Mark-Jason&rsquo;s, but Diff.pm&rsquo;s code was completely
+replaced.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This code was
+adapted from the Smalltalk code of Mario Wolczko
+&lt;mario@wolczko.com&gt;, which is available at
+ftp://st.cs.uiuc.edu/pub/Smalltalk/MANCHESTER/manchester/4.0/diff.st</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;sdiff&quot;</tt>
+and <tt>&quot;traverse_balanced&quot;</tt> were written by
+Mike Schilli &lt;m@perlmeister.com&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The algorithm
+is that described in <i>A Fast Algorithm for Computing
+Longest Common Subsequences</i>, <small>CACM,</small>
+vol.20, no.5, pp.350&minus;353, May 1977, with a few minor
+improvements to improve the speed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Much work was
+done by Ned Konz (perl@bike&minus;nomad.com).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>OO</small> interface and some other changes are by
+Tye McQueen.</p>
+
+<h2>POD ERRORS
+<a name="POD ERRORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Hey! <b>The
+above document had some coding errors, which are explained
+below:</b> <br>
+Around line 989:</p>
+
+<p style="margin-left:17%;">You can&rsquo;t have =items (as
+at line 1021) unless the first thing after the =over is an
+=item</p>
+
+<p style="margin-left:11%;">Around line 1108:</p>
+
+<p style="margin-left:17%;">Expected text after =item, not
+a number</p>
+
+<p style="margin-left:11%;">Around line 1114:</p>
+
+<p style="margin-left:17%;">Expected text after =item, not
+a number</p>
+
+<p style="margin-left:11%;">Around line 1120:</p>
+
+<p style="margin-left:17%;">Expected text after =item, not
+a number</p>
+<hr>
+</body>
+</html>

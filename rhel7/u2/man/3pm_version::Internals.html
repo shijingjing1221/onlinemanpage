@@ -1,0 +1,913 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:36:51 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>version::Internals</title>
+
+</head>
+<body>
+
+<h1 align="center">version::Internals</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#WHAT IS A VERSION?">WHAT IS A VERSION?</a><br>
+<a href="#IMPLEMENTATION DETAILS">IMPLEMENTATION DETAILS</a><br>
+<a href="#USAGE DETAILS">USAGE DETAILS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">version::Internals
+&minus; Perl extension for Version Objects</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Overloaded
+version objects for all modern versions of Perl. This
+documents the internal data representation and underlying
+code for version.pm. See <i>version.pod</i> for daily usage.
+This document is only useful for users interested in the
+gory details.</p>
+
+<h2>WHAT IS A VERSION?
+<a name="WHAT IS A VERSION?"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For the
+purposes of this module, a version &quot;number&quot; is a
+sequence of positive integer values separated by one or more
+decimal points and optionally a single underscore. This
+corresponds to what Perl itself uses for a version, as well
+as extending the &quot;version as number&quot; that is
+discussed in the various editions of the Camel book.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are
+actually two distinct kinds of version objects: <br>
+Decimal Versions</p>
+
+<p style="margin-left:17%;">Any version which &quot;looks
+like a number&quot;, see &quot;Decimal Versions&quot;. This
+also includes versions with a single decimal point and a
+single embedded underscore, see &quot;Alpha Versions&quot;,
+even though these must be quoted to preserve the underscore
+formatting.</p>
+
+<p style="margin-left:11%;">Dotted-Decimal Versions</p>
+
+<p style="margin-left:17%;">Also referred to as
+&quot;Dotted-Integer&quot;, these contains more than one
+decimal point and may have an optional embedded underscore,
+see Dotted-Decimal Versions. This is what is commonly used
+in most open source software as the &quot;external&quot;
+version (the one used as part of the tag or tarfile name). A
+leading &rsquo;v&rsquo; character is now required and will
+warn if it missing.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Both of these
+methods will produce similar version objects, in that the
+default stringification will yield the version &quot;Normal
+Form&quot; only if required:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $v  = version&minus;&gt;new(1.002);     # 1.002, but compares like 1.2.0
+  $v  = version&minus;&gt;new(1.002003);  # 1.002003
+  $v2 = version&minus;&gt;new(&quot;v1.2.3&quot;);  # v1.2.3</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In specific,
+version numbers initialized as &quot;Decimal Versions&quot;
+will stringify as they were originally created (i.e. the
+same string that was passed to <tt>&quot;new()&quot;</tt>.
+Version numbers initialized as &quot;Dotted-Decimal
+Versions&quot; will be stringified as &quot;Normal
+Form&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Decimal
+Versions</b> <br>
+These correspond to historical versions of Perl itself prior
+to 5.6.0, as well as all other modules which follow the
+Camel rules for the <tt>$VERSION</tt> scalar. A Decimal
+version is initialized with what looks like a floating point
+number. Leading zeros <b>are</b> significant and trailing
+zeros are implied so that a minimum of three places is
+maintained between subversions. What this means is that any
+subversion (digits to the right of the decimal place) that
+contains less than three digits will have trailing zeros
+added to make up the difference, but only for purposes of
+comparison with other version objects. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">                                   # Prints     Equivalent to
+  $v = version&minus;&gt;new(      1.2);    # 1.2        v1.200.0
+  $v = version&minus;&gt;new(     1.02);    # 1.02       v1.20.0
+  $v = version&minus;&gt;new(    1.002);    # 1.002      v1.2.0
+  $v = version&minus;&gt;new(   1.0023);    # 1.0023     v1.2.300
+  $v = version&minus;&gt;new(  1.00203);    # 1.00203    v1.2.30
+  $v = version&minus;&gt;new( 1.002003);    # 1.002003   v1.2.3</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">All of the
+preceding examples are true whether or not the input value
+is quoted. The important feature is that the input value
+contains only a single decimal. See also &quot;Alpha
+Versions&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>IMPORTANT
+NOTE:</small> As shown above, if your Decimal version
+contains more than 3 significant digits after the decimal
+place, it will be split on each multiple of 3, so 1.0003 is
+equivalent to v1.0.300, due to the need to remain compatible
+with Perl&rsquo;s own 5.005_03 == 5.5.30 interpretation. Any
+trailing zeros are ignored for mathematical comparison
+purposes.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Dotted-Decimal
+Versions</b> <br>
+These are the newest form of versions, and correspond to
+Perl&rsquo;s own version style beginning with 5.6.0.
+Starting with Perl 5.10.0, and most likely Perl 6, this is
+likely to be the preferred form. This method normally
+requires that the input parameter be quoted, although
+Perl&rsquo;s after 5.8.1 can use v&minus;strings as a
+special form of quoting, but this is highly discouraged.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unlike
+&quot;Decimal Versions&quot;, Dotted-Decimal Versions have
+more than a single decimal point, e.g.:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">                                   # Prints
+  $v = version&minus;&gt;new( &quot;v1.200&quot;);    # v1.200.0
+  $v = version&minus;&gt;new(&quot;v1.20.0&quot;);    # v1.20.0
+  $v = qv(&quot;v1.2.3&quot;);               # v1.2.3
+  $v = qv(&quot;1.2.3&quot;);                # v1.2.3
+  $v = qv(&quot;1.20&quot;);                 # v1.20.0</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In general,
+Dotted-Decimal Versions permit the greatest amount of
+freedom to specify a version, whereas Decimal Versions
+enforce a certain uniformity.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Just like
+&quot;Decimal Versions&quot;, Dotted-Decimal Versions can be
+used as &quot;Alpha Versions&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Alpha
+Versions</b> <br>
+For module authors using <small>CPAN,</small> the convention
+has been to note unstable releases with an underscore in the
+version string. (See <small>CPAN</small> .) version.pm
+follows this convention and alpha releases will test as
+being newer than the more recent stable release, and less
+than the next stable release. Only the last element may be
+separated by an underscore:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  # Declaring
+  use version 0.77; our $VERSION = version&minus;&gt;declare(&quot;v1.2_3&quot;);
+  # Parsing
+  $v1 = version&minus;&gt;parse(&quot;v1.2_3&quot;);
+  $v1 = version&minus;&gt;parse(&quot;1.002_003&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that you
+<b>must</b> quote the version when writing an alpha Decimal
+version. The stringified form of Decimal versions will
+always be the same string that was used to initialize the
+version object.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Regular
+Expressions for Version Parsing</b> <br>
+A formalized definition of the legal forms for version
+strings is included in the
+<tt>&quot;version::regex&quot;</tt> class. Primitives are
+included for common elements, although they are scoped to
+the file so they are useful for reference purposes only.
+There are two publicly accessible scalars that can be used
+in other code (not exported): <br>
+$version::LAX</p>
+
+<p style="margin-left:17%;">This regexp covers all of the
+legal forms allowed under the current version string parser.
+This is not to say that all of these forms are recommended,
+and some of them can only be used when quoted.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For dotted
+decimals:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    v1.2
+    1.2345.6
+    v1.23_4</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The leading
+&rsquo;v&rsquo; is optional if two or more decimals appear.
+If only a single decimal is included, then the leading
+&rsquo;v&rsquo; is required to trigger the dotted-decimal
+parsing. A leading zero is permitted, though not recommended
+except when quoted, because of the risk that Perl will treat
+the number as octal. A trailing underscore plus one or more
+digits denotes an alpha or development release (and must be
+quoted to be parsed properly).</p>
+
+<p style="margin-left:17%; margin-top: 1em">For decimal
+versions:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    1
+    1.2345
+    1.2345_01</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">an integer
+portion, an optional decimal point, and optionally one or
+more digits to the right of the decimal are all required. A
+trailing underscore is permitted and a leading zero is
+permitted. Just like the lax dotted-decimal version, quoting
+the values is required for alpha/development forms to be
+parsed correctly.</p>
+
+<p style="margin-left:11%;">$version::STRICT</p>
+
+<p style="margin-left:17%;">This regexp covers a much more
+limited set of formats and constitutes the best practices
+for initializing version objects. Whether you choose to
+employ decimal or dotted-decimal for is a personal
+preference however. <br>
+v1.234.5</p>
+
+<p style="margin-left:23%;">For dotted-decimal versions, a
+leading &rsquo;v&rsquo; is required, with three or more
+sub-versions of no more than three digits. A leading 0
+(zero) before the first sub-version (in the above example,
+&rsquo;1&rsquo;) is also prohibited.</p>
+
+<p style="margin-left:17%;">2.3456</p>
+
+<p style="margin-left:23%;">For decimal versions, an
+integer portion (no leading 0), a decimal point, and one or
+more digits to the right of the decimal are all
+required.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Both of the
+provided scalars are already compiled as regular expressions
+and do not contain either anchors or implicit groupings, so
+they can be included in your own regular expressions freely.
+For example, consider the following code:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        ($pkg, $ver) =~ /
+                ^[ \t]*
+                use [ \t]+($PKGNAME)
+                (?:[ \t]+($version::STRICT))?
+                [ \t]*;
+        /x;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This would
+match a line of the form:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        use Foo::Bar::Baz v1.2.3;       # legal only in Perl 5.8.1+</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where
+<tt>$PKGNAME</tt> is another regular expression that defines
+the legal forms for package names.</p>
+
+<h2>IMPLEMENTATION DETAILS
+<a name="IMPLEMENTATION DETAILS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Equivalence
+between Decimal and Dotted-Decimal Versions</b> <br>
+When Perl 5.6.0 was released, the decision was made to
+provide a transformation between the old-style decimal
+versions and new-style dotted-decimal versions:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  5.6.0    == 5.006000
+  5.005_04 == 5.5.40</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The floating
+point number is taken and split first on the single decimal
+place, then each group of three digits to the right of the
+decimal makes up the next digit, and so on until the number
+of significant digits is exhausted, <b>plus</b> enough
+trailing zeros to reach the next multiple of three.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This was the
+method that version.pm adopted as well. Some examples may be
+helpful:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">                            equivalent
+  decimal    zero&minus;padded    dotted&minus;decimal
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;    &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;    &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+  1.2        1.200          v1.200.0
+  1.02       1.020          v1.20.0
+  1.002      1.002          v1.2.0
+  1.0023     1.002300       v1.2.300
+  1.00203    1.002030       v1.2.30
+  1.002003   1.002003       v1.2.3</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Quoting
+Rules</b> <br>
+Because of the nature of the Perl parsing and tokenizing
+routines, certain initialization values <b>must</b> be
+quoted in order to correctly parse as the intended version,
+especially when using the <tt>&quot;declare&quot;</tt> or
+&quot;<i>qv()</i>&quot; methods. While you do not have to
+quote decimal numbers when creating version objects, it is
+always safe to quote <b>all</b> initial values when using
+version.pm methods, as this will ensure that what you type
+is what is used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Additionally,
+if you quote your initializer, then the quoted value that
+goes <b>in</b> will be exactly what comes <b>out</b> when
+your <tt>$VERSION</tt> is printed (stringified). If you do
+not quote your value, Perl&rsquo;s normal numeric handling
+comes into play and you may not get back what you were
+expecting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use a
+mathematic formula that resolves to a floating point number,
+you are dependent on Perl&rsquo;s conversion routines to
+yield the version you expect. You are pretty safe by
+dividing by a power of 10, for example, but other operations
+are not likely to be what you intend. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $VERSION = version&minus;&gt;new((qw$Revision: 1.4)[1]/10);
+  print $VERSION;          # yields 0.14
+  $V2 = version&minus;&gt;new(100/9); # Integer overflow in decimal number
+  print $V2;               # yields something like 11.111.111.100</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Perl 5.8.1 and
+beyond are able to automatically quote v&minus;strings but
+that is not possible in earlier versions of Perl. In other
+words:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $version = version&minus;&gt;new(&quot;v2.5.4&quot;);  # legal in all versions of Perl
+  $newvers = version&minus;&gt;new(v2.5.4);    # legal only in Perl &gt;= 5.8.1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>What about
+v&minus;strings?</b> <br>
+There are two ways to enter v&minus;strings: a bare number
+with two or more decimal points, or a bare number with one
+or more decimal points and a leading &rsquo;v&rsquo;
+character (also bare). For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $vs1 = 1.2.3; # encoded as \1\2\3
+  $vs2 = v1.2;  # encoded as \1\2</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">However, the
+use of bare v&minus;strings to initialize version objects is
+<b>strongly</b> discouraged in all circumstances. Also, bare
+v&minus;strings are not completely supported in any version
+of Perl prior to 5.8.1.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you insist
+on using bare v&minus;strings with Perl &gt; 5.6.0, be aware
+of the following limitations:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1) For Perl
+releases 5.6.0 through 5.8.0, the v&minus;string code merely
+guesses, based on some characteristics of v&minus;strings.
+You <b>must</b> use a three part version, e.g. 1.2.3 or
+v1.2.3 in order for this heuristic to be successful.</p>
+
+<p style="margin-left:11%; margin-top: 1em">2) For Perl
+releases 5.8.1 and later, v&minus;strings have changed in
+the Perl core to be magical, which means that the version.pm
+code can automatically determine whether the v&minus;string
+encoding was used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">3) In all
+cases, a version created using v&minus;strings will have a
+stringified form that has a leading &rsquo;v&rsquo;
+character, for the simple reason that sometimes it is
+impossible to tell whether one was present initially.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Version
+Object Internals</b> <br>
+version.pm provides an overloaded version object that is
+designed to both encapsulate the author&rsquo;s intended
+<tt>$VERSION</tt> assignment as well as make it completely
+natural to use those objects as if they were numbers (e.g.
+for comparisons). To do this, a version object contains both
+the original representation as typed by the author, as well
+as a parsed representation to ease comparisons. Version
+objects employ overload methods to simplify code that needs
+to compare, print, etc the objects.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The internal
+structure of version objects is a blessed hash with several
+components:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bless( {
+      'original' =&gt; 'v1.2.3_4',
+      'alpha' =&gt; 1,
+      'qv' =&gt; 1,
+      'version' =&gt; [
+        1,
+        2,
+        3,
+        4
+      ]
+    }, 'version' );</pre>
+
+
+<p style="margin-left:11%;">original</p>
+
+<p style="margin-left:17%;">A faithful representation of
+the value used to initialize this version object. The only
+time this will not be precisely the same characters that
+exist in the source file is if a short dotted-decimal
+version like v1.2 was used (in which case it will contain
+&rsquo;v1.2&rsquo;). This form is
+<b><small>STRONGLY</small></b> discouraged, in that it will
+confuse you and your users.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>qv</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>A boolean that denotes whether this is a decimal or
+dotted-decimal version. See &quot;<i>is_qv()</i>&quot; in
+version.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;">alpha</p>
+
+<p style="margin-left:17%;">A boolean that denotes whether
+this is an alpha version. <small>NOTE:</small> that the
+underscore can only appear in the last position. See
+&quot;<i>is_alpha()</i>&quot; in version.</p>
+
+<p style="margin-left:11%;">version</p>
+
+<p style="margin-left:17%;">An array of non-negative
+integers that is used for comparison purposes with other
+version objects.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Replacement
+<small>UNIVERSAL::VERSION</small></b> <br>
+In addition to the version objects, this modules also
+replaces the core <small>UNIVERSAL::VERSION</small> function
+with one that uses version objects for its comparisons. The
+return from this operator is always the stringified form as
+a simple scalar (i.e. not an object), but the warning
+message generated includes either the stringified form or
+the normal form, depending on how it was called.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  package Foo;
+  $VERSION = 1.2;
+  package Bar;
+  $VERSION = &quot;v1.3.5&quot;; # works with all Perl's (since it is quoted)
+  package main;
+  use version;
+  print $Foo::VERSION; # prints 1.2
+  print $Bar::VERSION; # prints 1.003005
+  eval &quot;use foo 10&quot;;
+  print $@; # prints &quot;foo version 10 required...&quot;
+  eval &quot;use foo 1.3.5; # work in Perl 5.6.1 or better
+  print $@; # prints &quot;foo version 1.3.5 required...&quot;
+  eval &quot;use bar 1.3.6&quot;;
+  print $@; # prints &quot;bar version 1.3.6 required...&quot;
+  eval &quot;use bar 1.004&quot;; # note Decimal version
+  print $@; # prints &quot;bar version 1.004 required...&quot;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>IMPORTANT
+NOTE:</small> This may mean that code which searches for a
+specific string (to determine whether a given module is
+available) may need to be changed. It is always better to
+use the built-in comparison implicit in
+<tt>&quot;use&quot;</tt> or <tt>&quot;require&quot;</tt>,
+rather than manually poking at
+<tt>&quot;class&minus;&gt;VERSION&quot;</tt> and then doing
+a comparison yourself.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The replacement
+<small>UNIVERSAL::VERSION,</small> when used as a function,
+like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  print $module&minus;&gt;VERSION;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will also
+exclusively return the stringified form. See
+&quot;Stringification&quot; for more details.</p>
+
+<h2>USAGE DETAILS
+<a name="USAGE DETAILS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Using
+modules that use version.pm</b> <br>
+As much as possible, the version.pm module remains
+compatible with all current code. However, if your module is
+using a module that has defined <tt>$VERSION</tt> using the
+version class, there are a couple of things to be aware of.
+For purposes of discussion, we will assume that we have the
+following module installed:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  package Example;
+  use version;  $VERSION = qv('1.2.2');
+  ...module code here...
+  1;</pre>
+
+
+<p style="margin-left:11%;">Decimal versions always
+work</p>
+
+<p style="margin-left:17%;">Code of the form:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  use Example 1.002003;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">will always
+work correctly. The <tt>&quot;use&quot;</tt> will perform an
+automatic <tt>$VERSION</tt> comparison using the floating
+point number given as the first term after the module name
+(e.g. above 1.002.003). In this case, the installed module
+is too old for the requested line, so you would see an error
+like:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  Example version 1.002003 (v1.2.3) required&minus;&minus;this is only version 1.002002 (v1.2.2)...</pre>
+
+
+<p style="margin-left:11%;">Dotted-Decimal version work
+sometimes</p>
+
+<p style="margin-left:17%;">With Perl &gt;= 5.6.2, you can
+also use a line like this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  use Example 1.2.3;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and it will
+again work (i.e. give the error message as above), even with
+releases of Perl which do not normally support
+v&minus;strings (see &quot;What about v&minus;strings?&quot;
+above). This has to do with that fact that
+<tt>&quot;use&quot;</tt> only checks to see if the second
+term <i>looks like a number</i> and passes that to the
+replacement <small>UNIVERSAL::VERSION</small> . This is not
+true in Perl 5.005_04, however, so you are <b>strongly
+encouraged</b> to always use a Decimal version in your code,
+even for those versions of Perl which support the
+Dotted-Decimal version.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Object
+Methods</b> <i><br>
+new()</i></p>
+
+<p style="margin-left:17%;">Like many <small>OO</small>
+interfaces, the <i>new()</i> method is used to initialize
+version objects. If two arguments are passed to
+<tt>&quot;new()&quot;</tt>, the <b>second</b> one will be
+used as if it were prefixed with &quot;v&quot;. This is to
+support historical use of the <tt>&quot;qw&quot;</tt>
+operator with the <small>CVS</small> variable
+<tt>$Revision</tt>, which is automatically incremented by
+<small>CVS</small> every time the file is committed to the
+repository.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In order to
+facilitate this feature, the following code can be
+employed:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $VERSION = version&minus;&gt;new(qw$Revision: 2.7 $);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and the version
+object will be created as if the following code were
+used:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $VERSION = version&minus;&gt;new(&quot;v2.7&quot;);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">In other words,
+the version will be automatically parsed out of the string,
+and it will be quoted to preserve the meaning
+<small>CVS</small> normally carries for versions. The
+<small>CVS</small> <tt>$Revision</tt>$ increments
+differently from Decimal versions (i.e. 1.10 follows 1.9),
+so it must be handled as if it were a Dotted-Decimal
+Version.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A new version
+object can be created as a copy of an existing version
+object, either as a class method:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $v1 = version&minus;&gt;new(12.3);
+  $v2 = version&minus;&gt;new($v1);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">or as an object
+method:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $v1 = version&minus;&gt;new(12.3);
+  $v2 = $v1&minus;&gt;new(12.3);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and in each
+case, <tt>$v1</tt> and <tt>$v2</tt> will be identical.
+<small>NOTE:</small> if you create a new object using an
+existing object like this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $v2 = $v1&minus;&gt;new();</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">the new object
+<b>will not</b> be a clone of the existing object. In the
+example case, <tt>$v2</tt> will be an empty object of the
+same type as <tt>$v1</tt>.</p>
+
+<p style="margin-left:11%;"><i>qv()</i></p>
+
+<p style="margin-left:17%;">An alternate way to create a
+new version object is through the exported <i>qv()</i> sub.
+This is not strictly like other q? operators (like qq, qw),
+in that the only delimiters supported are parentheses (or
+spaces). It is the best way to initialize a short version
+without triggering the floating point interpretation. For
+example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $v1 = qv(1.2);         # v1.2.0
+  $v2 = qv(&quot;1.2&quot;);       # also v1.2.0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">As you can see,
+either a bare number or a quoted string can usually be used
+interchangeably, except in the case of a trailing zero,
+which must be quoted to be converted properly. For this
+reason, it is strongly recommended that all initializers to
+<i>qv()</i> be quoted strings instead of bare numbers.</p>
+
+<p style="margin-left:17%; margin-top: 1em">To prevent the
+<tt>&quot;qv()&quot;</tt> function from being exported to
+the caller&rsquo;s namespace, either use version with a null
+parameter:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  use version ();</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">or just require
+version, like this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  require version;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Both methods
+will prevent the <i>import()</i> method from firing and
+exporting the <tt>&quot;qv()&quot;</tt> sub.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For the
+subsequent examples, the following three objects will be
+used:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $ver   = version&minus;&gt;new(&quot;1.2.3.4&quot;); # see &quot;Quoting Rules&quot;
+  $alpha = version&minus;&gt;new(&quot;1.2.3_4&quot;); # see &quot;Alpha Versions&quot;
+  $nver  = version&minus;&gt;new(1.002);     # see &quot;Decimal Versions&quot;</pre>
+
+
+<p style="margin-left:11%;">Normal Form</p>
+
+<p style="margin-left:17%;">For any version object which is
+initialized with multiple decimal places (either quoted or
+if possible v&minus;string), or initialized using the
+<i>qv()</i> operator, the stringified representation is
+returned in a normalized or reduced form (no extraneous
+zeros), and with a leading &rsquo;v&rsquo;:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  print $ver&minus;&gt;normal;         # prints as v1.2.3.4
+  print $ver&minus;&gt;stringify;      # ditto
+  print $ver;                 # ditto
+  print $nver&minus;&gt;normal;        # prints as v1.2.0
+  print $nver&minus;&gt;stringify;     # prints as 1.002,
+                              # see &quot;Stringification&quot;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">In order to
+preserve the meaning of the processed version, the
+normalized representation will always contain at least three
+sub terms. In other words, the following is guaranteed to
+always be true:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  my $newver = version&minus;&gt;new($ver&minus;&gt;stringify);
+  if ($newver eq $ver ) # always true
+    {...}</pre>
+
+
+<p style="margin-left:11%;">Numification</p>
+
+<p style="margin-left:17%;">Although all mathematical
+operations on version objects are forbidden by default, it
+is possible to retrieve a number which corresponds to the
+version object through the use of the
+<tt>$obj</tt>&minus;&gt;numify method. For formatting
+purposes, when displaying a number which corresponds a
+version object, all sub versions are assumed to have three
+decimal places. So for example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  print $ver&minus;&gt;numify;         # prints 1.002003004
+  print $nver&minus;&gt;numify;        # prints 1.002</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Unlike the
+stringification operator, there is never any need to append
+trailing zeros to preserve the correct version value.</p>
+
+<p style="margin-left:11%;">Stringification</p>
+
+<p style="margin-left:17%;">The default stringification for
+version objects returns exactly the same string as was used
+to create it, whether you used <tt>&quot;new()&quot;</tt> or
+<tt>&quot;qv()&quot;</tt>, with one exception. The sole
+exception is if the object was created using
+<tt>&quot;qv()&quot;</tt> and the initializer did not have
+two decimal places or a leading &rsquo;v&rsquo; (both
+optional), then the stringified form will have a leading
+&rsquo;v&rsquo; prepended, in order to support round-trip
+processing.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  Initialized as          Stringifies to
+  ==============          ==============
+  version&minus;&gt;new(&quot;1.2&quot;)       1.2
+  version&minus;&gt;new(&quot;v1.2&quot;)     v1.2
+  qv(&quot;1.2.3&quot;)               1.2.3
+  qv(&quot;v1.3.5&quot;)             v1.3.5
+  qv(&quot;1.2&quot;)                v1.2   ### exceptional case</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">See also
+<small>UNIVERSAL::VERSION</small> , as this also returns the
+stringified form when used as a class method.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>IMPORTANT
+NOTE:</small> There is one exceptional cases shown in the
+above table where the &quot;initializer&quot; is not
+stringwise equivalent to the stringified representation. If
+you use the <tt>&quot;qv&quot;</tt>() operator on a version
+without a leading &rsquo;v&rsquo; <b>and</b> with only a
+single decimal place, the stringified output will have a
+leading &rsquo;v&rsquo;, to preserve the sense. See the
+&quot;<i>qv()</i>&quot; operator for more details.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>IMPORTANT
+NOTE 2:</small> Attempting to bypass the normal
+stringification rules by manually applying <i>numify()</i>
+and <i>normal()</i> will sometimes yield surprising
+results:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  print version&minus;&gt;new(version&minus;&gt;new(&quot;v1.0&quot;)&minus;&gt;numify)&minus;&gt;normal; # v1.0.0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The reason for
+this is that the <i>numify()</i> operator will turn
+&quot;v1.0&quot; into the equivalent string
+&quot;1.000000&quot;. Forcing the outer version object to
+<i>normal()</i> form will display the mathematically
+equivalent &quot;v1.0.0&quot;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As the example
+in &quot;<i>new()</i>&quot; shows, you can always create a
+copy of an existing version object with the same value by
+the very compact:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $v2 = $v1&minus;&gt;new($v1);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and be assured
+that both <tt>$v1</tt> and <tt>$v2</tt> will be completely
+equivalent, down to the same internal representation as well
+as stringification.</p>
+
+<p style="margin-left:11%;">Comparison operators</p>
+
+<p style="margin-left:17%;">Both <tt>&quot;cmp&quot;</tt>
+and <tt>&quot;&lt;=&gt;&quot;</tt> operators perform the
+same comparison between terms (upgrading to a version object
+automatically). Perl automatically generates all of the
+other comparison operators based on those two. In addition
+to the obvious equalities listed below, appending a single
+trailing 0 term does not change the value of a version for
+comparison purposes. In other words &quot;v1.2&quot; and
+&quot;1.2.0&quot; will compare as identical.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example,
+the following relations hold:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  As Number        As String           Truth Value
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;    &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;    &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+  $ver &gt;  1.0      $ver gt &quot;1.0&quot;       true
+  $ver &lt;  2.5      $ver lt             true
+  $ver != 1.3      $ver ne &quot;1.3&quot;       true
+  $ver == 1.2      $ver eq &quot;1.2&quot;       false
+  $ver == 1.2.3.4  $ver eq &quot;1.2.3.4&quot;   see discussion below</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">It is probably
+best to chose either the Decimal notation or the string
+notation and stick with it, to reduce confusion. Perl6
+version objects <b>may</b> only support Decimal comparisons.
+See also &quot;Quoting Rules&quot;.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>WARNING:</small>
+Comparing version with unequal numbers of decimal points
+(whether explicitly or implicitly initialized), may yield
+unexpected results at first glance. For example, the
+following inequalities hold:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  version&minus;&gt;new(0.96)     &gt; version&minus;&gt;new(0.95); # 0.960.0 &gt; 0.950.0
+  version&minus;&gt;new(&quot;0.96.1&quot;) &lt; version&minus;&gt;new(0.95); # 0.096.1 &lt; 0.950.0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">For this
+reason, it is best to use either exclusively &quot;Decimal
+Versions&quot; or &quot;Dotted-Decimal Versions&quot; with
+multiple decimal points.</p>
+
+<p style="margin-left:11%;">Logical Operators</p>
+
+<p style="margin-left:17%;">If you need to test whether a
+version object has been initialized, you can simply test it
+directly:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $vobj = version&minus;&gt;new($something);
+  if ( $vobj )   # true only if $something was non&minus;blank</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">You can also
+test whether a version object is an alpha version, for
+example to prevent the use of some feature not present in
+the main release:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $vobj = version&minus;&gt;new(&quot;1.2_3&quot;); # MUST QUOTE
+  ...later...
+  if ( $vobj&minus;&gt;is_alpha )       # True</pre>
+
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">John Peacock
+&lt;jpeacock@cpan.org&gt;</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+ 
+<p style="margin-left:11%; margin-top: 1em">perl.</p>
+<hr>
+</body>
+</html>

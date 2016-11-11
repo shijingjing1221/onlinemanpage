@@ -1,0 +1,487 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:10:38 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>prelink</title>
+
+</head>
+<body>
+
+<h1 align="center">prelink</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">prelink &minus;
+prelink ELF shared libraries and binaries to speed up
+startup time</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">prelink
+[OPTION...]&nbsp;[FILES]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>prelink</b>
+is a program that modifies ELF shared libraries and ELF
+dynamically linked binaries in such a way that the time
+needed for the dynamic linker to perform relocations at
+startup significantly decreases. Due to fewer relocations,
+the run-time memory consumption decreases as well
+(especially the number of unshareable pages). The prelinking
+information is only used at startup time if none of the
+dependent libraries have changed since prelinking; otherwise
+programs are relocated normally.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>prelink</b>
+first collects ELF binaries to be prelinked and all the ELF
+shared libraries they depend on. Then it assigns a unique
+virtual address space slot to each library and relinks the
+shared library to that base address. When the dynamic linker
+attempts to load such a library, unless that virtual address
+space slot is already occupied, it maps the library into the
+given slot. After this is done, <b>prelink</b>, with the
+help of dynamic linker, resolves all relocations in the
+binary or library against its dependent libraries and stores
+the relocations into the ELF object. It also stores a list
+of all dependent libraries together with their checksums
+into the binary or library. For binaries, it also computes a
+list of <i>conflicts</i> (relocations that resolve
+differently in the binary&rsquo;s symbol search scope than
+in the smaller search scope in which the dependent library
+was resolved) and stores it into a special ELF section.</p>
+
+<p style="margin-left:11%; margin-top: 1em">At runtime, the
+dynamic linker first checks whether all dependent libraries
+were successfully mapped into their designated address space
+slots, and whether they have not changed since the
+prelinking was done. If all checks are successful, the
+dynamic linker just replays the list of conflicts (which is
+usually significantly shorter than total number of
+relocations) instead of relocating each library.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;v&nbsp;&minus;&minus;verbose</b></p>
+
+<p style="margin-left:22%;">Verbose mode. Print the virtual
+address slots assigned to libraries and what binary or
+library is currently being prelinked.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;n&nbsp;&minus;&minus;dry&minus;run</b></p>
+
+<p style="margin-left:22%;">Don&rsquo;t actually prelink
+anything; just collect the binaries/libraries, assign them
+addresses, and with <b>&minus;v</b> print what would be
+prelinked.</p>
+
+<p style="margin-left:11%;"><b>&minus;a
+&minus;&minus;all</b></p>
+
+<p style="margin-left:22%;">Prelink all binaries and
+dependent libraries found in directory hierarchies specified
+in <i>/etc/prelink.conf</i>. Normally, only binaries
+specified on the command line and their dependent libraries
+are prelinked.</p>
+
+<p style="margin-left:11%;"><b>&minus;m
+&minus;&minus;conserve&minus;memory</b></p>
+
+<p style="margin-left:22%;">When assigning addresses to
+libraries, allow overlap of address space slots provided
+that the two libraries are not present together in any of
+the binaries or libraries. This results in a smaller virtual
+address space range used for libraries. On the other hand,
+if <b>prelink</b> sees a binary during incremental
+prelinking which puts together two libraries which were not
+present together in any other binary and were given the same
+virtual address space slots, then the binary cannot be
+prelinked. Without this option, each library is assigned a
+unique virtual address space slot.</p>
+
+<p style="margin-left:11%;"><b>&minus;R
+&minus;&minus;random</b></p>
+
+<p style="margin-left:22%;">When assigning addresses to
+libraries, start with a random address within the
+architecture-dependent virtual address space range. This can
+make some buffer overflow attacks slightly harder to
+exploit, because libraries are not present on the same
+addresses across different machines. Normally, assigning
+virtual addresses starts at the bottom of the
+architecture-dependent range.</p>
+
+<p style="margin-left:11%;"><b>&minus;r
+&minus;&minus;reloc&minus;only=ADDRESS</b></p>
+
+<p style="margin-left:22%;">Instead of prelinking, just
+relink given shared libraries to the specified base
+address.</p>
+
+<p style="margin-left:11%;"><b>&minus;N
+&minus;&minus;no&minus;update&minus;cache</b></p>
+
+<p style="margin-left:22%;">Don&rsquo;t save the cache file
+after prelinking. Normally, the list of libraries (and with
+<b>&minus;m</b> binaries also) is stored into the
+<i>/etc/prelink.cache</i> file together with their given
+address space slots and dependencies, so the cache can be
+used during incremental prelinking (prelinking without
+<b>&minus;a</b> option).</p>
+
+<p style="margin-left:11%;"><b>&minus;c
+&minus;&minus;config&minus;file=CONFIG</b></p>
+
+<p style="margin-left:22%;">Specify an alternate config
+file instead of default <i>/etc/prelink.conf</i>.</p>
+
+<p style="margin-left:11%;"><b>&minus;C
+&minus;&minus;cache&minus;file=CACHE</b></p>
+
+<p style="margin-left:22%;">Specify an alternate cache file
+instead of default <i>/etc/prelink.cache</i>.</p>
+
+<p style="margin-left:11%;"><b>&minus;f
+&minus;&minus;force</b></p>
+
+<p style="margin-left:22%;">Force re-prelinking even for
+already prelinked objects whose dependencies are unchanged.
+This option causes new virtual address space slots to be
+assigned to all libraries. Normally, only binaries or
+libraries which are either not prelinked yet, or whose
+dependencies have changed, are prelinked.</p>
+
+<p style="margin-left:11%;"><b>&minus;q
+&minus;&minus;quick</b></p>
+
+<p style="margin-left:22%;">Run prelink in quick mode. This
+mode checks just mtime and ctime timestamps of libraries and
+binaries stored in the cache file. If they are unchanged
+from the last prelink run, it is assumed that the library in
+question did not change, without parsing or verifying its
+ELF headers.</p>
+
+<p style="margin-left:11%;"><b>&minus;p
+&minus;&minus;print&minus;cache</b></p>
+
+<p style="margin-left:22%;">Print the contents of the cache
+file (normally <i>/etc/prelink.cache</i>) and exit.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;dynamic&minus;linker=LDSO</b></p>
+
+<p style="margin-left:22%;">Specify an alternate dynamic
+linker instead of the default.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;ld&minus;library&minus;path=PATH</b></p>
+
+<p style="margin-left:22%;">Specify a special
+<i>LD_LIBRARY_PATH</i> to be used when <b>prelink</b>
+queries the dynamic linker about symbol resolution
+details.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;layout&minus;page&minus;size=SIZE</b></p>
+
+<p style="margin-left:22%;">Layout start of libraries at
+given boundary.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;libs&minus;only</b></p>
+
+<p style="margin-left:22%;">Only prelink ELF shared
+libraries, don&rsquo;t prelink any binaries.</p>
+
+<p style="margin-left:11%;"><b>&minus;h
+&minus;&minus;dereference</b></p>
+
+<p style="margin-left:22%;">When processing command line
+directory arguments, follow symbolic links when walking
+directory hierarchies.</p>
+
+<p style="margin-left:11%;"><b>&minus;l
+&minus;&minus;one&minus;file&minus;system</b></p>
+
+<p style="margin-left:22%;">When processing command line
+directory arguments, limit directory tree walk to a single
+file system.</p>
+
+<p style="margin-left:11%;"><b>&minus;u
+&minus;&minus;undo</b></p>
+
+<p style="margin-left:22%;">Revert binaries and libraries
+to their original content before they were prelinked.
+Without the <i>&minus;a</i> option, this causes only the
+binaries and libraries specified on the command line to be
+reverted to their original state (and e.g. not their
+dependencies). If used together with the <i>&minus;a</i>
+option, all binaries and libraries from command line, all
+their dependencies, all binaries found in directories
+specified on command line and in the config file, and all
+their dependencies are undone.</p>
+
+<p style="margin-left:11%;"><b>&minus;y
+&minus;&minus;verify</b></p>
+
+<p style="margin-left:22%;">Verifies a prelinked binary or
+library. This option can be used only on a single binary or
+library. It first applies an <i>&minus;&minus;undo</i>
+operation on the file, then prelinks just that file again
+and compares this with the original file. If both are
+identical, it prints the file after
+<i>&minus;&minus;undo</i> operation on standard output and
+exits with zero status. Otherwise it exits with error
+status. Thus if <i>&minus;&minus;verify</i> operation
+returns zero exit status and its standard output is equal to
+the content of the binary or library before prelinking, you
+can be sure that nobody modified the binaries or libraries
+after prelinking. Similarly with message digests and
+checksums (unless you trigger the improbable case of
+modified file and original file having the same digest or
+checksum).</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>&minus;&minus;md5</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>This is similar to <i>&minus;&minus;verify</i> option,
+except instead of outputting the content of the binary or
+library before prelinking to standard output, MD5 digest is
+printed. See <b>md5sum</b>(1).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>&minus;&minus;sha</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>This is similar to <i>&minus;&minus;verify</i> option,
+except instead of outputting the content of the binary or
+library before prelinking to standard output, SHA1 digest is
+printed. See <b>sha1sum</b>(1).</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;exec&minus;shield
+&minus;&minus;no&minus;exec&minus;shield</b></p>
+
+<p style="margin-left:22%;">On IA-32, if the kernel
+supports Exec-Shield, prelink attempts to lay libraries out
+similarly to how the kernel places them (i.e. if possible
+below the binary, most widely used into the ASCII armor
+zone). These switches allow overriding prelink detection of
+whether Exec-Shield is supported or not.</p>
+
+<p style="margin-left:11%;"><b>&minus;b
+&minus;&minus;black&minus;list=PATH</b></p>
+
+<p style="margin-left:22%;">This option allows blacklisting
+certain paths, libraries or binaries. Prelink will not touch
+them during prelinking.</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+&minus;&minus;undo&minus;output=FILE</b></p>
+
+<p style="margin-left:22%;">When performing an
+<b>&minus;&minus;undo</b> operation, don&rsquo;t overwrite
+the prelinked binary or library with its original content
+(before it was prelinked), but save that into the specified
+file.</p>
+
+<p style="margin-left:11%;"><b>&minus;V
+&minus;&minus;version</b></p>
+
+<p style="margin-left:22%;">Print version and exit.</p>
+
+<p style="margin-left:11%;"><b>&minus;?
+&minus;&minus;help</b></p>
+
+<p style="margin-left:22%;">Print short help and exit.</p>
+
+<p style="margin-left:11%;"><b>&minus;&minus;usage</b></p>
+
+<p style="margin-left:22%;">Print short usage message.</p>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Command-line
+arguments should be either directory hierarchies (in which
+case <i>&minus;l</i> and <i>&minus;h</i> options apply), or
+particular ELF binaries or shared libraries. Specifying a
+shared library explicitly on the command line causes it to
+be prelinked even if no binary is linked against it.
+Otherwise, binaries are collected together and only the
+libraries they depend on are prelinked with them.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:22%; margin-top: 1em">#
+/usr/sbin/prelink -avmR</p>
+
+<p style="margin-left:11%;">prelinks all binaries found in
+directories specified in <i>/etc/prelink.conf</i> and all
+their dependent libraries, assigning libraries unique
+virtual address space slots only if they ever appear
+together, and starts assigning libraries at a random
+address.</p>
+
+<p style="margin-left:22%;"># /usr/sbin/prelink -vm
+~/bin/progx</p>
+
+<p style="margin-left:11%;">prelinks ~/bin/progx program
+and all its dependent libraries (unless they were prelinked
+already e.g. during <i>prelink &minus;a</i> invocation).</p>
+
+<p style="margin-left:22%;"># /usr/sbin/prelink -au</p>
+
+<p style="margin-left:11%;">reverts all binaries and
+libraries to their original content.</p>
+
+<p style="margin-left:22%;"># /usr/sbin/prelink -y
+/bin/prelinked_prog &gt; /tmp/original_prog; echo $?
+verifies whether /bin/prelinked_prog is unchanged.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="27%">
+
+
+<p style="margin-top: 1em"><b>/etc/prelink.cache</b></p></td>
+<td width="4%"></td>
+<td width="58%">
+
+
+<p style="margin-top: 1em">Binary file containing a list of
+prelinked libraries and/or binaries together with their
+assigned virtual address space slots and dependencies. You
+can run <i>/usr/sbin/prelink -p</i> to see what is stored in
+there.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="27%">
+
+
+<p><b>/etc/prelink.conf</b></p></td>
+<td width="4%"></td>
+<td width="58%">
+
+
+<p>Configuration file containing a list of directory
+hierarchies that contain ELF shared libraries or binaries
+which should be prelinked. This configuration file is used
+in <b>&minus;a</b> mode to find binaries which should be
+prelinked and also, no matter whether <b>&minus;a</b> is
+given or not, to limit which dependent shared libraries
+should be prelinked. If <b>prelink</b> finds a dependent
+library of some binary or other library which is not present
+in any of the directories specified either in
+<b>/etc/prelink.conf</b> or on the command line, then it
+cannot be prelinked. Each line of the config file should be
+either a comment starting with <b>#</b>, or a directory
+name, or a blacklist specification. Directory names can be
+prefixed by the <b>&minus;l</b> switch, meaning the tree
+walk of the given directory is only limited to one file
+system; or the <b>&minus;h</b> switch, meaning the tree walk
+of the given directory follows symbolic links. A blacklist
+specification should be prefixed by <b>&minus;b</b> and
+optionally also <b>&minus;l</b> or <b>&minus;h</b> if
+needed. A blacklist entry can be either an absolute
+directory name (in that case all files in that directory
+hierarchy are ignored by the prelinker); an absolute
+filename (then that particular library or binary is
+skipped); or a glob pattern without a <b>/</b> character in
+it (then all files matching that glob in any directory are
+ignored).</p> </td></tr>
+</table>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%;"><b>ldd</b>(1),
+<b>ld.so</b>(8).</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%;"><b>prelink</b> Some
+architectures, including IA-64 and HPPA, are not yet
+supported.</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%;">Jakub Jelinek
+&lt;jakub@redhat.com&gt;.</p>
+<hr>
+</body>
+</html>

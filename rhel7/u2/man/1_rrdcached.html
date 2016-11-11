@@ -1,0 +1,1183 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:15:24 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>RRDCACHED</title>
+
+</head>
+<body>
+
+<h1 align="center">RRDCACHED</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#AFFECTED RRDTOOL COMMANDS">AFFECTED RRDTOOL COMMANDS</a><br>
+<a href="#ERROR REPORTING">ERROR REPORTING</a><br>
+<a href="#HOW IT WORKS">HOW IT WORKS</a><br>
+<a href="#SECURITY CONSIDERATIONS">SECURITY CONSIDERATIONS</a><br>
+<a href="#PROTOCOL">PROTOCOL</a><br>
+<a href="#SIGNALS">SIGNALS</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#CONTRIBUTORS">CONTRIBUTORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">rrdcached
+&minus; Data caching daemon for rrdtool</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>rrdcached</b>
+[<b>&minus;P&nbsp;</b><i>permissions</i>]
+[<b>&minus;l&nbsp;</b><i>address</i>]
+[<b>&minus;s&nbsp;</b><i>group</i>]
+[<b>&minus;w&nbsp;</b><i>timeout</i>]
+[<b>&minus;z&nbsp;</b><i>delay</i>]
+[<b>&minus;f&nbsp;</b><i>timeout</i>]
+[<b>&minus;p&nbsp;</b><i>pid_file</i>]
+[<b>&minus;t&nbsp;</b><i>write_threads</i>]
+[<b>&minus;j&nbsp;</b><i>journal_dir</i>] [&minus;F]
+[&minus;g]
+[<b>&minus;b&nbsp;</b><i>base_dir&nbsp;</i>[<b>&minus;B</b>]]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>rrdcached</b>
+is a daemon that receives updates to existing
+<small>RRD</small> files, accumulates them and, if enough
+have been received or a defined time has passed, writes the
+updates to the <small>RRD</small> file. A <i>flush</i>
+command may be used to force writing of values to disk, so
+that graphing facilities and similar can work with
+up-to-date data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The daemon was
+written with big setups in mind. Those setups usually run
+into <small>IO&nbsp;</small> related problems sooner or
+later for reasons that are beyond the scope of this
+document. Check the wiki at the RRDtool homepage for
+details. Also check &quot; <small>SECURITY
+CONSIDERATIONS</small> &quot; below before using this
+daemon! A detailed description of how the daemon operates
+can be found in the &quot; <small>HOW IT WORKS</small>
+&quot; section below.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;l</b>
+<i>address</i></p>
+
+<p style="margin-left:17%;">Tells the daemon to bind to
+<i>address</i> and accept incoming connections on that
+socket. If <i>address</i> begins with
+<tt>&quot;unix:&quot;</tt>, everything following that prefix
+is interpreted as the path to a <small>UNIX</small> domain
+socket. Otherwise the address or node name are resolved
+using <tt>&quot;getaddrinfo()&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For network
+sockets, a port may be specified by using the form
+<tt>&quot;</tt><b>[</b><i>address</i><b>]:</b><i>port</i><tt>&quot;</tt>.
+If the address is an IPv4 address or a fully qualified
+domain name (i.&nbsp;e. the address contains at least one
+dot (<tt>&quot;.&quot;</tt>)), the square brackets can be
+omitted, resulting in the (simpler)
+<tt>&quot;</tt><i>address</i><b>:</b><i>port</i><tt>&quot;</tt>
+pattern. The default port is <b>42217/tcp</b>. If you
+specify a network socket, it is mandatory to read the &quot;
+<small>SECURITY CONSIDERATIONS</small> &quot; section.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The following
+formats are accepted. Please note that the address of the
+<small>UNIX</small> domain socket <b>must</b> start with a
+slash in the second case!</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   unix:&lt;/path/to/unix.sock&gt;
+   /&lt;path/to/unix.sock&gt;
+   &lt;hostname&minus;or&minus;ip&gt;
+   [&lt;hostname&minus;or&minus;ip&gt;]:&lt;port&gt;
+   &lt;hostname&minus;or&minus;ipv4&gt;:&lt;port&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">If the
+<b>&minus;l</b> option is not specified the default address,
+<tt>&quot;unix:/tmp/rrdcached.sock&quot;</tt>, will be
+used.</p>
+
+<p style="margin-left:11%;"><b>&minus;s</b>
+<i>group_name</i>|<i>gid</i></p>
+
+<p style="margin-left:17%;">Set the group permissions of a
+<small>UNIX</small> domain socket. The option accepts either
+a numeric group id or group name. That group will then have
+both read and write permissions (the socket will have file
+permissions 0750) for the socket and, therefore, is able to
+send commands to the daemon. This may be useful in cases
+where you cannot easily run all <small>RRD</small> processes
+with the same user privileges (e.g. graph generating
+<small>CGI</small> scripts that typically run in the
+permission context of the web server).</p>
+
+<p style="margin-left:17%; margin-top: 1em">This option
+affects the <i>following</i> <small>UNIX</small> socket
+addresses (the following <b>&minus;l</b> options) or the
+default socket (if no <b>&minus;l</b> options have been
+specified), i.e., you may specify different settings for
+different sockets.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+not to change ownership or permissions of the socket and,
+thus, use the system default.</p>
+
+<p style="margin-left:11%;"><b>&minus;m</b> <i>mode</i></p>
+
+<p style="margin-left:17%;">Set the file permissions of a
+<small>UNIX</small> domain socket. The option accepts an
+octal number representing the bit pattern for the mode (see
+<i>chmod</i>(1) for details).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Please note
+that not all systems honor this setting. On Linux,
+read/write permissions are required to connect to a
+<small>UNIX</small> socket. However, many BSD-derived
+systems ignore permissions for <small>UNIX</small> sockets.
+See <i>unix</i>(7) for details.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This option
+affects the <i>following</i> <small>UNIX</small> socket
+addresses (the following <b>&minus;l</b> options) or the
+default socket (if no <b>&minus;l</b> options have been
+specified), i.e., you may specify different settings for
+different sockets.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+not to change ownership or permissions of the socket and,
+thus, use the system default.</p>
+
+<p style="margin-left:11%;"><b>&minus;P</b>
+<i>command</i>[,<i>command</i>[,...]]</p>
+
+<p style="margin-left:17%;">Specifies the commands accepted
+via a network socket. This allows administrators of
+<i>RRDCacheD</i> to control the actions accepted from
+various sources.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The arguments
+given to the <b>&minus;P</b> option is a comma separated
+list of commands. For example, to allow the
+<tt>&quot;FLUSH&quot;</tt> and <tt>&quot;PENDING&quot;</tt>
+commands one could specify:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  rrdcached &minus;P FLUSH,PENDING $MORE_ARGUMENTS</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The
+<b>&minus;P</b> option affects the <i>following</i> socket
+addresses (the following <b>&minus;l</b> options) or the
+default socket (if no <b>&minus;l</b> options have been
+specified). In the following example, only the IPv4 network
+socket (address <tt>10.0.0.1</tt>) will be restricted to the
+<tt>&quot;FLUSH&quot;</tt> and <tt>&quot;PENDING&quot;</tt>
+commands:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  rrdcached &minus;l unix:/some/path &minus;P FLUSH,PENDING &minus;l 10.0.0.1</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">A complete list
+of available commands can be found in the section
+&quot;Valid Commands&quot; below. There are two minor
+special exceptions:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>The <tt>&quot;HELP&quot;</tt> and
+<tt>&quot;QUIT&quot;</tt> commands are always allowed.</p></td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>If the <tt>&quot;BATCH&quot;</tt> command is accepted,
+the <b>.&nbsp;</b>command will automatically be accepted,
+too.</p> </td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Please also
+read &quot; <small>SECURITY CONSIDERATIONS</small> &quot;
+below.</p>
+
+<p style="margin-left:11%;"><b>&minus;w</b>
+<i>timeout</i></p>
+
+<p style="margin-left:17%;">Data is written to disk every
+<i>timeout</i> seconds. If this option is not specified the
+default interval of 300&nbsp;seconds will be used.</p>
+
+<p style="margin-left:11%;"><b>&minus;z</b>
+<i>delay</i></p>
+
+<p style="margin-left:17%;">If specified, rrdcached will
+delay writing of each <small>RRD</small> for a random number
+of seconds in the range&nbsp;[0,<i>delay</i>). This will
+avoid too many writes being queued simultaneously. This
+value should be no greater than the value specified in
+<b>&minus;w</b>. By default, there is no delay.</p>
+
+<p style="margin-left:11%;"><b>&minus;f</b>
+<i>timeout</i></p>
+
+<p style="margin-left:17%;">Every <i>timeout</i> seconds
+the entire cache is searched for old values which are
+written to disk. This only concerns files to which updates
+have stopped, so setting this to a high value, such as
+3600&nbsp;seconds, is acceptable in most cases. This timeout
+defaults to 3600&nbsp;seconds.</p>
+
+<p style="margin-left:11%;"><b>&minus;p</b> <i>file</i></p>
+
+<p style="margin-left:17%;">Sets the name and location of
+the PID-file. If not specified, the default,
+<tt>&quot;</tt><i>$localststedir</i><tt>/run/rrdcached.pid&quot;</tt>
+will be used.</p>
+
+<p style="margin-left:11%;"><b>&minus;t</b>
+<i>write_threads</i></p>
+
+<p style="margin-left:17%;">Specifies the number of threads
+used for writing <small>RRD</small> files. The default
+is&nbsp;4. Increasing this number will allow rrdcached to
+have more simultaneous I/O requests into the kernel. This
+may allow the kernel to re-order disk writes, resulting in
+better disk throughput.</p>
+
+<p style="margin-left:11%;"><b>&minus;j</b> <i>dir</i></p>
+
+<p style="margin-left:17%;">Write updates to a journal in
+<i>dir</i>. In the event of a program or system crash, this
+will allow the daemon to write any updates that were pending
+at the time of the crash.</p>
+
+<p style="margin-left:17%; margin-top: 1em">On startup, the
+daemon will check for journal files in this directory. If
+found, all updates therein will be read into memory before
+the daemon starts accepting new connections.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The journal
+will be rotated with the same frequency as the flush timer
+given by <b>&minus;f</b>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When journaling
+is enabled, the daemon will use a fast shutdown procedure.
+Rather than flushing all files to disk, it will make sure
+the journal is properly written and exit immediately.
+Although the <small>RRD</small> data files are not fully
+up-to-date, no information is lost; all pending updates will
+be replayed from the journal next time the daemon starts
+up.</p>
+
+<p style="margin-left:17%; margin-top: 1em">To disable fast
+shutdown, use the <b>&minus;F</b> option.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;F</b></p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p><small>ALWAYS</small> flush all updates to the
+<small>RRD</small> data files when the daemon is shut down,
+regardless of journal setting.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;g</b></p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Run in the foreground. The daemon will not
+<i>fork()</i>.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>&minus;b</b> <i>dir</i></p>
+
+<p style="margin-left:17%;">The daemon will change into a
+specific directory at startup. All files passed to the
+daemon, that are specified by a <b>relative</b> path, will
+be interpreted to be relative to this directory. If not
+given the default, <tt>&quot;/tmp&quot;</tt>, will be
+used.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+  ! Command line           ! File updated           !
+  +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+  ! foo.rrd                ! /tmp/foo.rrd           !
+  ! foo/bar.rrd            ! /tmp/foo/bar.rrd       !
+  ! /var/lib/rrd/foo.rrd   ! /var/lib/rrd/foo.rrd   !
+  +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+  Paths given on the command  line and paths actually
+  updated by the daemon,  assuming the base directory
+  &quot;/tmp&quot;.</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><small>WARNING:</small></b>
+The paths up to and including the base directory
+<b><small>MUST NOT BE</small></b> symbolic links. In other
+words, if the base directory is specified as:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    &minus;b /base/dir/somewhere</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">... then
+<b><small>NONE</small></b> of the following should be
+symbolic links:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    /base
+    /base/dir
+    /base/dir/somewhere</pre>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;B</b></p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Only permit writes into the base directory specified in
+<b>&minus;b</b> (and any sub-directories). This does
+<b><small>NOT</small></b> detect symbolic links. Paths
+containing <tt>&quot;../&quot;</tt> will also be
+blocked.</p> </td></tr>
+</table>
+
+<h2>AFFECTED RRDTOOL COMMANDS
+<a name="AFFECTED RRDTOOL COMMANDS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+commands may be made aware of the <b>rrdcached</b> using the
+command line argument <b>&minus;&minus;daemon</b> or the
+environment variable <b><small>RRDCACHED_ADDRESS</small></b>
+:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p style="margin-top: 1em">dump</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>fetch</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>flush</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>graph</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>graphv</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>info</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>last</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>lastupdate</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>update</p></td>
+<td width="68%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="15%">
+
+
+<p>xport</p></td>
+<td width="68%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>update</b> command can send values to the daemon instead
+of writing them to the disk itself. All other commands can
+send a <b><small>FLUSH</small></b> command (see below) to
+the daemon before accessing the files, so they work with
+up-to-date data even if the cache timeout is large.</p>
+
+<h2>ERROR REPORTING
+<a name="ERROR REPORTING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The daemon
+reports errors in one of two ways: During startup, error
+messages are printed to <tt>&quot;STDERR&quot;</tt>. One of
+the steps when starting up is to fork to the background and
+closing <tt>&quot;STDERR&quot;</tt> &minus; after this
+writing directly to the user is no longer possible. Once
+this has happened, the daemon will send log messages to the
+system logging daemon using <i>syslog</i>(3). The facility
+used is <tt>&quot;LOG_DAEMON&quot;</tt>.</p>
+
+<h2>HOW IT WORKS
+<a name="HOW IT WORKS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When receiving
+an update, <b>rrdcached</b> does not write to disk but looks
+for an entry for that file in its internal tree. If not
+found, an entry is created including the current time
+(called &quot;First&quot; in the diagram below). This time
+is <b>not</b> the time specified on the command line but the
+time the operating system considers to be &quot;now&quot;.
+The value and time of the value (called &quot;Time&quot; in
+the diagram below) are appended to the tree node.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When appending
+a value to a tree node, it is checked whether it&rsquo;s
+time to write the values to disk. Values are written to disk
+if
+<tt>&quot;now()&nbsp;&minus;&nbsp;First&nbsp;&gt;=&nbsp;timeout&quot;</tt>,
+where <tt>&quot;timeout&quot;</tt> is the timeout specified
+using the <b>&minus;w</b> option, see &quot;
+<small>OPTIONS</small> &quot;. If the values are &quot;old
+enough&quot; they will be enqueued in the &quot;update
+queue&quot;, i.&nbsp;e. they will be appended to the linked
+list shown below. Because the tree nodes and the elements of
+the linked list are the same data structures in memory, any
+update to a file that has already been enqueued will be
+written with the next write to the <small>RRD</small> file,
+too.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A separate
+&quot;update thread&quot; constantly dequeues the first
+element in the update queue and writes all its values to the
+appropriate file. So as long as the update queue is not
+empty files are written at the highest possible rate.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since the
+timeout of files is checked only when new values are added
+to the file, &quot;dead&quot; files, i.&nbsp;e. files that
+are not updated anymore, would never be written to disk.
+Therefore, every now and then, controlled by the
+<b>&minus;f</b> option, the entire tree is walked and all
+&quot;old&quot; values are enqueued. Since this only affects
+&quot;dead&quot; files and walking the tree is relatively
+expensive, you should set the &quot;flush interval&quot; to
+a reasonably high value. The default is 3600&nbsp;seconds
+(one hour).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The downside of
+caching values is that they won&rsquo;t show up in graphs
+generated from the <small>RRD&nbsp;</small> files. To get
+around this, the daemon provides the &quot;flush
+command&quot; to flush specific files. This means that the
+file is inserted at the <b>head</b> of the update queue or
+moved there if it is already enqueued. The flush command
+will return only after the file&rsquo;s pending updates have
+been written to disk.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> +&minus;&minus;&minus;&minus;&minus;&minus;+   +&minus;&minus;&minus;&minus;&minus;&minus;+                               +&minus;&minus;&minus;&minus;&minus;&minus;+
+ ! head !   ! root !                               ! tail !
+ +&minus;&minus;&minus;+&minus;&minus;+   +&minus;&minus;&minus;+&minus;&minus;+                               +&minus;&minus;&minus;+&minus;&minus;+
+     !         /\                                      !
+     !        /  \                                     !
+     !       /\  /\                                    !
+     !      /\/\ \ `&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus; ... &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;,    !
+     V     /      `&minus;&minus;&minus;&minus;&minus;&minus;&minus;,                       !    V
+ +&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;+    +&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;+             +&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;+
+ ! File:  foo !    ! File:  bar !             ! File:  qux !
+ ! First: 101 !    ! First: 119 !             ! First: 180 !
+ ! Next:&amp;bar &minus;+&minus;&minus;&minus;&gt;! Next:&amp;... &minus;+&minus;&minus;&minus;&gt; ... &minus;&minus;&minus;&gt;! Next:NULL  !
+ | Prev:NULL  !&lt;&minus;&minus;&minus;+&minus;Prev:&amp;foo  !&lt;&minus;&minus;&minus; ... &minus;&minus;&minus;&minus;+&minus;Prev: &amp;... !
+ +============+    +============+             +============+
+ ! Time:  100 !    ! Time:  120 !             ! Time:  180 !
+ ! Value:  10 !    ! Value: 0.1 !             ! Value: 2,2 !
+ +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+    +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+             +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+ ! Time:  110 !    ! Time:  130 !             ! Time:  190 !
+ ! Value:  26 !    ! Value: 0.1 !             ! Value: 7,3 !
+ +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+    +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+             +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+ :            :    :            :             :            :
+ +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+    +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+             +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+ ! Time:  230 !    ! Time:  250 !             ! Time:  310 !
+ ! Value:  42 !    ! Value: 0.2 !             ! Value: 1,2 !
+ +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+    +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+             +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above
+diagram demonstrates:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Files/values are stored in a
+(balanced) tree.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Tree nodes and entries in the update queue are the same
+data structure.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>The local time (&quot;First&quot;) and the time
+specified in updates (&quot;Time&quot;) may differ.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Timed out values are inserted at the
+&quot;tail&quot;.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Explicitly flushed values are inserted at the
+&quot;head&quot;.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><small>ASCII</small> art rocks.</p></td></tr>
+</table>
+
+<h2>SECURITY CONSIDERATIONS
+<a name="SECURITY CONSIDERATIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Authentication</b>
+<br>
+If your rrdtool installation was built without libwrap there
+is no form of authentication for clients connecting to the
+rrdcache daemon!</p>
+
+<p style="margin-left:11%; margin-top: 1em">If your rrdtool
+installation was built with libwrap then you can use
+hosts_access to restrict client access to the rrdcache
+daemon (rrdcached). For more information on how to use
+hosts_access to restrict access to the rrdcache daemon you
+should read the <i>hosts_access</i>(5) man pages.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is still
+highly recommended to install a packet filter or similar
+mechanism to prevent unauthorized connections. Unless you
+have a dedicated <small>VLAN</small> or <small>VPN</small>
+for this, using network sockets is probably a bad idea!</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Authorization</b>
+<br>
+There is minimal per-socket authorization.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Authorization
+is currently done on a per-socket basis. That means each
+socket has a list of commands it will accept and it will
+accept. It will accept only those commands explicitly listed
+but it will (currently) accept these commands from anyone
+reaching the socket.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+networking sockets are to be used, it is necessary to
+restrict the accepted commands to those needed by external
+clients. If, for example, external clients want to draw
+graphs of the cached data, they should only be allowed to
+use the <tt>&quot;FLUSH&quot;</tt> command.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Encryption</b>
+<br>
+There is no encryption.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Again, this may
+be added in the future, but for the time being it is your
+job to keep your private data private. Install a
+<small>VPN</small> or an encrypted tunnel if you statistics
+are confidential!</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Sanity
+checking</b> <br>
+There is no sanity checking.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The daemon will
+blindly write to any file it gets told, so you really should
+create a separate user just for this daemon. Also it does
+not do any sanity checks, so if it gets told to write values
+for a time far in the future, your files will be messed up
+good!</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Conclusion</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Security is the job of the
+administrator.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>We recommend to allow write access via
+<small>UNIX</small> domain sockets only.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>You have been warned.</p></td></tr>
+</table>
+
+<h2>PROTOCOL
+<a name="PROTOCOL"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The daemon
+communicates with clients using a line based
+<small>ASCII</small> protocol which is easy to read and easy
+to type. This makes it easy for scripts to implement the
+protocol and possible for users to use telnet to connect to
+the daemon and test stuff &quot;by hand&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The protocol is
+line based, this means that each record consists of one or
+more lines. A line is terminated by the line feed character
+<tt>0x0A</tt>, commonly written as <tt>&quot;\n&quot;</tt>.
+In the examples below, this character will be written as
+<tt>&quot;&lt;LF&gt;&quot;</tt> (&quot;line feed&quot;).</p>
+
+<p style="margin-left:11%; margin-top: 1em">After the
+connection has been established, the client is expected to
+send a &quot;command&quot;. A command consists of the
+command keyword, possibly some arguments, and a terminating
+newline character. For a list of commands, see &quot;Valid
+Commands&quot; below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  FLUSH /tmp/foo.rrd&lt;LF&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The daemon
+answers with a line consisting of a status code and a short
+status message, separated by one or more space characters. A
+negative status code signals an error, a positive status
+code or zero signal success. If the status code is greater
+than zero, it indicates the number of lines that follow the
+status line.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> 0 Success&lt;LF&gt;
+ 2 Two lines follow&lt;LF&gt;
+ This is the first line&lt;LF&gt;
+ And this is the second line&lt;LF&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Valid
+Commands</b> <br>
+The following commands are understood by the daemon:
+<b><small><br>
+FLUSH</small></b> <i>filename</i></p>
+
+<p style="margin-left:17%;">Causes the daemon to put
+<i>filename</i> to the <b>head</b> of the update queue
+(possibly moving it there if the node is already enqueued).
+The answer will be sent <b>after</b> the node has been
+dequeued.</p>
+
+
+<p style="margin-left:11%;"><b><small>FLUSHALL</small></b></p>
+
+<p style="margin-left:17%;">Causes the daemon to start
+flushing <small>ALL</small> pending values to disk. This
+returns immediately, even though the writes may take a long
+time.</p>
+
+<p style="margin-left:11%;"><b><small>PENDING</small></b>
+<i>filename</i></p>
+
+<p style="margin-left:17%;">Shows any &quot;pending&quot;
+updates for a file, in order. The updates shown have not yet
+been written to the underlying <small>RRD</small> file.</p>
+
+<p style="margin-left:11%;"><b><small>FORGET</small></b>
+<i>filename</i></p>
+
+<p style="margin-left:17%;">Removes <i>filename</i> from
+the cache. Any pending updates <b><small>WILL BE
+LOST</small></b> .</p>
+
+
+<p style="margin-left:11%;"><b><small>QUEUE</small></b></p>
+
+<p style="margin-left:17%;">Shows the files that are on the
+output queue. Returns zero or more lines in the following
+format, where &lt;num_vals&gt; is the number of values to be
+written for the &lt;file&gt;:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    &lt;num_vals&gt; &lt;file&gt;</pre>
+
+
+<p style="margin-left:11%;"><b><small>HELP</small></b>
+[<i>command</i>]</p>
+
+<p style="margin-left:17%;">Returns a short usage message.
+If no command is given, or <i>command</i> is
+<b><small>HELP</small></b> , a list of commands supported by
+the daemon is returned. Otherwise a short description,
+possibly containing a pointer to a manual page, is returned.
+Obviously, this is meant for interactive usage and the
+format in which the commands and usage summaries are
+returned is not well defined.</p>
+
+
+<p style="margin-left:11%;"><b><small>STATS</small></b></p>
+
+<p style="margin-left:17%;">Returns a list of metrics which
+can be used to measure the daemons performance and check its
+status. For a description of the values returned, see
+&quot;Performance Values&quot; below.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The format in
+which the values are returned is similar to many other line
+based protocols: Each value is printed on a separate line,
+each consisting of the name of the value, a colon, one or
+more spaces and the actual value.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> 9 Statistics follow
+ QueueLength: 0
+ UpdatesReceived: 30
+ FlushesReceived: 2
+ UpdatesWritten: 13
+ DataSetsWritten: 390
+ TreeNodesNumber: 13
+ TreeDepth: 4
+ JournalBytes: 190
+ JournalRotate: 0</pre>
+
+
+<p style="margin-left:11%;"><b><small>UPDATE</small></b>
+<i>filename values</i> [<i>values</i> ...]</p>
+
+<p style="margin-left:17%;">Adds more data to a filename.
+This is <b>the</b> operation the daemon was designed for, so
+describing the mechanism again is unnecessary. Read &quot;
+<small>HOW IT WORKS</small> &quot; above for a detailed
+explanation.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that
+rrdcached only accepts absolute timestamps in the update
+values. Updates strings like &quot;N:1:2:3&quot; are
+automatically converted to absolute time by the
+<small>RRD</small> client library before sending to
+rrdcached.</p>
+
+<p style="margin-left:11%;"><b><small>WROTE</small></b>
+<i>filename</i></p>
+
+<p style="margin-left:17%;">This command is written to the
+journal after a file is successfully written out to disk. It
+is used during journal replay to determine which updates
+have already been applied. It is <i>only</i> valid in the
+journal; it is not accepted from the other command
+channels.</p>
+
+
+<p style="margin-left:11%;"><b><small>BATCH</small></b></p>
+
+<p style="margin-left:17%;">This command initiates the bulk
+load of multiple commands. This is designed for
+installations with extremely high update rates, since it
+permits more than one command to be issued per <i>read()</i>
+and <i>write()</i>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">All commands
+are executed just as they would be if given individually,
+except for output to the user. Messages indicating success
+are suppressed, and error messages are delayed until the
+client is finished.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Command
+processing is finished when the client sends a dot
+(&quot;.&quot;) on its own line. After the client has
+finished, the server responds with an error count and the
+list of error messages (if any). Each error messages
+indicates the number of the command to which it corresponds,
+and the error message itself. The first user command after
+<b><small>BATCH</small></b> is command number one.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    client:  BATCH
+    server:  0 Go ahead.  End with dot '.' on its own line.
+    client:  UPDATE x.rrd 1223661439:1:2:3            &lt;&minus;&minus;&minus; command #1
+    client:  UPDATE y.rrd 1223661440:3:4:5            &lt;&minus;&minus;&minus; command #2
+    client:  and so on...
+    client:  .
+    server:  2 Errors
+    server:  1 message for command 1
+    server:  12 message for command 12</pre>
+
+
+<p style="margin-left:11%;"><b><small>QUIT</small></b></p>
+
+<p style="margin-left:17%;">Disconnect from rrdcached.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Performance
+Values</b> <br>
+The following counters are returned by the
+<b><small>STATS</small></b> command: <b><br>
+QueueLength</b> <i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Number of nodes currently
+enqueued in the update queue.</p>
+
+<p style="margin-left:11%;"><b>UpdatesReceived</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Number of <small>UPDATE</small>
+commands received.</p>
+
+<p style="margin-left:11%;"><b>FlushesReceived</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Number of <small>FLUSH</small>
+commands received.</p>
+
+<p style="margin-left:11%;"><b>UpdatesWritten</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Total number of updates,
+i.&nbsp;e. calls to <tt>&quot;rrd_update_r&quot;</tt>, since
+the daemon was started.</p>
+
+<p style="margin-left:11%;"><b>DataSetsWritten</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Total number of &quot;data
+sets&quot; written to disk since the daemon was started. A
+data set is one or more values passed to the
+<b><small>UPDATE</small></b> command. For example:
+<tt>&quot;1223661439:123:456&quot;</tt> is one data set with
+two values. The term &quot;data set&quot; is used to prevent
+confusion whether individual values or groups of values are
+counted.</p>
+
+<p style="margin-left:11%;"><b>TreeNodesNumber</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Number of nodes in the
+cache.</p>
+
+<p style="margin-left:11%;"><b>TreeDepth</b> <i>(unsigned
+64bit integer)</i></p>
+
+<p style="margin-left:17%;">Depth of the tree used for fast
+key lookup.</p>
+
+<p style="margin-left:11%;"><b>JournalBytes</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Total number of bytes written
+to the journal since startup.</p>
+
+<p style="margin-left:11%;"><b>JournalRotate</b>
+<i>(unsigned 64bit integer)</i></p>
+
+<p style="margin-left:17%;">Number of times the journal has
+been rotated since startup.</p>
+
+<h2>SIGNALS
+<a name="SIGNALS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>SIGINT</small>
+and <small>SIGTERM</small></p>
+
+<p style="margin-left:17%;">The daemon exits normally on
+receipt of either of these signals. Pending updates are
+handled in accordance with the <b>&minus;j</b> and
+<b>&minus;F</b> options.</p>
+
+<p style="margin-left:11%;"><small>SIGUSR1</small></p>
+
+<p style="margin-left:17%;">The daemon exits
+<small>AFTER</small> flushing all updates out to disk. This
+may take a while.</p>
+
+<p style="margin-left:11%;"><small>SIGUSR2</small></p>
+
+<p style="margin-left:17%;">The daemon exits immediately,
+without flushing updates out to disk. Pending updates will
+be replayed from the journal when the daemon starts up
+again. <b><small>WARNING:</small> if journaling (&minus;j)
+is <small>NOT</small> enabled, any pending updates
+<small>WILL BE LOST</small></b> .</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">No known bugs
+at the moment.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">rrdtool,
+rrdgraph</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Florian Forster
+&lt;octo&nbsp;at&nbsp;verplant.org&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Both
+<b>rrdcached</b> and this manual page have been written by
+Florian.</p>
+
+<h2>CONTRIBUTORS
+<a name="CONTRIBUTORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">kevin brintnall
+&lt;kbrint@rufus.net&gt;</p>
+<hr>
+</body>
+</html>

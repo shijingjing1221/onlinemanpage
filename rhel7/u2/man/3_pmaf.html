@@ -1,0 +1,195 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:08:10 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMAF</title>
+
+</head>
+<body>
+
+<h1 align="center">PMAF</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#CAVEATS">CAVEATS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>__pmAFregister</b>,
+<b>__pmAFunregister</b>, <b>__pmAFblock</b>,
+<b>__pmAFunblock</b>, <b>__pmAFisempty</b> &minus; event
+queue services for periodic asynchronous callbacks</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt; <br>
+#include &lt;pcp/impl.h&gt;</b></p>
+
+<p style="margin-left:23%; margin-top: 1em"><b>int
+__pmAFregister(const struct timeval *</b><i>delta</i><b>,
+void *</b><i>data</i><b>,
+void&nbsp;(*</b><i>func</i><b>)(int,&nbsp;void *));</b></p>
+
+<p style="margin-left:11%;"><b>int __pmAFunregister(int</b>
+<i>afid</i><b>); <br>
+void __pmAFblock(void); <br>
+void __pmAFunblock(void); <br>
+int __pmAFisempty(void);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The routines
+implement an event queue and callback framework that
+supports periodic evaluation of a series of events with
+varying frequencies for Performance Co-Pilot (PCP)
+applications.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmlogger</b>(1) application, the <b>pmdatrace</b>(1) PMDA
+and the <b>pmdahotproc</b>(1) PMDA are the principal users
+of these services.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An event is
+registered by calling <b>__pmAFregister</b>, and on success
+the return value is an event number greater than zero. The
+event has associated event data identified by the opaque
+pointer <i>data</i>. The event will occur with frequency
+<i>delta</i> (the first instance will be <i>delta</i> after
+the current time when the event is registered), and each
+time the event occurs the function <i>func</i> will be
+called with the event number and the event data as
+arguments.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>func</i> is
+called in a SIGALRM signal handler context and so the
+routines that may be safely called from <i>func</i> are
+restricted to the so-called <i>async-signal-safe</i> set. In
+particular there must be no Standard I/O calls nor calls to
+any of the <b>malloc</b>(3) routines to modify the state of
+the heap. Refer to the <i>Pointer to a Function</i> Section
+of the POSIX.1-2013 document at
+http://pubs.opengroup.org/onlinepubs/9699919799/functions/V2_chap02.html
+for a fuller description.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The safest and
+simplest class of <i>func</i> routines are those that do
+minimal processing, set some global state and return. The
+real work associated with the event is done subsequently
+from the application&rsquo;s main loop when the global state
+change is detected.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once the event
+occurs and the callback has been executed, the event will be
+rescheduled for <i>delta</i> into the future, except if all
+the fields of <i>delta</i> are zero, in which case the event
+will not be rescheduled (a &lsquo;&lsquo;one
+trip&rsquo;&rsquo; event).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Internally,
+events are processed serially so there is no possibility of
+nested callbacks or re-entrant callbacks from the event
+management routines.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Given an event
+number <i>afid</i>, <b>__pmAFunregister</b> will permanently
+remove the corresponding entry from the event queue.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To control the
+event queue processing, <b>__pmAFblock</b> and
+<b>__pmAFunblock</b> may be used to explicitly block and
+unblock the dispatch of events. This is most useful when the
+caller wishes to set up a number of events via
+<b>__pmAFregister</b> and complete the registration phase
+before the first event callback occurs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A call to
+<b>__pmAFisempty</b> returns 1 or 0 depending on whether the
+event queue is empty or not.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PMAPI</b>(3)</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>__pmAFregister</b>
+and <b>__pmAFunregister</b> return values less than zero in
+the case of an error. These values are PCP error codes, and
+may be used to produce error messages via
+<b>pmErrStr</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The routines
+support the standard PCP debug tracing, and the value
+<b>DBG_TRACE_AF</b> (or <b>&minus;D af</b> on the command
+line) will produce diagnostics on standard error that trace
+the enqueuing and execution of events.</p>
+
+<h2>CAVEATS
+<a name="CAVEATS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These routines
+rely on <b>setitimer</b>(2) and manipulate the handling of
+<b>SIGALRM</b> signals, and hence are probably ill-suited
+for applications that require direct and concurrent access
+to these services and resources.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the callback
+functions are slow, or delayed, it is possible that the
+event scheduling could fall behind and never catchup. When
+this begins to happen, events are silently skipped and
+rescheduled at the earliest possible time on the future
+according to the fixed schedule defined by the time of the
+call to <b>__pmAFregister</b> and the value of the
+<i>delta</i> argument to <b>__pmAFregister</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition,
+the semantics of the interval timer(s) and the global state
+needed to support these services demand that applications
+calling these routines must do so from a single thread. This
+restriction is enforced at the <b>PMAPI</b>(3), where
+routines may return the error code <b>PM_ERR_THREAD</b> if
+the library detects calls from more than one thread.</p>
+<hr>
+</body>
+</html>

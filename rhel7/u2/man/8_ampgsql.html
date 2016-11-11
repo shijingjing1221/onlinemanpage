@@ -1,0 +1,378 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:14:11 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>AMPGSQL</title>
+
+</head>
+<body>
+
+<h1 align="center">AMPGSQL</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPERATION">OPERATION</a><br>
+<a href="#PROPERTIES">PROPERTIES</a><br>
+<a href="#CLIENT PROPERTIES">CLIENT PROPERTIES</a><br>
+<a href="#RECOVERY">RECOVERY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">ampgsql &minus;
+Amanda Application to interface with PostgreSQL</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Ampgsql is an
+Amanda Application API script. It should not be run by users
+directly. It implements on&minus;line backups of PostgreSQL
+databases in conjunction with WAL archiving.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Note</big></b>
+<br>
+Tablespaces are not currently supported.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Note</big></b>
+<br>
+On versions of PostgreSQL earlier than 8.2, if the database
+is quiet during a full backup, then the backup may not
+complete until enough database activity takes place to
+trigger the archiving of the current WAL file. Consider
+adjusting the PG&minus;MAX&minus;WAL&minus;WAIT property
+from its default (60s) to compensate. Note that you will
+need to increase <b>dtimeout</b> on the server
+accordingly.</p>
+
+<h2>OPERATION
+<a name="OPERATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+application implements the backup strategy described in
+http://www.postgresql.org/docs/current/static/continuous&minus;archiving.html.
+For a level zero (full) backup, ampgsql:</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; execute
+PG_START_BACKUP()</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; dump the
+data directory</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; execute
+PG_STOP_BACKUP()</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; wait for
+the final WAL file to be archived</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; back up
+the required WAL files</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull;
+optionally delete WAL files that are no longer necessary</p>
+
+<p style="margin-left:11%; margin-top: 1em">The two dumps
+are made with GNU Tar, to data_dir.tar and archive_dir,
+respectively. They are then combined into a single tar
+file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A level N
+backup creates a single tar file containing all WAL files
+since the previous level N&minus;1 backup.</p>
+
+<h2>PROPERTIES
+<a name="PROPERTIES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This section
+lists the <b>amanda.conf</b>(5) properties that control
+ampsql's functionality. See <b>amanda-applications</b>(7)
+for information on application properties and how they are
+configured.</p>
+
+<p style="margin-left:11%; margin-top: 1em">ARCHIVEDIR</p>
+
+<p style="margin-left:17%;">Directory that WAL segment
+files are archived to, as specified by the archive_command
+in PosgreSQL's postgresql.conf. The amanda user on the
+client must have at least read and execute permission on
+this directory, and preferably write. Without write
+permission, Amanda cannot clean up expired WAL and backup
+files.</p>
+
+<p style="margin-left:11%; margin-top: 1em">CLEANUPWAL</p>
+
+<p style="margin-left:17%;">Whether or not to remove old
+WAL segment files during base backups. Defaults to yes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">DB</p>
+
+<p style="margin-left:17%;">Database to connect to.
+Defaults to &quot;template1&quot; (which exists by
+default).</p>
+
+<p style="margin-left:11%; margin-top: 1em">DIRECTORY</p>
+
+<p style="margin-left:17%;">For restore command only, the
+data is recoved in that directory. Must be a unix path.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">GNUTAR&minus;PATH</p>
+
+<p style="margin-left:17%;">Path to the GNU tar executable.
+This option only has an effect during restore. The default
+is set when Amanda is built by the
+&minus;&minus;with&minus;gnutar configure option.</p>
+
+<p style="margin-left:11%; margin-top: 1em">HOST</p>
+
+<p style="margin-left:17%;">Host to connect to. If it
+starts with &quot;/&quot; it will be interepreted as a
+directory that holds the socket file. PostgreSQL defaults to
+/tmp.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">MAX&minus;WAL&minus;WAIT</p>
+
+<p style="margin-left:17%;">The maximum amount of time to
+wait for PG_STOP_BACKUP to archive a WAL file. In versions
+of PostgreSQL before 8.2, PG_STOP_BACKUP does not
+automatically archive the latest WAL file, so a quiet
+database may wait a very long time before archiving the WAL
+file. Default: 60 seconds. Set to 0 to wait forever.</p>
+
+<p style="margin-left:11%; margin-top: 1em">PASSFILE</p>
+
+<p style="margin-left:17%;">Connect using the creditials in
+this file. Each line should have the format
+&quot;hostname:port:database:username:password&quot;. The
+permissions must permit it to be read only by the user, or
+the file will not be used. Only usable with Postgres 8.1 and
+up.</p>
+
+<p style="margin-left:11%; margin-top: 1em">PORT</p>
+
+<p style="margin-left:17%;">The TCP port to connect to, or
+the suffix of the socket file. PostgreSQL defaults to
+5432.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PSQL&minus;PATH</p>
+
+<p style="margin-left:17%;">Path to the psql binary. If not
+specified, the PATH environment variable will be
+searched.</p>
+
+<p style="margin-left:11%; margin-top: 1em">STATEDIR</p>
+
+<p style="margin-left:17%;">Directory for saving state
+about backups already made. The default is set when Amanda
+is built by the
+&minus;&minus;with&minus;gnutar&minus;listdir configure
+option.</p>
+
+<p style="margin-left:11%; margin-top: 1em">TMPDIR</p>
+
+<p style="margin-left:17%;">Directory to use for temporary
+files during the backup process. It should have enough space
+to store a complete copy of the database. The default is set
+when Amanda is built by the &minus;&minus;with&minus;tmpdir
+configure option.</p>
+
+<p style="margin-left:11%; margin-top: 1em">USER</p>
+
+<p style="margin-left:17%;">User to connect as. It must be
+a superuser.</p>
+
+<h2>CLIENT PROPERTIES
+<a name="CLIENT PROPERTIES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Client
+properties are deprecated. All properties should be set in
+the dumptype.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This section
+lists the <b>amanda-client.conf</b>(5) properties that
+control ampsql's functionality. If a property is prefixed
+with the diskname and an underscore, then it will be used
+when that diskname is being backed up. For example, if the
+properties PG&minus;DATADIR and foo&minus;PG&minus;DATADIR
+are set, the value of PG&minus;DATADIR will be used when bar
+and baz are being backed up, but foo&minus;PG&minus;DATADIR
+will be used when foo is being backed up. Disknames are
+specified in the <b>disklist</b>(5).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;ARCHIVEDIR</p>
+
+<p style="margin-left:17%; margin-top: 1em">Directory that
+WAL segment files are archived to, as specified by the
+archive_command in PosgreSQL's postgresql.conf. The amanda
+user on the client must have at least read and execute
+permission on this directory, and preferably write. Without
+write permission, Amanda cannot clean up expired WAL and
+backup files.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;CLEANUPWAL</p>
+
+<p style="margin-left:17%; margin-top: 1em">Whether or not
+to remove old WAL segment files during base backups.
+Defaults to yes.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;DATADIR</p>
+
+<p style="margin-left:17%; margin-top: 1em">Cluster data
+directory</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;DB</p>
+
+<p style="margin-left:17%; margin-top: 1em">Database to
+connect to. Defaults to &quot;template1&quot; (which exists
+by default).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;HOST</p>
+
+<p style="margin-left:17%; margin-top: 1em">Host to connect
+to. If it starts with &quot;/&quot; it will be interepreted
+as a directory that holds the socket file. PostgreSQL
+defaults to /tmp.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;MAX&minus;WAL&minus;WAIT</p>
+
+<p style="margin-left:17%;">The maximum amount of time to
+wait for PG_STOP_BACKUP to archive a WAL file. In versions
+of PostgreSQL before 8.2, PG_STOP_BACKUP does not
+automatically archive the latest WAL file, so a quiet
+database may wait a very long time before archiving the WAL
+file. Default: 60 seconds. Set to 0 to wait forever.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;PASSFILE</p>
+
+<p style="margin-left:17%; margin-top: 1em">Connect using
+the creditials in this file. Each line should have the
+format &quot;hostname:port:database:username:password&quot;.
+The permissions must permit it to be read only by the user,
+or the file will not be used. Only usable with Postgres 8.1
+and up.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;PASSWORD</p>
+
+<p style="margin-left:17%; margin-top: 1em">Password to use
+when connecting. Deprecated in favor of passfiles.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;PORT</p>
+
+<p style="margin-left:17%; margin-top: 1em">The TCP port to
+connect to, or the suffix of the socket file. PostgreSQL
+defaults to 5432.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PG&minus;USER</p>
+
+<p style="margin-left:17%; margin-top: 1em">User to connect
+as. It must be a superuser.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PSQL&minus;PATH</p>
+
+<p style="margin-left:17%; margin-top: 1em">Path to the
+psql binary. If not specified, the PATH environment variable
+will be searched.</p>
+
+<h2>RECOVERY
+<a name="RECOVERY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Read the
+postgres documentation carefully before attempting a
+recovery. This section is only a rough guide to the
+process.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The data
+recovered from a postgres backup consists of a data tarball
+and one or more archive tarballs. The data contains the
+state of the database at the time the full backup was
+performed, and the archive tarballs contain postgres WAL
+files that must be re&minus;run to generate a consistent
+state.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Ensure that the
+database server is shut down, and move the existing data
+directory aside. Untar the data tarball over this directory,
+and verify that ownership and permissions are correct. Untar
+all of the archive tarballs into a single directory &minus;
+the archive directory. Create a recovery.conf in the data
+directory, owned by the proper user and with proper
+permissions. Add a <b>restore_command</b> to it, e.g., <br>
+restore_command = 'cp /path/to/archive_dir/%f
+&quot;%p&quot;'</p>
+
+<p style="margin-left:11%; margin-top: 1em">Start the
+database server, and examine the logs to track the process
+of the recovery. When the recovery is complete, the server
+will transition into a running state, and will move the
+recovery.conf file aside so that it will not attempt a
+recovery on the next invocation.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>amanda</b>(8),
+<b>amanda.conf</b>(5), <b>amanda-client.conf</b>(5),
+<b>amanda-applications</b>(7)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Amanda
+Wiki: : http://wiki.zmanda.com/</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Nikolas
+Coukouma</b> &lt;atrus@zmanda.com&gt;</p>
+
+<p style="margin-left:17%;">Zmanda, Inc.
+(http://www.zmanda.com)</p>
+<hr>
+</body>
+</html>

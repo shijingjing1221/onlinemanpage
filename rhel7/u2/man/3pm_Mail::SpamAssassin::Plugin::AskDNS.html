@@ -1,0 +1,287 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:14:38 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::SpamAssassin::Plugin::AskDNS</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::SpamAssassin::Plugin::AskDNS</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#USER SETTINGS">USER SETTINGS</a><br>
+<a href="#RULE DEFINITIONS">RULE DEFINITIONS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">AskDNS &minus;
+form a DNS query using tag values, and look up the DNSxL
+lists</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  loadplugin  Mail::SpamAssassin::Plugin::AskDNS
+  askdns D_IN_DWL _DKIMDOMAIN_._vouch.dwl.spamhaus.org TXT /\b(transaction|list|all)\b/</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Using a
+<small>DNS</small> query template as specified in a
+parameter of a askdns rule, the plugin replaces tag names as
+found in the template with their values and launches
+<small>DNS</small> queries as soon as tag values become
+available. When <small>DNS</small> responses trickle in,
+filters them according to the requested <small>DNS</small>
+resource record type and optional subrule filtering
+expression, yielding a rule hit if a response meets
+filtering conditions.</p>
+
+<h2>USER SETTINGS
+<a name="USER SETTINGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">rbl_timeout t
+[t_min] [zone] (default: 15 3)</p>
+
+<p style="margin-left:17%;">The rbl_timeout setting is
+common to all <small>DNS</small> querying rules (as
+implemented by other plugins). It can specify a
+<small>DNS</small> query timeout globally, or individually
+for each zone. When the zone parameter is specified, the
+settings affects <small>DNS</small> queries when their query
+domain equals the specified zone, or is its subdomain. See
+the <tt>&quot;Mail::SpamAssassin::Conf&quot;</tt>
+<small>POD</small> for details on
+<tt>&quot;rbl_timeout&quot;</tt>.</p>
+
+<h2>RULE DEFINITIONS
+<a name="RULE DEFINITIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">askdns
+<small>NAME_OF_RULE</small> query_template [rr_type
+[subqueryfilter]]</p>
+
+<p style="margin-left:17%;">A query template is a string
+which will be expanded to produce a domain name to be used
+in a <small>DNS</small> query. The template may include
+SpamAssassin tag names, which will be replaced by their
+values to form a final query domain. The final query domain
+must adhere to rules governing <small>DNS</small> domains,
+i.e. must consist of fields each up to 63 characters long,
+delimited by dots. There may be a trailing dot at the end,
+but it is redundant / carries no semantics, because
+SpamAssassin uses a Net::DSN::Resolver::send method for
+querying <small>DNS,</small> which ignores any
+&rsquo;search&rsquo; or &rsquo;domain&rsquo;
+<small>DNS</small> resolver options. Domain names in
+<small>DNS</small> queries are case-insensitive.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A tag name is a
+string of capital letters, preceded and followed by an
+underscore character. This syntax mirrors the add_header
+setting, except that tags cannot have parameters in
+parenthesis when used in askdns templates. Tag names may
+appear anywhere in the template &minus; each queried
+<small>DNS</small> zone prescribes how a query should be
+formed.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A query
+template may contain any number of tag names including none,
+although in the most common anticipated scenario exactly one
+tag name would appear in each askdns rule. Specified tag
+names are considered dependencies. Askdns rules with
+dependencies on the same set of tags are grouped, and all
+queries in a group are launched as soon as all their
+dependencies are met, i.e. when the last of the awaited tag
+values becomes available by a call to <i>set_tag()</i> from
+some other plugin or elsewhere in the SpamAssassin code.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Launched
+queries from all askdns rules are grouped too according to a
+pair of: query type and an expanded query domain name. Even
+if there are multiple rules producing the same type/domain
+pair, only one <small>DNS</small> query is launched, and a
+reply to such query contributes to all the constituent
+rules.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A tag may
+produce none, one or multiple values. Askdns rules awaiting
+for a tag which never receives its value never result in a
+<small>DNS</small> query. Tags which produce multiple values
+will result in multiple queries launched, each with an
+expanded template using one of the tag values. An example is
+a <small>DKIMDOMAIN</small> tag which yields a list of
+signing domains, one for each valid signature in a signed
+message.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When more than
+one distinct tag name appears in a template, each
+potentially resulting in multiple values, a Cartesian
+product is formed, and each tuple results in a launch of one
+<small>DNS</small> query (duplicates excluded). For example,
+a query template _A_._B_.example._A_.com where tag A is a
+list (11,22) and B is (xx,yy,zz), will result in queries:
+11.xx.example.11.com, 22.xx.example.22.com,
+11.yy.example.11.com, 22.yy.example.22.com,
+11.zz.example.11.com, 22.zz.example.22.com .</p>
+
+<p style="margin-left:17%; margin-top: 1em">A parameter
+rr_type following the query template is a comma-separated
+list of expected <small>DNS</small> resource record (
+<small>RR</small> ) types. Missing rr_type parameter implies
+an &rsquo;A&rsquo;. A <small>DNS</small> result may bring
+resource records of multiple types, but only resource
+records of a type found in the rr_type parameter list are
+considered, other resource records found in the answer
+section of a <small>DNS</small> reply are ignored for this
+rule. A value <small>ANY</small> in the rr_type parameter
+list matches any resource record type. An empty
+<small>DNS</small> answer section does not match
+<small>ANY.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">The rr_type
+parameter not only provides a filter for <small>RR</small>
+types found in the <small>DNS</small> answer, but also
+determines the <small>DNS</small> query type. If only a
+single <small>RR</small> type is specified in the parameter
+(e.g. <small>TXT</small> ), than this is also the
+<small>RR</small> type of a query. When more than one
+<small>RR</small> type is specified (e.g. A, <small>AAAA,
+TXT</small> ) or if <small>ANY</small> is specified, then
+the <small>DNS</small> query type will be <small>ANY</small>
+and the rr_type parameter will only act as a filter on a
+result.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Currently
+recognized <small>RR</small> types in the rr_type parameter
+are: <small>ANY, A, AAAA, MX, TXT, PTR, NAPTR, NS, SOA,
+CERT, CNAME, DNAME, DHCID, HINFO, MINFO, RP, HIP, IPSECKEY,
+KX, LOC, SRV, SSHFP, SPF.</small></p>
+
+
+<p style="margin-left:17%; margin-top: 1em">http://www.iana.org/assignments/dns&minus;parameters/dns&minus;parameters.xml</p>
+
+<p style="margin-left:17%; margin-top: 1em">The last
+optional parameter of a rule is a filtering expression,
+a.k.a. a subrule. Its function is much like the subrule in
+<small>URIDNSBL</small> plugin rules, or in the check_rbl
+eval rules. The main difference is that with askdns rules
+there is no need to manually group rules according to their
+queried zone, as the grouping is automatic and duplicate
+queries are implicitly eliminated.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The subrule
+filtering parameter can be: a plain string, a regular
+expression, a single numerical value or a pair of numerical
+values, or a list of rcodes ( <small>DNS</small> status
+codes of a response). Absence of the filtering parameter
+implies no filtering, i.e. any positive <small>DNS</small>
+response (rcode=NOERROR) of the requested <small>RR</small>
+type will result in a rule hit, regardless of the
+<small>RR</small> value returned with the response.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When a plain
+string is used as a filter, it must be enclosed in single or
+double quotes. For the rule to hit, the response must match
+the filtering string exactly, and a <small>RR</small> type
+of a response must match the query type. Typical use is an
+exact text string for <small>TXT</small> queries, or an
+exact quad-dotted IPv4 address. In case of a
+<small>TXT</small> or <small>SPF</small> resource record
+which can return multiple character-strings (as defined in
+Section 3.3 of [ <small>RFC1035</small> ]), these strings
+are concatenated with no delimiters before comparing the
+result to the filtering string. This follows requirements of
+several documents, such as <small>RFC 5518, RFC 4408, RFC
+4871, RFC 5617.</small> Examples of a plain text filtering
+parameter: &quot;127.0.0.1&quot;, &quot;transaction&quot;,
+&rsquo;list&rsquo; .</p>
+
+<p style="margin-left:17%; margin-top: 1em">A regular
+expression follows a familiar perl syntax like /.../ or
+m{...} optionally followed by regexp flags (such as
+&rsquo;i&rsquo; for case-insensitivity). If a
+<small>DNS</small> response matches the requested
+<small>RR</small> type and the regular expression, the rule
+hits. Examples: /^127\.0\.0\.\d+$/, m{\bdial up\b}i .</p>
+
+<p style="margin-left:17%; margin-top: 1em">A single
+numerical value can be a decimal number, or a hexadecimal
+number prefixed by 0x. Such numeric filtering expression is
+typically used with <small>RR</small> type-A
+<small>DNS</small> queries. The returned value (an IPv4
+address) is masked with a specified filtering value and
+tested to fall within a 127.0.0.0/8 network range &minus;
+the rule hits if the result is nonzero: ((r &amp; n) != 0)
+&amp;&amp; ((r &amp; 0xff000000) == 0x7f000000). An example:
+0x10 .</p>
+
+<p style="margin-left:17%; margin-top: 1em">A pair of
+numerical values (each a decimal, hexadecimal or
+quad-dotted) delimited by a &rsquo;&minus;&rsquo; specifies
+an IPv4 address range, and a pair of values delimited by a
+&rsquo;/&rsquo; specifies an IPv4 address followed by a
+bitmask. Again, this type of filtering expression is
+primarily intended with <small>RR</small> type-A
+<small>DNS</small> queries. The rule hits if the
+<small>RR</small> type matches, and the returned
+<small>IP</small> address falls within the specified range:
+(r &gt;= n1 &amp;&amp; r &lt;= n2), or masked with a bitmask
+matches the specified value: (r &amp; m) == (n &amp; m)
+.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As a shorthand
+notation, a single quad-dotted value is equivalent to a
+n&minus;n form, i.e. it must match the returned value
+exactly with all its bits.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Some typical
+examples of a numeric filtering parameter are: 127.0.1.2,
+127.0.1.20&minus;127.0.1.39, 127.0.1.0/255.255.255.0,
+0.0.0.16/0.0.0.16, 0x10/0x10, 16, 0x10 .</p>
+
+<p style="margin-left:17%; margin-top: 1em">Lastly, the
+filtering parameter can be a comma-separated list of
+<small>DNS</small> status codes (rcode), enclosed in square
+brackets. Rcodes can be represented either by their numeric
+decimal values (0=NOERROR, 3=NXDOMAIN, ...), or their names.
+See http://www.iana.org/assignments/dns&minus;parameters for
+the list of names. When testing for a rcode where rcode is
+nonzero, a <small>RR</small> type parameter is ignored as a
+filter, as there is typically no answer section in a
+<small>DNS</small> reply when rcode indicates an error.
+Example: [ <small>NXDOMAIN</small> ], or
+[FormErr,ServFail,4,5] .</p>
+<hr>
+</body>
+</html>

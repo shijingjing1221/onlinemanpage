@@ -1,0 +1,174 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:08:24 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMDAEVENTQUEUE</title>
+
+</head>
+<body>
+
+<h1 align="center">PMDAEVENTQUEUE</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmdaEventNewQueue</b>,
+<b>pmdaEventNewActiveQueue</b>, <b>pmdaEventQueueHandle</b>,
+<b>pmdaEventQueueAppend</b>, <b>pmdaEventQueueRecords</b>,
+<b>pmdaEventQueueClients</b>, <b>pmdaEventQueueCounter</b>,
+<b>pmdaEventQueueBytes</b>, <b>pmdaEventQueueMemory</b>
+&minus; utilities for PMDAs managing event queues</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt; <br>
+#include &lt;pcp/impl.h&gt; <br>
+#include &lt;pcp/pmda.h&gt;</b></p>
+
+<p style="margin-left:23%; margin-top: 1em"><b>int
+pmdaEventNewQueue(const char *</b><i>name</i><b>, size_t</b>
+<i>maxmem</i><b>); <br>
+int pmdaEventNewActiveQueue(const char *</b><i>name</i><b>,
+size_t</b> <i>maxmem</i><b>, int</b> <i>nclients</i><b>);
+<br>
+int pmdaEventQueueHandle(const char *</b><i>name</i><b>);
+<br>
+int pmdaEventQueueAppend(int</b> <i>handle</i><b>, void
+*</b><i>buffer</i><b>, size_t</b> <i>bytes</i><b>, struct
+timeval *</b><i>tv</i><b>);</b></p>
+
+<p style="margin-left:23%; margin-top: 1em"><b>typedef int
+(*pmdaEventDecodeCallBack)(int, void *, int, struct timeval
+*, void *); <br>
+int pmdaEventQueueRecords(int</b> <i>handle</i><b>,
+pmAtomValue *</b><i>avp</i><b>, int</b> <i>context</i><b>,
+pmdaEventDecodeCallBack</b> <i>decoder</i><b>, void
+*</b><i>data</i><b>); <br>
+int pmdaEventQueueClients(int</b> <i>handle</i><b>,
+pmAtomValue *</b><i>avp</i><b>); <br>
+int pmdaEventQueueCounter(int</b> <i>handle</i><b>,
+pmAtomValue *</b><i>avp</i><b>); <br>
+int pmdaEventQueueBytes(int</b> <i>handle</i><b>,
+pmAtomValue *</b><i>avp</i><b>); <br>
+int pmdaEventQueueMemory(int</b> <i>handle</i><b>,
+pmAtomValue *</b><i>avp</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp_pmda &minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A Performance
+Metrics Domain Agent (PMDA) that exports event records must
+effectively act an event multiplexer. Events consumed by the
+PMDA may have to be forwarded on to any number of monitoring
+tools (or &quot;client contexts&quot;). These tools may be
+requesting events at different sampling intervals, and are
+very unlikely to request an event at the exact moment it
+arrives at the PMDA, making some form of event buffering and
+queueing scheme a necessity. Events must be held by the PMDA
+until either all registered clients have been sent them, or
+until a memory limit has been reached by the PMDA at which
+point it must discard older events as new ones arrive.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The routines
+described here are designed to assist the PMDA developer in
+managing both client contexts and queues of events at a high
+level. These fit logically above lower level primitives,
+such as those described in <b>pmdaEventNewArray</b>(3), and
+shield the average PMDA from the details of directly
+building event record arrays for individual client
+contexts.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The PMDA
+registers a new queue of events using either
+<b>pmdaEventNewQueue</b> or <b>pmdaEventNewActiveQueue</b>.
+These are passed an identifying <i>name</i> (for diagnostic
+purposes, and for subsequent lookup by
+<b>pmdaEventQueueLookup</b>) and <i>maxmem</i>, an upper
+bound on the memory (in bytes) that can be consumed by
+events in this queue, before beginning to discard them
+(resulting in &quot;missed&quot; events for any client that
+has not kept up). If a queue is dynamically allocated (such
+that the PMDA may already have clients connected) the
+<b>pmdaEventNewActiveQueue</b> interface should be used,
+with the additional <i>numclients</i> parameter indicating
+the count of active client connections. The return is a
+negative error code on failure, suitable for decoding by the
+<b>pmErrStr</b>(3) routine. Any non-negative value indicates
+success, and provides a <i>handle</i> suitable for passing
+into the other API routines.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For each new
+event received by the PMDA, the <b>pmdaEventQueueAppend</b>
+routine should be called, placing that event into the queue
+identified by <i>handle</i>. The event itself must be
+contained in the passed in <i>buffer</i>, having
+<i>bytes</i> length. The timestamp associated with the event
+(time at which the event occurred) is passed in via the
+final <i>tv</i> parameter.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the PMDAs
+specific implementation of its fetch callback, when values
+for an event metric have been requested, the
+<b>pmdaEventQueueRecords</b> routine should be used. It is
+passed the queue <i>handle</i> and the <i>avp</i>
+pmAtomValue structure to fill with event records, for the
+client making that fetch request (identified by the
+<i>context</i> parameter). Finally, the PMDA must also pass
+in an event decoding routine, which is responsible for
+decoding the fields of a single event into the individual
+event parameters of that event. The <i>data</i> parameter is
+an opaque cookie that can be used to pass situation-specific
+information into each <i>decoder</i> invocation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Under some
+situations it is useful for the PMDA to export state about
+the queues under its control. The accessor routines &minus;
+<b>pmdaEventQueueClients</b>, <b>pmdaEventQueueCounter</b>,
+<b>pmdaEventQueueBytes</b> and <b>pmdaEventQueueMemory</b>
+provide a mechanism for querying a queue by its
+<i>handle</i> and filling in a <b>pmAtomValue</b> structure
+that the <b>pmdaFetchCallBack</b> method should return.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PMAPI</b>(3),
+<b>PMDA</b>(3), <b>pmdaEventNewClient</b>(3) and
+<b>pmdaEventNewArray</b>(3).</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 02:08:35 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMDAFETCH</title>
+
+</head>
+<body>
+
+<h1 align="center">PMDAFETCH</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#CAVEAT">CAVEAT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmdaFetch</b>,
+<b>pmdaSetFetchCallBack</b> &minus; fill a pmResult
+structure with the requested metric values</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt; <br>
+#include &lt;pcp/impl.h&gt; <br>
+#include &lt;pcp/pmda.h&gt;</b></p>
+
+<p style="margin-left:23%; margin-top: 1em"><b>int
+pmdaFetch(int</b> <i>numpmid</i><b>, pmID
+*</b><i>pmidlist</i><b>, pmResult **</b><i>resp</i><b>,
+pmdaExt&nbsp;*</b><i>pmda</i><b>); <br>
+void pmdaSetFetchCallBack(pmdaInterface
+*</b><i>dispatch</i><b>,
+pmdaFetchCallBack&nbsp;</b><i>callback</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp_pmda &minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmdaFetch</b>
+is a generic callback used by a <b>PMDA</b>(3) to process a
+fetch request from <b>pmcd</b>(1). The request from
+<b>pmcd</b> is initiated by a client calling
+<b>pmFetch</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is the
+only generic callback in <i>libpcp_pmda</i> (see
+<b>PMDA</b>(3)) that is incomplete, requiring a further
+<b>pmdaFetchCallBack</b> method of its own. The additional
+callback should be registered using
+<b>pmdaSetFetchCallBack</b> and the <b>pmdaFetchCallBack</b>
+method has the following prototype:</p>
+
+<pre style="margin-left:11%;">int func(pmdaMetric *mdesc, unsigned int inst, pmAtomValue *avp)</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmdaFetch</b>
+will allocate and resize the <i>resp</i> result structure,
+to store values for the <i>numpmid</i> metrics listed in
+<i>pmidlist</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For each
+instance listed in the profile (see <b>pmdaProfile</b>(3))
+of each metric listed in <i>pmidlist</i>, the
+<b>pmdaFetchCallBack</b> method is called to fill the
+<b>pmAtomValue</b> structure identified by <i>avp</i> with a
+value for a specific metric-instance pair identified by the
+metric descriptor <i>mdesc</i> and the instance <i>inst</i>.
+This value is then copied into the <b>pmResult</b>
+structure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmdaFetchCallBack</b> method should return a value less
+than zero for an error, and the most likely cases would be
+<b>PM_ERR_PMID</b> if the metric identified by <i>mdesc</i>
+is not known to the method, or <b>PM_ERR_INST</b> if the
+method believes the instance <i>inst</i> is not known for
+the metric identified by <i>mdesc</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The success
+error codes depend on the version of <b>PMDA_INTERFACE</b>
+the PMDA is using.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the PMDA is
+using <b>PMDA_INTERFACE_2</b> then on success the
+<b>pmdaFetchCallBack</b> method should return <b>0</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the PMDA is
+using <b>PMDA_INTERFACE_3</b> or <b>PMDA_INTERFACE_4</b>
+then on success the <b>pmdaFetchCallBack</b> method should
+return <b>1</b> if a value is returned via <i>avp</i>, else
+<b>0</b> if no values are currently available for the
+requested metric-instance pair although <i>mdesc</i> and
+<i>inst</i> both seem reasonable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the PMDA is
+using <b>PMDA_INTERFACE_5</b> or later then on success the
+<b>pmdaFetchCallBack</b> method should return
+<b>PMDA_FETCH_STATIC</b> (<b>1</b>) if the value returned
+via <i>avp</i> can be ignored by <b>pmdaFetch</b> once it
+has been copied into the <b>pmResult</b> structure, else
+<b>PMDA_FETCH_DYNAMIC</b> (<b>2</b>) if the value returned
+via <i>avp</i> uses the either the <b>vp</b> or <b>cp</b>
+fields of the <b>pmAtomValue</b> and the associated value
+(buffer) was allocated using one of <b>malloc</b>(3),
+<b>calloc</b>(3), <b>realloc</b>(3), <b>strdup (3)</b> etc.
+and <b>pmdaFetch</b> should release the memory by calling
+<i>free</i>(3) once a new buffer has been allocated and the
+value copied, else <b>PMDA_FETCH_NOVALUES</b> (<b>0</b>) if
+no values are currently available for the requested
+metric-instance pair although <i>mdesc</i> and <i>inst</i>
+both seem reasonable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<b>pmdaFetchCallBack</b> method returns a value for an
+instance of a metric of type <b>PM_TYPE_STRING</b> or
+<b>PM_TYPE_AGGREGATE</b> some special care is needed &ndash;
+the method should either use a static buffer, set
+<i>avp-&gt;cp</i> or <i>avp-&gt;vp</i> to the address of the
+buffer and return <b>PMDA_FETCH_STATIC</b>, or use a
+dynamically allocated buffer, keep a static reference to the
+buffer&rsquo;s address, return <b>PMDA_FETCH_STATIC</b> and
+<i>free (3)</i> or <i>realloc (3)</i> or reuse the buffer
+the next time the <b>pmdaFetchCallBack</b> method is called,
+else use a dynamically allocated buffer and return
+<b>PMDA_FETCH_DYNAMIC</b>.</p>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+code fragments are for a hypothetical PMDA has with metrics
+(A, B, C and D) and an instance domain (X) with two
+instances (X1 and X2). The instance domain and metrics
+description tables (see <b>pmdaInit</b>(3)) could be defined
+as:</p>
+
+<pre style="margin-left:18%; margin-top: 1em">static pmdaInstid _X[] = {
+    { 0, &quot;X1&quot; }, { 1, &quot;X2&quot; }
+};
+static pmdaIndom indomtab[] = {
+#define X_INDOM 0
+    { 0, 2, _X },
+};
+static pmdaMetric metrictab[] = {
+/* A */
+    { (void *)0,
+      { PMDA_PMID(0,0), PM_TYPE_32, PM_INDOM_NULL,
+        PM_SEM_INSTANT, {0,0,0,0,0,0} }, },
+/* B */
+    { (void *)0,
+      { PMDA_PMID(0,1), PM_TYPE_DOUBLE, X_INDOM,
+        PM_SEM_INSTANT, {0,1,0,0,PM_TIME_SEC,0} }, },
+/* C */
+    { (void *)0,
+      { PMDA_PMID(0,2), PM_TYPE_STRING, PM_INDOM_NULL,
+        PM_SEM_INSTANT, {0,0,0,0,0,0} }, },
+/* D */
+    { (void *)0,
+      { PMDA_PMID(0,3), PM_TYPE_STRING, PM_INDOM_NULL,
+        PM_SEM_INSTANT, {0,0,0,0,0,0} }, },
+};</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A
+<b>pmdaFetchCallBack</b> method to be called from
+<b>pmdaFetch</b> could be defined as:</p>
+
+<pre style="margin-left:18%; margin-top: 1em">int
+myFetchCallBack(pmdaMetric *mdesc, unsigned int inst, pmAtomValue *avp)
+{
+  static char sbuf[20]; // reuse this buffer
+  char        *dbuf;    // malloc&rsquo;d
+  switch (pmid_item(mdesc-&gt;m_desc.pmid)) {
+    case 0:
+      /* assign some value for metric A */;
+      avp-&gt;l = ...
+      break;
+    case 1:
+      switch (inst) {
+          case 0:
+           /* assign a value for metric B, instance X1 */;
+              avp-&gt;d = ...
+              break;
+          case 1:
+           /* assign a value for metric B, instance X2 */;
+              avp-&gt;d = ...
+              break;
+          default:
+              return PM_ERR_INST;
+      }
+    case 2:
+      /* place value for metric C in dbuf[] */
+      memcpy(dbuf, ...);
+      avp-&gt;cp = dbuf;
+      break;
+    case 3:
+      avp-&gt;cp = (char *)malloc(somesize);
+      /* place value in avp-&gt;cp */
+      snprintf(avp-&gt;cp, somesize, ...);
+      return PMDA_FETCH_DYNAMIC;
+    default:
+      return PM_ERR_PMID;
+  }
+  return PMDA_FETCH_STATIC;
+}</pre>
+
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+error messages indicate that there is discrepancy between
+the namespace, <b>pmdaMetric</b> and <b>pmdaIndom</b> tables
+passed to <b>pmdaInit</b>(3), and the registered fetch
+callback: <b><br>
+pmdaFetch: Requested metric</b> <i>metric</i> <b>is not
+defined</b></p>
+
+<p style="margin-left:34%;">A requested metric
+<i>metric</i> is not listed in the <b>pmdaMetric</b> table.
+The namespace for this <b>PMDA</b>(3) may contain additional
+metrics.</p>
+
+<p style="margin-left:11%;"><b>pmdaFetch: PMID</b>
+<i>pmid</i> <b>not handled by fetch callback</b></p>
+
+<p style="margin-left:34%;">The <b>pmdaFetchCallBack</b>
+method has returned <b>PM_ERR_PMID</b>. This indicates that
+a metric may be listed in the <b>pmdaMetric</b> table, but
+is not supported by the callback method.</p>
+
+<p style="margin-left:11%;"><b>pmdaFetch: Instance</b>
+<i>inst</i> <b>of PMID</b> <i>pmid</i> <b>not handled by
+fetch callback</b></p>
+
+<p style="margin-left:34%;">The <b>pmdaFetchCallBack</b>
+method has returned <b>PM_ERR_INST</b>. This indicates that
+an instance of metric is listed in the <b>pmdaIndom</b>
+table, but is not supported by the callback method.</p>
+
+<p style="margin-left:11%;"><b>pmdaFetch: Fetch callback
+error:</b></p>
+
+<p style="margin-left:34%;">The <b>pmdaFetchCallBack</b>
+method returned a result other than
+<b>PMDA_FETCH_NOVALUES</b>, <b>PMDA_FETCH_STATIC</b>,
+<b>PMDA_FETCH_DYNAMIC</b>, <b>PM_ERR_PMID</b> or
+<b>PM_ERR_INST</b>.</p>
+
+<p style="margin-left:11%;"><b>pmdaFetch: Descriptor type
+(</b><i>type</i><b>) for metric</b> <i>pmid</i> <b>is
+bad</b></p>
+
+<p style="margin-left:34%;">The data type <i>type</i>
+specified for the metric <i>pmid</i> in the
+<b>pmdaMetric</b> table is illegal.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmdaFetch</b>
+will return <b>&minus;errno</b> if an error occurred while
+allocating the <b>pmResult</b> structure or copying the
+value from the <b>pmAtomValue</b>.</p>
+
+<h2>CAVEAT
+<a name="CAVEAT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The PMDA must
+be using <b>PMDA_INTERFACE_2</b> or later, as specified in
+the call to <b>pmdaDSO</b>(3) or <b>pmdaDaemon</b>(3).</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmcd</b>(1),
+<b>PMAPI</b>(3), <b>PMDA</b>(3), <b>pmdaDaemon</b>(3),
+<b>pmdaDSO</b>(3), <b>pmdaInit</b>(3) and
+<b>pmFetch</b>(3).</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:48:45 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>IDMAP_AUTORID</title>
+
+</head>
+<body>
+
+<h1 align="center">IDMAP_AUTORID</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#IDMAP OPTIONS">IDMAP OPTIONS</a><br>
+<a href="#THE MAPPING FORMULAS">THE MAPPING FORMULAS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">idmap_autorid
+&minus; Samba's idmap_autorid Backend for Winbind</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+idmap_autorid backend provides a way to use an algorithmic
+mapping scheme to map UIDs/GIDs and SIDs that is more
+deterministic than idmap_tdb and easier to configure than
+idmap_rid.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The module
+works similar to idmap_rid, but it automatically configures
+the range to be used for each domain, so there is no need to
+specify a specific range for each domain in the forest, the
+only configuration that is needed is the range of uid/gids
+that shall be used for user/group mappings and an optional
+size of the ranges to be used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The mappings of
+which domain is mapped to which range is stored in
+autorid.tdb, thus you should backup this database
+regularly.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Due to the
+algorithm being used, it is the module that is most easy to
+use as it only requires a minimal configuration.</p>
+
+<h2>IDMAP OPTIONS
+<a name="IDMAP OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">rangesize =
+numberofidsperdomain</p>
+
+<p style="margin-left:17%;">Defines the number of uids/gids
+available per domain range. The minimum needed value is
+2000. SIDs with RIDs larger than this value will be mapped
+into extension ranges depending upon number of available
+ranges. If the autorid backend runs out of available ranges,
+mapping requests for new domains (or new extension ranges
+for domains already known) are ignored and the corresponding
+map is discarded.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Example: with
+rangesize set to 10000, users/groups with a RID up to 10000
+will be put into the first range for the domain. When
+attempting to map the an object with a RID of 25000, an
+extension range will be allocated that will then be used to
+map all RIDs from 20000&minus;29999.</p>
+
+<p style="margin-left:17%; margin-top: 1em">One range will
+be used for local users and groups and for non&minus;domain
+well&minus;known SIDs like Everyone
+(S&minus;1&minus;1&minus;0) or Creator Owner
+(S&minus;1&minus;3&minus;0). A chosen list of
+well&minus;known SIDs will be preallocated on first start to
+create deterministic mappings for those.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Thus the number
+of local users and groups that can be created is limited by
+this option as well. If you plan to create a large amount of
+local users or groups, you will need set this parameter
+accordingly.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default
+value is 100000.</p>
+
+<p style="margin-left:11%; margin-top: 1em">read only = [
+yes | no ]</p>
+
+<p style="margin-left:17%;">Turn the module into
+read&minus;only mode. No new ranges will be allocated nor
+will new mappings be created in the idmap pool. Defaults to
+no.</p>
+
+<p style="margin-left:11%; margin-top: 1em">ignore builtin
+= [ yes | no ]</p>
+
+<p style="margin-left:17%;">Ignore any mapping requests for
+the BUILTIN domain. Defaults to no.</p>
+
+<h2>THE MAPPING FORMULAS
+<a name="THE MAPPING FORMULAS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Unix ID for
+a RID is calculated this way:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%">
+</td>
+<td width="8%">
+</td>
+<td width="69%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%"></td>
+<td width="69%">
+
+
+<p>ID = REDUCED RID + IDMAP RANGE LOW VALUE + RANGE NUMBER
+* RANGE SIZE</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">where REDUCED
+RID = RID % RANGE_SIZE and a DOMAIN RANGE INDEX = RID /
+RANGE_SIZE is used together with the domain sid to determine
+the RANGE NUMBER (stored in the database).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Correspondingly,
+the formula for calculating the RID for a given Unix ID is
+this:</p>
+
+<p style="margin-left:17%; margin-top: 1em">RID = (ID
+&minus; LOW ID) % RANGE SIZE + DOMAIN RANGE INDEX * RANGE
+SIZE</p>
+
+<p style="margin-left:11%; margin-top: 1em">Where the
+DOMAIN RANGE INDEX is retrieved from the database along with
+the domain sid by the RANGE NUMBER = (ID &minus; LOW ID) /
+RANGE SIZE .</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This example
+shows you the minimal configuration that will work for the
+principal domain and 19 trusted domains / range
+extensions.</p>
+
+<p style="margin-left:17%; margin-top: 1em">[global]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>security = ads</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>workgroup = CUSTOMER</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>realm = CUSTOMER.COM</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config * : backend = autorid</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config * : range = 1000000&minus;1999999</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">This example
+shows how to configure idmap_autorid as default for all
+domains with a potentially large amount of users plus a
+specific configuration for a trusted domain that uses the
+SFU mapping scheme. Please note that idmap ranges and sfu
+ranges are not allowed to overlap.</p>
+
+<p style="margin-left:17%; margin-top: 1em">[global]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>security = ads</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>workgroup = CUSTOMER</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>realm = CUSTOMER.COM</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config * : backend = autorid</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config * : range = 1000000&minus;19999999</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config * : rangesize = 1000000</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config TRUSTED : backend = ad</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config TRUSTED : range = 50000 &minus; 99999</p></td></tr>
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>idmap config TRUSTED : schema_mode = sfu</p></td></tr>
+</table>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The original
+Samba software and related utilities were created by Andrew
+Tridgell. Samba is now developed by the Samba Team as an
+Open Source project similar to the way the Linux kernel is
+developed.</p>
+<hr>
+</body>
+</html>

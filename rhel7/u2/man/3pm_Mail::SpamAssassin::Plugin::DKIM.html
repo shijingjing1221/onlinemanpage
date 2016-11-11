@@ -1,0 +1,473 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 01:58:03 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::SpamAssassin::Plugin::DKIM</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::SpamAssassin::Plugin::DKIM</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#TAGS">TAGS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#USER SETTINGS">USER SETTINGS</a><br>
+<a href="#ADMINISTRATOR SETTINGS">ADMINISTRATOR SETTINGS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::SpamAssassin::Plugin::DKIM
+&minus; perform DKIM verification tests</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> loadplugin Mail::SpamAssassin::Plugin::DKIM [/path/to/DKIM.pm]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Taking into
+account signatures from any signing domains:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> full   DKIM_SIGNED           eval:check_dkim_signed()
+ full   DKIM_VALID            eval:check_dkim_valid()
+ full   DKIM_VALID_AU         eval:check_dkim_valid_author_sig()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Taking into
+account signatures from specified signing domains only:
+(quotes may be omitted on domain names consisting only of
+letters, digits, dots, and minus characters)</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> full   DKIM_SIGNED_MY1       eval:check_dkim_signed('dom1','dom2',...)
+ full   DKIM_VALID_MY1        eval:check_dkim_valid('dom1','dom2',...)
+ full   DKIM_VALID_AU_MY1     eval:check_dkim_valid_author_sig('d1','d2',...)
+ full   __DKIM_DEPENDABLE     eval:check_dkim_dependable()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Author Domain
+Signing Practices ( <small>ADSP</small> ) from any author
+domains:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> header DKIM_ADSP_NXDOMAIN    eval:check_dkim_adsp('N')
+ header DKIM_ADSP_ALL         eval:check_dkim_adsp('A')
+ header DKIM_ADSP_DISCARD     eval:check_dkim_adsp('D')
+ header DKIM_ADSP_CUSTOM_LOW  eval:check_dkim_adsp('1')
+ header DKIM_ADSP_CUSTOM_MED  eval:check_dkim_adsp('2')
+ header DKIM_ADSP_CUSTOM_HIGH eval:check_dkim_adsp('3')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Author Domain
+Signing Practices ( <small>ADSP</small> ) from specified
+author domains only:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> header DKIM_ADSP_MY1         eval:check_dkim_adsp('*','dom1','dom2',...)
+ describe DKIM_SIGNED   Message has a DKIM or DK signature, not necessarily valid
+ describe DKIM_VALID    Message has at least one valid DKIM or DK signature
+ describe DKIM_VALID_AU Message has a valid DKIM or DK signature from author's domain
+ describe __DKIM_DEPENDABLE     A validation failure not attributable to truncation
+ describe DKIM_ADSP_NXDOMAIN    Domain not in DNS and no valid author domain signature
+ describe DKIM_ADSP_ALL         Domain signs all mail, no valid author domain signature
+ describe DKIM_ADSP_DISCARD     Domain signs all mail and suggests discarding mail with no valid author domain signature, no valid author domain signature
+ describe DKIM_ADSP_CUSTOM_LOW  adsp_override is CUSTOM_LOW, no valid author domain signature
+ describe DKIM_ADSP_CUSTOM_MED  adsp_override is CUSTOM_MED, no valid author domain signature
+ describe DKIM_ADSP_CUSTOM_HIGH adsp_override is CUSTOM_HIGH, no valid author domain signature</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For
+compatibility with pre&minus;3.3.0 versions, the following
+are synonyms:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> OLD: eval:check_dkim_verified = NEW: eval:check_dkim_valid
+ OLD: eval:check_dkim_signall  = NEW: eval:check_dkim_adsp('A')
+ OLD: eval:check_dkim_signsome = NEW: redundant, semantically always true</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+__DKIM_DEPENDABLE eval rule deserves an explanation. The
+rule yields true when signatures are supplied by a caller,
+<small>OR ELSE</small> when signatures are obtained by this
+plugin <small>AND</small> either there are no signatures
+<small>OR</small> a rule __TRUNCATED was false. In other
+words: __DKIM_DEPENDABLE is true when failed signatures can
+not be attributed to message truncation when feeding a
+message to SpamAssassin. It can be consulted to prevent
+false positives on large but truncated messages with poor
+man&rsquo;s implementation of <small>ADSP</small> by
+hand-crafted rules.</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+SpamAssassin plugin implements <small>DKIM</small> lookups
+as described by the <small>RFC 4871,</small> as well as
+historical DomainKeys lookups, as described by <small>RFC
+4870,</small> thanks to the support for both types of
+signatures by newer versions of module Mail::DKIM.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It requires the
+<tt>&quot;Mail::DKIM&quot;</tt> <small>CPAN</small> module
+to operate. Many thanks to Jason Long for that module.</p>
+
+<h2>TAGS
+<a name="TAGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+tags are added to the set, available for use in reports,
+header fields, other plugins, etc.:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  _DKIMIDENTITY_
+    Agent or User Identifier (AUID) (the 'i' tag) from valid signatures;
+  _DKIMDOMAIN_
+    Signing Domain Identifier (SDID) (the 'd' tag) from valid signatures;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Identities and
+domains from signatures which failed verification are not
+included in these tags. Duplicates are eliminated (e.g. when
+there are two or more valid signatures from the same signer,
+only one copy makes it into a tag). Note that there may be
+more than one signature in a message &minus; currently they
+are provided as a space-separated list, although this
+behaviour may change.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;Mail::DKIM&quot;</tt>,
+<tt>&quot;Mail::SpamAssassin::Plugin&quot;</tt></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>http://jason.long.name/dkimproxy/
+<br>
+http://tools.ietf.org/rfc/rfc4871.txt <br>
+http://tools.ietf.org/rfc/rfc4870.txt <br>
+http://tools.ietf.org/rfc/rfc5617.txt <br>
+
+http://ietf.org/html.charters/dkim&minus;charter.html</tt></p>
+
+<h2>USER SETTINGS
+<a name="USER SETTINGS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">whitelist_from_dkim
+author@example.com [signing&minus;domain]</p>
+
+<p style="margin-left:17%;">Works similarly to
+whitelist_from, except that in addition to matching an
+author address (From) to the pattern in the first parameter,
+the message must also carry a Domain Keys Identified Mail (
+<small>DKIM</small> ) signature made by a signing domain (
+<small>SDID,</small> i.e. the d= tag) that is acceptable to
+us.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Only one
+whitelist entry is allowed per line, as in
+<tt>&quot;whitelist_from_rcvd&quot;</tt>. Multiple
+<tt>&quot;whitelist_from_dkim&quot;</tt> lines are allowed.
+File-glob style characters are allowed for the From address
+(the first parameter), just like with
+<tt>&quot;whitelist_from_rcvd&quot;</tt>. The second
+parameter does not accept wildcards.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If no
+signing-domain parameter is specified, the only acceptable
+signature will be an Author Domain Signature (sometimes
+called first-party signature) which is a signature where the
+signing domain ( <small>SDID</small> ) of a signature
+matches the domain of the author&rsquo;s address (i.e. the
+address in a From header field).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Since this
+whitelist requires a <small>DKIM</small> check to be made,
+network tests must be enabled.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Examples of
+whitelisting based on an author domain signature
+(first-party):</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  whitelist_from_dkim joe@example.com
+  whitelist_from_dkim *@corp.example.com
+  whitelist_from_dkim *@*.example.com</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Examples of
+whitelisting based on third-party signatures:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  whitelist_from_dkim jane@example.net      example.org
+  whitelist_from_dkim rick@info.example.net example.net
+  whitelist_from_dkim *@info.example.net    example.net
+  whitelist_from_dkim *@*                   remailer.example.com</pre>
+
+
+<p style="margin-left:11%;">def_whitelist_from_dkim
+author@example.com [signing&minus;domain]</p>
+
+<p style="margin-left:17%;">Same as
+<tt>&quot;whitelist_from_dkim&quot;</tt>, but used for the
+default whitelist entries in the SpamAssassin distribution.
+The whitelist score is lower, because these are often
+targets for abuse of public mailers which sign their
+mail.</p>
+
+<p style="margin-left:11%;">unwhitelist_from_dkim
+author@example.com [signing&minus;domain]</p>
+
+<p style="margin-left:17%;">Removes an email address with
+its corresponding signing-domain field from
+def_whitelist_from_dkim and whitelist_from_dkim tables, if
+it exists. Parameters to unwhitelist_from_dkim must exactly
+match the parameters of a corresponding whitelist_from_dkim
+or def_whitelist_from_dkim config option which created the
+entry, for it to be removed (a domain name is matched
+case-insensitively); i.e. if a signing-domain parameter was
+specified in a whitelisting command, it must also be
+specified in the unwhitelisting command.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Useful for
+removing undesired default entries from a distributed
+configuration by a local or site-specific configuration or
+by <tt>&quot;user_prefs&quot;</tt>.</p>
+
+<p style="margin-left:11%;">adsp_override domain
+[signing&minus;practices]</p>
+
+<p style="margin-left:17%;">Currently few domains publish
+their signing practices ( <small>RFC 5617 &minus;
+ADSP</small> ), partly because the <small>ADSP</small> rfc
+is rather new, partly because they think hardly any
+recipient bothers to check it, and partly for fear that some
+recipients might lose mail due to problems in their
+signature validation procedures or mail mangling by mailers
+beyond their control.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Nevertheless,
+recipients could benefit by knowing signing practices of a
+sending (author&rsquo;s) domain, for example to recognize
+forged mail claiming to be from certain domains which are
+popular targets for phishing, like financial institutions.
+Unfortunately, as signing practices are seldom published or
+are weak, it is hardly justifiable to look them up in
+<small>DNS.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">To overcome
+this chicken-or-the-egg problem, the
+<tt>&quot;adsp_override&quot;</tt> mechanism allows
+recipients using SpamAssassin to override published or
+defaulted <small>ADSP</small> for certain domains. This
+makes it possible to manually specify a stronger (or weaker)
+signing practices than a signing domain is willing to
+publish (explicitly or by default), and also save on a
+<small>DNS</small> lookup.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that
+<small>ADSP</small> (published or overridden) is only
+consulted for messages which do not contain a valid
+<small>DKIM</small> signature from the author&rsquo;s
+domain.</p>
+
+<p style="margin-left:17%; margin-top: 1em">According to
+<small>RFC 5617,</small> signing practices can be one of the
+following: <tt>&quot;unknown&quot;</tt>,
+<tt>&quot;all&quot;</tt> and
+<tt>&quot;discardable&quot;</tt>.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;unknown&quot;</tt>:
+The domain might sign some or all email &minus; messages
+from the domain may or may not have an Author Domain
+Signature. This is a default if a domain exists in
+<small>DNS</small> but no <small>ADSP</small> record is
+found.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;all&quot;</tt>:
+All mail from the domain is signed with an Author Domain
+Signature.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;discardable&quot;</tt>:
+All mail from the domain is signed with an Author Domain
+Signature. Furthermore, if a message arrives without a valid
+Author Domain Signature, the domain encourages the
+recipient(s) to discard it.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>ADSP</small>
+lookup can also determine that a domain is &quot;out of
+scope&quot;, i.e., the domain does not exist (
+<small>NXDOMAIN</small> ) in the <small>DNS.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">To override
+domain&rsquo;s signing practices in a SpamAssassin
+configuration file, specify an
+<tt>&quot;adsp_override&quot;</tt> directive for each
+sending domain to be overridden.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Its first
+argument is a domain name. Author&rsquo;s domain is matched
+against it, matching is case insensitive. This is not a
+regular expression or a file-glob style wildcard, but
+limited wildcarding is still available: if this argument
+starts by a &quot;*.&quot; (or is a sole &quot;*&quot;),
+author&rsquo;s domain matches if it is a subdomain (to one
+or more levels) of the argument. Otherwise (with no leading
+asterisk) the match must be exact (not a subdomain).</p>
+
+<p style="margin-left:17%; margin-top: 1em">An optional
+second parameter is one of the following keywords
+(case-insensitive): <tt>&quot;nxdomain&quot;</tt>,
+<tt>&quot;unknown&quot;</tt>, <tt>&quot;all&quot;</tt>,
+<tt>&quot;discardable&quot;</tt>,
+<tt>&quot;custom_low&quot;</tt>,
+<tt>&quot;custom_med&quot;</tt>,
+<tt>&quot;custom_high&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Absence of this
+second parameter implies <tt>&quot;discardable&quot;</tt>.
+If a domain is not listed by a
+<tt>&quot;adsp_override&quot;</tt> directive nor does it
+explicitly publish any <small>ADSP</small> record, then
+<tt>&quot;unknown&quot;</tt> is implied for valid domains,
+and <tt>&quot;nxdomain&quot;</tt> for domains not existing
+in <small>DNS.</small> (Note: domain validity is only
+checked with versions of Mail::DKIM 0.37 or later (actually
+since 0.36_5), the <tt>&quot;nxdomain&quot;</tt> would never
+turn up with older versions).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The strong
+setting <tt>&quot;discardable&quot;</tt> is useful for
+domains which are known to always sign their mail and to
+always send it directly to recipients (not to mailing
+lists), and are frequent targets of fishing attempts, such
+as financial institutions. The
+<tt>&quot;discardable&quot;</tt> is also appropriate for
+domains which are known never to send any mail.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When a message
+does not contain a valid signature by the author&rsquo;s
+domain (the domain in a From header field), the signing
+practices pertaining to author&rsquo;s domain determine
+which of the following rules fire and contributes its score:
+<small>DKIM_ADSP_NXDOMAIN, DKIM_ADSP_ALL, DKIM_ADSP_DISCARD,
+DKIM_ADSP_CUSTOM_LOW, DKIM_ADSP_CUSTOM_MED,
+DKIM_ADSP_CUSTOM_HIGH.</small> Not more than one of these
+rules can fire for messages that have one author (but see
+below). The last three can only result from a
+&rsquo;signing&minus;practices&rsquo; as given in a
+<tt>&quot;adsp_override&quot;</tt> directive (not from a
+<small>DNS</small> lookup), and can serve as a convenient
+means of providing a different score if scores assigned to
+<small>DKIM_ADSP_ALL</small> or
+<small>DKIM_ADSP_DISCARD</small> are not considered suitable
+for some domains.</p>
+
+<p style="margin-left:17%; margin-top: 1em"><small>RFC
+5322</small> permits a message to have more than one author
+&minus; multiple addresses may be listed in a single From
+header field. <small>RFC 5617</small> defines that a message
+with multiple authors has multiple signing domain signing
+practices, but does not prescribe how these should be
+combined. In presence of multiple signing practices, more
+than one of the DKIM_ADSP_* rules may fire.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As a precaution
+against firing DKIM_ADSP_* rules when there is a known local
+reason for a signature verification failure, the
+domain&rsquo;s <small>ADSP</small> is considered
+&rsquo;unknown&rsquo; when <small>DNS</small> lookups are
+disabled or a <small>DNS</small> lookup encountered a
+temporary problem on fetching a public key from the
+author&rsquo;s domain. Similarly, <small>ADSP</small> is
+considered &rsquo;unknown&rsquo; when this plugin did its
+own signature verification (signatures were not passed to
+<small>SA</small> by a caller) and a metarule __TRUNCATED
+was triggered, indicating the caller intentionally passed a
+truncated message to SpamAssassin, which was a likely reason
+for a signature verification failure.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  adsp_override *.mydomain.example.com   discardable
+  adsp_override *.neversends.example.com discardable
+  adsp_override ebay.com
+  adsp_override *.ebay.com
+  adsp_override ebay.co.uk
+  adsp_override *.ebay.co.uk
+  adsp_override paypal.com
+  adsp_override *.paypal.com
+  adsp_override amazon.com
+  adsp_override ealerts.bankofamerica.com
+  adsp_override americangreetings.com
+  adsp_override egreetings.com
+  adsp_override bluemountain.com
+  adsp_override hallmark.com   all
+  adsp_override *.hallmark.com all
+  adsp_override youtube.com    custom_high
+  adsp_override google.com     custom_low
+  adsp_override gmail.com      custom_low
+  adsp_override googlemail.com custom_low
+  adsp_override yahoo.com      custom_low
+  adsp_override yahoo.com.au   custom_low
+  adsp_override yahoo.se       custom_low
+  adsp_override junkmailerkbw0rr.com nxdomain
+  adsp_override junkmailerd2hlsg.com nxdomain
+  # effectively disables ADSP network DNS lookups for all other domains:
+  adsp_override *              unknown
+  score DKIM_ADSP_ALL          2.5
+  score DKIM_ADSP_DISCARD     25
+  score DKIM_ADSP_NXDOMAIN     3
+  score DKIM_ADSP_CUSTOM_LOW   1
+  score DKIM_ADSP_CUSTOM_MED   3.5
+  score DKIM_ADSP_CUSTOM_HIGH  8</pre>
+
+
+<h2>ADMINISTRATOR SETTINGS
+<a name="ADMINISTRATOR SETTINGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dkim_timeout n
+(default: 5)</p>
+
+<p style="margin-left:17%;">How many seconds to wait for a
+<small>DKIM</small> query to complete, before scanning
+continues without the <small>DKIM</small> result. A numeric
+value is optionally suffixed by a time unit (s, m, h, d, w,
+indicating seconds (default), minutes, hours, days,
+weeks).</p>
+<hr>
+</body>
+</html>
