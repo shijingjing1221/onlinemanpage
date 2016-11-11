@@ -1,0 +1,1491 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Thu Nov 10 22:10:57 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>guestfs-hacking</title>
+
+</head>
+<body>
+
+<h1 align="center">guestfs-hacking</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#BUGS">BUGS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">guestfs&minus;hacking
+&minus; extending and contributing to libguestfs</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This manual
+page is for hackers who want to extend libguestfs
+itself.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>OVERVIEW
+OF THE SOURCE CODE</small></b> <br>
+Libguestfs source is located in the github repository
+https://github.com/libguestfs/libguestfs</p>
+
+<p style="margin-left:11%; margin-top: 1em">Large amounts
+of boilerplate code in libguestfs ( <small>RPC,</small>
+bindings, documentation) are generated. This means that many
+source files will appear to be missing from a
+straightforward git checkout. You have to run the generator
+(<tt>&quot;./autogen.sh &amp;&amp; make &minus;C
+generator&quot;</tt>) in order to create those files.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Libguestfs uses
+an autotools-based build system, with the main files being
+<i>configure.ac</i> and <i>Makefile.am</i>. The
+<i>generator</i> subdirectory contains the generator, plus
+files describing the <small>API.</small> The <i>src</i>
+subdirectory contains source for the library. The
+<i>appliance</i> and <i>daemon</i> subdirectories contain
+the source for the code that builds the appliance, and the
+code that runs in the appliance respectively. Other
+directories are covered in the section &quot; <small>SOURCE
+CODE SUBDIRECTORIES&quot;</small> below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Apart from the
+fact that all <small>API</small> entry points go via some
+generated code, the library is straightforward. (In fact,
+even the generated code is designed to be readable, and
+should be read as ordinary code). Some actions run entirely
+in the library, and are written as C functions in files
+under <i>src</i>. Others are forwarded to the daemon where
+(after some generated <small>RPC</small> marshalling) they
+appear as C functions in files under <i>daemon</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To build from
+source, first read the <tt>&quot;README&quot;</tt> file.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>local*</i>
+<b><small>FILES</small></b> <br>
+Files in the top source directory that begin with the prefix
+<i>local*</i> are ignored by git. These files can contain
+local configuration or scripts that you need to build
+libguestfs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By convention,
+I have a file called <i>localconfigure</i> which is a simple
+wrapper around <i>autogen.sh</i> containing local configure
+customizations that I need:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> . localenv
+ ./autogen.sh \
+     &minus;&minus;with&minus;default&minus;backend=libvirt \
+     &minus;&minus;enable&minus;gcc&minus;warnings \
+     &minus;&minus;enable&minus;gtk&minus;doc \
+     &minus;C \
+     &quot;$@&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">So I can use
+this to build libguestfs:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> ./localconfigure &amp;&amp; make</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If there is a
+file in the top build directory called <i>localenv</i>, then
+it will be sourced by <tt>&quot;make&quot;</tt>. This file
+can contain any local environment variables needed, eg. for
+skipping tests:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> # Use an alternate python binary.
+ export PYTHON=python3
+ # Skip this test, it is broken.
+ export SKIP_TEST_BTRFS_FSCK=1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<i>localenv</i> is included by the top Makefile (so
+it&rsquo;s a Makefile fragment). But if it is also sourced
+by your <i>localconfigure</i> script then it is used as a
+shell script.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ADDING
+A NEW API ACTION</small></b> <br>
+Because large amounts of boilerplate code in libguestfs are
+generated, this makes it easy to extend the libguestfs
+<small>API.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">To add a new
+<small>API</small> action there are two changes:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>You need to add a description of the call (name,
+parameters, return type, tests, documentation) to
+<i>generator/actions.ml</i>.</p> </td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">There are two
+sorts of <small>API</small> action, depending on whether the
+call goes through to the daemon in the appliance, or is
+serviced entirely by the library (see &quot;
+<small>ARCHITECTURE&quot;</small> in
+<i>guestfs&minus;internals</i>(3)). &quot;guestfs_sync&quot;
+in <i>guestfs</i>(3) is an example of the former, since the
+sync is done in the appliance. &quot;guestfs_set_trace&quot;
+in <i>guestfs</i>(3) is an example of the latter, since a
+trace flag is maintained in the handle and all tracing is
+done on the library side.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Most new
+actions are of the first type, and get added to the
+<tt>&quot;daemon_functions&quot;</tt> list. Each function
+has a unique procedure number used in the <small>RPC</small>
+protocol which is assigned to that action when we publish
+libguestfs and cannot be reused. Take the latest procedure
+number and increment it.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For
+library-only actions of the second type, add to the
+<tt>&quot;non_daemon_functions&quot;</tt> list. Since these
+functions are serviced by the library and do not travel over
+the <small>RPC</small> mechanism to the daemon, these
+functions do not need a procedure number, and so the
+procedure number is set to
+<tt>&quot;&minus;1&quot;</tt>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">2.</p></td>
+<td width="3%"></td>
+<td width="43%">
+
+
+<p style="margin-top: 1em">Implement the action (in C):</p></td>
+<td width="40%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">For daemon
+actions, implement the function
+<tt>&quot;do_&lt;name&gt;&quot;</tt> in the
+<tt>&quot;daemon/&quot;</tt> directory.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For library
+actions, implement the function
+<tt>&quot;guestfs_impl_&lt;name&gt;&quot;</tt> in the
+<tt>&quot;src/&quot;</tt> directory.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In either case,
+use another function as an example of what to do.</p>
+
+<p style="margin-left:11%; margin-top: 1em">After making
+these changes, use <tt>&quot;make&quot;</tt> to compile.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that you
+don&rsquo;t need to implement the <small>RPC,</small>
+language bindings, manual pages or anything else. It&rsquo;s
+all automatically generated from the OCaml description.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ADDING
+TESTS FOR AN API ACTION</small></b> <br>
+You can supply zero or as many tests as you want per
+<small>API</small> call. The tests can either be added as
+part of the <small>API</small> description
+(<i>generator/actions.ml</i>), or in some rarer cases you
+may want to drop a script into
+<tt>&quot;tests/*/&quot;</tt>. Note that adding a script to
+<tt>&quot;tests/*/&quot;</tt> is slower, so if possible use
+the first method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+describes the test environment used when you add an
+<small>API</small> test in <i>actions.ml</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The test
+environment has 4 block devices: <i><br>
+/dev/sda</i> 2 <small>GB</small></p>
+
+<p style="margin-left:17%;">General block device for
+testing.</p>
+
+<p style="margin-left:11%;"><i>/dev/sdb</i> 2
+<small>GB</small></p>
+
+<p style="margin-left:17%;"><i>/dev/sdb1</i> is an ext2
+filesystem used for testing filesystem write operations.</p>
+
+<p style="margin-left:11%;"><i>/dev/sdc</i> 10
+<small>MB</small></p>
+
+<p style="margin-left:17%;">Used in a few tests where two
+block devices are needed.</p>
+
+<p style="margin-left:11%;"><i>/dev/sdd</i></p>
+
+<p style="margin-left:17%;"><small>ISO</small> with fixed
+content (see <i>images/test.iso</i>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">To be able to
+run the tests in a reasonable amount of time, the libguestfs
+appliance and block devices are reused between tests. So
+don&rsquo;t try testing &quot;guestfs_kill_subprocess&quot;
+in <i>guestfs</i>(3) :&minus;x</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each test
+starts with an initial scenario, selected using one of the
+<tt>&quot;Init*&quot;</tt> expressions, described in
+<i>generator/types.ml</i>. These initialize the disks
+mentioned above in a particular way as documented in
+<i>types.ml</i>. You should not assume anything about the
+previous contents of other disks that are not
+initialized.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can add a
+prerequisite clause to any individual test. This is a
+run-time check, which, if it fails, causes the test to be
+skipped. Useful if testing a command which might not work on
+all variations of libguestfs builds. A test that has
+prerequisite of <tt>&quot;Always&quot;</tt> means to run
+unconditionally.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition,
+packagers can skip individual tests by setting environment
+variables before running <tt>&quot;make
+check&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> SKIP_TEST_&lt;CMD&gt;_&lt;NUM&gt;=1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">eg:
+<tt>&quot;SKIP_TEST_COMMAND_3=1&quot;</tt> skips test #3 of
+&quot;guestfs_command&quot; in <i>guestfs</i>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">or:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> SKIP_TEST_&lt;CMD&gt;=1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">eg:
+<tt>&quot;SKIP_TEST_ZEROFREE=1&quot;</tt> skips all
+&quot;guestfs_zerofree&quot; in <i>guestfs</i>(3) tests.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Packagers can
+run only certain tests by setting for example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> TEST_ONLY=&quot;vfs_type zerofree&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>tests/c&minus;api/tests.c</i> for more details of how
+these environment variables work.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>DEBUGGING
+NEW API ACTIONS</small></b> <br>
+Test new actions work before submitting them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can use
+guestfish to try out new commands.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Debugging the
+daemon is a problem because it runs inside a minimal
+environment. However you can fprintf messages in the daemon
+to stderr, and they will show up if you use
+<tt>&quot;guestfish &minus;v&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ADDING
+A NEW LANGUAGE BINDING</small></b> <br>
+All language bindings must be generated by the generator
+(see the <i>generator</i> subdirectory).</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+documentation for this yet. We suggest you look at an
+existing binding, eg. <i>generator/ocaml.ml</i> or
+<i>generator/perl.ml</i>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ADDING
+TESTS FOR LANGUAGE BINDINGS</small></b> <br>
+Language bindings should come with tests. Previously testing
+of language bindings was rather ad-hoc, but we have been
+trying to formalize the set of tests that every language
+binding should use.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently only
+the OCaml and Perl bindings actually implement the full set
+of tests, and the OCaml bindings are canonical, so you
+should emulate what the OCaml tests do.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is the
+numbering scheme used by the tests:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> &minus; 000+ basic tests:
+   010  load the library
+   020  create
+   030  create&minus;flags
+   040  create multiple handles
+   050  test setting and getting config properties
+   060  explicit close
+   065  implicit close (in GC'd languages)
+   070  optargs
+   080  version
+ &minus; 100  launch, create partitions and LVs and filesystems
+ &minus; 400+ events:
+   410  close event
+   420  log messages
+   430  progress messages
+ &minus; 800+ regression tests (specific to the language)
+ &minus; 900+ any other custom tests for the language</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To save time
+when running the tests, only 100, 430, 800+, 900+ should
+launch the handle.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>FORMATTING
+CODE</small></b> <br>
+Our C source code generally adheres to some basic
+code-formatting conventions. The existing code base is not
+totally consistent on this front, but we do prefer that
+contributed code be formatted similarly. In short, use
+spaces-not-TABs for indentation, use 2 spaces for each
+indentation level, and other than that, follow the K&amp;R
+style.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use
+Emacs, add the following to one of one of your start-up
+files (e.g., ~/.emacs), to help ensure that you get
+indentation right:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> ;;; In libguestfs, indent with spaces everywhere (not TABs).
+ ;;; Exceptions: Makefile and ChangeLog modes.
+ (add&minus;hook 'find&minus;file&minus;hook
+     '(lambda () (if (and buffer&minus;file&minus;name
+                          (string&minus;match &quot;/libguestfs\\&gt;&quot;
+                              (buffer&minus;file&minus;name))
+                          (not (string&minus;equal mode&minus;name &quot;Change Log&quot;))
+                          (not (string&minus;equal mode&minus;name &quot;Makefile&quot;)))
+                     (setq indent&minus;tabs&minus;mode nil))))
+ ;;; When editing C sources in libguestfs, use this style.
+ (defun libguestfs&minus;c&minus;mode ()
+   &quot;C mode with adjusted defaults for use with libguestfs.&quot;
+   (interactive)
+   (c&minus;set&minus;style &quot;K&amp;R&quot;)
+   (setq c&minus;indent&minus;level 2)
+   (setq c&minus;basic&minus;offset 2))
+ (add&minus;hook 'c&minus;mode&minus;hook
+           '(lambda () (if (string&minus;match &quot;/libguestfs\\&gt;&quot;
+                               (buffer&minus;file&minus;name))
+                           (libguestfs&minus;c&minus;mode))))</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>TESTING
+YOUR CHANGES</small></b> <br>
+Turn warnings into errors when developing to make warnings
+hard to ignore:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> ./configure &minus;&minus;enable&minus;werror</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Useful targets
+are: <br>
+&quot;make check&quot;</p>
+
+<p style="margin-left:17%;">Runs the regular test
+suite.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This is
+implemented using the regular automake
+<tt>&quot;TESTS&quot;</tt> target. See the automake
+documentation for details.</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;valgrind&quot;</p>
+
+<p style="margin-left:17%;">Runs a subset of the test suite
+under valgrind.</p>
+
+<p style="margin-left:17%; margin-top: 1em">See &quot;
+<small>VALGRIND&quot;</small> below.</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;valgrind&minus;local&minus;guests&quot;</p>
+
+<p style="margin-left:17%;">Runs a subset of the test suite
+under valgrind using locally installed libvirt guests
+(read-only).</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;direct&quot;</p>
+
+<p style="margin-left:17%;">Runs all tests using default
+appliance back-end. This only has any effect if a
+non-default backend was selected using <tt>&quot;./configure
+&minus;&minus;with&minus;default&minus;backend=...&quot;</tt></p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;valgrind&minus;direct&quot;</p>
+
+<p style="margin-left:17%;">Run a subset of the test suite
+under valgrind using the default appliance back-end.</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;uml&quot;</p>
+
+<p style="margin-left:17%;">Runs all tests using the
+User-Mode Linux backend.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As there is no
+standard location for the User-Mode Linux kernel, you
+<i>have</i> to set <tt>&quot;LIBGUESTFS_HV&quot;</tt> to
+point to the kernel image, eg:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> make check&minus;uml LIBGUESTFS_HV=~/d/linux&minus;um/vmlinux</pre>
+
+
+<p style="margin-left:11%;">&quot;make
+check&minus;valgrind&minus;uml&quot;</p>
+
+<p style="margin-left:17%;">Runs all tests using the
+User-Mode Linux backend, under valgrind.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As above, you
+have to set <tt>&quot;LIBGUESTFS_HV&quot;</tt> to point to
+the kernel.</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;with&minus;upstream&minus;qemu&quot;</p>
+
+<p style="margin-left:17%;">Runs all tests using a local
+qemu binary. It looks for the qemu binary in
+<small>QEMUDIR</small> (defaults to <i>$HOME/d/qemu</i>),
+but you can set this to another directory on the command
+line, eg:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> make check&minus;with&minus;upstream&minus;qemu QEMUDIR=/usr/src/qemu</pre>
+
+
+<p style="margin-left:11%;">&quot;make
+check&minus;with&minus;upstream&minus;libvirt&quot;</p>
+
+<p style="margin-left:17%;">Runs all tests using a local
+libvirt. This only has any effect if the libvirt backend was
+selected using <tt>&quot;./configure
+&minus;&minus;with&minus;default&minus;backend=libvirt&quot;</tt></p>
+
+<p style="margin-left:17%; margin-top: 1em">It looks for
+libvirt in <small>LIBVIRTDIR</small> (defaults to
+<i>$HOME/d/libvirt</i>), but you can set this to another
+directory on the command line, eg:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> make check&minus;with&minus;upstream&minus;libvirt LIBVIRTDIR=/usr/src/libvirt</pre>
+
+
+<p style="margin-left:11%;">&quot;make
+check&minus;slow&quot;</p>
+
+<p style="margin-left:17%;">Runs some
+slow/long&minus;running tests which are not run by
+default.</p>
+
+<p style="margin-left:17%; margin-top: 1em">To mark a test
+as slow/long&minus;running:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Add it to the list of <tt>&quot;TESTS&quot;</tt> in the
+<i>Makefile.am</i>, just like a normal test.</p></td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Modify the test so it checks if the
+<tt>&quot;SLOW=1&quot;</tt> environment variable is set, and
+if <i>not</i> set it skips (ie. returns with exit code
+77).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Add a variable <tt>&quot;SLOW_TESTS&quot;</tt> to the
+<i>Makefile.am</i> listing the slow tests.</p></td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Add a rule to the <i>Makefile.am</i>:</p></td></tr>
+</table>
+
+<pre style="margin-left:23%; margin-top: 1em"> check&minus;slow:
+   $(MAKE) check TESTS=&quot;$(SLOW_TESTS)&quot; SLOW=1</pre>
+
+
+<p style="margin-left:11%;">&quot;make
+check&minus;all&quot;</p>
+
+<p style="margin-left:17%;">Equivalent to running all
+<tt>&quot;make check*&quot;</tt> rules.</p>
+
+<p style="margin-left:11%;">&quot;make
+check&minus;release&quot;</p>
+
+<p style="margin-left:17%;">Runs a subset of <tt>&quot;make
+check*&quot;</tt> rules that are required to pass before a
+tarball can be released. Currently this is:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="32%">
+
+
+<p>check</p></td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="32%">
+
+
+<p>check-valgrind</p></td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="32%">
+
+
+<p>check-direct</p></td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="32%">
+
+
+<p>check-valgrind-direct</p></td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="32%">
+
+
+<p>check-slow</p></td>
+<td width="45%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;">&quot;make
+installcheck&quot;</p>
+
+<p style="margin-left:17%;">Run <tt>&quot;make
+check&quot;</tt> on the installed copy of libguestfs.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The version of
+installed libguestfs being tested, and the version of the
+libguestfs source tree must be the same.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Do:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> ./autogen.sh
+ make clean ||:
+ make
+ make installcheck</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>VALGRIND</small></b>
+<br>
+When you do <tt>&quot;make check&minus;valgrind&quot;</tt>,
+it searches for any <i>Makefile.am</i> in the tree that has
+a <tt>&quot;check&minus;valgrind:&quot;</tt> target and runs
+it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Writing the
+<i>Makefile.am</i> and tests correctly to use valgrind and
+working with automake parallel tests is subtle.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If your tests
+are run via a shell script wrapper, then in the wrapper
+use:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> $VG virt&minus;foo</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and in the
+<i>Makefile.am</i> use:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> check&minus;valgrind:
+     make VG=&quot;$(top_builddir)/run @VG@&quot; check</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">However, if
+your binaries run directly from the
+<tt>&quot;TESTS&quot;</tt> rule, you have to modify the
+<i>Makefile.am</i> like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> LOG_COMPILER = $(VG)
+ check&minus;valgrind:
+     make VG=&quot;@VG@&quot; check</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In either case,
+check that the right program is being tested by examining
+the <i>tmp/valgrind*</i> log files carefully.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>DAEMON
+CUSTOM PRINTF FORMATTERS</small></b> <br>
+In the daemon code we have created custom printf formatters
+<tt>%Q</tt> and <tt>%R</tt>, which are used to do shell
+quoting.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>%Q</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Simple shell quoted string. Any spaces or other shell
+characters are escaped for you.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>%R</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Same as <tt>%Q</tt> except the string is treated as a
+path which is prefixed by the sysroot.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> asprintf (&amp;cmd, &quot;cat %R&quot;, path);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">would produce
+<tt>&quot;cat /sysroot/some\ path\ with\
+spaces&quot;</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Note:</i> Do
+<i>not</i> use these when you are passing parameters to the
+<tt>&quot;command{,r,v,rv}()&quot;</tt> functions. These
+parameters do <small>NOT</small> need to be quoted because
+they are not passed via the shell (instead, straight to
+exec). You probably want to use the
+<tt>&quot;sysroot_path()&quot;</tt> function however.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>SUBMITTING
+YOUR NEW API ACTIONS</small></b> <br>
+Submit patches to the mailing list:
+http://www.redhat.com/mailman/listinfo/libguestfs and
+<small>CC</small> to rjones@redhat.com.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>INTERNATIONALIZATION</small>
+(I18N) <small>SUPPORT</small></b> <br>
+We support i18n (gettext anyhow) in the library.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However many
+messages come from the daemon, and we don&rsquo;t translate
+those at the moment. One reason is that the appliance
+generally has all locale files removed from it, because they
+take up a lot of space. So we&rsquo;d have to readd some of
+those, as well as copying our <small>PO</small> files into
+the appliance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Debugging
+messages are never translated, since they are intended for
+the programmers.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>SOURCE
+CODE SUBDIRECTORIES</small></b> <i><br>
+align</i></p>
+
+
+<p style="margin-left:17%;"><i>virt&minus;alignment&minus;scan</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>appliance</i></p>
+
+<p style="margin-left:17%;">The libguestfs appliance, build
+scripts and so on.</p>
+
+<p style="margin-left:11%;"><i>bash</i></p>
+
+<p style="margin-left:17%;">Bash tab-completion
+scripts.</p>
+
+<p style="margin-left:11%;"><i>build-aux</i></p>
+
+<p style="margin-left:17%;">Various build scripts used by
+autotools.</p>
+
+<p style="margin-left:11%;"><i>builder</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;builder</i>(1)
+command and documentation.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>cat</i></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>The <i>virt&minus;cat</i>(1),
+<i>virt&minus;filesystems</i>(1), <i>virt&minus;log</i>(1)
+and <i>virt&minus;ls</i>(1) commands and documentation.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>contrib</i></p>
+
+<p style="margin-left:17%;">Outside contributions,
+experimental parts.</p>
+
+<p style="margin-left:11%;"><i>customize</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;customize</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>daemon</i></p>
+
+<p style="margin-left:17%;">The daemon that runs inside the
+libguestfs appliance and carries out actions.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>df</i></p></td>
+<td width="2%"></td>
+<td width="58%">
+
+
+<p><i>virt&minus;df</i>(1) command and documentation.</p></td>
+<td width="25%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>dib</i></p></td>
+<td width="2%"></td>
+<td width="58%">
+
+
+<p><i>virt&minus;dib</i>(1) command and documentation.</p></td>
+<td width="25%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>diff</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;diff</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>docs</i></p>
+
+<p style="margin-left:17%;">Miscellaneous manual pages.</p>
+
+<p style="margin-left:11%;"><i>edit</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;edit</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>examples</i></p>
+
+<p style="margin-left:17%;">C <small>API</small> example
+code.</p>
+
+<p style="margin-left:11%;"><i>fish</i></p>
+
+<p style="margin-left:17%;"><i>guestfish</i>(1), the
+command-line shell, and various shell scripts built on top
+such as <i>virt&minus;copy&minus;in</i>(1),
+<i>virt&minus;copy&minus;out</i>(1),
+<i>virt&minus;tar&minus;in</i>(1),
+<i>virt&minus;tar&minus;out</i>(1).</p>
+
+<p style="margin-left:11%;"><i>format</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;format</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>fuse</i></p>
+
+<p style="margin-left:17%;"><i>guestmount</i>(1),
+<small>FUSE</small> (userspace filesystem) built on top of
+libguestfs.</p>
+
+<p style="margin-left:11%;"><i>generator</i></p>
+
+<p style="margin-left:17%;">The crucially important
+generator, used to automatically generate large amounts of
+boilerplate C code for things like <small>RPC</small> and
+bindings.</p>
+
+<p style="margin-left:11%;"><i>get-kernel</i></p>
+
+
+<p style="margin-left:17%;"><i>virt&minus;get&minus;kernel</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>gnulib</i></p>
+
+<p style="margin-left:17%;">Gnulib is used as a portability
+library. A copy of gnulib is included under here.</p>
+
+<p style="margin-left:11%;"><i>inspector</i></p>
+
+
+<p style="margin-left:17%;"><i>virt&minus;inspector</i>(1),
+the virtual machine image inspector.</p>
+
+<p style="margin-left:11%;"><i>logo</i></p>
+
+<p style="margin-left:17%;">Logo used on the website. The
+fish is called Arthur by the way.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><i>m4</i></p></td>
+<td width="3%"></td>
+<td width="41%">
+
+
+<p>M4 macros used by autoconf.</p></td>
+<td width="42%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>make-fs</i></p>
+
+
+<p style="margin-left:17%;"><i>virt&minus;make&minus;fs</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>mllib</i></p>
+
+<p style="margin-left:17%;">Various libraries and common
+code used by <i>virt&minus;resize</i>(1) and the other tools
+which are written in OCaml.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>p2v</i></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p><i>virt&minus;p2v</i>(1) command, documentation and
+scripts for building the virt&minus;p2v <small>ISO</small>
+or disk image.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>po</i></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Translations of simple gettext strings.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>po-docs</i></p>
+
+<p style="margin-left:17%;">The build infrastructure and
+<small>PO</small> files for translations of manpages and
+<small>POD</small> files. Eventually this will be combined
+with the <i>po</i> directory, but that is rather
+complicated.</p>
+
+<p style="margin-left:11%;"><i>rescue</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;rescue</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>resize</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;resize</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>sparsify</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;sparsify</i>(1)
+command and documentation.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>src</i></p></td>
+<td width="2%"></td>
+<td width="45%">
+
+
+<p>Source code to the C library.</p></td>
+<td width="38%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>sysprep</i></p>
+
+<p style="margin-left:17%;"><i>virt&minus;sysprep</i>(1)
+command and documentation.</p>
+
+<p style="margin-left:11%;"><i>tests</i></p>
+
+<p style="margin-left:17%;">Tests.</p>
+
+<p style="margin-left:11%;"><i>test-data</i></p>
+
+<p style="margin-left:17%;">Files and other test data used
+by the tests.</p>
+
+<p style="margin-left:11%;"><i>test-tool</i></p>
+
+<p style="margin-left:17%;">Test tool for end users to test
+if their qemu/kernel combination will work with
+libguestfs.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>tmp</i></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Used for temporary files when running the tests (instead
+of <i>/tmp</i> etc). The reason is so that you can run
+multiple parallel tests of libguestfs without having one set
+of tests overwriting the appliance created by another.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>tools</i></p>
+
+<p style="margin-left:17%;">Command line tools written in
+Perl (<i>virt&minus;win&minus;reg</i>(1) and many
+others).</p>
+
+<p style="margin-left:11%;"><i>utils</i></p>
+
+<p style="margin-left:17%;">Miscellaneous utilities, such
+as <tt>&quot;boot&minus;benchmark&quot;</tt>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>v2v</i></p></td>
+<td width="2%"></td>
+<td width="58%">
+
+
+<p><i>virt&minus;v2v</i>(1) command and documentation.</p></td>
+<td width="25%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>website</i></p>
+
+<p style="margin-left:17%;">The http://libguestfs.org
+website files.</p>
+
+<p style="margin-left:11%;"><i>csharp <br>
+erlang <br>
+gobject <br>
+golang <br>
+haskell <br>
+java</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>lua</i></p></td>
+<td width="85%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>ocaml</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>php</i></p></td>
+<td width="85%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>perl <br>
+python <br>
+ruby</i></p>
+
+<p style="margin-left:17%;">Language bindings.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>MAKING
+A STABLE RELEASE</small></b> <br>
+When we make a stable release, there are several steps
+documented here. See &quot; <small>LIBGUESTFS VERSION
+NUMBERS&quot;</small> in <i>guestfs</i>(3) for general
+information about the stable branch policy.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Check <tt>&quot;make &amp;&amp; make check&quot;</tt>
+works on at least Fedora, Debian and Ubuntu.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Check <tt>&quot;./configure
+&minus;&minus;without&minus;libvirt&quot;</tt> works.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Finalize
+<i>guestfs&minus;release&minus;notes.pod</i></p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Push and pull from Zanata.</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Run:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> zanata push</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">to push the
+latest <small>POT</small> files to Zanata. Then run:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> ./zanata&minus;pull.sh</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">which is a
+wrapper to pull the latest translated <i>*.po</i> files.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Consider updating gnulib to
+latest upstream version.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Create new stable and development directories under
+http://libguestfs.org/download.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Edit <i>website/index.html.in</i>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Set the version (in <i>configure.ac</i>) to the new
+<i>stable</i> version, ie. 1.XX.0, and commit it:</p></td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em"> ./localconfigure
+ make distclean &minus;k
+ ./localconfigure
+ make &amp;&amp; make dist
+ make maintainer&minus;commit
+ make maintainer&minus;tag</pre>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="49%">
+
+
+<p style="margin-top: 1em">Create the stable branch in
+git:</p> </td>
+<td width="34%">
+</td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em"> git branch stable&minus;1.XX
+ git push origin stable&minus;1.XX</pre>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Do a full release of the stable
+branch.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Set the version to the next development version and
+commit that. Optionally do a full release of the development
+branch.</p> </td></tr>
+</table>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>guestfs</i>(3),
+<i>guestfs&minus;examples</i>(3),
+<i>guestfs&minus;internals</i>(3),
+<i>guestfs&minus;performance</i>(1),
+<i>guestfs&minus;release&minus;notes</i>(1),
+<i>guestfs&minus;testing</i>(1),
+<i>libguestfs&minus;test&minus;tool</i>(1),
+<i>libguestfs&minus;make&minus;fixed&minus;appliance</i>(1),
+http://libguestfs.org/.</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Richard W.M.
+Jones (<tt>&quot;rjones at redhat dot com&quot;</tt>)</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2009&minus;2016 Red Hat Inc.</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the terms of the <small>GNU</small> Lesser General
+Public License as published by the Free Software Foundation;
+either version 2 of the License, or (at your option) any
+later version.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+distributed in the hope that it will be useful, but
+<small>WITHOUT ANY WARRANTY</small> ; without even the
+implied warranty of <small>MERCHANTABILITY</small> or
+<small>FITNESS FOR A PARTICULAR PURPOSE.</small> See the
+<small>GNU</small> Lesser General Public License for more
+details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should have
+received a copy of the <small>GNU</small> Lesser General
+Public License along with this library; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, <small>MA 02110&minus;1301 USA</small></p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To get a list
+of bugs against libguestfs, use this link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p style="margin-left:11%; margin-top: 1em">To report a new
+bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p style="margin-left:11%; margin-top: 1em">When reporting
+a bug, please supply:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">The version of libguestfs.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Where you got libguestfs (eg. which Linux distro,
+compiled from source, etc)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Describe the bug accurately and give a way to reproduce
+it.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Run <i>libguestfs&minus;test&minus;tool</i>(1) and paste
+the <b>complete, unedited</b> output into the bug
+report.</p> </td></tr>
+ </table>
+<hr>
+</body>
+</html>

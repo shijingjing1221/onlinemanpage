@@ -1,0 +1,1501 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Thu Nov 10 22:15:39 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>LVMRAID</title>
+
+</head>
+<body>
+
+<h1 align="center">LVMRAID</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Create a RAID LV">Create a RAID LV</a><br>
+<a href="#Synchronization">Synchronization</a><br>
+<a href="#SubLVs">SubLVs</a><br>
+<a href="#Device Failure">Device Failure</a><br>
+<a href="#Monitoring">Monitoring</a><br>
+<a href="#Configuration Options">Configuration Options</a><br>
+<a href="#RAID1 Tuning">RAID1 Tuning</a><br>
+<a href="#RAID Takeover">RAID Takeover</a><br>
+<a href="#RAID Reshaping">RAID Reshaping</a><br>
+<a href="#RAID5 Variants">RAID5 Variants</a><br>
+<a href="#RAID6 Variants">RAID6 Variants</a><br>
+<a href="#History">History</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">lvmraid &mdash;
+LVM RAID</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">LVM RAID is a
+way to create logical volumes (LVs) that use multiple
+physical devices to improve performance or tolerate device
+failure. How blocks of data in an LV are placed onto
+physical devices is determined by the RAID level. RAID
+levels are commonly referred to by number, e.g. raid1,
+raid5. Selecting a RAID level involves tradeoffs among
+physical device requirements, fault tolerance, and
+performance. A description of the RAID levels can be found
+at <br>
+
+www.snia.org/sites/default/files/SNIA_DDF_Technical_Position_v2.0.pdf</p>
+
+<p style="margin-left:11%; margin-top: 1em">LVM RAID uses
+both Device Mapper (DM) and Multiple Device (MD) drivers
+from the Linux kernel. DM is used to create and manage
+visible LVM devices, and MD is used to place data on
+physical devices.</p>
+
+<h2>Create a RAID LV
+<a name="Create a RAID LV"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To create a
+RAID LV, use lvcreate and specify an LV type. The LV type
+corresponds to a RAID level. The basic RAID levels that can
+be used are: <b>raid0, raid1, raid4, raid5, raid6,
+raid10.</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type</b> <i>RaidLevel</i> [<i>OPTIONS</i>]
+<b>&minus;&minus;name</b> <i>Name</i>
+<b>&minus;&minus;size</b> <i>Size VG</i> [<i>PVs</i>]</p>
+
+<p style="margin-left:11%; margin-top: 1em">To display the
+LV type of an existing LV, run:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -o
+name,segtype</b> <i>VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">(The LV type is
+also referred to as &quot;segment type&quot; or
+&quot;segtype&quot;.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">LVs can be
+created with the following types:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid0</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Also called
+striping, raid0 spreads LV data across multiple devices in
+units of stripe size. This is used to increase performance.
+LV data will be lost if any of the devices fail.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid0</b> [<b>&minus;&minus;stripes</b>
+<i>Number</i> <b>&minus;&minus;stripesize</b> <i>Size</i>]
+<i>VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripes</b></p> </td>
+<td width="1%"></td>
+<td width="74%">
+
+
+<p style="margin-top: 1em">specifies the number of devices
+to spread the LV across.</p></td></tr>
+</table>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripesize</b></p> <td width="22%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">specifies the size of each
+stripe in kilobytes. This is the amount of data that is
+written to one device before moving to the next.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose <i>Number</i> devices, one for each stripe.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid1</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Also called
+mirroring, raid1 uses multiple devices to duplicate LV data.
+The LV data remains available if all but one of the devices
+fail. The minimum number of devices required is 2.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid1</b> [<b>&minus;&minus;mirrors</b>
+<i>Number</i>] <i>VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;mirrors</b></p> </td>
+<td width="1%"></td>
+<td width="74%">
+
+
+<p style="margin-top: 1em">specifies the number of mirror
+images in addition to the</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">original LV image, e.g.
+&minus;&minus;mirrors 1 means there are two images of the
+data, the original and one mirror image.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose <i>Number</i> devices, one for each image.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid4</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">raid4 is a form
+of striping that uses an extra device dedicated to storing
+parity blocks. The LV data remains available if one device
+fails. The parity is used to recalculate data that is lost
+from a single device. The minimum number of devices required
+is 3.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid4</b> [<b>&minus;&minus;stripes</b>
+<i>Number</i> <b>&minus;&minus;stripesize</b> <i>Size</i>]
+<i>VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripes</b></p> </td>
+<td width="1%"></td>
+<td width="74%">
+
+
+<p style="margin-top: 1em">specifies the number of devices
+to use for LV data. This</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">does not include the extra
+device lvm adds for storing parity blocks. <i>Number</i>
+stripes requires <i>Number</i>+1 devices. <i>Number</i> must
+be 2 or more.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="18%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripesize</b></p> </td>
+<td width="3%"></td>
+<td width="68%">
+
+
+<p style="margin-top: 1em">specifies the size of each
+stripe in kilobytes. This is</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">the amount of data that is
+written to one device before moving to the next.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose <i>Number</i>+1 separate devices.</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid4 is called
+non-rotating parity because the parity blocks are always
+stored on the same device.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid5</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">raid5 is a form
+of striping that uses an extra device for storing parity
+blocks. LV data and parity blocks are stored on each device.
+The LV data remains available if one device fails. The
+parity is used to recalculate data that is lost from a
+single device. The minimum number of devices required is
+3.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid5</b> [<b>&minus;&minus;stripes</b>
+<i>Number</i> <b>&minus;&minus;stripesize</b> <i>Size</i>]
+<i>VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripes</b></p> </td>
+<td width="3%"></td>
+<td width="72%">
+
+
+<p style="margin-top: 1em">specifies the number of devices
+to use for LV data. This</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">does not include the extra
+device lvm adds for storing parity blocks. <i>Number</i>
+stripes requires <i>Number</i>+1 devices. <i>Number</i> must
+be 2 or more.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="18%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripesize</b></p> </td>
+<td width="2%"></td>
+<td width="69%">
+
+
+<p style="margin-top: 1em">specifies the size of each
+stripe in kilobytes. This is</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">the amount of data that is
+written to one device before moving to the next.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose <i>Number</i>+1 separate devices.</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid5 is called
+rotating parity because the parity blocks are placed on
+different devices in a round-robin sequence. There are
+variations of raid5 with different algorithms for placing
+the parity blocks. The default variant is raid5_ls (raid5
+left symmetric, which is a rotating parity 0 with data
+restart.) See <b>RAID5 variants</b> below.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid6</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">raid6 is a form
+of striping like raid5, but uses two extra devices for
+parity blocks. LV data and parity blocks are stored on each
+device. The LV data remains available if up to two devices
+fail. The parity is used to recalculate data that is lost
+from one or two devices. The minimum number of devices
+required is 5.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid6</b> [<b>&minus;&minus;stripes</b>
+<i>Number</i> <b>&minus;&minus;stripesize</b> <i>Size</i>]
+<i>VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripes</b></p> </td>
+<td width="3%"></td>
+<td width="72%">
+
+
+<p style="margin-top: 1em">specifies the number of devices
+to use for LV data. This</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">does not include the extra two
+devices lvm adds for storing parity blocks. <i>Number</i>
+stripes requires <i>Number</i>+2 devices. <i>Number</i> must
+be 3 or more.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="18%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripesize</b></p> </td>
+<td width="2%"></td>
+<td width="69%">
+
+
+<p style="margin-top: 1em">specifies the size of each
+stripe in kilobytes. This is</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">the amount of data that is
+written to one device before moving to the next.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose <i>Number</i>+2 separate devices.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Like raid5,
+there are variations of raid6 with different algorithms for
+placing the parity blocks. The default variant is raid6_zr
+(raid6 zero restart, aka left symmetric, which is a rotating
+parity 0 with data restart.) See <b>RAID6 variants</b>
+below.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid10</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">raid10 is a
+combination of raid1 and raid0, striping data across
+mirrored devices. LV data remains available if one or more
+devices remains in each mirror set. The minimum number of
+devices required is 4.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type raid10</b></p>
+
+<p style="margin-left:22%;">[<b>&minus;&minus;mirrors</b>
+<i>NumberMirrors</i>] <br>
+[<b>&minus;&minus;stripes</b> <i>NumberStripes</i>
+<b>&minus;&minus;stripesize</b> <i>Size</i>] <i><br>
+VG</i> [<i>PVs</i>]</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;mirrors</b></p> </td>
+<td width="3%"></td>
+<td width="72%">
+
+
+<p style="margin-top: 1em">specifies the number of mirror
+images within each stripe.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">e.g. &minus;&minus;mirrors 1
+means there are two images of the data, the original and one
+mirror image.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripes</b></p> </td>
+<td width="3%"></td>
+<td width="72%">
+
+
+<p style="margin-top: 1em">specifies the total number of
+devices to use in all raid1</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">images (not the number of raid1
+devices to spread the LV across, even though that is the
+effective result). The number of devices in each raid1
+mirror will be NumberStripes/(NumberMirrors+1), e.g. mirrors
+1 and stripes 4 will stripe data across two raid1 mirrors,
+where each mirror is devices.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="18%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;stripesize</b></p> </td>
+<td width="3%"></td>
+<td width="68%">
+
+
+<p style="margin-top: 1em">specifies the size of each
+stripe in kilobytes. This is</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">the amount of data that is
+written to one device before moving to the next.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>PVs</i>
+specifies the devices to use. If not specified, lvm will
+choose the necessary devices. Devices are used to create
+mirrors in the order listed, e.g. for mirrors 1, stripes 2,
+listing PV1 PV2 PV3 PV4 results in mirrors PV1/PV2 and
+PV3/PV4.</p>
+
+<p style="margin-left:11%; margin-top: 1em">RAID10 is not
+mirroring on top of stripes, which would be RAID01, which is
+less tolerant of device failures.</p>
+
+<h2>Synchronization
+<a name="Synchronization"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Synchronization
+makes all the devices in a RAID LV consistent with each
+other.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In a RAID1 LV,
+all mirror images should have the same data. When a new
+mirror image is added, or a mirror image is missing data,
+then images need to be synchronized. Data blocks are copied
+from an existing image to a new or outdated image to make
+them match.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In a RAID 4/5/6
+LV, parity blocks and data blocks should match based on the
+parity calculation. When the devices in a RAID LV change,
+the data and parity blocks can become inconsistent and need
+to be synchronized. Correct blocks are read, parity is
+calculated, and recalculated blocks are written.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The RAID
+implementation keeps track of which parts of a RAID LV are
+synchronized. This uses a bitmap saved in the RAID metadata.
+The bitmap can exclude large parts of the LV from
+synchronization to reduce the amount of work. Without this,
+the entire LV would need to be synchronized every time it
+was activated. When a RAID LV is first created and activated
+the first synchronization is called initialization.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Automatic
+synchronization happens when a RAID LV is activated, but it
+is usually partial because the bitmaps reduce the areas that
+are checked. A full sync may become necessary when devices
+in the RAID LV are changed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+synchronization status of a RAID LV is reported by the
+following command, where &quot;image synced&quot; means sync
+is complete:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -a -o
+name,sync_percent</b></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Scrubbing</b>
+<br>
+Scrubbing is a full scan/synchronization of the RAID LV
+requested by a user. Scrubbing can find problems that are
+missed by partial synchronization.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Scrubbing
+assumes that RAID metadata and bitmaps may be inaccurate, so
+it verifies all RAID metadata, LV data, and parity blocks.
+Scrubbing can find inconsistencies caused by hardware errors
+or degradation. These kinds of problems may be undetected by
+automatic synchronization which excludes areas outside of
+the RAID write-intent bitmap.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The command to
+scrub a RAID LV can operate in two different modes:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;&minus;syncaction check</b>|<b>repair</b>
+<i>VG</i>/<i>LV</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p style="margin-top: 1em"><b>check</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Check mode is read&minus;only
+and only detects inconsistent areas in the RAID LV, it does
+not correct them.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>repair</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Repair mode checks and writes corrected blocks to
+synchronize any inconsistent areas.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Scrubbing can
+consume a lot of bandwidth and slow down application I/O on
+the RAID LV. To control the I/O rate used for scrubbing,
+use:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="26%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;maxrecoveryrate</b></p> </td>
+<td width="1%"></td>
+<td width="39%">
+
+
+
+<p style="margin-top: 1em"><i>Rate</i>[<b>b</b>|<b>B</b>|<b>s</b>|<b>S</b>|<b>k</b>|<b>K</b>|<b>m</b>|<b>M</b>|<b>g</b>|<b>G</b>]</p> </td>
+<td width="23%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;">Sets the maximum recovery rate
+for a RAID LV. <i>Rate</i> is specified as an amount per
+second for each device in the array. If no suffix is given,
+then KiB/sec/device is assumed. Setting the recovery rate to
+<b>0</b> means it will be unbounded.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="66%">
+
+
+
+<p style="margin-top: 1em"><b>&minus;&minus;minrecoveryrate</b>
+<i>Rate</i>[<b>b</b>|<b>B</b>|<b>s</b>|<b>S</b>|<b>k</b>|<b>K</b>|<b>m</b>|<b>M</b>|<b>g</b>|<b>G</b>]</p> </td>
+<td width="23%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;">Sets the minimum recovery rate
+for a RAID LV. <i>Rate</i> is specified as an amount per
+second for each device in the array. If no suffix is given,
+then KiB/sec/device is assumed. Setting the recovery rate to
+<b>0</b> means it will be unbounded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To display the
+current scrubbing in progress on an LV, including the
+syncaction mode and percent complete, run:</p>
+
+<p><b>lvs -a -o name,raid_sync_action,sync_percent</b></p></table>
+
+<p style="margin-left:11%; margin-top: 1em">After scrubbing
+is complete, to display the number of inconsistent blocks
+found, run:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -o
+name,raid_mismatch_count</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Also, if
+mismatches were found, the lvs attr field will display the
+letter &quot;m&quot; (mismatch) in the 9th position,
+e.g.</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -o
+name,vgname,segtype,attr vg/lvol0 <br>
+LV VG Type Attr <br>
+lvol0 vg raid1 Rwi-a-r-m-</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Scrubbing
+Limitations</b> <br>
+The <b>check</b> mode can only report the number of
+inconsistent blocks, it cannot report which blocks are
+inconsistent. This makes it impossible to know which device
+has errors, or if the errors affect file system data,
+metadata or nothing at all.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>repair</b> mode can make the RAID LV data consistent, but
+it does not know which data is correct. The result may be
+consistent but incorrect data. When two different blocks of
+data must be made consistent, it chooses the block from the
+device that would be used during RAID intialization.
+However, if the PV holding corrupt data is known, lvchange
+&minus;&minus;rebuild can be used to reconstruct the data on
+the bad device.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Future
+developments might include:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Allowing a user
+to choose the correct version of data during repair.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using a
+majority of devices to determine the correct version of data
+to use in a three-way RAID1 or RAID6 LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using a
+checksumming device to pin-point when and where an error
+occurs, allowing it to be rewritten.</p>
+
+<h2>SubLVs
+<a name="SubLVs"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An LV is often
+a combination of other hidden LVs called SubLVs. The SubLVs
+either use physical devices, or are built from other SubLVs
+themselves. SubLVs hold LV data blocks, RAID parity blocks,
+and RAID metadata. SubLVs are generally hidden, so the lvs
+&minus;a option is required display them:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -a -o
+name,segtype,devices</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">SubLV names
+begin with the visible LV name, and have an automatic suffix
+indicating its role:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>SubLVs holding LV data or parity blocks have the suffix
+_rimage_#. These SubLVs are sometimes referred to as
+DataLVs.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>SubLVs holding RAID metadata have the suffix _rmeta_#.
+RAID metadata includes superblock information, RAID type,
+bitmap, and device health information. These SubLVs are
+sometimes referred to as MetaLVs.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">SubLVs are an
+internal implementation detail of LVM. The way they are
+used, constructed and named may change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+examples show the SubLV arrangement for each of the basic
+RAID LV types, using the fewest number of devices allowed
+for each.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Examples
+<br>
+raid0</b> <br>
+Each rimage SubLV holds a portion of LV data. No parity is
+used. No RAID metadata is used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid0 --stripes 2 --name lvr0 ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr0 raid0 lvr0_rimage_0(0),lvr0_rimage_1(0) <br>
+[lvr0_rimage_0] linear /dev/sda(...) <br>
+[lvr0_rimage_1] linear /dev/sdb(...)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid1</b>
+<br>
+Each rimage SubLV holds a complete copy of LV data. No
+parity is used. Each rmeta SubLV holds RAID metadata.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid1 --mirrors 1 --name lvr1 ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr1 raid1 lvr1_rimage_0(0),lvr1_rimage_1(0) <br>
+[lvr1_rimage_0] linear /dev/sda(...) <br>
+[lvr1_rimage_1] linear /dev/sdb(...) <br>
+[lvr1_rmeta_0] linear /dev/sda(...) <br>
+[lvr1_rmeta_1] linear /dev/sdb(...)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid4</b>
+<br>
+Two rimage SubLVs each hold a portion of LV data and one
+rimage SubLV holds parity. Each rmeta SubLV holds RAID
+metadata.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid4 --stripes 2 --name lvr4 ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr4 raid4 lvr4_rimage_0(0),\ <br>
+lvr4_rimage_1(0),\ <br>
+lvr4_rimage_2(0) <br>
+[lvr4_rimage_0] linear /dev/sda(...) <br>
+[lvr4_rimage_1] linear /dev/sdb(...) <br>
+[lvr4_rimage_2] linear /dev/sdc(...) <br>
+[lvr4_rmeta_0] linear /dev/sda(...) <br>
+[lvr4_rmeta_1] linear /dev/sdb(...) <br>
+[lvr4_rmeta_2] linear /dev/sdc(...)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid5</b>
+<br>
+Three rimage SubLVs each hold a portion of LV data and
+parity. Each rmeta SubLV holds RAID metadata.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid5 --stripes 2 --name lvr5 ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr5 raid5 lvr5_rimage_0(0),\ <br>
+lvr5_rimage_1(0),\ <br>
+lvr5_rimage_2(0) <br>
+[lvr5_rimage_0] linear /dev/sda(...) <br>
+[lvr5_rimage_1] linear /dev/sdb(...) <br>
+[lvr5_rimage_2] linear /dev/sdc(...) <br>
+[lvr5_rmeta_0] linear /dev/sda(...) <br>
+[lvr5_rmeta_1] linear /dev/sdb(...) <br>
+[lvr5_rmeta_2] linear /dev/sdc(...)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid6</b>
+<br>
+Six rimage SubLVs each hold a portion of LV data and parity.
+Each rmeta SubLV holds RAID metadata.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid6 --stripes 3 --name lvr6</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr6 raid6 lvr6_rimage_0(0),\ <br>
+lvr6_rimage_1(0),\ <br>
+lvr6_rimage_2(0),\ <br>
+lvr6_rimage_3(0),\ <br>
+lvr6_rimage_4(0),\ <br>
+lvr6_rimage_5(0) <br>
+[lvr6_rimage_0] linear /dev/sda(...) <br>
+[lvr6_rimage_1] linear /dev/sdb(...) <br>
+[lvr6_rimage_2] linear /dev/sdc(...) <br>
+[lvr6_rimage_3] linear /dev/sdd(...) <br>
+[lvr6_rimage_4] linear /dev/sde(...) <br>
+[lvr6_rimage_5] linear /dev/sdf(...) <br>
+[lvr6_rmeta_0] linear /dev/sda(...) <br>
+[lvr6_rmeta_1] linear /dev/sdb(...) <br>
+[lvr6_rmeta_2] linear /dev/sdc(...) <br>
+[lvr6_rmeta_3] linear /dev/sdd(...) <br>
+[lvr6_rmeta_4] linear /dev/sde(...) <br>
+[lvr6_rmeta_5] linear /dev/sdf(...)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>raid10</b>
+<br>
+Four rimage SubLVs each hold a portion of LV data. No parity
+is used. <br>
+Each rmeta SubLV holds RAID metadata.</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvcreate --type
+raid10 --stripes 2 --mirrors 1 --name lvr10</p>
+
+<p style="margin-left:11%; margin-top: 1em">lvs -a -o
+name,segtype,devices <br>
+lvr10 raid10 lvr10_rimage_0(0),\ <br>
+lvr10_rimage_1(0),\ <br>
+lvr10_rimage_2(0),\ <br>
+lvr10_rimage_3(0) <br>
+[lvr10_rimage_0] linear /dev/sda(...) <br>
+[lvr10_rimage_1] linear /dev/sdb(...) <br>
+[lvr10_rimage_2] linear /dev/sdc(...) <br>
+[lvr10_rimage_3] linear /dev/sdd(...) <br>
+[lvr10_rmeta_0] linear /dev/sda(...) <br>
+[lvr10_rmeta_1] linear /dev/sdb(...) <br>
+[lvr10_rmeta_2] linear /dev/sdc(...) <br>
+[lvr10_rmeta_3] linear /dev/sdd(...)</p>
+
+<h2>Device Failure
+<a name="Device Failure"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Physical
+devices in a RAID LV can fail or be lost for multiple
+reasons. A device could be disconnected, permanently failed,
+or temporarily disconnected. The purpose of RAID LVs (levels
+1 and higher) is to continue operating in a degraded mode,
+without losing LV data, even after a device fails. The
+number of devices that can fail without the loss of LV data
+depends on the RAID level:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p style="margin-top: 1em">RAID0 (striped) LVs cannot
+tolerate losing any devices. LV data will be lost if any
+devices fail.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>RAID1 LVs can tolerate losing all but one device without
+LV data loss.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>RAID4 and RAID5 LVs can tolerate losing one device
+without LV data loss.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>RAID6 LVs can tolerate losing two devices without LV
+data loss.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="85%">
+
+
+<p>RAID10 is variable, and depends on which devices are
+lost. It can tolerate losing all but one device in a single
+raid1 mirror without LV data loss.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">If a RAID LV is
+missing devices, or has other device-related problems, lvs
+reports this in the health_status (and attr) fields:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -o
+name,lv_health_status</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>partial</b>
+<br>
+Devices are missing from the LV. This is also indicated by
+the letter &quot;p&quot; (partial) in the 9th position of
+the lvs attr field.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>refresh
+needed</b> <br>
+A device was temporarily missing but has returned. The LV
+needs to be refreshed to use the device again (which will
+usually require partial synchronization). This is also
+indicated by the letter &quot;r&quot; (refresh needed) in
+the 9th position of the lvs attr field. See <b>Refreshing an
+LV</b>. This could also indicate a problem with the device,
+in which case it should be be replaced, see <b>Replacing
+Devices</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>mismatches
+exist</b> <br>
+See <b>Scrubbing</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Most commands
+will also print a warning if a device is missing, e.g. <br>
+WARNING: Device for PV uItL3Z-wBME-DQy0-... not found or
+rejected ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">This warning
+will go away if the device returns or is removed from the VG
+(see <b>vgreduce &minus;&minus;removemissing</b>).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Activating
+an LV with missing devices</b> <br>
+A RAID LV that is missing devices may be activated or not,
+depending on the &quot;activation mode&quot; used in
+lvchange:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;ay &minus;&minus;activationmode</b>
+{<b>complete</b>|<b>degraded</b>|<b>partial</b>}
+<i>VG</i>/<i>LV</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>complete</b>
+<br>
+The LV is only activated if all devices are present.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>degraded</b>
+<br>
+The LV is activated with missing devices if the RAID level
+can tolerate the number of missing devices without LV data
+loss.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>partial</b>
+<br>
+The LV is always activated, even if portions of the LV data
+are missing because of the missing device(s). This should
+only be used to perform recovery or repair operations.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvm.conf</b>(5)
+<b>activation/activation_mode</b> <br>
+controls the activation mode when not specified by the
+command.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The default
+value is printed by: <br>
+lvmconfig --type default activation/activation_mode</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Replacing
+Devices</b> <br>
+Devices in a RAID LV can be replaced with other devices in
+the VG. When replacing devices that are no longer visible on
+the system, use lvconvert &minus;&minus;repair. When
+replacing devices that are still visible, use lvconvert
+&minus;&minus;replace. The repair command will attempt to
+restore the same number of data LVs that were previously in
+the LV. The replace option can be repeated to replace
+multiple PVs. Replacement devices can be optionally listed
+with either option.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+&minus;&minus;repair</b> <i>VG</i>/<i>LV</i>
+[<i>NewPVs</i>]</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+&minus;&minus;replace</b> <i>OldPV VG</i>/<i>LV</i>
+[<i>NewPV</i>]</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+&minus;&minus;replace</b> <i>OldPV1</i>
+<b>&minus;&minus;replace</b> <i>OldPV2 VG</i>/<i>LV</i>
+[<i>NewPVs</i>]</p>
+
+<p style="margin-left:11%; margin-top: 1em">New devices
+require synchronization with existing devices, see
+<b>Synchronization</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Refreshing
+an LV</b> <br>
+Refreshing a RAID LV clears any transient device failures
+(device was temporarily disconnected) and returns the LV to
+its fully redundant mode. Restoring a device will usually
+require at least partial synchronization (see
+<b>Synchronization</b>). Failure to clear a transient
+failure results in the RAID LV operating in degraded mode
+until it is reactivated. Use the lvchange command to refresh
+an LV:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;&minus;refresh</b> <i>VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -o
+name,vgname,segtype,attr,size vg <br>
+LV VG Type Attr LSize <br>
+raid1 vg raid1 Rwi-a-r-r- 100.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvchange
+--refresh vg/raid1</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -o
+name,vgname,segtype,attr,size vg <br>
+LV VG Type Attr LSize <br>
+raid1 vg raid1 Rwi-a-r--- 100.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Automatic
+repair</b> <br>
+If a device in a RAID LV fails, device-mapper in the kernel
+notifies the <b>dmeventd</b>(8) monitoring process (see
+<b>Monitoring</b>). dmeventd can be configured to
+automatically respond using:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvm.conf</b>(5)
+<b>activation/raid_fault_policy</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Possible
+settings are:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>warn</b>
+<br>
+A warning is added to the system log indicating that a
+device has failed in the RAID LV. It is left to the user to
+repair the LV, e.g. replace failed devices.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>allocate</b>
+<br>
+dmeventd automatically attempts to repair the LV using spare
+devices in the VG. Note that even a transient failure is
+handled as a permanent failure; a new device is allocated
+and full synchronization is started.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The specific
+command run by dmeventd to warn or repair is: <b><br>
+lvconvert &minus;&minus;repair
+&minus;&minus;use&minus;policies</b> <i>VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Corrupted
+Data</b> <br>
+Data on a device can be corrupted due to hardware errors,
+without the device ever being disconnected, and without any
+fault in the software. This should be rare, and can be
+detected (see <b>Scrubbing</b>).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Rebuild
+specific PVs</b> <br>
+If specific PVs in a RAID LV are known to have corrupt data,
+the data on those PVs can be reconstructed with:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;&minus;rebuild PV</b> <i>VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The rebuild
+option can be repeated with different PVs to replace the
+data on multiple PVs.</p>
+
+<h2>Monitoring
+<a name="Monitoring"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When a RAID LV
+is activated the <b>dmeventd</b>(8) process is started to
+monitor the health of the LV. Various events detected in the
+kernel can cause a notification to be sent from
+device-mapper to the monitoring process, including device
+failures and synchronization completion (e.g. for
+initialization or scrubbing).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The LVM
+configuration file contains options that affect how the
+monitoring process will respond to failure events (e.g.
+raid_fault_policy). It is possible to turn on and off
+monitoring with lvchange, but it is not recommended to turn
+this off unless you have a thorough knowledge of the
+consequences.</p>
+
+<h2>Configuration Options
+<a name="Configuration Options"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There are a
+number of options in the LVM configuration file that affect
+the behavior of RAID LVs. The tunable options are listed
+below. A detailed description of each can be found in the
+LVM configuration file itself. <br>
+mirror_segtype_default <br>
+raid10_segtype_default <br>
+raid_region_size <br>
+raid_fault_policy <br>
+activation_mode</p>
+
+<h2>RAID1 Tuning
+<a name="RAID1 Tuning"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A RAID1 LV can
+be tuned so that certain devices are avoided for reading
+while all devices are still written to.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;&minus;</b>[<b>raid</b>]<b>writemostly</b>
+<i>PhysicalVolume</i>[<b>:</b>{<b>y</b>|<b>n</b>|<b>t</b>}]
+<i>VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The specified
+device will be marked as &quot;write mostly&quot;, which
+means that reading from this device will be avoided, and
+other devices will be preferred for reading (unless no other
+devices are available.) This minimizes the I/O to the
+specified device.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the PV name
+has no suffix, the write mostly attribute is set. If the PV
+name has the suffix <b>:n</b>, the write mostly attribute is
+cleared, and the suffix <b>:t</b> toggles the current
+setting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The write
+mostly option can be repeated on the command line to change
+multiple devices at once.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To report the
+current write mostly setting, the lvs attr field will show
+the letter &quot;w&quot; in the 9th position when write
+mostly is set:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -a -o
+name,attr</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">When a device
+is marked write mostly, the maximum number of outstanding
+writes to that device can be configured. Once the maximum is
+reached, further writes become synchronous. When
+synchronous, a write to the LV will not complete until
+writes to all the mirror images are complete.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvchange
+&minus;&minus;</b>[<b>raid</b>]<b>writebehind</b> <i>IOCount
+VG</i>/<i>LV</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">To report the
+current write behind setting, run:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvs -o
+name,raid_write_behind</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">When write
+behind is not configured, or set to 0, all LV writes are
+synchronous.</p>
+
+<h2>RAID Takeover
+<a name="RAID Takeover"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">RAID takeover
+is converting a RAID LV from one RAID level to another, e.g.
+raid5 to raid6. Changing the RAID level is usually done to
+increase or decrease resilience to device failures. This is
+done using lvconvert and specifying the new RAID level as
+the LV type:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+--type</b> <i>RaidLevel VG</i>/<i>LV</i> [<i>PVs</i>]</p>
+
+<p style="margin-left:11%; margin-top: 1em">The most common
+and recommended RAID takeover conversions are:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="23%">
+
+
+<p style="margin-top: 1em"><b>linear</b> to
+<b>raid1</b></p> </td>
+<td width="66%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;">Linear is a single image of LV
+data, and converting it to raid1 adds a mirror image which
+is a direct copy of the original linear image.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="40%">
+
+
+<p style="margin-top: 1em"><b>striped</b>/<b>raid0</b> to
+<b>raid4/5/6</b></p> </td>
+<td width="49%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;">Adding parity devices to a
+striped volume results in raid4/5/6.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unnatural
+conversions that are not recommended include converting
+between striped and non-striped types. This is because file
+systems often optimize I/O patterns based on device striping
+values. If those values change, it can decrease
+performance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Converting to a
+higher RAID level requires allocating new SubLVs to hold
+RAID metadata, and new SubLVs to hold parity blocks for LV
+data. Converting to a lower RAID level removes the SubLVs
+that are no longer needed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Conversion
+often requires full synchronization of the RAID LV (see
+<b>Synchronization</b>). Converting to RAID1 requires
+copying all LV data blocks to a new image on a new device.
+Converting to a parity RAID level requires reading all LV
+data blocks, calculating parity, and writing the new parity
+blocks. Synchronization can take a long time and degrade
+performance (rate controls also apply to conversion, see
+<b>&minus;&minus;maxrecoveryrate</b>.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+takeover conversions are currently possible:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="3%"></td>
+<td width="40%">
+</td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%"></td>
+<td width="3%"></td>
+<td width="40%">
+
+
+<p style="margin-top: 1em">between linear and raid1.</p></td>
+<td width="45%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="3%"></td>
+<td width="40%">
+
+
+<p>between striped and raid4.</p></td>
+<td width="45%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Examples</b>
+<br>
+1. Converting an LV from <b>linear</b> to <b>raid1</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a -o
+name,segtype,size vg <br>
+LV Type LSize <br>
+lv linear 300.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvconvert
+--type raid1 --mirrors 1 vg/lv</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a -o
+name,segtype,size vg <br>
+LV Type LSize <br>
+lv raid1 300.00g <br>
+[lv_rimage_0] linear 300.00g <br>
+[lv_rimage_1] linear 300.00g <br>
+[lv_rmeta_0] linear 3.00m <br>
+[lv_rmeta_1] linear 3.00m</p>
+
+<p style="margin-left:11%; margin-top: 1em">2. Converting
+an LV from <b>mirror</b> to <b>raid1</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a -o
+name,segtype,size vg <br>
+LV Type LSize <br>
+lv mirror 100.00g <br>
+[lv_mimage_0] linear 100.00g <br>
+[lv_mimage_1] linear 100.00g <br>
+[lv_mlog] linear 3.00m</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvconvert
+--type raid1 vg/lv</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a -o
+name,segtype,size vg <br>
+LV Type LSize <br>
+lv raid1 100.00g <br>
+[lv_rimage_0] linear 100.00g <br>
+[lv_rimage_1] linear 100.00g <br>
+[lv_rmeta_0] linear 3.00m <br>
+[lv_rmeta_1] linear 3.00m</p>
+
+<p style="margin-left:11%; margin-top: 1em">3. Converting
+an LV from <b>linear</b> to <b>raid1</b> (with 3
+images).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Start with a
+linear LV:</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvcreate -L1G
+-n my_lv vg</p>
+
+<p style="margin-left:11%; margin-top: 1em">Convert the
+linear LV to raid1 with three images <br>
+(original linear image plus 2 mirror images):</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvconvert
+--type raid1 --mirrors 2 vg/my_lv</p>
+
+<h2>RAID Reshaping
+<a name="RAID Reshaping"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">RAID reshaping
+is changing attributes of a RAID LV while keeping the same
+RAID level, i.e. changes that do not involve changing the
+number of devices. This includes changing RAID layout,
+stripe size, or number of stripes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When changing
+the RAID layout or stripe size, no new SubLVs (MetaLVs or
+DataLVs) need to be allocated, but DataLVs are extended by a
+small amount (typically 1 extent). The extra space allows
+blocks in a stripe to be updated safely, and not corrupted
+in case of a crash. If a crash occurs, reshaping can just be
+restarted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(If blocks in a
+stripe were updated in place, a crash could leave them
+partially updated and corrupted. Instead, an existing stripe
+is quiesced, read, changed in layout, and the new stripe
+written to free space. Once that is done, the new stripe is
+unquiesced and used.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">(The reshaping
+features are planned for a future release.)</p>
+
+<h2>RAID5 Variants
+<a name="RAID5 Variants"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">raid5_ls <br>
+&bull; RAID5 left symmetric <br>
+&bull; Rotating parity N with data restart</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid5_la <br>
+&bull; RAID5 left symmetric <br>
+&bull; Rotating parity N with data continuation</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid5_rs <br>
+&bull; RAID5 right symmetric <br>
+&bull; Rotating parity 0 with data restart</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid5_ra <br>
+&bull; RAID5 right asymmetric <br>
+&bull; Rotating parity 0 with data continuation</p>
+
+<h2>RAID6 Variants
+<a name="RAID6 Variants"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">raid6 <br>
+&bull; RAID6 zero restart (aka left symmetric) <br>
+&bull; Rotating parity 0 with data restart <br>
+&bull; Same as raid6_zr</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid6_zr <br>
+&bull; RAID6 zero restart (aka left symmetric) <br>
+&bull; Rotating parity 0 with data restart</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid6_nr <br>
+&bull; RAID6 N restart (aka right symmetric) <br>
+&bull; Rotating parity N with data restart</p>
+
+<p style="margin-left:11%; margin-top: 1em">raid6_nc <br>
+&bull; RAID6 N continue <br>
+&bull; Rotating parity N with data continuation</p>
+
+<h2>History
+<a name="History"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The 2.6.38-rc1
+version of the Linux kernel introduced a device-mapper
+target to interface with the software RAID (MD)
+personalities. This provided device-mapper with RAID 4/5/6
+capabilities and a larger development community. Later,
+support for RAID1, RAID10, and RAID1E (RAID 10 variants)
+were added. Support for these new kernel RAID targets was
+added to LVM version 2.02.87. The capabilities of the LVM
+<b>raid1</b> type have surpassed the old <b>mirror</b> type.
+raid1 is now recommended instead of mirror. raid1 became the
+default for mirroring in LVM version 2.02.100.</p>
+<hr>
+</body>
+</html>
