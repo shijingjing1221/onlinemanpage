@@ -84,6 +84,8 @@ function convertAll
 
 function main
 {
+    #update the man datebase
+    mandb
     convertAll
     return $?
 }
