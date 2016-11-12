@@ -1,0 +1,890 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:12:06 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PERF&minus;SCRIPT&minus;PYTHON</title>
+
+</head>
+<body>
+
+<h1 align="center">PERF&minus;SCRIPT&minus;PYTHON</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#A QUICK EXAMPLE">A QUICK EXAMPLE</a><br>
+<a href="#STARTER SCRIPTS">STARTER SCRIPTS</a><br>
+<a href="#EVENT HANDLERS">EVENT HANDLERS</a><br>
+<a href="#SCRIPT LAYOUT">SCRIPT LAYOUT</a><br>
+<a href="#AVAILABLE MODULES AND FUNCTIONS">AVAILABLE MODULES AND FUNCTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">perf-script-python
+&minus; Process trace data with a Python script</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>perf
+script</i> [&minus;s [Python]:script[.py] ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This perf
+script option is used to process perf script data using
+perf&rsquo;s built&minus;in Python interpreter. It reads and
+processes the input file and displays the results of the
+trace analysis implemented in the given Python script, if
+any.</p>
+
+<h2>A QUICK EXAMPLE
+<a name="A QUICK EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This section
+shows the process, start to finish, of creating a working
+Python script that aggregates and extracts useful
+information from a raw perf script stream. You can avoid
+reading the rest of this document if an example is enough
+for you; the rest of the document provides more details on
+each step and lists the library functions available to
+script writers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This example
+actually details the steps that were used to create the
+<i>syscall&minus;counts</i> script you see when you list the
+available perf script scripts via <i>perf script
+&minus;l</i>. As such, this script also shows how to
+integrate your script into the list of general&minus;purpose
+<i>perf script</i> scripts listed by that command.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+syscall&minus;counts script is a simple script, but
+demonstrates all the basic ideas necessary to create a
+useful script. Here&rsquo;s an example of its output
+(syscall names are not yet supported, they will appear as
+numbers):</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+syscall events:</p>
+
+<p style="margin-left:17%; margin-top: 1em">event count
+<br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+sys_write 455067 <br>
+sys_getdents 4072 <br>
+sys_close 3037 <br>
+sys_swapoff 1769 <br>
+sys_read 923 <br>
+sys_sched_setparam 826 <br>
+sys_open 331 <br>
+sys_newfstat 326 <br>
+sys_mmap 217 <br>
+sys_munmap 216 <br>
+sys_futex 141 <br>
+sys_select 102 <br>
+sys_poll 84 <br>
+sys_setitimer 12 <br>
+sys_writev 8 <br>
+15 8 <br>
+sys_lseek 7 <br>
+sys_rt_sigprocmask 6 <br>
+sys_wait4 3 <br>
+sys_ioctl 3 <br>
+sys_set_robust_list 1 <br>
+sys_exit 1 <br>
+56 1 <br>
+sys_access 1 <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">Basically our
+task is to keep a per&minus;syscall tally that gets updated
+every time a system call occurs in the system. Our script
+will do that, but first we need to record the data that will
+be processed by that script. Theoretically, there are a
+couple of ways we could do that:</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; we could
+enable every event under the tracing/events/syscalls
+directory, but this is over 600 syscalls, well beyond the
+number allowable by perf. These individual syscall events
+will however be useful if we want to later use the guidance
+we get from the general&minus;purpose scripts to drill down
+and get more detail about individual syscalls of
+interest.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; we can
+enable the sys_enter and/or sys_exit syscalls found under
+tracing/events/raw_syscalls. These are called for all
+syscalls; the <i>id</i> field can be used to distinguish
+between individual syscall numbers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For this
+script, we only need to know that a syscall was entered; we
+don&rsquo;t care how it exited, so we&rsquo;ll use <i>perf
+record</i> to record only the sys_enter events:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# perf record &minus;a &minus;e raw_syscalls:sys_enter</p>
+
+<p style="margin-left:17%; margin-top: 1em">^C[ perf
+record: Woken up 1 times to write data ] <br>
+[ perf record: Captured and wrote 56.545 MB perf.data
+(~2470503 samples) ] <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The options
+basically say to collect data for every syscall event
+system&minus;wide and multiplex the per&minus;cpu output
+into a single stream. That single stream will be recorded in
+a file in the current directory called perf.data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once we have a
+perf.data file containing our data, we can use the &minus;g
+<i>perf script</i> option to generate a Python script that
+will contain a callback handler for each event type found in
+the perf.data trace stream (for more details, see the
+STARTER SCRIPTS section).</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# perf script &minus;g python <br>
+generated Python script: perf&minus;script.py</p>
+
+<p style="margin-left:17%; margin-top: 1em">The output file
+created also in the current directory is named <br>
+perf&minus;script.py. Here's the file in its entirety:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># perf script
+event handlers, generated by perf script &minus;g python
+<br>
+# Licensed under the terms of the GNU GPL License version
+2</p>
+
+<p style="margin-left:17%; margin-top: 1em"># The common_*
+event handler fields are the most useful fields common to
+<br>
+# all events. They don't necessarily correspond to the
+'common_*' fields <br>
+# in the format files. Those fields not available as handler
+params can <br>
+# be retrieved using Python functions of the form
+common_*(context). <br>
+# See the perf&minus;script&minus;python Documentation for
+the list of available functions.</p>
+
+<p style="margin-left:17%; margin-top: 1em">import os <br>
+import sys</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">sys.path.append(os.environ['PERF_EXEC_PATH']
++ \ <br>
+
+'/scripts/python/Perf&minus;Trace&minus;Util/lib/Perf/Trace')</p>
+
+<p style="margin-left:17%; margin-top: 1em">from
+perf_trace_context import * <br>
+from Core import *</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+trace_begin(): <br>
+print &quot;in trace_begin&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+trace_end(): <br>
+print &quot;in trace_end&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+raw_syscalls__sys_enter(event_name, context, common_cpu,
+<br>
+common_secs, common_nsecs, common_pid, common_comm, <br>
+id, args): <br>
+print_header(event_name, common_cpu, common_secs,
+common_nsecs, <br>
+common_pid, common_comm)</p>
+
+<p style="margin-left:17%; margin-top: 1em">print
+&quot;id=%d, args=%s\n&quot; % \ <br>
+(id, args),</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+trace_unhandled(event_name, context, common_cpu,
+common_secs, common_nsecs, <br>
+common_pid, common_comm): <br>
+print_header(event_name, common_cpu, common_secs,
+common_nsecs, <br>
+common_pid, common_comm)</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+print_header(event_name, cpu, secs, nsecs, pid, comm): <br>
+print &quot;%&minus;20s %5u %05u.%09u %8u %&minus;20s &quot;
+% \ <br>
+(event_name, cpu, secs, nsecs, pid, comm), <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">At the top is a
+comment block followed by some import statements and a path
+append which every perf script script should include.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Following that
+are a couple generated functions, trace_begin() and
+trace_end(), which are called at the beginning and the end
+of the script respectively (for more details, see the
+SCRIPT_LAYOUT section below).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Following those
+are the <i>event handler</i> functions generated one for
+every event in the <i>perf record</i> output. The handler
+functions take the form subsystem<i>event_name, and contain
+named parameters, one for each field in the event; in this
+case, there&rsquo;s only one event,
+raw_syscalls</i>sys_enter(). (see the EVENT HANDLERS section
+below for more info on event handlers).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The final
+couple of functions are, like the begin and end functions,
+generated for every script. The first, trace_unhandled(), is
+called every time the script finds an event in the perf.data
+file that doesn&rsquo;t correspond to any event handler in
+the script. This could mean either that the record step
+recorded event types that it wasn&rsquo;t really interested
+in, or the script was run against a trace file that
+doesn&rsquo;t correspond to the script.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The script
+generated by &minus;g option simply prints a line for each
+event found in the trace stream i.e. it basically just dumps
+the event and its parameter values to stdout. The
+print_header() function is simply a utility function used
+for that purpose. Let&rsquo;s rename the script and run it
+to see the default output:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# mv perf&minus;script.py syscall&minus;counts.py <br>
+# perf script &minus;s syscall&minus;counts.py</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">raw_syscalls__sys_enter
+1 00840.847582083 7506 perf id=1, args= <br>
+raw_syscalls__sys_enter 1 00840.847595764 7506 perf id=1,
+args= <br>
+raw_syscalls__sys_enter 1 00840.847620860 7506 perf id=1,
+args= <br>
+raw_syscalls__sys_enter 1 00840.847710478 6533 npviewer.bin
+id=78, args= <br>
+raw_syscalls__sys_enter 1 00840.847719204 6533 npviewer.bin
+id=142, args= <br>
+raw_syscalls__sys_enter 1 00840.847755445 6533 npviewer.bin
+id=3, args= <br>
+raw_syscalls__sys_enter 1 00840.847775601 6533 npviewer.bin
+id=3, args= <br>
+raw_syscalls__sys_enter 1 00840.847781820 6533 npviewer.bin
+id=3, args= <br>
+. <br>
+. <br>
+. <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">Of course, for
+this script, we&rsquo;re not interested in printing every
+trace event, but rather aggregating it in a useful way. So
+we&rsquo;ll get rid of everything to do with printing as
+well as the trace_begin() and trace_unhandled() functions,
+which we won&rsquo;t be using. That leaves us with this
+minimalistic skeleton:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+import os <br>
+import sys</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">sys.path.append(os.environ['PERF_EXEC_PATH']
++ \ <br>
+
+'/scripts/python/Perf&minus;Trace&minus;Util/lib/Perf/Trace')</p>
+
+<p style="margin-left:17%; margin-top: 1em">from
+perf_trace_context import * <br>
+from Core import *</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+trace_end(): <br>
+print &quot;in trace_end&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+raw_syscalls__sys_enter(event_name, context, common_cpu,
+<br>
+common_secs, common_nsecs, common_pid, common_comm, <br>
+id, args): <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">In trace_end(),
+we&rsquo;ll simply print the results, but first we need to
+generate some results to print. To do that we need to have
+our sys_enter() handler do the necessary tallying until all
+events have been counted. A hash table indexed by syscall id
+is a good way to store that information; every time the
+sys_enter() handler is called, we simply increment a count
+associated with that hash entry indexed by that syscall
+id:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+syscalls = autodict()</p>
+
+<p style="margin-left:17%; margin-top: 1em">try: <br>
+syscalls[id] += 1 <br>
+except TypeError: <br>
+syscalls[id] = 1 <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The syscalls
+<i>autodict</i> object is a special kind of Python
+dictionary (implemented in Core.py) that implements
+Perl&rsquo;s <i>autovivifying</i> hashes in Python i.e. with
+autovivifying hashes, you can assign nested hash values
+without having to go to the trouble of creating intermediate
+levels if they don&rsquo;t exist e.g syscalls[comm][pid][id]
+= 1 will create the intermediate hash levels and finally
+assign the value 1 to the hash entry for <i>id</i> (because
+the value being assigned isn&rsquo;t a hash object itself,
+the initial value is assigned in the TypeError exception.
+Well, there may be a better way to do this in Python but
+that&rsquo;s what works for now).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Putting that
+code into the raw_syscalls__sys_enter() handler, we
+effectively end up with a single&minus;level dictionary
+keyed on syscall id and having the counts we&rsquo;ve
+tallied as values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+print_syscall_totals() function iterates over the entries in
+the dictionary and displays a line for each entry containing
+the syscall name (the dictonary keys contain the syscall
+ids, which are passed to the Util function syscall_name(),
+which translates the raw syscall numbers to the
+corresponding syscall name strings). The output is displayed
+after all the events in the trace have been processed, by
+calling the print_syscall_totals() function from the
+trace_end() handler called at the end of script
+processing.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The final
+script producing the output shown above is shown in its
+entirety below (syscall_name() helper is not yet available,
+you can only deal with id&rsquo;s for now):</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+import os <br>
+import sys</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">sys.path.append(os.environ['PERF_EXEC_PATH']
++ \ <br>
+
+'/scripts/python/Perf&minus;Trace&minus;Util/lib/Perf/Trace')</p>
+
+<p style="margin-left:17%; margin-top: 1em">from
+perf_trace_context import * <br>
+from Core import * <br>
+from Util import *</p>
+
+<p style="margin-left:17%; margin-top: 1em">syscalls =
+autodict()</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+trace_end(): <br>
+print_syscall_totals()</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+raw_syscalls__sys_enter(event_name, context, common_cpu,
+<br>
+common_secs, common_nsecs, common_pid, common_comm, <br>
+id, args): <br>
+try: <br>
+syscalls[id] += 1 <br>
+except TypeError: <br>
+syscalls[id] = 1</p>
+
+<p style="margin-left:17%; margin-top: 1em">def
+print_syscall_totals(): <br>
+if for_comm is not None: <br>
+print &quot;\nsyscall events for %s:\n\n&quot; % (for_comm),
+<br>
+else: <br>
+print &quot;\nsyscall events:\n\n&quot;,</p>
+
+<p style="margin-left:17%; margin-top: 1em">print
+&quot;%&minus;40s %10s\n&quot; % (&quot;event&quot;,
+&quot;count&quot;), <br>
+print &quot;%&minus;40s %10s\n&quot; %
+(&quot;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&quot;,
+\ <br>
+
+&quot;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&quot;),</p>
+
+<p style="margin-left:17%; margin-top: 1em">for id, val in
+sorted(syscalls.iteritems(), key = lambda(k, v): (v, k), \
+<br>
+reverse = True): <br>
+print &quot;%&minus;40s %10d\n&quot; % (syscall_name(id),
+val), <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The script can
+be run just as before:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># perf script
+&minus;s syscall&minus;counts.py</p>
+
+<p style="margin-left:11%; margin-top: 1em">So those are
+the essential steps in writing and running a script. The
+process can be generalized to any tracepoint or set of
+tracepoints you&rsquo;re interested in &minus; basically
+find the tracepoint(s) you&rsquo;re interested in by looking
+at the list of available events shown by <i>perf list</i>
+and/or look in /sys/kernel/debug/tracing events for detailed
+event and field info, record the corresponding trace data
+using <i>perf record</i>, passing it the list of interesting
+events, generate a skeleton script using <i>perf script
+&minus;g python</i> and modify the code to aggregate and
+display it for your particular needs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">After
+you&rsquo;ve done that you may end up with a
+general&minus;purpose script that you want to keep around
+and have available for future use. By writing a couple of
+very simple shell scripts and putting them in the right
+place, you can have your script listed alongside the other
+scripts listed by the <i>perf script &minus;l</i> command
+e.g.:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+root@tropicana:~# perf script &minus;l <br>
+List of available trace scripts: <br>
+wakeup&minus;latency system&minus;wide min/max/avg wakeup
+latency <br>
+rw&minus;by&minus;file &lt;comm&gt; r/w activity for a
+program, by file <br>
+rw&minus;by&minus;pid system&minus;wide r/w activity <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">A nice side
+effect of doing this is that you also then capture the
+probably lengthy <i>perf record</i> command needed to record
+the events for the script.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To have the
+script appear as a <i>built&minus;in</i> script, you write
+two simple scripts, one for recording and one for
+<i>reporting</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>record</i> script is a shell script with the same base
+name as your script, but with &minus;record appended. The
+shell script should be put into the perf/scripts/python/bin
+directory in the kernel source tree. In that script, you
+write the <i>perf record</i> command&minus;line needed for
+your script:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# cat
+kernel&minus;source/tools/perf/scripts/python/bin/syscall&minus;counts&minus;record</p>
+
+<p style="margin-left:17%; margin-top: 1em">#!/bin/bash
+<br>
+perf record &minus;a &minus;e raw_syscalls:sys_enter <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>report</i> script is also a shell script with the same
+base name as your script, but with &minus;report appended.
+It should also be located in the perf/scripts/python/bin
+directory. In that script, you write the <i>perf script
+&minus;s</i> command&minus;line needed for running your
+script:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# cat
+kernel&minus;source/tools/perf/scripts/python/bin/syscall&minus;counts&minus;report</p>
+
+<p style="margin-left:17%; margin-top: 1em">#!/bin/bash
+<br>
+# description: system&minus;wide syscall counts <br>
+perf script &minus;s
+~/libexec/perf&minus;core/scripts/python/syscall&minus;counts.py
+<br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+location of the Python script given in the shell script is
+in the libexec/perf&minus;core/scripts/python directory
+&minus; this is where the script will be copied by <i>make
+install</i> when you install perf. For the installation to
+install your script there, your script needs to be located
+in the perf/scripts/python directory in the kernel source
+tree:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+# ls &minus;al
+kernel&minus;source/tools/perf/scripts/python</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">root@tropicana:/home/trz/src/tip#
+ls &minus;al tools/perf/scripts/python <br>
+total 32 <br>
+drwxr&minus;xr&minus;x 4 trz trz 4096 2010&minus;01&minus;26
+22:30 . <br>
+drwxr&minus;xr&minus;x 4 trz trz 4096 2010&minus;01&minus;26
+22:29 .. <br>
+drwxr&minus;xr&minus;x 2 trz trz 4096 2010&minus;01&minus;26
+22:29 bin <br>
+&minus;rw&minus;r&minus;&minus;r&minus;&minus; 1 trz trz
+2548 2010&minus;01&minus;26 22:29
+check&minus;perf&minus;script.py <br>
+drwxr&minus;xr&minus;x 3 trz trz 4096 2010&minus;01&minus;26
+22:49 Perf&minus;Trace&minus;Util <br>
+&minus;rw&minus;r&minus;&minus;r&minus;&minus; 1 trz trz
+1462 2010&minus;01&minus;26 22:30 syscall&minus;counts.py
+<br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once
+you&rsquo;ve done that (don&rsquo;t forget to do a new
+<i>make install</i>, otherwise your script won&rsquo;t show
+up at run&minus;time), <i>perf script &minus;l</i> should
+show a new entry for your script:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+root@tropicana:~# perf script &minus;l <br>
+List of available trace scripts: <br>
+wakeup&minus;latency system&minus;wide min/max/avg wakeup
+latency <br>
+rw&minus;by&minus;file &lt;comm&gt; r/w activity for a
+program, by file <br>
+rw&minus;by&minus;pid system&minus;wide r/w activity <br>
+syscall&minus;counts system&minus;wide syscall counts <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can now
+perform the record step via <i>perf script record</i>:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># perf script
+record syscall&minus;counts</p>
+
+<p style="margin-left:11%; margin-top: 1em">and display the
+output using <i>perf script report</i>:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># perf script
+report syscall&minus;counts</p>
+
+<h2>STARTER SCRIPTS
+<a name="STARTER SCRIPTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can quickly
+get started writing a script for a particular set of trace
+data by generating a skeleton script using <i>perf script
+&minus;g python</i> in the same directory as an existing
+perf.data trace file. That will generate a starter script
+containing a handler for each of the event types in the
+trace file; it simply prints every available field for each
+event in the trace file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+look at the existing scripts in
+~/libexec/perf&minus;core/scripts/python for typical
+examples showing how to do basic things like aggregate event
+data, print results, etc. Also, the
+check&minus;perf&minus;script.py script, while not
+interesting for its results, attempts to exercise all of the
+main scripting features.</p>
+
+<h2>EVENT HANDLERS
+<a name="EVENT HANDLERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When perf
+script is invoked using a trace script, a user&minus;defined
+<i>handler function</i> is called for each event in the
+trace. If there&rsquo;s no handler function defined for a
+given event type, the event is ignored (or passed to a
+<i>trace_handled</i> function, see below) and the next event
+is processed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Most of the
+event&rsquo;s field values are passed as arguments to the
+handler function; some of the less common ones aren&rsquo;t
+&minus; those are available as calls back into the perf
+executable (see below).</p>
+
+<p style="margin-left:11%; margin-top: 1em">As an example,
+the following perf record command can be used to record all
+sched_wakeup events in the system:</p>
+
+<p style="margin-left:17%; margin-top: 1em"># perf record
+&minus;a &minus;e sched:sched_wakeup</p>
+
+<p style="margin-left:11%; margin-top: 1em">Traces meant to
+be processed using a script should be recorded with the
+above option: &minus;a to enable system&minus;wide
+collection.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The format file
+for the sched_wakep event defines the following fields (see
+/sys/kernel/debug/tracing/events/sched/sched_wakeup/format):</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+format: <br>
+field:unsigned short common_type; <br>
+field:unsigned char common_flags; <br>
+field:unsigned char common_preempt_count; <br>
+field:int common_pid;</p>
+
+<p style="margin-left:17%; margin-top: 1em">field:char
+comm[TASK_COMM_LEN]; <br>
+field:pid_t pid; <br>
+field:int prio; <br>
+field:int success; <br>
+field:int target_cpu; <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The handler
+function for this event would be defined as:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+def sched__sched_wakeup(event_name, context, common_cpu,
+common_secs, <br>
+common_nsecs, common_pid, common_comm, <br>
+comm, pid, prio, success, target_cpu): <br>
+pass <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The handler
+function takes the form subsystem__event_name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The common_*
+arguments in the handler&rsquo;s argument list are the set
+of arguments passed to all event handlers; some of the
+fields correspond to the common_* fields in the format file,
+but some are synthesized, and some of the common_* fields
+aren&rsquo;t common enough to to be passed to every event as
+arguments but are available as library functions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here&rsquo;s a
+brief description of each of the invariant event args:</p>
+
+<p style="margin-left:17%; margin-top: 1em">event_name the
+name of the event as text <br>
+context an opaque 'cookie' used in calls back into perf <br>
+common_cpu the cpu the event occurred on <br>
+common_secs the secs portion of the event timestamp <br>
+common_nsecs the nsecs portion of the event timestamp <br>
+common_pid the pid of the current task <br>
+common_comm the name of the current process</p>
+
+<p style="margin-left:11%; margin-top: 1em">All of the
+remaining fields in the event&rsquo;s format file have
+counterparts as handler function arguments of the same name,
+as can be seen in the example above.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The above
+provides the basics needed to directly access every field of
+every event in a trace, which covers 90% of what you need to
+know to write a useful trace script. The sections below
+cover the rest.</p>
+
+<h2>SCRIPT LAYOUT
+<a name="SCRIPT LAYOUT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Every perf
+script Python script should start by setting up a Python
+module search path and 'import&rsquo;ing a few support
+modules (see module descriptions below):</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+import os <br>
+import sys</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">sys.path.append(os.environ['PERF_EXEC_PATH']
++ \ <br>
+
+'/scripts/python/Perf&minus;Trace&minus;Util/lib/Perf/Trace')</p>
+
+<p style="margin-left:17%; margin-top: 1em">from
+perf_trace_context import * <br>
+from Core import * <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The rest of the
+script can contain handler functions and support functions
+in any order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Aside from the
+event handler functions discussed above, every script can
+implement a set of optional functions:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trace_begin</b>,
+if defined, is called before any event is processed and
+gives scripts a chance to do setup tasks:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+def trace_begin: <br>
+pass <br>
+.ft</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trace_end</b>,
+if defined, is called after all events have been processed
+and gives scripts a chance to do end&minus;of&minus;script
+tasks, such as display results:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+def trace_end: <br>
+pass <br>
+.ft</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trace_unhandled</b>,
+if defined, is called after for any event that doesn&rsquo;t
+have a handler explicitly defined for it. The standard set
+of common arguments are passed into it:</p>
+
+<p style="margin-left:17%; margin-top: 1em">.ft C <br>
+def trace_unhandled(event_name, context, common_cpu,
+common_secs, <br>
+common_nsecs, common_pid, common_comm): <br>
+pass <br>
+.ft</p>
+
+<p style="margin-left:11%; margin-top: 1em">The remaining
+sections provide descriptions of each of the available
+built&minus;in perf script Python modules and their
+associated functions.</p>
+
+<h2>AVAILABLE MODULES AND FUNCTIONS
+<a name="AVAILABLE MODULES AND FUNCTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+sections describe the functions and variables available via
+the various perf script Python modules. To use the functions
+and variables from the given module, add the corresponding
+<i>from XXXX import</i> line to your perf script script.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Core.py
+Module</b> <br>
+These functions provide some essential functions to user
+scripts.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>flag_str</b> and <b>symbol_str</b> functions provide
+human&minus;readable strings for flag and symbolic fields.
+These correspond to the strings and values parsed from the
+<i>print fmt</i> fields of the event format files:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">flag_str(event_name,
+field_name, field_value) &minus; returns the string
+represention corresponding to field_value for the flag field
+field_name of event event_name <br>
+symbol_str(event_name, field_name, field_value) &minus;
+returns the string represention corresponding to field_value
+for the symbolic field field_name of event event_name</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>autodict</b> function returns a special kind of Python
+dictionary that implements Perl&rsquo;s <i>autovivifying</i>
+hashes in Python i.e. with autovivifying hashes, you can
+assign nested hash values without having to go to the
+trouble of creating intermediate levels if they don&rsquo;t
+exist.</p>
+
+<p style="margin-left:17%; margin-top: 1em">autodict()
+&minus; returns an autovivifying dictionary instance</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>perf_trace_context
+Module</b> <br>
+Some of the <i>common</i> fields in the event format file
+aren&rsquo;t all that common, but need to be made accessible
+to user scripts nonetheless.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">perf_trace_context
+defines a set of functions that can be used to access this
+data in the context of the current event. Each of these
+functions expects a context variable, which is the same as
+the context variable passed into every event handler as the
+second argument.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">common_pc(context)
+&minus; returns common_preempt count for the current event
+<br>
+common_flags(context) &minus; returns common_flags for the
+current event <br>
+common_lock_depth(context) &minus; returns common_lock_depth
+for the current event</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Util.py
+Module</b> <br>
+Various utility functions for use with perf script:</p>
+
+<p style="margin-left:17%; margin-top: 1em">nsecs(secs,
+nsecs) &minus; returns total nsecs given secs/nsecs pair
+<br>
+nsecs_secs(nsecs) &minus; returns whole secs portion given
+nsecs <br>
+nsecs_nsecs(nsecs) &minus; returns nsecs remainder given
+nsecs <br>
+nsecs_str(nsecs) &minus; returns printable string in the
+form secs.nsecs <br>
+avg(total, n) &minus; returns average given a sum and a
+total number of values</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>perf-script</b>(1)</p>
+<hr>
+</body>
+</html>

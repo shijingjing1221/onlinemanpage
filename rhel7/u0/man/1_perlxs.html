@@ -1,0 +1,2799 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:12:52 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PERLXS</title>
+
+</head>
+<body>
+
+<h1 align="center">PERLXS</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#XS VERSION">XS VERSION</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">perlxs &minus;
+XS language reference manual</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Introduction</b>
+<small><br>
+XS</small> is an interface description file format used to
+create an extension interface between Perl and C code (or a
+C library) which one wishes to use with Perl. The
+<small>XS</small> interface is combined with the library to
+create a new library which can then be either dynamically
+loaded or statically linked into perl. The <small>XS</small>
+interface description is written in the <small>XS</small>
+language and is the core component of the Perl extension
+interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An
+<b><small>XSUB</small></b> forms the basic unit of the
+<small>XS</small> interface. After compilation by the
+<b>xsubpp</b> compiler, each <small>XSUB</small> amounts to
+a C function definition which will provide the glue between
+Perl calling conventions and C calling conventions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The glue code
+pulls the arguments from the Perl stack, converts these Perl
+values to the formats expected by a C function, call this C
+function, transfers the return values of the C function back
+to Perl. Return values here may be a conventional C return
+value or any C function arguments that may serve as output
+parameters. These return values may be passed back to Perl
+either by putting them on the Perl stack, or by modifying
+the arguments supplied from the Perl side.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The above is a
+somewhat simplified view of what really happens. Since Perl
+allows more flexible calling conventions than C, XSUBs may
+do much more in practice, such as checking input parameters
+for validity, throwing exceptions (or returning undef/empty
+list) if the return value from the C function indicates
+failure, calling different C functions based on numbers and
+types of the arguments, providing an object-oriented
+interface, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Of course, one
+could write such glue code directly in C. However, this
+would be a tedious task, especially if one needs to write
+glue for multiple C functions, and/or one is not familiar
+enough with the Perl stack discipline and other such arcana.
+<small>XS</small> comes to the rescue here: instead of
+writing this glue C code in long-hand, one can write a more
+concise short-hand <i>description</i> of what should be done
+by the glue, and let the <small>XS</small> compiler
+<b>xsubpp</b> handle the rest.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XS</small> language allows one to describe the
+mapping between how the C routine is used, and how the
+corresponding Perl routine is used. It also allows creation
+of Perl routines which are directly translated to C code and
+which are not related to a pre-existing C function. In cases
+when the C interface coincides with the Perl interface, the
+<small>XSUB</small> declaration is almost identical to a
+declaration of a C function (in K&amp;R style). In such
+circumstances, there is another tool called
+<tt>&quot;h2xs&quot;</tt> that is able to translate an
+entire C header file into a corresponding <small>XS</small>
+file that will provide glue to the functions/macros
+described in the header file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XS</small> compiler is called <b>xsubpp</b>. This
+compiler creates the constructs necessary to let an
+<small>XSUB</small> manipulate Perl values, and creates the
+glue necessary to let Perl call the <small>XSUB</small> .
+The compiler uses <b>typemaps</b> to determine how to map C
+function parameters and output values to Perl values and
+back. The default typemap (which comes with Perl) handles
+many common C types. A supplementary typemap may also be
+needed to handle any special structures and types for the
+library being linked. For more information on typemaps, see
+perlxstypemap.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A file in
+<small>XS</small> format starts with a C language section
+which goes until the first <tt>&quot;MODULE =&quot;</tt>
+directive. Other <small>XS</small> directives and
+<small>XSUB</small> definitions may follow this line. The
+&quot;language&quot; used in this part of the file is
+usually referred to as the <small>XS</small> language.
+<b>xsubpp</b> recognizes and skips <small>POD</small> (see
+perlpod) in both the C and <small>XS</small> language
+sections, which allows the <small>XS</small> file to contain
+embedded documentation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See perlxstut
+for a tutorial on the whole extension creation process.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note: For some
+extensions, Dave Beazley&rsquo;s <small>SWIG</small> system
+may provide a significantly more convenient mechanism for
+creating the extension glue code. See
+&lt;http://www.swig.org/&gt; for more information.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>On The
+Road</b> <br>
+Many of the examples which follow will concentrate on
+creating an interface between Perl and the <small>ONC+
+RPC</small> bind library functions. The
+<i>rpcb_gettime()</i> function is used to demonstrate many
+features of the <small>XS</small> language. This function
+has two parameters; the first is an input parameter and the
+second is an output parameter. The function also returns a
+status value.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        bool_t rpcb_gettime(const char *host, time_t *timep);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">From C this
+function will be called with the following statements.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     #include &lt;rpc/rpc.h&gt;
+     bool_t status;
+     time_t timep;
+     status = rpcb_gettime( &quot;localhost&quot;, &amp;timep );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If an
+<small>XSUB</small> is created to offer a direct translation
+between this function and Perl, then this
+<small>XSUB</small> will be used from Perl with the
+following code. The <tt>$status</tt> and <tt>$timep</tt>
+variables will contain the output of the function.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     use RPC;
+     $status = rpcb_gettime( &quot;localhost&quot;, $timep );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XS</small> file shows an <small>XS</small>
+subroutine, or <small>XSUB</small> , which demonstrates one
+possible interface to the <i>rpcb_gettime()</i> function.
+This <small>XSUB</small> represents a direct translation
+between C and Perl and so preserves the interface even from
+Perl. This <small>XSUB</small> will be invoked from Perl
+with the usage shown above. Note that the first three
+#include statements, for <tt>&quot;EXTERN.h&quot;</tt>,
+<tt>&quot;perl.h&quot;</tt>, and
+<tt>&quot;XSUB.h&quot;</tt>, will always be present at the
+beginning of an <small>XS</small> file. This approach and
+others will be expanded later in this document.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     #include &quot;EXTERN.h&quot;
+     #include &quot;perl.h&quot;
+     #include &quot;XSUB.h&quot;
+     #include &lt;rpc/rpc.h&gt;
+     MODULE = RPC  PACKAGE = RPC
+     bool_t
+     rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Any extension
+to Perl, including those containing XSUBs, should have a
+Perl module to serve as the bootstrap which pulls the
+extension into Perl. This module will export the
+extension&rsquo;s functions and variables to the Perl
+program and will cause the extension&rsquo;s XSUBs to be
+linked into Perl. The following module will be used for most
+of the examples in this document and should be used from
+Perl with the <tt>&quot;use&quot;</tt> command as shown
+earlier. Perl modules are explained in more detail later in
+this document.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     package RPC;
+     require Exporter;
+     require DynaLoader;
+     @ISA = qw(Exporter DynaLoader);
+     @EXPORT = qw( rpcb_gettime );
+     bootstrap RPC;
+     1;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Throughout this
+document a variety of interfaces to the
+<i>rpcb_gettime()</i> <small>XSUB</small> will be explored.
+The XSUBs will take their parameters in different orders or
+will take different numbers of parameters. In each case the
+<small>XSUB</small> is an abstraction between Perl and the
+real C <i>rpcb_gettime()</i> function, and the
+<small>XSUB</small> must always ensure that the real
+<i>rpcb_gettime()</i> function is called with the correct
+parameters. This abstraction will allow the programmer to
+create a more Perl-like interface to the C function.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Anatomy
+of an <small>XSUB</small></b> <br>
+The simplest XSUBs consist of 3 parts: a description of the
+return value, the name of the <small>XSUB</small> routine
+and the names of its arguments, and a description of types
+or formats of the arguments.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XSUB</small> allows a Perl program to access a C
+library function called <i>sin()</i>. The
+<small>XSUB</small> will imitate the C function which takes
+a single argument and returns a single value.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     double
+     sin(x)
+       double x</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Optionally, one
+can merge the description of types and the list of argument
+names, rewriting this as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     double
+     sin(double x)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This makes this
+<small>XSUB</small> look similar to an <small>ANSI</small> C
+declaration. An optional semicolon is allowed after the
+argument list, as in</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     double
+     sin(double x);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Parameters with
+C pointer types can have different semantic: C functions
+with similar declarations</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool string_looks_as_a_number(char *s);
+     bool make_char_uppercase(char *c);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">are used in
+absolutely incompatible manner. Parameters to these
+functions could be described <b>xsubpp</b> like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     char *  s
+     char    &amp;c</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Both these
+<small>XS</small> declarations correspond to the
+<tt>&quot;char*&quot;</tt> C type, but they have different
+semantics, see &quot;The &amp; Unary Operator&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is
+convenient to think that the indirection operator
+<tt>&quot;*&quot;</tt> should be considered as a part of the
+type and the address operator <tt>&quot;&amp;&quot;</tt>
+should be considered part of the variable. See perlxstypemap
+for more info about handling qualifiers and unary operators
+in C types.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The function
+name and the return type must be placed on separate lines
+and should be flush left-adjusted.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  INCORRECT                        CORRECT
+  double sin(x)                    double
+    double x                       sin(x)
+                                     double x</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The rest of the
+function description may be indented or left-adjusted. The
+following example shows a function with its body
+left-adjusted. Most examples in this document will indent
+the body for better readability.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  CORRECT
+  double
+  sin(x)
+  double x</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">More
+complicated XSUBs may contain many other sections. Each
+section of an <small>XSUB</small> starts with the
+corresponding keyword, such as <small>INIT:</small> or
+<small>CLEANUP:</small> . However, the first two lines of an
+<small>XSUB</small> always contain the same data:
+descriptions of the return type and the names of the
+function and its parameters. Whatever immediately follows
+these is considered to be an <small>INPUT:</small> section
+unless explicitly marked with another keyword. (See
+&quot;The <small>INPUT:</small> Keyword&quot;.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">An
+<small>XSUB</small> section continues until another
+section-start keyword is found.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Argument
+Stack</b> <br>
+The Perl argument stack is used to store the values which
+are sent as parameters to the <small>XSUB</small> and to
+store the <small>XSUB</small> &rsquo;s return value(s). In
+reality all Perl functions (including non-XSUB ones) keep
+their values on this stack all the same time, each limited
+to its own range of positions on the stack. In this document
+the first position on that stack which belongs to the active
+function will be referred to as position 0 for that
+function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">XSUBs refer to
+their stack arguments with the macro <b><small>ST</small>
+(x)</b>, where <i>x</i> refers to a position in this
+<small>XSUB</small> &rsquo;s part of the stack. Position 0
+for that function would be known to the <small>XSUB</small>
+as <i><small>ST</small></i> (0). The <small>XSUB</small>
+&rsquo;s incoming parameters and outgoing return values
+always begin at <i><small>ST</small></i> (0). For many
+simple cases the <b>xsubpp</b> compiler will generate the
+code necessary to handle the argument stack by embedding
+code fragments found in the typemaps. In more complex cases
+the programmer must supply the code.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>RETVAL</small> Variable</b> <br>
+The <small>RETVAL</small> variable is a special C variable
+that is declared automatically for you. The C type of
+<small>RETVAL</small> matches the return type of the C
+library function. The <b>xsubpp</b> compiler will declare
+this variable in each <small>XSUB</small> with
+non&minus;<tt>&quot;void&quot;</tt> return type. By default
+the generated C function will use <small>RETVAL</small> to
+hold the return value of the C library function being
+called. In simple cases the value of <small>RETVAL</small>
+will be placed in <i><small>ST</small></i> (0) of the
+argument stack where it can be received by Perl as the
+return value of the <small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<small>XSUB</small> has a return type of
+<tt>&quot;void&quot;</tt> then the compiler will not declare
+a <small>RETVAL</small> variable for that function. When
+using a <small>PPCODE:</small> section no manipulation of
+the <small>RETVAL</small> variable is required, the section
+may use direct stack manipulation to place output values on
+the stack.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<small>PPCODE:</small> directive is not used,
+<tt>&quot;void&quot;</tt> return value should be used only
+for subroutines which do not return a value, <i>even if</i>
+<small>CODE:</small> directive is used which sets
+<i><small>ST</small></i> (0) explicitly.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Older versions
+of this document recommended to use
+<tt>&quot;void&quot;</tt> return value in such cases. It was
+discovered that this could lead to segfaults in cases when
+<small>XSUB</small> was <i>truly</i>
+<tt>&quot;void&quot;</tt>. This practice is now deprecated,
+and may be not supported at some future version. Use the
+return value <tt>&quot;SV *&quot;</tt> in such cases.
+(Currently <tt>&quot;xsubpp&quot;</tt> contains some
+heuristic code which tries to disambiguate between
+&quot;truly-void&quot; and
+&quot;old-practice-declared-as-void&quot; functions. Hence
+your code is at mercy of this heuristics unless you use
+<tt>&quot;SV *&quot;</tt> as return value.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Returning
+SVs, AVs and HVs through <small>RETVAL</small></b> <br>
+When you&rsquo;re using <small>RETVAL</small> to return an
+<tt>&quot;SV *&quot;</tt>, there&rsquo;s some magic going on
+behind the scenes that should be mentioned. When
+you&rsquo;re manipulating the argument stack using the
+<small>ST</small> (x) macro, for example, you usually have
+to pay special attention to reference counts. (For more
+about reference counts, see perlguts.) To make your life
+easier, the typemap file automatically makes
+<tt>&quot;RETVAL&quot;</tt> mortal when you&rsquo;re
+returning an <tt>&quot;SV *&quot;</tt>. Thus, the following
+two XSUBs are more or less equivalent:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void
+  alpha()
+      PPCODE:
+          ST(0) = newSVpv(&quot;Hello World&quot;,0);
+          sv_2mortal(ST(0));
+          XSRETURN(1);
+  SV *
+  beta()
+      CODE:
+          RETVAL = newSVpv(&quot;Hello World&quot;,0);
+      OUTPUT:
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is quite
+useful as it usually improves readability. While this works
+fine for an <tt>&quot;SV *&quot;</tt>, it&rsquo;s
+unfortunately not as easy to have <tt>&quot;AV *&quot;</tt>
+or <tt>&quot;HV *&quot;</tt> as a return value. You
+<i>should</i> be able to write:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  AV *
+  array()
+      CODE:
+          RETVAL = newAV();
+          /* do something with RETVAL */
+      OUTPUT:
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">But due to an
+unfixable bug (fixing it would break lots of existing
+<small>CPAN</small> modules) in the typemap file, the
+reference count of the <tt>&quot;AV *&quot;</tt> is not
+properly decremented. Thus, the above <small>XSUB</small>
+would leak memory whenever it is being called. The same
+problem exists for <tt>&quot;HV *&quot;</tt>, <tt>&quot;CV
+*&quot;</tt>, and <tt>&quot;SVREF&quot;</tt> (which
+indicates a scalar reference, not a general <tt>&quot;SV
+*&quot;</tt>). In <small>XS</small> code on perls starting
+with perl 5.16, you can override the typemaps for any of
+these types with a version that has proper handling of
+refcounts. In your <tt>&quot;TYPEMAP&quot;</tt> section,
+do</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  AV*   T_AVREF_REFCOUNT_FIXED</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">to get the
+repaired variant. For backward compatibility with older
+versions of perl, you can instead decrement the reference
+count manually when you&rsquo;re returning one of the
+aforementioned types using
+<tt>&quot;sv_2mortal&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  AV *
+  array()
+      CODE:
+          RETVAL = newAV();
+          sv_2mortal((SV*)RETVAL);
+          /* do something with RETVAL */
+      OUTPUT:
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Remember that
+you don&rsquo;t have to do this for an <tt>&quot;SV
+*&quot;</tt>. The reference documentation for all core
+typemaps can be found in perlxstypemap.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>MODULE</small> Keyword</b> <br>
+The <small>MODULE</small> keyword is used to start the
+<small>XS</small> code and to specify the package of the
+functions which are being defined. All text preceding the
+first <small>MODULE</small> keyword is considered C code and
+is passed through to the output with <small>POD</small>
+stripped, but otherwise untouched. Every <small>XS</small>
+module will have a bootstrap function which is used to hook
+the XSUBs into Perl. The package name of this bootstrap
+function will match the value of the last
+<small>MODULE</small> statement in the <small>XS</small>
+source files. The value of <small>MODULE</small> should
+always remain constant within the same <small>XS</small>
+file, though this is not required.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+example will start the <small>XS</small> code and will place
+all functions in a package named <small>RPC</small> .</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     MODULE = RPC</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PACKAGE</small> Keyword</b> <br>
+When functions within an <small>XS</small> source file must
+be separated into packages the <small>PACKAGE</small>
+keyword should be used. This keyword is used with the
+<small>MODULE</small> keyword and must follow immediately
+after it when used.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     MODULE = RPC  PACKAGE = RPC
+     [ XS code in package RPC ]
+     MODULE = RPC  PACKAGE = RPCB
+     [ XS code in package RPCB ]
+     MODULE = RPC  PACKAGE = RPC
+     [ XS code in package RPC ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The same
+package name can be used more than once, allowing for
+non-contiguous code. This is useful if you have a stronger
+ordering principle than package names.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Although this
+keyword is optional and in some cases provides redundant
+information it should always be used. This keyword will
+ensure that the XSUBs appear in the desired package.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PREFIX</small> Keyword</b> <br>
+The <small>PREFIX</small> keyword designates prefixes which
+should be removed from the Perl function names. If the C
+function is <tt>&quot;rpcb_gettime()&quot;</tt> and the
+<small>PREFIX</small> value is <tt>&quot;rpcb_&quot;</tt>
+then Perl will see this function as
+<tt>&quot;gettime()&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This keyword
+should follow the <small>PACKAGE</small> keyword when used.
+If <small>PACKAGE</small> is not used then
+<small>PREFIX</small> should follow the
+<small>MODULE</small> keyword.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     MODULE = RPC  PREFIX = rpc_
+     MODULE = RPC  PACKAGE = RPCB  PREFIX = rpcb_</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>OUTPUT:</small> Keyword</b> <br>
+The <small>OUTPUT:</small> keyword indicates that certain
+function parameters should be updated (new values made
+visible to Perl) when the <small>XSUB</small> terminates or
+that certain values should be returned to the calling Perl
+function. For simple functions which have no
+<small>CODE:</small> or <small>PPCODE:</small> section, such
+as the <i>sin()</i> function above, the
+<small>RETVAL</small> variable is automatically designated
+as an output value. For more complex functions the
+<b>xsubpp</b> compiler will need help to determine which
+variables are output variables.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This keyword
+will normally be used to complement the <small>CODE:</small>
+keyword. The <small>RETVAL</small> variable is not
+recognized as an output variable when the
+<small>CODE:</small> keyword is present. The
+<small>OUTPUT:</small> keyword is used in this situation to
+tell the compiler that <small>RETVAL</small> really is an
+output variable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>OUTPUT:</small> keyword can also be used to indicate
+that function parameters are output variables. This may be
+necessary when a parameter has been modified within the
+function and the programmer would like the update to be seen
+by Perl.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>OUTPUT:</small> keyword will also allow an output
+parameter to be mapped to a matching piece of code rather
+than to a typemap.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        OUTPUT:
+          timep sv_setnv(ST(1), (double)timep);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>xsubpp</b>
+emits an automatic <tt>&quot;SvSETMAGIC()&quot;</tt> for all
+parameters in the <small>OUTPUT</small> section of the
+<small>XSUB</small> , except <small>RETVAL</small> . This is
+the usually desired behavior, as it takes care of properly
+invoking &rsquo;set&rsquo; magic on output parameters
+(needed for hash or array element parameters that must be
+created if they didn&rsquo;t exist). If for some reason,
+this behavior is not desired, the <small>OUTPUT</small>
+section may contain a <tt>&quot;SETMAGIC: DISABLE&quot;</tt>
+line to disable it for the remainder of the parameters in
+the <small>OUTPUT</small> section. Likewise,
+<tt>&quot;SETMAGIC: ENABLE&quot;</tt> can be used to
+reenable it for the remainder of the <small>OUTPUT</small>
+section. See perlguts for more details about
+&rsquo;set&rsquo; magic.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>NO_OUTPUT</small> Keyword</b> <br>
+The <small>NO_OUTPUT</small> can be placed as the first
+token of the <small>XSUB</small> . This keyword indicates
+that while the C subroutine we provide an interface to has a
+non&minus;<tt>&quot;void&quot;</tt> return type, the return
+value of this C subroutine should not be returned from the
+generated Perl subroutine.</p>
+
+<p style="margin-left:11%; margin-top: 1em">With this
+keyword present &quot;The <small>RETVAL</small>
+Variable&quot; is created, and in the generated call to the
+subroutine this variable is assigned to, but the value of
+this variable is not going to be used in the auto-generated
+code.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This keyword
+makes sense only if <tt>&quot;RETVAL&quot;</tt> is going to
+be accessed by the user-supplied code. It is especially
+useful to make a function interface more Perl-like,
+especially when the C return value is just an error
+condition indicator. For example,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  NO_OUTPUT int
+  delete_file(char *name)
+    POSTCALL:
+      if (RETVAL != 0)
+          croak(&quot;Error %d while deleting file '%s'&quot;, RETVAL, name);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Here the
+generated <small>XS</small> function returns nothing on
+success, and will <i>die()</i> with a meaningful error
+message on error.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>CODE:</small> Keyword</b> <br>
+This keyword is used in more complicated XSUBs which require
+special handling for the C function. The
+<small>RETVAL</small> variable is still declared, but it
+will not be returned unless it is specified in the
+<small>OUTPUT:</small> section.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XSUB</small> is for a C function which requires
+special handling of its parameters. The Perl usage is given
+first.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     $status = rpcb_gettime( &quot;localhost&quot;, $timep );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XSUB</small> follows.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          char *host
+          time_t timep
+        CODE:
+               RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INIT:</small> Keyword</b> <br>
+The <small>INIT:</small> keyword allows initialization to be
+inserted into the <small>XSUB</small> before the compiler
+generates the call to the C function. Unlike the
+<small>CODE:</small> keyword above, this keyword does not
+affect the way the compiler handles <small>RETVAL</small>
+.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        INIT:
+          printf(&quot;# Host is %s\n&quot;, host );
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Another use for
+the <small>INIT:</small> section is to check for
+preconditions before making a call to the C function:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    long long
+    lldiv(a,b)
+        long long a
+        long long b
+      INIT:
+        if (a == 0 &amp;&amp; b == 0)
+            XSRETURN_UNDEF;
+        if (b == 0)
+            croak(&quot;lldiv: cannot divide by 0&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>NO_INIT</small> Keyword</b> <br>
+The <small>NO_INIT</small> keyword is used to indicate that
+a function parameter is being used only as an output value.
+The <b>xsubpp</b> compiler will normally generate code to
+read the values of all function parameters from the argument
+stack and assign them to C variables upon entry to the
+function. <small>NO_INIT</small> will tell the compiler that
+some parameters will be used for output rather than for
+input and that they will be handled before the function
+terminates.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+example shows a variation of the <i>rpcb_gettime()</i>
+function. This function uses the timep variable only as an
+output variable and does not care about its initial
+contents.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep = NO_INIT
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>TYPEMAP:</small> Keyword</b> <br>
+Starting with Perl 5.16, you can embed typemaps into your
+<small>XS</small> code instead of or in addition to typemaps
+in a separate file. Multiple such embedded typemaps will be
+processed in order of appearance in the <small>XS</small>
+code and like local typemap files take precendence over the
+default typemap, the embedded typemaps may overwrite
+previous definitions of <small>TYPEMAP</small> ,
+<small>INPUT</small> , and <small>OUTPUT</small> stanzas.
+The syntax for embedded typemaps is</p>
+
+<pre style="margin-left:11%; margin-top: 1em">      TYPEMAP: &lt;&lt;HERE
+      ... your typemap code here ...
+      HERE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where the
+<tt>&quot;TYPEMAP&quot;</tt> keyword must appear in the
+first column of a new line.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Refer to
+perlxstypemap for details on writing typemaps.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Initializing
+Function Parameters</b> <br>
+C function parameters are normally initialized with their
+values from the argument stack (which in turn contains the
+parameters that were passed to the <small>XSUB</small> from
+Perl). The typemaps contain the code segments which are used
+to translate the Perl values to the C parameters. The
+programmer, however, is allowed to override the typemaps and
+supply alternate (or additional) initialization code.
+Initialization code starts with the first
+<tt>&quot;=&quot;</tt>, <tt>&quot;;&quot;</tt> or
+<tt>&quot;+&quot;</tt> on a line in the
+<small>INPUT:</small> section. The only exception happens if
+this <tt>&quot;;&quot;</tt> terminates the line, then this
+<tt>&quot;;&quot;</tt> is quietly ignored.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+code demonstrates how to supply initialization code for
+function parameters. The initialization code is
+eval&rsquo;ed within double quotes by the compiler before it
+is added to the output so anything which should be
+interpreted literally [mainly <tt>&quot;$&quot;</tt>,
+<tt>&quot;@&quot;</tt>, or <tt>&quot;\\&quot;</tt>] must be
+protected with backslashes. The variables <tt>$var</tt>,
+<tt>$arg</tt>, and <tt>$type</tt> can be used as in
+typemaps.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          char *host = (char *)SvPV_nolen($arg);
+          time_t &amp;timep = 0;
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This should not
+be used to supply default values for parameters. One would
+normally use this when a function parameter must be
+processed by another library function before it can be used.
+Default parameters are covered in the next section.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+initialization begins with <tt>&quot;=&quot;</tt>, then it
+is output in the declaration for the input variable,
+replacing the initialization supplied by the typemap. If the
+initialization begins with <tt>&quot;;&quot;</tt> or
+<tt>&quot;+&quot;</tt>, then it is performed after all of
+the input variables have been declared. In the
+<tt>&quot;;&quot;</tt> case the initialization normally
+supplied by the typemap is not performed. For the
+<tt>&quot;+&quot;</tt> case, the declaration for the
+variable will include the initialization from the typemap. A
+global variable, <tt>%v</tt>, is available for the truly
+rare case where information from one initialization is
+needed in another initialization.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here&rsquo;s a
+truly obscure example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(host,timep)
+          time_t &amp;timep; /* \$v{timep}=@{[$v{timep}=$arg]} */
+          char *host + SvOK($v{timep}) ? SvPV_nolen($arg) : NULL;
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The construct
+<tt>&quot;\$v{timep}=@{[$v{timep}=$arg]}&quot;</tt> used in
+the above example has a two-fold purpose: first, when this
+line is processed by <b>xsubpp</b>, the Perl snippet
+<tt>&quot;$v{timep}=$arg&quot;</tt> is evaluated. Second,
+the text of the evaluated snippet is output into the
+generated C file (inside a C comment)! During the processing
+of <tt>&quot;char *host&quot;</tt> line, <tt>$arg</tt> will
+evaluate to <tt>ST(0)</tt>, and <tt>$v{timep}</tt> will
+evaluate to <tt>ST(1)</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Default
+Parameter Values</b> <br>
+Default values for <small>XSUB</small> arguments can be
+specified by placing an assignment statement in the
+parameter list. The default value may be a number, a string
+or the special string <tt>&quot;NO_INIT&quot;</tt>. Defaults
+should always be used on the right-most parameters only.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To allow the
+<small>XSUB</small> for <i>rpcb_gettime()</i> to have a
+default host value the parameters to the <small>XSUB</small>
+could be rearranged. The <small>XSUB</small> will then call
+the real <i>rpcb_gettime()</i> function with the parameters
+in the correct order. This <small>XSUB</small> can be called
+from Perl with either of the following statements:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     $status = rpcb_gettime( $timep, $host );
+     $status = rpcb_gettime( $timep );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XSUB</small> will look like the code which follows. A
+<small>CODE:</small> block is used to call the real
+<i>rpcb_gettime()</i> function with the parameters in the
+correct order for that function.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep,host=&quot;localhost&quot;)
+          char *host
+          time_t timep = NO_INIT
+        CODE:
+               RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PREINIT:</small> Keyword</b> <br>
+The <small>PREINIT:</small> keyword allows extra variables
+to be declared immediately before or after the declarations
+of the parameters from the <small>INPUT:</small> section are
+emitted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a variable
+is declared inside a <small>CODE:</small> section it will
+follow any typemap code that is emitted for the input
+parameters. This may result in the declaration ending up
+after C code, which is C syntax error. Similar errors may
+happen with an explicit <tt>&quot;;&quot;</tt>&minus;type or
+<tt>&quot;+&quot;</tt>&minus;type initialization of
+parameters is used (see &quot;Initializing Function
+Parameters&quot;). Declaring these variables in an
+<small>INIT:</small> section will not help.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In such cases,
+to force an additional variable to be declared together with
+declarations of other variables, place the declaration into
+a <small>PREINIT:</small> section. The
+<small>PREINIT:</small> keyword may be used one or more
+times within an <small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+examples are equivalent, but if the code is using complex
+typemaps then the first example is safer.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep)
+          time_t timep = NO_INIT
+        PREINIT:
+          char *host = &quot;localhost&quot;;
+        CODE:
+          RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For this
+particular case an <small>INIT:</small> keyword would
+generate the same C code as the <small>PREINIT:</small>
+keyword. Another correct, but error-prone example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep)
+          time_t timep = NO_INIT
+        CODE:
+          char *host = &quot;localhost&quot;;
+          RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Another way to
+declare <tt>&quot;host&quot;</tt> is to use a C block in the
+<small>CODE:</small> section:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep)
+          time_t timep = NO_INIT
+        CODE:
+          {
+            char *host = &quot;localhost&quot;;
+            RETVAL = rpcb_gettime( host, &amp;timep );
+          }
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The ability to
+put additional declarations before the typemap entries are
+processed is very handy in the cases when typemap
+conversions manipulate some global state:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    MyObject
+    mutate(o)
+        PREINIT:
+            MyState st = global_state;
+        INPUT:
+            MyObject o;
+        CLEANUP:
+            reset_to(global_state, st);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Here we suppose
+that conversion to <tt>&quot;MyObject&quot;</tt> in the
+<small>INPUT:</small> section and from MyObject when
+processing <small>RETVAL</small> will modify a global
+variable <tt>&quot;global_state&quot;</tt>. After these
+conversions are performed, we restore the old value of
+<tt>&quot;global_state&quot;</tt> (to avoid memory leaks,
+for example).</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is
+another way to trade clarity for compactness:
+<small>INPUT</small> sections allow declaration of C
+variables which do not appear in the parameter list of a
+subroutine. Thus the above code for <i>mutate()</i> can be
+rewritten as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    MyObject
+    mutate(o)
+          MyState st = global_state;
+          MyObject o;
+        CLEANUP:
+          reset_to(global_state, st);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and the code
+for <i>rpcb_gettime()</i> can be rewritten as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep)
+          time_t timep = NO_INIT
+          char *host = &quot;localhost&quot;;
+        C_ARGS:
+          host, &amp;timep
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>SCOPE:</small> Keyword</b> <br>
+The <small>SCOPE:</small> keyword allows scoping to be
+enabled for a particular <small>XSUB</small> . If enabled,
+the <small>XSUB</small> will invoke <small>ENTER</small> and
+<small>LEAVE</small> automatically.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To support
+potentially complex type mappings, if a typemap entry used
+by an <small>XSUB</small> contains a comment like
+<tt>&quot;/*scope*/&quot;</tt> then scoping will be
+automatically enabled for that <small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">To enable
+scoping:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    SCOPE: ENABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To disable
+scoping:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    SCOPE: DISABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INPUT:</small> Keyword</b> <br>
+The <small>XSUB</small> &rsquo;s parameters are usually
+evaluated immediately after entering the <small>XSUB</small>
+. The <small>INPUT:</small> keyword can be used to force
+those parameters to be evaluated a little later. The
+<small>INPUT:</small> keyword can be used multiple times
+within an <small>XSUB</small> and can be used to list one or
+more input variables. This keyword is used with the
+<small>PREINIT:</small> keyword.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+example shows how the input parameter
+<tt>&quot;timep&quot;</tt> can be evaluated late, after a
+<small>PREINIT</small> .</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+        PREINIT:
+          time_t tt;
+        INPUT:
+          time_t timep
+        CODE:
+               RETVAL = rpcb_gettime( host, &amp;tt );
+               timep = tt;
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The next
+example shows each input parameter evaluated late.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+        PREINIT:
+          time_t tt;
+        INPUT:
+          char *host
+        PREINIT:
+          char *h;
+        INPUT:
+          time_t timep
+        CODE:
+               h = host;
+               RETVAL = rpcb_gettime( h, &amp;tt );
+               timep = tt;
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<small>INPUT</small> sections allow declaration of C
+variables which do not appear in the parameter list of a
+subroutine, this may be shortened to:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          time_t tt;
+          char *host;
+          char *h = host;
+          time_t timep;
+        CODE:
+          RETVAL = rpcb_gettime( h, &amp;tt );
+          timep = tt;
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">(We used our
+knowledge that input conversion for <tt>&quot;char
+*&quot;</tt> is a &quot;simple&quot; one, thus
+<tt>&quot;host&quot;</tt> is initialized on the declaration
+line, and our assignment <tt>&quot;h = host&quot;</tt> is
+not performed too early. Otherwise one would need to have
+the assignment <tt>&quot;h = host&quot;</tt> in a
+<small>CODE:</small> or <small>INIT:</small> section.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>IN/OUTLIST/IN_OUTLIST/OUT/IN_OUT</small> Keywords</b>
+<br>
+In the list of parameters for an <small>XSUB</small> , one
+can precede parameter names by the
+<tt>&quot;IN&quot;</tt>/<tt>&quot;OUTLIST&quot;</tt>/<tt>&quot;IN_OUTLIST&quot;</tt>/<tt>&quot;OUT&quot;</tt>/<tt>&quot;IN_OUT&quot;</tt>
+keywords. <tt>&quot;IN&quot;</tt> keyword is the default,
+the other keywords indicate how the Perl interface should
+differ from the C interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Parameters
+preceded by
+<tt>&quot;OUTLIST&quot;</tt>/<tt>&quot;IN_OUTLIST&quot;</tt>/<tt>&quot;OUT&quot;</tt>/<tt>&quot;IN_OUT&quot;</tt>
+keywords are considered to be used by the C subroutine
+<i>via pointers</i>.
+<tt>&quot;OUTLIST&quot;</tt>/<tt>&quot;OUT&quot;</tt>
+keywords indicate that the C subroutine does not inspect the
+memory pointed by this parameter, but will write through
+this pointer to provide additional return values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Parameters
+preceded by <tt>&quot;OUTLIST&quot;</tt> keyword do not
+appear in the usage signature of the generated Perl
+function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Parameters
+preceded by
+<tt>&quot;IN_OUTLIST&quot;</tt>/<tt>&quot;IN_OUT&quot;</tt>/<tt>&quot;OUT&quot;</tt>
+<i>do</i> appear as parameters to the Perl function. With
+the exception of <tt>&quot;OUT&quot;</tt>&minus;parameters,
+these parameters are converted to the corresponding C type,
+then pointers to these data are given as arguments to the C
+function. It is expected that the C function will write
+through these pointers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The return list
+of the generated Perl function consists of the C return
+value from the function (unless the <small>XSUB</small> is
+of <tt>&quot;void&quot;</tt> return type or <tt>&quot;The
+NO_OUTPUT Keyword&quot;</tt> was used) followed by all the
+<tt>&quot;OUTLIST&quot;</tt> and
+<tt>&quot;IN_OUTLIST&quot;</tt> parameters (in the order of
+appearance). On the return from the <small>XSUB</small> the
+<tt>&quot;IN_OUT&quot;</tt>/<tt>&quot;OUT&quot;</tt> Perl
+parameter will be modified to have the values written by the
+C function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example, an
+<small>XSUB</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void
+  day_month(OUTLIST day, IN unix_time, OUTLIST month)
+    int day
+    int unix_time
+    int month</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">should be used
+from Perl as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my ($day, $month) = day_month(time);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The C signature
+of the corresponding function should be</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void day_month(int *day, int unix_time, int *month);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;IN&quot;</tt>/<tt>&quot;OUTLIST&quot;</tt>/<tt>&quot;IN_OUTLIST&quot;</tt>/<tt>&quot;IN_OUT&quot;</tt>/<tt>&quot;OUT&quot;</tt>
+keywords can be mixed with ANSI-style declarations, as
+in</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void
+  day_month(OUTLIST int day, int unix_time, OUTLIST int month)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">(here the
+optional <tt>&quot;IN&quot;</tt> keyword is omitted).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;IN_OUT&quot;</tt> parameters are identical with
+parameters introduced with &quot;The &amp; Unary
+Operator&quot; and put into the <tt>&quot;OUTPUT:&quot;</tt>
+section (see &quot;The <small>OUTPUT:</small>
+Keyword&quot;). The <tt>&quot;IN_OUTLIST&quot;</tt>
+parameters are very similar, the only difference being that
+the value C function writes through the pointer would not
+modify the Perl parameter, but is put in the output
+list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;OUTLIST&quot;</tt>/<tt>&quot;OUT&quot;</tt>
+parameter differ from
+<tt>&quot;IN_OUTLIST&quot;</tt>/<tt>&quot;IN_OUT&quot;</tt>
+parameters only by the initial value of the Perl parameter
+not being read (and not being given to the C function
+&minus; which gets some garbage instead). For example, the
+same C function as above can be interfaced with as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void day_month(OUT int day, int unix_time, OUT int month);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void
+  day_month(day, unix_time, month)
+      int &amp;day = NO_INIT
+      int  unix_time
+      int &amp;month = NO_INIT
+    OUTPUT:
+      day
+      month</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">However, the
+generated Perl function is called in very C&minus;ish
+style:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my ($day, $month);
+  day_month($day, time, $month);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+&quot;length(NAME)&quot; Keyword</b> <br>
+If one of the input arguments to the C function is the
+length of a string argument <tt>&quot;NAME&quot;</tt>, one
+can substitute the name of the length-argument by
+<tt>&quot;length(NAME)&quot;</tt> in the <small>XSUB</small>
+declaration. This argument must be omitted when the
+generated Perl function is called. E.g.,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  void
+  dump_chars(char *s, short l)
+  {
+    short n = 0;
+    while (n &lt; l) {
+        printf(&quot;s[%d] = \&quot;\\%#03o\&quot;\n&quot;, n, (int)s[n]);
+        n++;
+    }
+  }
+  MODULE = x            PACKAGE = x
+  void dump_chars(char *s, short length(s))</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">should be
+called as <tt>&quot;dump_chars($string)&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This directive
+is supported with ANSI-type function declarations only.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Variable-length
+Parameter Lists</b> <br>
+XSUBs can have variable-length parameter lists by specifying
+an ellipsis <tt>&quot;(...)&quot;</tt> in the parameter
+list. This use of the ellipsis is similar to that found in
+<small>ANSI</small> C. The programmer is able to determine
+the number of arguments passed to the <small>XSUB</small> by
+examining the <tt>&quot;items&quot;</tt> variable which the
+<b>xsubpp</b> compiler supplies for all XSUBs. By using this
+mechanism one can create an <small>XSUB</small> which
+accepts a list of parameters of unknown length.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The <i>host</i>
+parameter for the <i>rpcb_gettime()</i> <small>XSUB</small>
+can be optional so the ellipsis can be used to indicate that
+the <small>XSUB</small> will take a variable number of
+parameters. Perl should be able to call this
+<small>XSUB</small> with either of the following
+statements.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     $status = rpcb_gettime( $timep, $host );
+     $status = rpcb_gettime( $timep );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XS</small> code, with ellipsis, follows.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     bool_t
+     rpcb_gettime(timep, ...)
+          time_t timep = NO_INIT
+        PREINIT:
+          char *host = &quot;localhost&quot;;
+        CODE:
+          if( items &gt; 1 )
+               host = (char *)SvPV_nolen(ST(1));
+          RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The C_ARGS:
+Keyword</b> <br>
+The C_ARGS: keyword allows creating of <small>XSUBS</small>
+which have different calling sequence from Perl than from C,
+without a need to write <small>CODE:</small> or
+<small>PPCODE:</small> section. The contents of the C_ARGS:
+paragraph is put as the argument to the called C function
+without any change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example,
+suppose that a C function is declared as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    symbolic nth_derivative(int n, symbolic function, int flags);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and that the
+default flags are kept in a global C variable
+<tt>&quot;default_flags&quot;</tt>. Suppose that you want to
+create an interface which is called as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $second_deriv = $function&minus;&gt;nth_derivative(2);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To do this,
+declare the <small>XSUB</small> as</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    symbolic
+    nth_derivative(function, n)
+        symbolic        function
+        int             n
+      C_ARGS:
+        n, function, default_flags</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PPCODE:</small> Keyword</b> <br>
+The <small>PPCODE:</small> keyword is an alternate form of
+the <small>CODE:</small> keyword and is used to tell the
+<b>xsubpp</b> compiler that the programmer is supplying the
+code to control the argument stack for the XSUBs return
+values. Occasionally one will want an <small>XSUB</small> to
+return a list of values rather than a single value. In these
+cases one must use <small>PPCODE:</small> and then
+explicitly push the list of values on the stack. The
+<small>PPCODE:</small> and <small>CODE:</small> keywords
+should not be used together within the same
+<small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">The actual
+difference between <small>PPCODE:</small> and
+<small>CODE:</small> sections is in the initialization of
+<tt>&quot;SP&quot;</tt> macro (which stands for the
+<i>current</i> Perl stack pointer), and in the handling of
+data on the stack when returning from an <small>XSUB</small>
+. In <small>CODE:</small> sections <small>SP</small>
+preserves the value which was on entry to the <small>XSUB:
+SP</small> is on the function pointer (which follows the
+last parameter). In <small>PPCODE:</small> sections
+<small>SP</small> is moved backward to the beginning of the
+parameter list, which allows <tt>&quot;PUSH*()&quot;</tt>
+macros to place output values in the place Perl expects them
+to be when the <small>XSUB</small> returns back to Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The generated
+trailer for a <small>CODE:</small> section ensures that the
+number of return values Perl will see is either 0 or 1
+(depending on the <tt>&quot;void&quot;</tt>ness of the
+return value of the C function, and heuristics mentioned in
+&quot;The <small>RETVAL</small> Variable&quot;). The trailer
+generated for a <small>PPCODE:</small> section is based on
+the number of return values and on the number of times
+<tt>&quot;SP&quot;</tt> was updated by
+<tt>&quot;[X]PUSH*()&quot;</tt> macros.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+macros <tt>ST(i)</tt>, <tt>&quot;XST_m*()&quot;</tt> and
+<tt>&quot;XSRETURN*()&quot;</tt> work equally well in
+<small>CODE:</small> sections and <small>PPCODE:</small>
+sections.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XSUB</small> will call the C <i>rpcb_gettime()</i>
+function and will return its two output values, timep and
+status, to Perl as a single list.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     void
+     rpcb_gettime(host)
+          char *host
+        PREINIT:
+          time_t  timep;
+          bool_t  status;
+        PPCODE:
+          status = rpcb_gettime( host, &amp;timep );
+          EXTEND(SP, 2);
+          PUSHs(sv_2mortal(newSViv(status)));
+          PUSHs(sv_2mortal(newSViv(timep)));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Notice that the
+programmer must supply the C code necessary to have the real
+<i>rpcb_gettime()</i> function called and to have the return
+values properly placed on the argument stack.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;void&quot;</tt> return type for this function
+tells the <b>xsubpp</b> compiler that the
+<small>RETVAL</small> variable is not needed or used and
+that it should not be created. In most scenarios the void
+return type should be used with the <small>PPCODE:</small>
+directive.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i><small>EXTEND</small> ()</i> macro is used to make room
+on the argument stack for 2 return values. The
+<small>PPCODE:</small> directive causes the <b>xsubpp</b>
+compiler to create a stack pointer available as
+<tt>&quot;SP&quot;</tt>, and it is this pointer which is
+being used in the <i><small>EXTEND</small> ()</i> macro. The
+values are then pushed onto the stack with the
+<i>PUSHs()</i> macro.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Now the
+<i>rpcb_gettime()</i> function can be used from Perl with
+the following statement.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     ($status, $timep) = rpcb_gettime(&quot;localhost&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">When handling
+output parameters with a <small>PPCODE</small> section, be
+sure to handle &rsquo;set&rsquo; magic properly. See
+perlguts for details about &rsquo;set&rsquo; magic.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Returning
+Undef And Empty Lists</b> <br>
+Occasionally the programmer will want to return simply
+<tt>&quot;undef&quot;</tt> or an empty list if a function
+fails rather than a separate status value. The
+<i>rpcb_gettime()</i> function offers just this situation.
+If the function succeeds we would like to have it return the
+time and if it fails we would like to have undef returned.
+In the following Perl code the value of <tt>$timep</tt> will
+either be undef or it will be a valid time.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     $timep = rpcb_gettime( &quot;localhost&quot; );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XSUB</small> uses the <tt>&quot;SV *&quot;</tt>
+return type as a mnemonic only, and uses a
+<small>CODE:</small> block to indicate to the compiler that
+the programmer has supplied all the necessary code. The
+<i>sv_newmortal()</i> call will initialize the return value
+to undef, making that the default return value.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     SV *
+     rpcb_gettime(host)
+          char *  host
+        PREINIT:
+          time_t  timep;
+          bool_t x;
+        CODE:
+          ST(0) = sv_newmortal();
+          if( rpcb_gettime( host, &amp;timep ) )
+               sv_setnv( ST(0), (double)timep);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The next
+example demonstrates how one would place an explicit undef
+in the return value, should the need arise.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     SV *
+     rpcb_gettime(host)
+          char *  host
+        PREINIT:
+          time_t  timep;
+          bool_t x;
+        CODE:
+          if( rpcb_gettime( host, &amp;timep ) ){
+               ST(0) = sv_newmortal();
+               sv_setnv( ST(0), (double)timep);
+          }
+          else{
+               ST(0) = &amp;PL_sv_undef;
+          }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To return an
+empty list one must use a <small>PPCODE:</small> block and
+then not push return values on the stack.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     void
+     rpcb_gettime(host)
+          char *host
+        PREINIT:
+          time_t  timep;
+        PPCODE:
+          if( rpcb_gettime( host, &amp;timep ) )
+               PUSHs(sv_2mortal(newSViv(timep)));
+          else{
+              /* Nothing pushed on stack, so an empty
+               * list is implicitly returned. */
+          }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Some people may
+be inclined to include an explicit
+<tt>&quot;return&quot;</tt> in the above <small>XSUB</small>
+, rather than letting control fall through to the end. In
+those situations <tt>&quot;XSRETURN_EMPTY&quot;</tt> should
+be used, instead. This will ensure that the
+<small>XSUB</small> stack is properly adjusted. Consult
+perlapi for other <tt>&quot;XSRETURN&quot;</tt> macros.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<tt>&quot;XSRETURN_*&quot;</tt> macros can be used with
+<small>CODE</small> blocks as well, one can rewrite this
+example as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     int
+     rpcb_gettime(host)
+          char *host
+        PREINIT:
+          time_t  timep;
+        CODE:
+          RETVAL = rpcb_gettime( host, &amp;timep );
+          if (RETVAL == 0)
+                XSRETURN_UNDEF;
+        OUTPUT:
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In fact, one
+can put this check into a <small>POSTCALL:</small> section
+as well. Together with <small>PREINIT:</small>
+simplifications, this leads to:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     int
+     rpcb_gettime(host)
+          char *host
+          time_t  timep;
+        POSTCALL:
+          if (RETVAL == 0)
+                XSRETURN_UNDEF;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>REQUIRE:</small> Keyword</b> <br>
+The <small>REQUIRE:</small> keyword is used to indicate the
+minimum version of the <b>xsubpp</b> compiler needed to
+compile the <small>XS</small> module. An <small>XS</small>
+module which contains the following statement will compile
+with only <b>xsubpp</b> version 1.922 or greater:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        REQUIRE: 1.922</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>CLEANUP:</small> Keyword</b> <br>
+This keyword can be used when an <small>XSUB</small>
+requires special cleanup procedures before it terminates.
+When the <small>CLEANUP:</small> keyword is used it must
+follow any <small>CODE:</small> , <small>PPCODE:</small> ,
+or <small>OUTPUT:</small> blocks which are present in the
+<small>XSUB</small> . The code specified for the cleanup
+block will be added as the last statements in the
+<small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>POSTCALL:</small> Keyword</b> <br>
+This keyword can be used when an <small>XSUB</small>
+requires special procedures executed after the C subroutine
+call is performed. When the <small>POSTCALL:</small> keyword
+is used it must precede <small>OUTPUT:</small> and
+<small>CLEANUP:</small> blocks which are present in the
+<small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">See examples in
+&quot;The <small>NO_OUTPUT</small> Keyword&quot; and
+&quot;Returning Undef And Empty Lists&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>POSTCALL:</small> block does not make a lot of sense
+when the C subroutine call is supplied by user by providing
+either <small>CODE:</small> or <small>PPCODE:</small>
+section.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>BOOT:</small> Keyword</b> <br>
+The <small>BOOT:</small> keyword is used to add code to the
+extension&rsquo;s bootstrap function. The bootstrap function
+is generated by the <b>xsubpp</b> compiler and normally
+holds the statements necessary to register any XSUBs with
+Perl. With the <small>BOOT:</small> keyword the programmer
+can tell the compiler to add extra statements to the
+bootstrap function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This keyword
+may be used any time after the first <small>MODULE</small>
+keyword and should appear on a line by itself. The first
+blank line after the keyword will terminate the code
+block.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     BOOT:
+     # The following message will be printed when the
+     # bootstrap function executes.
+     printf(&quot;Hello from the bootstrap!\n&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>VERSIONCHECK:</small> Keyword</b> <br>
+The <small>VERSIONCHECK:</small> keyword corresponds to
+<b>xsubpp</b>&rsquo;s
+<tt>&quot;&minus;versioncheck&quot;</tt> and
+<tt>&quot;&minus;noversioncheck&quot;</tt> options. This
+keyword overrides the command line options. Version checking
+is enabled by default. When version checking is enabled the
+<small>XS</small> module will attempt to verify that its
+version matches the version of the <small>PM</small>
+module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To enable
+version checking:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    VERSIONCHECK: ENABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To disable
+version checking:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    VERSIONCHECK: DISABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that if
+the version of the <small>PM</small> module is an
+<small>NV</small> (a floating point number), it will be
+stringified with a possible loss of precision (currently
+chopping to nine decimal places) so that it may not match
+the version of the <small>XS</small> module anymore. Quoting
+the <tt>$VERSION</tt> declaration to make it a string is
+recommended if long version numbers are used.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PROTOTYPES:</small> Keyword</b> <br>
+The <small>PROTOTYPES:</small> keyword corresponds to
+<b>xsubpp</b>&rsquo;s <tt>&quot;&minus;prototypes&quot;</tt>
+and <tt>&quot;&minus;noprototypes&quot;</tt> options. This
+keyword overrides the command line options. Prototypes are
+enabled by default. When prototypes are enabled XSUBs will
+be given Perl prototypes. This keyword may be used multiple
+times in an <small>XS</small> module to enable and disable
+prototypes for different parts of the module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To enable
+prototypes:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    PROTOTYPES: ENABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To disable
+prototypes:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    PROTOTYPES: DISABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>PROTOTYPE:</small> Keyword</b> <br>
+This keyword is similar to the <small>PROTOTYPES:</small>
+keyword above but can be used to force <b>xsubpp</b> to use
+a specific prototype for the <small>XSUB</small> . This
+keyword overrides all other prototype options and keywords
+but affects only the current <small>XSUB</small> . Consult
+&quot;Prototypes&quot; in perlsub for information about Perl
+prototypes.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(timep, ...)
+          time_t timep = NO_INIT
+        PROTOTYPE: $;$
+        PREINIT:
+          char *host = &quot;localhost&quot;;
+        CODE:
+                  if( items &gt; 1 )
+                       host = (char *)SvPV_nolen(ST(1));
+                  RETVAL = rpcb_gettime( host, &amp;timep );
+        OUTPUT:
+          timep
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+prototypes are enabled, you can disable it locally for a
+given <small>XSUB</small> as in the following example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    void
+    rpcb_gettime_noproto()
+        PROTOTYPE: DISABLE
+    ...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>ALIAS:</small> Keyword</b> <br>
+The <small>ALIAS:</small> keyword allows an
+<small>XSUB</small> to have two or more unique Perl names
+and to know which of those names was used when it was
+invoked. The Perl names may be fully-qualified with package
+names. Each alias is given an index. The compiler will setup
+a variable called <tt>&quot;ix&quot;</tt> which contain the
+index of the alias which was used. When the
+<small>XSUB</small> is called with its declared name
+<tt>&quot;ix&quot;</tt> will be 0.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+example will create aliases
+<tt>&quot;FOO::gettime()&quot;</tt> and
+<tt>&quot;BAR::getit()&quot;</tt> for this function.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        ALIAS:
+            FOO::gettime = 1
+            BAR::getit = 2
+        INIT:
+          printf(&quot;# ix = %d\n&quot;, ix );
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>OVERLOAD:</small> Keyword</b> <br>
+Instead of writing an overloaded interface using pure Perl,
+you can also use the <small>OVERLOAD</small> keyword to
+define additional Perl names for your functions (like the
+<small>ALIAS:</small> keyword above). However, the
+overloaded functions must be defined with three parameters
+(except for the <i>nomethod()</i> function which needs four
+parameters). If any function has the
+<small>OVERLOAD:</small> keyword, several additional lines
+will be defined in the c file generated by xsubpp in order
+to register with the overload magic.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since blessed
+objects are actually stored as <small>RV</small> &rsquo;s,
+it is useful to use the typemap features to preprocess
+parameters and extract the actual <small>SV</small> stored
+within the blessed <small>RV</small> . See the sample for
+T_PTROBJ_SPECIAL below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To use the
+<small>OVERLOAD:</small> keyword, create an
+<small>XS</small> function which takes three input
+parameters ( or use the c style &rsquo;...&rsquo;
+definition) like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    SV *
+    cmp (lobj, robj, swap)
+    My_Module_obj    lobj
+    My_Module_obj    robj
+    IV               swap
+    OVERLOAD: cmp &lt;=&gt;
+    { /* function defined here */}</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In this case,
+the function will overload both of the three way comparison
+operators. For all overload operations using non-alpha
+characters, you must type the parameter without quoting,
+separating multiple overloads with whitespace. Note that
+&quot;&quot; (the stringify overload) should be entered as
+\&quot;\&quot; (i.e. escaped).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>FALLBACK:</small> Keyword</b> <br>
+In addition to the <small>OVERLOAD</small> keyword, if you
+need to control how Perl autogenerates missing overloaded
+operators, you can set the <small>FALLBACK</small> keyword
+in the module header section, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    MODULE = RPC  PACKAGE = RPC
+    FALLBACK: TRUE
+    ...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where
+<small>FALLBACK</small> can take any of the three values
+<small>TRUE</small> , <small>FALSE</small> , or
+<small>UNDEF</small> . If you do not set any
+<small>FALLBACK</small> value when using
+<small>OVERLOAD</small> , it defaults to
+<small>UNDEF</small> . <small>FALLBACK</small> is not used
+except when one or more functions using
+<small>OVERLOAD</small> have been defined. Please see
+&quot;fallback&quot; in overload for more details.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INTERFACE:</small> Keyword</b> <br>
+This keyword declares the current <small>XSUB</small> as a
+keeper of the given calling signature. If some text follows
+this keyword, it is considered as a list of functions which
+have this signature, and should be attached to the current
+<small>XSUB</small> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example, if
+you have 4 C functions <i>multiply()</i>, <i>divide()</i>,
+<i>add()</i>, <i>subtract()</i> all having the
+signature:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    symbolic f(symbolic, symbolic);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">you can make
+them all to use the same <small>XSUB</small> using this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    symbolic
+    interface_s_ss(arg1, arg2)
+        symbolic        arg1
+        symbolic        arg2
+    INTERFACE:
+        multiply divide
+        add subtract</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">(This is the
+complete <small>XSUB</small> code for 4 Perl functions!)
+Four generated Perl function share names with corresponding
+C functions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The advantage
+of this approach comparing to <small>ALIAS:</small> keyword
+is that there is no need to code a switch statement, each
+Perl function (which shares the same <small>XSUB</small> )
+knows which C function it should call. Additionally, one can
+attach an extra function <i>remainder()</i> at runtime by
+using</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    CV *mycv = newXSproto(&quot;Symbolic::remainder&quot;,
+                          XS_Symbolic_interface_s_ss, __FILE__, &quot;$$&quot;);
+    XSINTERFACE_FUNC_SET(mycv, remainder);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">say, from
+another <small>XSUB</small> . (This example supposes that
+there was no <small>INTERFACE_MACRO:</small> section,
+otherwise one needs to use something else instead of
+<tt>&quot;XSINTERFACE_FUNC_SET&quot;</tt>, see the next
+section.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INTERFACE_MACRO:</small> Keyword</b> <br>
+This keyword allows one to define an
+<small>INTERFACE</small> using a different way to extract a
+function pointer from an <small>XSUB</small> . The text
+which follows this keyword should give the name of macros
+which would extract/set a function pointer. The extractor
+macro is given return type, <tt>&quot;CV*&quot;</tt>, and
+<tt>&quot;XSANY.any_dptr&quot;</tt> for this
+<tt>&quot;CV*&quot;</tt>. The setter macro is given cv, and
+the function pointer.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The default
+value is <tt>&quot;XSINTERFACE_FUNC&quot;</tt> and
+<tt>&quot;XSINTERFACE_FUNC_SET&quot;</tt>. An
+<small>INTERFACE</small> keyword with an empty list of
+functions can be omitted if <small>INTERFACE_MACRO</small>
+keyword is used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Suppose that in
+the previous example functions pointers for
+<i>multiply()</i>, <i>divide()</i>, <i>add()</i>,
+<i>subtract()</i> are kept in a global C array
+<tt>&quot;fp[]&quot;</tt> with offsets being
+<tt>&quot;multiply_off&quot;</tt>,
+<tt>&quot;divide_off&quot;</tt>,
+<tt>&quot;add_off&quot;</tt>,
+<tt>&quot;subtract_off&quot;</tt>. Then one can use</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    #define XSINTERFACE_FUNC_BYOFFSET(ret,cv,f) \
+        ((XSINTERFACE_CVT_ANON(ret))fp[CvXSUBANY(cv).any_i32])
+    #define XSINTERFACE_FUNC_BYOFFSET_set(cv,f) \
+        CvXSUBANY(cv).any_i32 = CAT2( f, _off )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">in C
+section,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    symbolic
+    interface_s_ss(arg1, arg2)
+        symbolic        arg1
+        symbolic        arg2
+      INTERFACE_MACRO:
+        XSINTERFACE_FUNC_BYOFFSET
+        XSINTERFACE_FUNC_BYOFFSET_set
+      INTERFACE:
+        multiply divide
+        add subtract</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">in
+<small>XSUB</small> section.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INCLUDE:</small> Keyword</b> <br>
+This keyword can be used to pull other files into the
+<small>XS</small> module. The other files may have
+<small>XS</small> code. <small>INCLUDE:</small> can also be
+used to run a command to generate the <small>XS</small> code
+to be pulled into the module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The file
+<i>Rpcb1.xsh</i> contains our
+<tt>&quot;rpcb_gettime()&quot;</tt> function:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XS</small> module can use <small>INCLUDE:</small> to
+pull that file into it.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    INCLUDE: Rpcb1.xsh</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+parameters to the <small>INCLUDE:</small> keyword are
+followed by a pipe (<tt>&quot;|&quot;</tt>) then the
+compiler will interpret the parameters as a command. This
+feature is mildly deprecated in favour of the
+<tt>&quot;INCLUDE_COMMAND:&quot;</tt> directive, as
+documented below.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    INCLUDE: cat Rpcb1.xsh |</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Do not use this
+to run perl: <tt>&quot;INCLUDE: perl |&quot;</tt> will run
+the perl that happens to be the first in your path and not
+necessarily the same perl that is used to run
+<tt>&quot;xsubpp&quot;</tt>. See &quot;The
+<small>INCLUDE_COMMAND:</small> Keyword&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>INCLUDE_COMMAND:</small> Keyword</b> <br>
+Runs the supplied command and includes its output into the
+current <small>XS</small> document.
+<tt>&quot;INCLUDE_COMMAND&quot;</tt> assigns special meaning
+to the <tt>$^X</tt> token in that it runs the same perl
+interpreter that is running <tt>&quot;xsubpp&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    INCLUDE_COMMAND: cat Rpcb1.xsh
+    INCLUDE_COMMAND: $^X &minus;e ...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>CASE:</small> Keyword</b> <br>
+The <small>CASE:</small> keyword allows an
+<small>XSUB</small> to have multiple distinct parts with
+each part acting as a virtual <small>XSUB</small> .
+<small>CASE:</small> is greedy and if it is used then all
+other <small>XS</small> keywords must be contained within a
+<small>CASE:</small> . This means nothing may precede the
+first <small>CASE:</small> in the <small>XSUB</small> and
+anything following the last <small>CASE:</small> is included
+in that case.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+<small>CASE:</small> might switch via a parameter of the
+<small>XSUB</small> , via the <tt>&quot;ix&quot;</tt>
+<small>ALIAS:</small> variable (see &quot;The
+<small>ALIAS:</small> Keyword&quot;), or maybe via the
+<tt>&quot;items&quot;</tt> variable (see
+&quot;Variable-length Parameter Lists&quot;). The last
+<small>CASE:</small> becomes the <b>default</b> case if it
+is not associated with a conditional. The following example
+shows <small>CASE</small> switched via
+<tt>&quot;ix&quot;</tt> with a function
+<tt>&quot;rpcb_gettime()&quot;</tt> having an alias
+<tt>&quot;x_gettime()&quot;</tt>. When the function is
+called as <tt>&quot;rpcb_gettime()&quot;</tt> its parameters
+are the usual <tt>&quot;(char *host, time_t
+*timep)&quot;</tt>, but when the function is called as
+<tt>&quot;x_gettime()&quot;</tt> its parameters are
+reversed, <tt>&quot;(time_t *timep, char
+*host)&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    long
+    rpcb_gettime(a,b)
+      CASE: ix == 1
+        ALIAS:
+          x_gettime = 1
+        INPUT:
+          # 'a' is timep, 'b' is host
+          char *b
+          time_t a = NO_INIT
+        CODE:
+               RETVAL = rpcb_gettime( b, &amp;a );
+        OUTPUT:
+          a
+          RETVAL
+      CASE:
+          # 'a' is host, 'b' is timep
+          char *a
+          time_t &amp;b = NO_INIT
+        OUTPUT:
+          b
+          RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">That function
+can be called with either of the following statements. Note
+the different argument lists.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        $status = rpcb_gettime( $host, $timep );
+        $status = x_gettime( $timep, $host );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+<small>EXPORT_XSUB_SYMBOLS:</small> Keyword</b> <br>
+The <small>EXPORT_XSUB_SYMBOLS:</small> keyword is likely
+something you will never need. In perl versions earlier than
+5.16.0, this keyword does nothing. Starting with 5.16,
+<small>XSUB</small> symbols are no longer exported by
+default. That is, they are <tt>&quot;static&quot;</tt>
+functions. If you include</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  EXPORT_XSUB_SYMBOLS: ENABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">in your
+<small>XS</small> code, the XSUBs following this line will
+not be declared <tt>&quot;static&quot;</tt>. You can later
+disable this with</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  EXPORT_XSUB_SYMBOLS: DISABLE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">which, again,
+is the default that you should probably never change. You
+cannot use this keyword on versions of perl before 5.16 to
+make XSUBs <tt>&quot;static&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The &amp;
+Unary Operator</b> <br>
+The <tt>&quot;&amp;&quot;</tt> unary operator in the
+<small>INPUT:</small> section is used to tell <b>xsubpp</b>
+that it should convert a Perl value to/from C using the C
+type to the left of <tt>&quot;&amp;&quot;</tt>, but provide
+a pointer to this value when the C function is called.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is useful
+to avoid a <small>CODE:</small> block for a C function which
+takes a parameter by reference. Typically, the parameter
+should be not a pointer type (an <tt>&quot;int&quot;</tt> or
+<tt>&quot;long&quot;</tt> but not an
+<tt>&quot;int*&quot;</tt> or
+<tt>&quot;long*&quot;</tt>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XSUB</small> will generate incorrect C code. The
+<b>xsubpp</b> compiler will turn this into code which calls
+<tt>&quot;rpcb_gettime()&quot;</tt> with parameters
+<tt>&quot;(char *host, time_t timep)&quot;</tt>, but the
+real <tt>&quot;rpcb_gettime()&quot;</tt> wants the
+<tt>&quot;timep&quot;</tt> parameter to be of type
+<tt>&quot;time_t*&quot;</tt> rather than
+<tt>&quot;time_t&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+          time_t timep
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">That problem is
+corrected by using the <tt>&quot;&amp;&quot;</tt> operator.
+The <b>xsubpp</b> compiler will now turn this into code
+which calls <tt>&quot;rpcb_gettime()&quot;</tt> correctly
+with parameters <tt>&quot;(char *host, time_t
+*timep)&quot;</tt>. It does this by carrying the
+<tt>&quot;&amp;&quot;</tt> through, so the function call
+looks like <tt>&quot;rpcb_gettime(host,
+&amp;timep)&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    bool_t
+    rpcb_gettime(host,timep)
+          char *host
+          time_t &amp;timep
+        OUTPUT:
+          timep</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Inserting
+<small>POD</small> , Comments and C Preprocessor
+Directives</b> <br>
+C preprocessor directives are allowed within
+<small>BOOT:</small> , <small>PREINIT: INIT:</small> ,
+<small>CODE:</small> , <small>PPCODE:</small> ,
+<small>POSTCALL:</small> , and <small>CLEANUP:</small>
+blocks, as well as outside the functions. Comments are
+allowed anywhere after the <small>MODULE</small> keyword.
+The compiler will pass the preprocessor directives through
+untouched and will remove the commented lines.
+<small>POD</small> documentation is allowed at any point,
+both in the C and <small>XS</small> language sections.
+<small>POD</small> must be terminated with a
+<tt>&quot;=cut&quot;</tt> command;
+<tt>&quot;xsubpp&quot;</tt> will exit with an error if it
+does not. It is very unlikely that human generated C code
+will be mistaken for <small>POD</small> , as most indenting
+styles result in whitespace in front of any line starting
+with <tt>&quot;=&quot;</tt>. Machine generated
+<small>XS</small> files may fall into this trap unless care
+is taken to ensure that a space breaks the sequence
+&quot;\n=&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Comments can be
+added to XSUBs by placing a <tt>&quot;#&quot;</tt> as the
+first non-whitespace of a line. Care should be taken to
+avoid making the comment look like a C preprocessor
+directive, lest it be interpreted as such. The simplest way
+to prevent this is to put whitespace in front of the
+<tt>&quot;#&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use
+preprocessor directives to choose one of two versions of a
+function, use</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    #if ... version1
+    #else /* ... version2  */
+    #endif</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and not</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    #if ... version1
+    #endif
+    #if ... version2
+    #endif</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">because
+otherwise <b>xsubpp</b> will believe that you made a
+duplicate definition of the function. Also, put a blank line
+before the #else/#endif so it will not be seen as part of
+the function body.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Using
+<small>XS</small> With C <small>++</small></b> <br>
+If an <small>XSUB</small> name contains
+<tt>&quot;::&quot;</tt>, it is considered to be a C
+<small>++</small> method. The generated Perl function will
+assume that its first argument is an object pointer. The
+object pointer will be stored in a variable called
+<small>THIS</small> . The object should have been created by
+C <small>++</small> with the <i>new()</i> function and
+should be blessed by Perl with the <i>sv_setref_pv()</i>
+macro. The blessing of the object by Perl can be handled by
+a typemap. An example typemap is shown at the end of this
+section.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the return
+type of the <small>XSUB</small> includes
+<tt>&quot;static&quot;</tt>, the method is considered to be
+a static method. It will call the C <small>++</small>
+function using the <i>class::method()</i> syntax. If the
+method is not static the function will be called using the
+<small>THIS&minus;</small> &gt;<i>method()</i> syntax.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The next
+examples will use the following C <small>++</small>
+class.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     class color {
+          public:
+          color();
+          ~color();
+          int blue();
+          void set_blue( int );
+          private:
+          int c_blue;
+     };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The XSUBs for
+the <i>blue()</i> and <i>set_blue()</i> methods are defined
+with the class name but the parameter for the object (
+<small>THIS</small> , or &quot;self&quot;) is implicit and
+is not listed.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     int
+     color::blue()
+     void
+     color::set_blue( val )
+          int val</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Both Perl
+functions will expect an object as the first parameter. In
+the generated C <small>++</small> code the object is called
+<tt>&quot;THIS&quot;</tt>, and the method call will be
+performed on this object. So in the C <small>++</small> code
+the <i>blue()</i> and <i>set_blue()</i> methods will be
+called as this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     RETVAL = THIS&minus;&gt;blue();
+     THIS&minus;&gt;set_blue( val );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You could also
+write a single get/set method using an optional
+argument:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     int
+     color::blue( val = NO_INIT )
+         int val
+         PROTOTYPE $;$
+         CODE:
+             if (items &gt; 1)
+                 THIS&minus;&gt;set_blue( val );
+             RETVAL = THIS&minus;&gt;blue();
+         OUTPUT:
+             RETVAL</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+function&rsquo;s name is <b><small>DESTROY</small></b> then
+the C <small>++</small> <tt>&quot;delete&quot;</tt> function
+will be called and <tt>&quot;THIS&quot;</tt> will be given
+as its parameter. The generated C <small>++</small> code
+for</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     void
+     color::DESTROY()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will look like
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     color *THIS = ...; // Initialized as in typemap
+     delete THIS;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+function&rsquo;s name is <b>new</b> then the C
+<small>++</small> <tt>&quot;new&quot;</tt> function will be
+called to create a dynamic C <small>++</small> object. The
+<small>XSUB</small> will expect the class name, which will
+be kept in a variable called <tt>&quot;CLASS&quot;</tt>, to
+be given as the first argument.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     color *
+     color::new()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The generated C
+<small>++</small> code will call
+<tt>&quot;new&quot;</tt>.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     RETVAL = new color();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+is an example of a typemap that could be used for this C
+<small>++</small> example.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    TYPEMAP
+    color *             O_OBJECT
+    OUTPUT
+    # The Perl object is blessed into 'CLASS', which should be a
+    # char* having the name of the package for the blessing.
+    O_OBJECT
+        sv_setref_pv( $arg, CLASS, (void*)$var );
+    INPUT
+    O_OBJECT
+        if( sv_isobject($arg) &amp;&amp; (SvTYPE(SvRV($arg)) == SVt_PVMG) )
+                $var = ($type)SvIV((SV*)SvRV( $arg ));
+        else{
+                warn( \&quot;${Package}::$func_name() &minus;&minus; $var is not a blessed SV reference\&quot; );
+                XSRETURN_UNDEF;
+        }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Interface
+Strategy</b> <br>
+When designing an interface between Perl and a C library a
+straight translation from C to <small>XS</small> (such as
+created by <tt>&quot;h2xs &minus;x&quot;</tt>) is often
+sufficient. However, sometimes the interface will look very
+C&minus;like and occasionally nonintuitive, especially when
+the C function modifies one of its parameters, or returns
+failure inband (as in &quot;negative return values mean
+failure&quot;). In cases where the programmer wishes to
+create a more Perl-like interface the following strategy may
+help to identify the more critical parts of the
+interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Identify the C
+functions with input/output or output parameters. The XSUBs
+for these functions may be able to return lists to Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Identify the C
+functions which use some inband info as an indication of
+failure. They may be candidates to return undef or an empty
+list in case of failure. If the failure may be detected
+without a call to the C function, you may want to use an
+<small>INIT:</small> section to report the failure. For
+failures detectable after the C function returns one may
+want to use a <small>POSTCALL:</small> section to process
+the failure. In more complicated cases use
+<small>CODE:</small> or <small>PPCODE:</small> sections.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If many
+functions use the same failure indication based on the
+return value, you may want to create a special typedef to
+handle this situation. Put</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  typedef int negative_is_failure;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">near the
+beginning of <small>XS</small> file, and create an
+<small>OUTPUT</small> typemap entry for
+<tt>&quot;negative_is_failure&quot;</tt> which converts
+negative values to <tt>&quot;undef&quot;</tt>, or maybe
+<i>croak()</i>s. After this the return value of type
+<tt>&quot;negative_is_failure&quot;</tt> will create more
+Perl-like interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Identify which
+values are used by only the C and <small>XSUB</small>
+functions themselves, say, when a parameter to a function
+should be a contents of a global variable. If Perl does not
+need to access the contents of the value then it may not be
+necessary to provide a translation for that value from C to
+Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Identify the
+pointers in the C function parameter lists and return
+values. Some pointers may be used to implement input/output
+or output parameters, they can be handled in
+<small>XS</small> with the <tt>&quot;&amp;&quot;</tt> unary
+operator, and, possibly, using the <small>NO_INIT</small>
+keyword. Some others will require handling of types like
+<tt>&quot;int *&quot;</tt>, and one needs to decide what a
+useful Perl translation will do in such a case. When the
+semantic is clear, it is advisable to put the translation
+into a typemap file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Identify the
+structures used by the C functions. In many cases it may be
+helpful to use the T_PTROBJ typemap for these structures so
+they can be manipulated by Perl as blessed objects. (This is
+handled automatically by <tt>&quot;h2xs
+&minus;x&quot;</tt>.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the same C
+type is used in several different contexts which require
+different translations, <tt>&quot;typedef&quot;</tt> several
+new types mapped to this C type, and create separate
+<i>typemap</i> entries for these new types. Use these types
+in declarations of return type and parameters to XSUBs.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Perl Objects
+And C Structures</b> <br>
+When dealing with C structures one should select either
+<b>T_PTROBJ</b> or <b>T_PTRREF</b> for the <small>XS</small>
+type. Both types are designed to handle pointers to complex
+objects. The T_PTRREF type will allow the Perl object to be
+unblessed while the T_PTROBJ type requires that the object
+be blessed. By using T_PTROBJ one can achieve a form of
+type-checking because the <small>XSUB</small> will attempt
+to verify that the Perl object is of the expected type.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<small>XS</small> code shows the <i>getnetconfigent()</i>
+function which is used with <small>ONC+ TIRPC</small> . The
+<i>getnetconfigent()</i> function will return a pointer to a
+C structure and has the C prototype shown below. The example
+will demonstrate how the C pointer will become a Perl
+reference. Perl will consider this reference to be a pointer
+to a blessed object and will attempt to call a destructor
+for the object. A destructor will be provided in the
+<small>XS</small> source to free the memory used by
+<i>getnetconfigent()</i>. Destructors in <small>XS</small>
+can be created by specifying an <small>XSUB</small> function
+whose name ends with the word <b><small>DESTROY</small></b>
+. <small>XS</small> destructors can be used to free memory
+which may have been malloc&rsquo;d by another
+<small>XSUB</small> .</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     struct netconfig *getnetconfigent(const char *netid);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A
+<tt>&quot;typedef&quot;</tt> will be created for
+<tt>&quot;struct netconfig&quot;</tt>. The Perl object will
+be blessed in a class matching the name of the C type, with
+the tag <tt>&quot;Ptr&quot;</tt> appended, and the name
+should not have embedded spaces if it will be a Perl package
+name. The destructor will be placed in a class corresponding
+to the class of the object and the <small>PREFIX</small>
+keyword will be used to trim the name to the word
+<small>DESTROY</small> as Perl will expect.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     typedef struct netconfig Netconfig;
+     MODULE = RPC  PACKAGE = RPC
+     Netconfig *
+     getnetconfigent(netid)
+          char *netid
+     MODULE = RPC  PACKAGE = NetconfigPtr  PREFIX = rpcb_
+     void
+     rpcb_DESTROY(netconf)
+          Netconfig *netconf
+        CODE:
+          printf(&quot;Now in NetconfigPtr::DESTROY\n&quot;);
+          free( netconf );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This example
+requires the following typemap entry. Consult perlxstypemap
+for more information about adding new typemaps for an
+extension.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     TYPEMAP
+     Netconfig *  T_PTROBJ</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This example
+will be used with the following Perl statements.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     use RPC;
+     $netconf = getnetconfigent(&quot;udp&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">When Perl
+destroys the object referenced by <tt>$netconf</tt> it will
+send the object to the supplied <small>XSUB DESTROY</small>
+function. Perl cannot determine, and does not care, that
+this object is a C struct and not a Perl object. In this
+sense, there is no difference between the object created by
+the <i>getnetconfigent()</i> <small>XSUB</small> and an
+object created by a normal Perl subroutine.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Safely
+Storing Static Data in <small>XS</small></b> <br>
+Starting with Perl 5.8, a macro framework has been defined
+to allow static data to be safely stored in
+<small>XS</small> modules that will be accessed from a
+multi-threaded Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Although
+primarily designed for use with multi-threaded Perl, the
+macros have been designed so that they will work with
+non-threaded Perl as well.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is therefore
+strongly recommended that these macros be used by all
+<small>XS</small> modules that make use of static data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The easiest way
+to get a template set of macros to use is by specifying the
+<tt>&quot;&minus;g&quot;</tt>
+(<tt>&quot;&minus;&minus;global&quot;</tt>) option with h2xs
+(see h2xs).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Below is an
+example module that makes use of the macros.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    #include &quot;EXTERN.h&quot;
+    #include &quot;perl.h&quot;
+    #include &quot;XSUB.h&quot;
+    /* Global Data */
+    #define MY_CXT_KEY &quot;BlindMice::_guts&quot; XS_VERSION
+    typedef struct {
+        int count;
+        char name[3][100];
+    } my_cxt_t;
+    START_MY_CXT
+    MODULE = BlindMice           PACKAGE = BlindMice
+    BOOT:
+    {
+        MY_CXT_INIT;
+        MY_CXT.count = 0;
+        strcpy(MY_CXT.name[0], &quot;None&quot;);
+        strcpy(MY_CXT.name[1], &quot;None&quot;);
+        strcpy(MY_CXT.name[2], &quot;None&quot;);
+    }
+    int
+    newMouse(char * name)
+        char * name;
+        PREINIT:
+          dMY_CXT;
+        CODE:
+          if (MY_CXT.count &gt;= 3) {
+              warn(&quot;Already have 3 blind mice&quot;);
+              RETVAL = 0;
+          }
+          else {
+              RETVAL = ++ MY_CXT.count;
+              strcpy(MY_CXT.name[MY_CXT.count &minus; 1], name);
+          }
+    char *
+    get_mouse_name(index)
+      int index
+      CODE:
+        dMY_CXT;
+        RETVAL = MY_CXT.lives ++;
+        if (index &gt; MY_CXT.count)
+          croak(&quot;There are only 3 blind mice.&quot;);
+        else
+          RETVAL = newSVpv(MY_CXT.name[index &minus; 1]);
+    void
+    CLONE(...)
+        CODE:
+        MY_CXT_CLONE;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>REFERENCE</small></b>
+<small><br>
+MY_CXT_KEY</small></p>
+
+<p style="margin-left:18%;">This macro is used to define a
+unique key to refer to the static data for an
+<small>XS</small> module. The suggested naming scheme, as
+used by h2xs, is to use a string that consists of the module
+name, the string &quot;::_guts&quot; and the module version
+number.</p>
+
+<pre style="margin-left:18%; margin-top: 1em">    #define MY_CXT_KEY &quot;MyModule::_guts&quot; XS_VERSION</pre>
+
+
+<p style="margin-left:11%;">typedef my_cxt_t</p>
+
+<p style="margin-left:18%;">This struct typedef <i>must</i>
+always be called <tt>&quot;my_cxt_t&quot;</tt>. The other
+<tt>&quot;CXT*&quot;</tt> macros assume the existence of the
+<tt>&quot;my_cxt_t&quot;</tt> typedef name.</p>
+
+<p style="margin-left:18%; margin-top: 1em">Declare a
+typedef named <tt>&quot;my_cxt_t&quot;</tt> that is a
+structure that contains all the data that needs to be
+interpreter-local.</p>
+
+<pre style="margin-left:18%; margin-top: 1em">    typedef struct {
+        int some_value;
+    } my_cxt_t;</pre>
+
+
+
+<p style="margin-left:11%;"><small>START_MY_CXT</small></p>
+
+<p style="margin-left:18%;">Always place the
+<small>START_MY_CXT</small> macro directly after the
+declaration of <tt>&quot;my_cxt_t&quot;</tt>.</p>
+
+<p style="margin-left:11%;"><small>MY_CXT_INIT</small></p>
+
+<p style="margin-left:18%;">The <small>MY_CXT_INIT</small>
+macro initialises storage for the
+<tt>&quot;my_cxt_t&quot;</tt> struct.</p>
+
+<p style="margin-left:18%; margin-top: 1em">It <i>must</i>
+be called exactly once, typically in a <small>BOOT:</small>
+section. If you are maintaining multiple interpreters, it
+should be called once in each interpreter instance, except
+for interpreters cloned from existing ones. (But see &quot;
+<small>MY_CXT_CLONE</small> &quot; below.)</p>
+
+<p style="margin-left:11%;">dMY_CXT</p>
+
+<p style="margin-left:18%;">Use the dMY_CXT macro (a
+declaration) in all the functions that access
+<small>MY_CXT</small> .</p>
+
+<p style="margin-left:11%;"><small>MY_CXT</small></p>
+
+<p style="margin-left:18%;">Use the <small>MY_CXT</small>
+macro to access members of the <tt>&quot;my_cxt_t&quot;</tt>
+struct. For example, if <tt>&quot;my_cxt_t&quot;</tt> is</p>
+
+<pre style="margin-left:18%; margin-top: 1em">    typedef struct {
+        int index;
+    } my_cxt_t;</pre>
+
+
+<p style="margin-left:18%; margin-top: 1em">then use this
+to access the <tt>&quot;index&quot;</tt> member</p>
+
+<pre style="margin-left:18%; margin-top: 1em">    dMY_CXT;
+    MY_CXT.index = 2;</pre>
+
+
+<p style="margin-left:11%;">aMY_CXT/pMY_CXT</p>
+
+<p style="margin-left:18%;"><tt>&quot;dMY_CXT&quot;</tt>
+may be quite expensive to calculate, and to avoid the
+overhead of invoking it in each function it is possible to
+pass the declaration onto other functions using the
+<tt>&quot;aMY_CXT&quot;</tt>/<tt>&quot;pMY_CXT&quot;</tt>
+macros, eg</p>
+
+<pre style="margin-left:18%; margin-top: 1em">    void sub1() {
+        dMY_CXT;
+        MY_CXT.index = 1;
+        sub2(aMY_CXT);
+    }
+    void sub2(pMY_CXT) {
+        MY_CXT.index = 2;
+    }</pre>
+
+
+<p style="margin-left:18%; margin-top: 1em">Analogously to
+<tt>&quot;pTHX&quot;</tt>, there are equivalent forms for
+when the macro is the first or last in multiple arguments,
+where an underscore represents a comma, i.e.
+<tt>&quot;_aMY_CXT&quot;</tt>,
+<tt>&quot;aMY_CXT_&quot;</tt>, <tt>&quot;_pMY_CXT&quot;</tt>
+and <tt>&quot;pMY_CXT_&quot;</tt>.</p>
+
+
+<p style="margin-left:11%;"><small>MY_CXT_CLONE</small></p>
+
+<p style="margin-left:18%;">By default, when a new
+interpreter is created as a copy of an existing one (eg via
+<tt>&quot;threads&minus;&gt;create()&quot;</tt>), both
+interpreters share the same physical my_cxt_t structure.
+Calling <tt>&quot;MY_CXT_CLONE&quot;</tt> (typically via the
+package&rsquo;s <tt>&quot;CLONE()&quot;</tt> function),
+causes a byte-for-byte copy of the structure to be taken,
+and any future dMY_CXT will cause the copy to be accessed
+instead.</p>
+
+
+<p style="margin-left:11%;"><small>MY_CXT_INIT_INTERP</small>
+(my_perl) <br>
+dMY_CXT_INTERP(my_perl)</p>
+
+<p style="margin-left:18%;">These are versions of the
+macros which take an explicit interpreter as an
+argument.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that these
+macros will only work together within the <i>same</i> source
+file; that is, a dMY_CTX in one source file will access a
+different structure than a dMY_CTX in another source
+file.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Thread-aware
+system interfaces</b> <br>
+Starting from Perl 5.8, in C/C <small>++</small> level Perl
+knows how to wrap system/library interfaces that have
+thread-aware versions (e.g. <i>getpwent_r()</i>) into
+frontend macros (e.g. <i>getpwent()</i>) that correctly
+handle the multithreaded interaction with the Perl
+interpreter. This will happen transparently, the only thing
+you need to do is to instantiate a Perl interpreter.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This wrapping
+happens always when compiling Perl core source (
+<small>PERL_CORE</small> is defined) or the Perl core
+extensions ( <small>PERL_EXT</small> is defined). When
+compiling <small>XS</small> code outside of Perl core the
+wrapping does not take place. Note, however, that
+intermixing the _r&minus;forms (as Perl compiled for
+multithreaded operation will do) and the _r&minus;less forms
+is neither well-defined (inconsistent results, data
+corruption, or even crashes become more likely), nor is it
+very portable.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">File
+<tt>&quot;RPC.xs&quot;</tt>: Interface to some <small>ONC+
+RPC</small> bind library functions.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     #include &quot;EXTERN.h&quot;
+     #include &quot;perl.h&quot;
+     #include &quot;XSUB.h&quot;
+     #include &lt;rpc/rpc.h&gt;
+     typedef struct netconfig Netconfig;
+     MODULE = RPC  PACKAGE = RPC
+     SV *
+     rpcb_gettime(host=&quot;localhost&quot;)
+          char *host
+        PREINIT:
+          time_t  timep;
+        CODE:
+          ST(0) = sv_newmortal();
+          if( rpcb_gettime( host, &amp;timep ) )
+               sv_setnv( ST(0), (double)timep );
+     Netconfig *
+     getnetconfigent(netid=&quot;udp&quot;)
+          char *netid
+     MODULE = RPC  PACKAGE = NetconfigPtr  PREFIX = rpcb_
+     void
+     rpcb_DESTROY(netconf)
+          Netconfig *netconf
+        CODE:
+          printf(&quot;NetconfigPtr::DESTROY\n&quot;);
+          free( netconf );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">File
+<tt>&quot;typemap&quot;</tt>: Custom typemap for
+<small>RPC</small> .xs. (cf. perlxstypemap)</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     TYPEMAP
+     Netconfig *  T_PTROBJ</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">File
+<tt>&quot;RPC.pm&quot;</tt>: Perl module for the
+<small>RPC</small> extension.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     package RPC;
+     require Exporter;
+     require DynaLoader;
+     @ISA = qw(Exporter DynaLoader);
+     @EXPORT = qw(rpcb_gettime getnetconfigent);
+     bootstrap RPC;
+     1;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">File
+<tt>&quot;rpctest.pl&quot;</tt>: Perl test program for the
+<small>RPC</small> extension.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">     use RPC;
+     $netconf = getnetconfigent();
+     $a = rpcb_gettime();
+     print &quot;time = $a\n&quot;;
+     print &quot;netconf = $netconf\n&quot;;
+     $netconf = getnetconfigent(&quot;tcp&quot;);
+     $a = rpcb_gettime(&quot;poplar&quot;);
+     print &quot;time = $a\n&quot;;
+     print &quot;netconf = $netconf\n&quot;;</pre>
+
+
+<h2>XS VERSION
+<a name="XS VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This document
+covers features supported by
+<tt>&quot;ExtUtils::ParseXS&quot;</tt> (also known as
+<tt>&quot;xsubpp&quot;</tt>) 3.13_01.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Originally
+written by Dean Roehrich
+&lt;<i>roehrich@cray.com</i>&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Maintained
+since 1996 by The Perl Porters
+&lt;<i>perlbug@perl.org</i>&gt;.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,1410 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:56:30 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>IO::Socket::SSL</title>
+
+</head>
+<body>
+
+<h1 align="center">IO::Socket::SSL</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#ERROR HANDLING">ERROR HANDLING</a><br>
+<a href="#NON-BLOCKING I/O">NON-BLOCKING I/O</a><br>
+<a href="#SNI Support">SNI Support</a><br>
+<a href="#RETURN VALUES">RETURN VALUES</a><br>
+<a href="#DEBUGGING">DEBUGGING</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#LIMITATIONS">LIMITATIONS</a><br>
+<a href="#DEPRECATIONS">DEPRECATIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#Appendix: Using SSL">Appendix: Using SSL</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+&minus;&minus; SSL sockets with IO::Socket interface</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use strict;
+    use IO::Socket::SSL;
+    # simple HTTP client &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+    my $sock = IO::Socket::SSL&minus;&gt;new(
+        # where to connect
+        PeerHost =&gt; &quot;www.example.com&quot;,
+        PeerPort =&gt; &quot;https&quot;,
+        # certificate verification
+        SSL_verify_mode =&gt; SSL_VERIFY_PEER,
+        SSL_ca_path =&gt; '/etc/ssl/certs', # typical CA path on Linux
+        # on OpenBSD instead: SSL_ca_file =&gt; '/etc/ssl/cert.pem'
+        # easy hostname verification
+        SSL_verifycn_name =&gt; 'foo.bar', # defaults to PeerHost
+        SSL_verifycn_schema =&gt; 'http',
+        # SNI support
+        SSL_hostname =&gt; 'foo.bar', # defaults to PeerHost
+    ) or die &quot;failed connect or ssl handshake: $!,$SSL_ERROR&quot;;
+    # send and receive over SSL connection
+    print $client &quot;GET / HTTP/1.0\r\n\r\n&quot;;
+    print &lt;$client&gt;;
+    # simple server &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+    my $server = IO::Socket::SSL&minus;&gt;new(
+        # where to listen
+        LocalAddr =&gt; '127.0.0.1',
+        LocalPort =&gt; 8080,
+        Listen =&gt; 10,
+        # which certificate to offer
+        # with SNI support there can be different certificates per hostname
+        SSL_cert_file =&gt; 'cert.pem',
+        SSL_key_file =&gt; 'key.pem',
+    ) or die &quot;failed to listen: $!&quot;;
+    # accept client
+    my $client = $server&minus;&gt;accept or die
+        &quot;failed to accept or ssl handshake: $!,$SSL_ERROR&quot;;
+    # Upgrade existing socket to SSL &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+    my $sock = IO::Socket::INET&minus;&gt;new('imap.example.com:imap');
+    # ... receive greeting, send STARTTLS, receive ok ...
+    IO::Socket::SSL&minus;&gt;start_SSL($sock,
+        SSL_verify_mode =&gt; SSL_VERIFY_PEER,
+        SSL_ca_path =&gt; '/etc/ssl/certs',
+        ...
+    ) or die &quot;failed to upgrade to SSL: $SSL_ERROR&quot;;
+    # manual name verification, could also be done in start_SSL with
+    # SSL_verifycn_name etc
+    $client&minus;&gt;verify_hostname( 'imap.example.com','imap' )
+        or die &quot;hostname verification failed&quot;;
+    # all data are now SSL encrypted
+    print $sock ....</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+provides an interface to <small>SSL</small> sockets, similar
+to other IO::Socket modules. Because of that, it can be used
+to make existing programs using IO::Socket::INET or similar
+modules to provide <small>SSL</small> encryption without
+much effort. IO::Socket::SSL supports all the extra features
+that one needs to write a full-featured <small>SSL</small>
+client or server application: multiple <small>SSL</small>
+contexts, cipher selection, certificate verification, Server
+Name Indication ( <small>SNI</small> ), Next Protocol
+Negotiation ( <small>NPN</small> ), <small>SSL</small>
+version selection and more.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have
+never used <small>SSL</small> before, you should read the
+appendix labelled &rsquo;Using <small>SSL</small> &rsquo;
+before attempting to use this module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you are
+trying to use it with threads see the <small>BUGS</small>
+section.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+inherits from another IO::Socket module. The choice of the
+super class depends on the installed modules:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>If IO::Socket::IP with at least version 0.20 is
+installed it will use this module as super class,
+transparently providing IPv6 and IPv4 support.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>If IO::Socket::INET6 is installed it will use this
+module as super class, transparently providing IPv6 and IPv4
+support.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Otherwise it will fall back to IO::Socket::INET, which
+is a perl core module. With IO::Socket::INET you only get
+IPv4 support.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Please be
+aware, that with the IPv6 capable super classes, it will
+lookup first for the IPv6 address of a given hostname. If
+the resolver provides an IPv6 address, but the host cannot
+be reached by IPv6, there will be no automatic fallback to
+IPv4. To avoid these problems you can either force IPv4 by
+specifying and <small>AF_INET</small> as
+<tt>&quot;Domain&quot;</tt> of the socket or globally
+enforce IPv4 by loading IO::Socket::SSL with the option
+&rsquo;inet4&rsquo;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+will provide all of the methods of its super class, but
+sometimes it will override them to match the behavior
+expected from <small>SSL</small> or to provide additional
+arguments.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The new or
+changed methods are described below, but please read also
+the section about <small>SSL</small> specific error
+handling. <b><br>
+new(...)</b></p>
+
+<p style="margin-left:17%;">Creates a new IO::Socket::SSL
+object. You may use all the friendly options that came
+bundled with IO::Socket::INET, plus (optionally) the ones
+that follow: <br>
+SSL_hostname</p>
+
+<p style="margin-left:20%;">This can be given to specify
+the hostname used for <small>SNI,</small> which is needed if
+you have multiple <small>SSL</small> hostnames on the same
+<small>IP</small> address. If not given it will try to
+determine hostname from PeerAddr, which will fail if only
+<small>IP</small> was given or if this argument is used
+within start_SSL.</p>
+
+<p style="margin-left:20%; margin-top: 1em">If you want to
+disable <small>SNI</small> set this argument to
+&rsquo;&rsquo;.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Currently only
+supported for the client side and will be ignored for the
+server side.</p>
+
+<p style="margin-left:20%; margin-top: 1em">See section
+&quot; <small>SNI</small> Support&quot; for details of
+<small>SNI</small> the support.</p>
+
+<p style="margin-left:17%;">SSL_version</p>
+
+<p style="margin-left:20%;">Sets the version of the
+<small>SSL</small> protocol used to transmit data.
+&rsquo;SSLv23&rsquo; auto-negotiates between SSLv2 and
+SSLv3, while &rsquo;SSLv2&rsquo;, &rsquo;SSLv3&rsquo; or
+&rsquo;TLSv1&rsquo; restrict the protocol to the specified
+version. All values are case-insensitive.</p>
+
+<p style="margin-left:20%; margin-top: 1em">You can limit
+to set of supported protocols by adding !version separated
+by &rsquo;:&rsquo;.</p>
+
+<p style="margin-left:20%; margin-top: 1em">The default
+SSL_version is &rsquo;SSLv23:!SSLv2&rsquo; which means, that
+SSLv2, SSLv3 and TLSv1 are supported for initial protocol
+handshakes, but SSLv2 will not be accepted, leaving only
+SSLv3 and TLSv1. You can also use !TLSv11 and !TLSv12 to
+disable <small>TLS</small> versions 1.1 and 1.2 while
+allowing <small>TLS</small> version 1.0.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Setting the
+version instead to &rsquo;TLSv1&rsquo; will probably break
+interaction with lots of clients which start with SSLv2 and
+then upgrade to TLSv1. On the other side some clients just
+close the connection when they receive a <small>TLS</small>
+version 1.1 request. In this case setting the version to
+&rsquo;SSLv23:!SSLv2:!TLSv11:!TLSv12&rsquo; might help.</p>
+
+<p style="margin-left:17%;">SSL_cipher_list</p>
+
+<p style="margin-left:20%;">If this option is set the
+cipher list for the connection will be set to the given
+value, e.g. something like &rsquo; <small>ALL:</small>
+!LOW:!EXP:!ADH&rsquo;. Look into the OpenSSL documentation
+(&lt;http://www.openssl.org/docs/apps/ciphers.html#CIPHER_STRINGS&gt;)
+for more details.</p>
+
+<p style="margin-left:20%; margin-top: 1em">If this option
+is not set &rsquo; <small>ALL:</small> !LOW&rsquo; will be
+used. To use OpenSSL builtin default (whatever this is) set
+it to &rsquo;&rsquo;.</p>
+
+<p style="margin-left:17%;">SSL_honor_cipher_order</p>
+
+<p style="margin-left:20%;">If this option is true the
+cipher order the server specified is used instead of the
+order proposed by the client. To mitigate
+<small>BEAST</small> attack you might use something like</p>
+
+<pre style="margin-left:20%; margin-top: 1em">  SSL_honor_cipher_order =&gt; 1,
+  SSL_cipher_list =&gt; 'RC4&minus;SHA:ALL:!ADH:!LOW',</pre>
+
+
+<p style="margin-left:17%;">SSL_use_cert</p>
+
+<p style="margin-left:20%;">If this is true, it forces
+IO::Socket::SSL to use a certificate and key, even if you
+are setting up an <small>SSL</small> client. If this is set
+to 0 (the default), then you will only need a certificate
+and key if you are setting up a server.</p>
+
+<p style="margin-left:20%; margin-top: 1em">SSL_use_cert
+will implicitly be set if SSL_server is set. For convenience
+it is also set if it was not given but a cert was given for
+use (SSL_cert_file or similar).</p>
+
+<p style="margin-left:17%;">SSL_server</p>
+
+<p style="margin-left:20%;">Set this option to a true
+value, if the socket should be used as a server. If this is
+not explicitly set it is assumed, if the Listen parameter is
+given when creating the socket.</p>
+
+<p style="margin-left:17%;">SSL_cert_file</p>
+
+<p style="margin-left:20%;">If your <small>SSL</small>
+certificate is not in the default place
+(<i>certs/server&minus;cert.pem</i> for servers,
+<i>certs/client&minus;cert.pem</i> for clients), then you
+should use this option to specify the location of your
+certificate. A certificate is usually needed for an
+<small>SSL</small> server, but might also be needed, if the
+client should authorize itself with a certificate.</p>
+
+<p style="margin-left:20%; margin-top: 1em">If your
+<small>SSL</small> server should be able to use different
+certificates on the same <small>IP</small> address,
+depending on the name given by <small>SNI,</small> you can
+use a hash reference instead of a file with
+<tt>&quot;&lt;hostname =&quot;</tt> cert_file&gt;&gt;.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Examples:</p>
+
+<pre style="margin-left:20%; margin-top: 1em"> SSL_cert_file =&gt; 'mycert.pem'
+ SSL_cert_file =&gt; {
+    &quot;foo.example.org&quot; =&gt; 'foo.pem',
+    &quot;bar.example.org&quot; =&gt; 'bar.pem',
+    # used when nothing matches or client does not support SNI
+    '' =&gt; 'default.pem',
+ }</pre>
+
+
+<p style="margin-left:17%;">SSL_cert</p>
+
+<p style="margin-left:20%;">This option can be used instead
+of <tt>&quot;SSL_cert_file&quot;</tt> to specify the
+certificate.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Instead with a
+file the certificate is given as an X509* object or array of
+X509* objects, where the first X509* is the internal
+representation of the certificate while the following ones
+are extra certificates. The option is useful if you create
+your certificate dynamically (like in a <small>SSL</small>
+intercepting proxy) or get it from a string (see openssl
+PEM_read_bio_X509 etc for getting a X509* from a
+string).</p>
+
+<p style="margin-left:20%; margin-top: 1em">For
+<small>SNI</small> support a hash reference can be given,
+similar to the <tt>&quot;SSL_cert_file&quot;</tt>
+option.</p>
+
+<p style="margin-left:17%;">SSL_key_file</p>
+
+<p style="margin-left:20%;">If your <small>RSA</small>
+private key is not in default place
+(<i>certs/server&minus;key.pem</i> for servers,
+<i>certs/client&minus;key.pem</i> for clients), then this is
+the option that you would use to specify a different
+location. Keys should be <small>PEM</small> formatted, and
+if they are encrypted, you will be prompted to enter a
+password before the socket is formed (unless you specified
+the SSL_passwd_cb option).</p>
+
+<p style="margin-left:20%; margin-top: 1em">For
+<small>SNI</small> support a hash reference can be given,
+similar to the <tt>&quot;SSL_cert_file&quot;</tt>
+option.</p>
+
+<p style="margin-left:17%;">SSL_key</p>
+
+<p style="margin-left:20%;">This option can be used instead
+of <tt>&quot;SSL_key&quot;</tt> to specify the certificate.
+Instead of a file an EVP_PKEY* should be given. This option
+is useful if you don&rsquo;t have your key in a file but
+create it dynamically or get it from a string (see openssl
+PEM_read_bio_PrivateKey etc for getting a EVP_PKEY* from a
+string).</p>
+
+<p style="margin-left:20%; margin-top: 1em">For
+<small>SNI</small> support a hash reference can be given,
+similar to the <tt>&quot;SSL_key&quot;</tt> option.</p>
+
+<p style="margin-left:17%;">SSL_dh_file</p>
+
+<p style="margin-left:20%;">If you want Diffie-Hellman key
+exchange you need to supply a suitable file here or use the
+SSL_dh parameter. See dhparam command in openssl for more
+information.</p>
+
+<p style="margin-left:17%;">SSL_dh</p>
+
+<p style="margin-left:20%;">Like SSL_dh_file, but instead
+of giving a file you use a preloaded or generated DH*.</p>
+
+<p style="margin-left:17%;">SSL_passwd_cb</p>
+
+<p style="margin-left:20%;">If your private key is
+encrypted, you might not want the default password prompt
+from Net::SSLeay. This option takes a reference to a
+subroutine that should return the password required to
+decrypt your private key.</p>
+
+<p style="margin-left:17%;">SSL_ca_file</p>
+
+<p style="margin-left:20%;">If you want to verify that the
+peer certificate has been signed by a reputable certificate
+authority, then you should use this option to locate the
+file containing the certificate(s) of the reputable
+certificate authorities if it is not already in the file
+<i>certs/my&minus;ca.pem</i>. If you definitely want no
+SSL_ca_file used you should set it to undef.</p>
+
+<p style="margin-left:17%;">SSL_ca_path</p>
+
+<p style="margin-left:20%;">If you are unusually friendly
+with the OpenSSL documentation, you might have set yourself
+up a directory containing several trusted certificates as
+separate files as well as an index of the certificates. If
+you want to use that directory for validation purposes, and
+that directory is not <i>ca/</i>, then use this option to
+point IO::Socket::SSL to the right place to look. If you
+definitely want no SSL_ca_path used you should set it to
+undef.</p>
+
+<p style="margin-left:17%;">SSL_verify_mode</p>
+
+<p style="margin-left:20%;">This option sets the
+verification mode for the peer certificate. You may combine
+<small>SSL_VERIFY_PEER</small> (verify_peer),
+<small>SSL_VERIFY_FAIL_IF_NO_PEER_CERT</small> (fail
+verification if no peer certificate exists; ignored for
+clients), <small>SSL_VERIFY_CLIENT_ONCE</small> (verify
+client once; ignored for clients). See OpenSSL man page for
+SSL_CTX_set_verify for more information.</p>
+
+<p style="margin-left:20%; margin-top: 1em">The default is
+<small>SSL_VERIFY_NONE</small> for server (e.g. no check for
+client certificate). For historical reasons the default for
+client is currently also <small>SSL_VERIFY_NONE,</small> but
+this will change to <small>SSL_VERIFY_PEER</small> in the
+near future. To aid transition a warning is issued if the
+client is used with the default
+<small>SSL_VERIFY_NONE,</small> unless SSL_verify_mode was
+explicitly set by the application.</p>
+
+<p style="margin-left:17%;">SSL_verify_callback</p>
+
+<p style="margin-left:20%;">If you want to verify
+certificates yourself, you can pass a sub reference along
+with this parameter to do so. When the callback is called,
+it will be passed: <br>
+1. a true/false value that indicates what OpenSSL thinks of
+the <br>
+certificate, <br>
+2. a C&minus;style memory address of the certificate store,
+<br>
+3. a string containing the certificate&rsquo;s issuer
+attributes and <br>
+owner attributes, and <br>
+4. a string containing any errors encountered (0 if no
+errors). <br>
+5. a C&minus;style memory address of the peer&rsquo;s own
+certificate <br>
+(convertible to <small>PEM</small> form with <i><br>
+Net::SSLeay::PEM_get_string_X509()</i>).</p>
+
+<p style="margin-left:20%; margin-top: 1em">The function
+should return 1 or 0, depending on whether it thinks the
+certificate is valid or invalid. The default is to let
+OpenSSL do all of the busy work.</p>
+
+<p style="margin-left:20%; margin-top: 1em">The callback
+will be called for each element in the certificate
+chain.</p>
+
+<p style="margin-left:20%; margin-top: 1em">See the OpenSSL
+documentation for SSL_CTX_set_verify for more
+information.</p>
+
+<p style="margin-left:17%;">SSL_verifycn_scheme</p>
+
+<p style="margin-left:20%;">Set the scheme used to
+automatically verify the hostname of the peer. See the
+information about the verification schemes in
+<b>verify_hostname</b>.</p>
+
+<p style="margin-left:20%; margin-top: 1em">The default is
+undef, e.g. to not automatically verify the hostname. If no
+verification is done the other <b>SSL_verifycn_*</b> options
+have no effect, but you might still do manual verification
+by calling <b>verify_hostname</b>.</p>
+
+<p style="margin-left:17%;">SSL_verifycn_name</p>
+
+<p style="margin-left:20%;">Set the name which is used in
+verification of hostname. If SSL_verifycn_scheme is set and
+no SSL_verifycn_name is given it will try to use the
+PeerHost and PeerAddr settings and fail if no name can be
+determined.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Using PeerHost
+or PeerAddr works only if you create the connection directly
+with <tt>&quot;IO::Socket::SSL&minus;&gt;new&quot;</tt>, if
+an IO::Socket::INET object is upgraded with <b>start_SSL</b>
+the name has to be given in <b>SSL_verifycn_name</b>.</p>
+
+<p style="margin-left:17%;">SSL_check_crl</p>
+
+<p style="margin-left:20%;">If you want to verify that the
+peer certificate has not been revoked by the signing
+authority, set this value to true. OpenSSL will search for
+the <small>CRL</small> in your SSL_ca_path, or use the file
+specified by SSL_crl_file. See the Net::SSLeay documentation
+for more details. Note that this functionality appears to be
+broken with OpenSSL &lt; v0.9.7b, so its use with lower
+versions will result in an error.</p>
+
+<p style="margin-left:17%;">SSL_crl_file</p>
+
+<p style="margin-left:20%;">If you want to specify the
+<small>CRL</small> file to be used, set this value to the
+pathname to be used. This must be used in addition to
+setting SSL_check_crl.</p>
+
+<p style="margin-left:17%;">SSL_reuse_ctx</p>
+
+<p style="margin-left:20%;">If you have already set the
+above options (SSL_version through SSL_check_crl; this does
+not include SSL_cipher_list yet) for a previous instance of
+IO::Socket::SSL, then you can reuse the <small>SSL</small>
+context of that instance by passing it as the value for the
+SSL_reuse_ctx parameter. You may also create a new instance
+of the IO::Socket::SSL::SSL_Context class, using any context
+options that you desire without specifying connection
+options, and pass that here instead.</p>
+
+<p style="margin-left:20%; margin-top: 1em">If you use this
+option, all other context-related options that you pass in
+the same call to <i>new()</i> will be ignored unless the
+context supplied was invalid. Note that, contrary to
+versions of IO::Socket::SSL below v0.90, a global
+<small>SSL</small> context will not be implicitly used
+unless you use the <i>set_default_context()</i>
+function.</p>
+
+<p style="margin-left:17%;">SSL_create_ctx_callback</p>
+
+<p style="margin-left:20%;">With this callback you can make
+individual settings to the context after it got created and
+the default setup was done. The callback will be called with
+the <small>CTX</small> object from Net::SSLeay as the single
+argument.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Example for
+limiting the server session cache size:</p>
+
+<pre style="margin-left:20%; margin-top: 1em">  SSL_create_ctx_callback =&gt; sub {
+      my $ctx = shift;
+          Net::SSLeay::CTX_sess_set_cache_size($ctx,128);
+  }</pre>
+
+
+<p style="margin-left:17%;">SSL_session_cache_size</p>
+
+<p style="margin-left:20%;">If you make repeated
+connections to the same host/port and the <small>SSL</small>
+renegotiation time is an issue, you can turn on client-side
+session caching with this option by specifying a positive
+cache size. For successive connections, pass the
+SSL_reuse_ctx option to the <i>new()</i> calls (or use
+<i>set_default_context()</i>) to make use of the cached
+sessions. The session cache size refers to the number of
+unique host/port pairs that can be stored at one time; the
+oldest sessions in the cache will be removed if new ones are
+added.</p>
+
+<p style="margin-left:20%; margin-top: 1em">This option
+does not effect the session cache a server has for
+it&rsquo;s clients, e.g. it does not affect
+<small>SSL</small> objects with SSL_server set.</p>
+
+<p style="margin-left:17%;">SSL_session_cache</p>
+
+<p style="margin-left:20%;">Specifies session cache object
+which should be used instead of creating a new. Overrules
+SSL_session_cache_size. This option is useful if you want to
+reuse the cache, but not the rest of the context.</p>
+
+<p style="margin-left:20%; margin-top: 1em">A session cache
+object can be created using
+<tt>&quot;IO::Socket::SSL::Session_Cache&minus;&gt;new(
+cachesize )&quot;</tt>.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Use
+<i>set_default_session_cache()</i> to set a global cache
+object.</p>
+
+<p style="margin-left:17%;">SSL_session_id_context</p>
+
+<p style="margin-left:20%;">This gives an id for the
+servers session cache. It&rsquo;s necessary if you want
+clients to connect with a client certificate. If not given
+but SSL_verify_mode specifies the need for client
+certificate a context unique id will be picked.</p>
+
+<p style="margin-left:17%;">SSL_error_trap</p>
+
+<p style="margin-left:20%;">When using the <i>accept()</i>
+or <i>connect()</i> methods, it may be the case that the
+actual socket connection works but the <small>SSL</small>
+negotiation fails, as in the case of an <small>HTTP</small>
+client connecting to an <small>HTTPS</small> server. Passing
+a subroutine ref attached to this parameter allows you to
+gain control of the orphaned socket instead of having it be
+closed forcibly. The subroutine, if called, will be passed
+two parameters: a reference to the socket on which the
+<small>SSL</small> negotiation failed and the full text of
+the error message.</p>
+
+<p style="margin-left:17%;">SSL_npn_protocols</p>
+
+<p style="margin-left:20%;">If used on the server side it
+specifies list of protocols advertised by <small>SSL</small>
+server as an array ref, e.g.
+[&rsquo;spdy/2&rsquo;,&rsquo;http1.1&rsquo;]. On the client
+side it specifies the protocols offered by the client for
+<small>NPN</small> as an array ref. See also method
+next_proto_negotiated.</p>
+
+<p style="margin-left:20%; margin-top: 1em">Next Protocol
+Negotioation ( <small>NPN</small> ) is available with
+Net::SSLeay 1.46+ and openssl&minus;1.0.1+. To check support
+you might call
+<tt>&quot;IO::Socket::SSL&minus;&quot;</tt><i>can_npn()</i>&gt;.
+If you use this option with an unsupported
+Net::SSLeay/OpenSSL it will throw an error.</p>
+
+<p style="margin-left:11%;"><b>close(...)</b></p>
+
+<p style="margin-left:17%;">There are a number of nasty
+traps that lie in wait if you are not careful about using
+<i>close()</i>. The first of these will bite you if you have
+been using <i>shutdown()</i> on your sockets. Since the
+<small>SSL</small> protocol mandates that a
+<small>SSL</small> &quot;close notify&quot; message be sent
+before the socket is closed, a <i>shutdown()</i> that closes
+the socket&rsquo;s write channel will cause the
+<i>close()</i> call to hang. For a similar reason, if you
+try to close a copy of a socket (as in a forking server) you
+will affect the original socket as well. To get around these
+problems, call close with an object-oriented syntax (e.g.
+<tt>$socket</tt>&minus;&gt;close(SSL_no_shutdown =&gt; 1))
+and one or more of the following parameters: <br>
+SSL_no_shutdown</p>
+
+<p style="margin-left:20%;">If set to a true value, this
+option will make <i>close()</i> not use the
+<i>SSL_shutdown()</i> call on the socket in question so that
+the close operation can complete without problems if you
+have used <i>shutdown()</i> or are working on a copy of a
+socket.</p>
+
+<p style="margin-left:17%;">SSL_fast_shutdown</p>
+
+<p style="margin-left:20%;">If set to true only a
+unidirectional shutdown will be done, e.g. only the
+close_notify (see <i>SSL_shutdown</i>(3)) will be called.
+Otherwise a bidirectional shutdown will be done. If used
+within <i>close()</i> it defaults to true, if used within
+<i>stop_SSL()</i> it defaults to false.</p>
+
+<p style="margin-left:17%;">SSL_ctx_free</p>
+
+<p style="margin-left:20%;">If you want to make sure that
+the <small>SSL</small> context of the socket is destroyed
+when you close it, set this option to a true value.</p>
+
+<p style="margin-left:11%;"><b>peek(...)</b></p>
+
+<p style="margin-left:17%;">This function has exactly the
+same syntax as <i>sysread()</i>, and performs nearly the
+same task (reading data from the socket) but will not
+advance the read position so that successive calls to
+<i>peek()</i> with the same arguments will return the same
+results. This function requires OpenSSL 0.9.6a or later to
+work.</p>
+
+<p style="margin-left:11%;"><b><i>pending()</i></b></p>
+
+<p style="margin-left:17%;">This function will let you know
+how many bytes of data are immediately ready for reading
+from the socket. This is especially handy if you are doing
+reads on a blocking socket or just want to know if new data
+has been sent over the socket.</p>
+
+<p style="margin-left:11%;"><b><i>get_cipher()</i></b></p>
+
+<p style="margin-left:17%;">Returns the string form of the
+cipher that the IO::Socket::SSL object is using.</p>
+
+
+<p style="margin-left:11%;"><b><i>dump_peer_certificate()</i></b></p>
+
+<p style="margin-left:17%;">Returns a parsable string with
+select fields from the peer <small>SSL</small> certificate.
+This method directly returns the result of the
+<i>dump_peer_certificate()</i> method of Net::SSLeay.</p>
+
+
+<p style="margin-left:11%;"><b>peer_certificate($field)</b></p>
+
+<p style="margin-left:17%;">If a peer certificate exists,
+this function can retrieve values from it. If no field is
+given the internal representation of certificate from
+Net::SSLeay is returned. The following fields can be
+queried: <br>
+authority (alias issuer)</p>
+
+<p style="margin-left:29%;">The certificate authority which
+signed the certificate.</p>
+
+<p style="margin-left:17%;">owner (alias subject)</p>
+
+<p style="margin-left:29%;">The owner of the
+certificate.</p>
+
+<p style="margin-left:17%;">commonName (alias cn) &minus;
+only for Net::SSLeay version &gt;=1.30</p>
+
+<p style="margin-left:29%;">The common name, usually the
+server name for <small>SSL</small> certificates.</p>
+
+<p style="margin-left:17%;">subjectAltNames &minus; only
+for Net::SSLeay version &gt;=1.33</p>
+
+<p style="margin-left:29%;">Alternative names for the
+subject, usually different names for the same server, like
+example.org, example.com, *.example.com.</p>
+
+<p style="margin-left:29%; margin-top: 1em">It returns a
+list of (typ,value) with typ <small>GEN_DNS,
+GEN_IPADD</small> etc (these constants are exported from
+IO::Socket::SSL). See
+Net::SSLeay::X509_get_subjectAltNames.</p>
+
+<p style="margin-left:11%;"><b>get_servername</b></p>
+
+<p style="margin-left:17%;">This gives the name requested
+by the client if Server Name Indication ( <small>SNI</small>
+) was used.</p>
+
+
+<p style="margin-left:11%;"><b>verify_hostname($hostname,$scheme)</b></p>
+
+<p style="margin-left:17%;">This verifies the given
+hostname against the peer certificate using the given
+scheme. Hostname is usually what you specify within the
+PeerAddr.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Verification of
+hostname against a certificate is different between various
+applications and RFCs. Some scheme allow wildcards for
+hostnames, some only in subjectAltNames, and even their
+different wildcard schemes are possible.</p>
+
+<p style="margin-left:17%; margin-top: 1em">To ease the
+verification the following schemes are predefined: <br>
+ldap (rfc4513), pop3,imap,acap (rfc2995), nntp (rfc4642)</p>
+
+<p style="margin-left:29%;">Simple wildcards in
+subjectAltNames are possible, e.g. *.example.org matches
+www.example.org but not lala.www.example.org. If nothing
+from subjectAltNames match it checks against the common
+name, but there are no wildcards allowed.</p>
+
+<p style="margin-left:17%;">http (rfc2818), alias is
+www</p>
+
+<p style="margin-left:29%;">Extended wildcards in
+subjectAltNames and common name are possible, e.g.
+*.example.org or even www*.example.org. The common name will
+be only checked if no names are given in
+subjectAltNames.</p>
+
+<p style="margin-left:17%;">smtp (rfc3207)</p>
+
+<p style="margin-left:29%;">This <small>RFC</small>
+doesn&rsquo;t say much useful about the verification so it
+just assumes that subjectAltNames are possible, but no
+wildcards are possible anywhere.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="6%">
+
+
+<p>none</p></td>
+<td width="6%"></td>
+<td width="71%">
+
+
+<p>No verification will be done. Actually is does not make
+any sense to call verify_hostname in this case.</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">The scheme can
+be given either by specifying the name for one of the above
+predefined schemes, or by using a hash which can have the
+following keys and values: <br>
+check_cn: 0|&rsquo;always&rsquo;|&rsquo;when_only&rsquo;</p>
+
+<p style="margin-left:29%;">Determines if the common name
+gets checked. If &rsquo;always&rsquo; it will always be
+checked (like in ldap), if &rsquo;when_only&rsquo; it will
+only be checked if no names are given in subjectAltNames
+(like in http), for any other values the common name will
+not be checked.</p>
+
+<p style="margin-left:17%;">wildcards_in_alt:
+0|&rsquo;leftmost&rsquo;|&rsquo;anywhere&rsquo;</p>
+
+<p style="margin-left:29%;">Determines if and where
+wildcards in subjectAltNames are possible. If
+&rsquo;leftmost&rsquo; only cases like *.example.org will be
+possible (like in ldap), for &rsquo;anywhere&rsquo;
+www*.example.org is possible too (like http), dangerous
+things like but www.*.org or even &rsquo;*&rsquo; will not
+be allowed.</p>
+
+<p style="margin-left:17%;">wildcards_in_cn:
+0|&rsquo;leftmost&rsquo;|&rsquo;anywhere&rsquo;</p>
+
+<p style="margin-left:29%;">Similar to wildcards_in_alt,
+but checks the common name. There is no predefined scheme
+which allows wildcards in common names.</p>
+
+<p style="margin-left:17%;">callback: \&amp;coderef</p>
+
+<p style="margin-left:29%;">If you give a subroutine for
+verification it will be called with the arguments
+($hostname,$commonName,@subjectAltNames), where hostname is
+the name given for verification, commonName is the result
+from peer_certificate(&rsquo;cn&rsquo;) and subjectAltNames
+is the result from
+peer_certificate(&rsquo;subjectAltNames&rsquo;).</p>
+
+<p style="margin-left:29%; margin-top: 1em">All other
+arguments for the verification scheme will be ignored in
+this case.</p>
+
+
+<p style="margin-left:11%;"><b><i>next_proto_negotiated()</i></b></p>
+
+<p style="margin-left:17%;">This method returns the name of
+negotiated protocol &minus; e.g. &rsquo;http/1.1&rsquo;. It
+works for both client and server side of <small>SSL</small>
+connection.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>NPN</small>
+support is available with Net::SSLeay 1.46+ and
+openssl&minus;1.0.1+. To check support you might call
+<tt>&quot;IO::Socket::SSL&minus;&quot;</tt><i>can_npn()</i>&gt;.</p>
+
+<p style="margin-left:11%;"><b><i>errstr()</i></b></p>
+
+<p style="margin-left:17%;">Returns the last error (in
+string form) that occurred. If you do not have a real object
+to perform this method on, call
+<i>IO::Socket::SSL::errstr()</i> instead.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For read and
+write errors on non-blocking sockets, this method may
+include the string <tt>&quot;SSL wants a read
+first!&quot;</tt> or <tt>&quot;SSL wants a write
+first!&quot;</tt> meaning that the other side is expecting
+to read from or write to the socket and wants to be
+satisfied before you get to do anything. But with version
+0.98 you are better comparing the global exported variable
+<tt>$SSL_ERROR</tt> against the exported symbols
+<small>SSL_WANT_READ</small> and
+<small>SSL_WANT_WRITE.</small></p>
+
+<p style="margin-left:11%;"><b><i>opened()</i></b></p>
+
+<p style="margin-left:17%;">This returns false if the
+socket could not be opened, 1 if the socket could be opened
+and the <small>SSL</small> handshake was successful done and
+&minus;1 if the underlying IO::Handle is open, but the
+<small>SSL</small> handshake failed.</p>
+
+
+<p style="margin-left:11%;"><b>IO::Socket::SSL&minus;&gt;start_SSL($socket,
+... )</b></p>
+
+<p style="margin-left:17%;">This will convert a glob
+reference or a socket that you provide to an IO::Socket::SSL
+object. You may also pass parameters to specify context or
+connection options as with a call to <i>new()</i>. If you
+are using this function on an <i>accept()</i>ed socket, you
+must set the parameter &quot;SSL_server&quot; to 1, i.e.
+IO::Socket::SSL&minus;&gt;start_SSL($socket, SSL_server
+=&gt; 1). If you have a class that inherits from
+IO::Socket::SSL and you want the <tt>$socket</tt> to be
+blessed into your own class instead, use
+MyClass&minus;&gt;start_SSL($socket) to achieve the desired
+effect.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that if
+<i>start_SSL()</i> fails in <small>SSL</small> negotiation,
+<tt>$socket</tt> will remain blessed in its original class.
+For non-blocking sockets you better just upgrade the socket
+to IO::Socket::SSL and call accept_SSL or connect_SSL and
+the upgraded object. To just upgrade the socket set
+<b>SSL_startHandshake</b> explicitly to 0. If you call
+start_SSL w/o this parameter it will revert to blocking
+behavior for accept_SSL and connect_SSL.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If given the
+parameter &quot;Timeout&quot; it will stop if after the
+timeout no <small>SSL</small> connection was established.
+This parameter is only used for blocking sockets, if it is
+not given the default Timeout from the underlying IO::Socket
+will be used.</p>
+
+<p style="margin-left:11%;"><b>stop_SSL(...)</b></p>
+
+<p style="margin-left:17%;">This is the opposite of
+<i>start_SSL()</i>, e.g. it will shutdown the
+<small>SSL</small> connection and return to the class before
+<i>start_SSL()</i>. It gets the same arguments as
+<i>close()</i>, in fact <i>close()</i> calls
+<i>stop_SSL()</i> (but without downgrading the class).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Will return
+true if it succeeded and undef if failed. This might be the
+case for non-blocking sockets. In this case $! is set to
+<small>EAGAIN</small> and the ssl error to
+<small>SSL_WANT_READ</small> or
+<small>SSL_WANT_WRITE.</small> In this case the call should
+be retried again with the same arguments once the socket is
+ready is until it succeeds.</p>
+
+
+<p style="margin-left:11%;"><b>IO::Socket::SSL&minus;&gt;new_from_fd($fd,
+...)</b></p>
+
+<p style="margin-left:17%;">This will convert a socket
+identified via a file descriptor into an <small>SSL</small>
+socket. Note that the argument list does not include a
+&quot; <small>MODE&quot;</small> argument; if you supply
+one, it will be thoughtfully ignored (for compatibility with
+IO::Socket::INET). Instead, a mode of &rsquo;+&lt;&rsquo; is
+assumed, and the file descriptor passed must be able to
+handle such I/O because the initial <small>SSL</small>
+handshake requires bidirectional communication.</p>
+
+
+<p style="margin-left:11%;"><b>IO::Socket::SSL::set_default_context(...)</b></p>
+
+<p style="margin-left:17%;">You may use this to make
+IO::Socket::SSL automatically re-use a given context (unless
+specifically overridden in a call to <i>new()</i>). It
+accepts one argument, which should be either an
+IO::Socket::SSL object or an IO::Socket::SSL::SSL_Context
+object. See the SSL_reuse_ctx option of <i>new()</i> for
+more details. Note that this sets the default context
+globally, so use with caution (esp. in mod_perl
+scripts).</p>
+
+
+<p style="margin-left:11%;"><b>IO::Socket::SSL::set_default_session_cache(...)</b></p>
+
+<p style="margin-left:17%;">You may use this to make
+IO::Socket::SSL automatically re-use a given session cache
+(unless specifically overridden in a call to <i>new()</i>).
+It accepts one argument, which should be an
+IO::Socket::SSL::Session_Cache object or similar (e.g
+something which implements get_session and add_session like
+IO::Socket::SSL::Session_Cache does). See the
+SSL_session_cache option of <i>new()</i> for more details.
+Note that this sets the default cache globally, so use with
+caution.</p>
+
+
+<p style="margin-left:11%;"><b>IO::Socket::SSL::set_defaults(%args)</b></p>
+
+<p style="margin-left:17%;">With this function one can set
+defaults for all SSL_* parameter used for creation of the
+context, like the SSL_verify* parameter. <br>
+mode &minus; set default SSL_verify_mode <br>
+callback &minus; set default SSL_verify_callback <br>
+scheme &minus; set default SSL_verifycn_scheme <br>
+name &minus; set default SSL_verifycn_name</p>
+
+<p style="margin-left:29%;">If not given and scheme is hash
+reference with key callback it will be set to
+&rsquo;unknown&rsquo;</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+methods are unsupported (not to mention futile!) and
+IO::Socket::SSL will emit a large <i><small>CROAK</small>
+()</i> if you are silly enough to use them: <br>
+truncate <br>
+stat <br>
+ungetc <br>
+setbuf <br>
+setvbuf <br>
+fdopen <br>
+send/recv</p>
+
+<p style="margin-left:17%;">Note that <i>send()</i> and
+<i>recv()</i> cannot be reliably trapped by a tied
+filehandle (such as that used by IO::Socket::SSL) and so may
+send unencrypted data over the socket. Object-oriented calls
+to these functions will fail, telling you to use the
+print/printf/syswrite and read/sysread families instead.</p>
+
+<h2>ERROR HANDLING
+<a name="ERROR HANDLING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If an
+<small>SSL</small> specific error occurs the global variable
+<tt>$SSL_ERROR</tt> will be set. If the error occurred on an
+existing <small>SSL</small> socket the method
+<tt>&quot;errstr&quot;</tt> will give access to the latest
+socket specific error. Both <tt>$SSL_ERROR</tt> and
+<tt>&quot;errstr&quot;</tt> method give a dualvar similar to
+<tt>$!</tt>, e.g. providing an error number in numeric
+context or an error description in string context.</p>
+
+<h2>NON-BLOCKING I/O
+<a name="NON-BLOCKING I/O"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you have a
+non-blocking socket, the expected behavior on read, write,
+accept or connect is to set <tt>$!</tt> to
+<small>EAGAIN</small> if the operation can not be completed
+immediately.</p>
+
+<p style="margin-left:11%; margin-top: 1em">With
+<small>SSL</small> there are cases, like with
+<small>SSL</small> handshakes, where the write operation can
+not be completed until it can read from the socket or vice
+versa. In these cases <tt>$!</tt> is set to
+<small>EGAIN</small> like expected, and additionally
+<tt>$SSL_ERROR</tt> is set to either
+<small>SSL_WANT_READ</small> or
+<small>SSL_WANT_WRITE.</small> Thus if you get
+<small>EAGAIN</small> on a <small>SSL</small> socket you
+must check <tt>$SSL_ERROR</tt> for SSL_WANT_* and adapt your
+event mask accordingly.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using readline
+on non-blocking sockets does not make much sense and I would
+advise against using it. And, while the behavior is not
+documented for other IO::Socket classes, it will try to
+emulate the behavior seen there, e.g. to return the received
+data instead of blocking, even if the line is not complete.
+If an unrecoverable error occurs it will return nothing,
+even if it already received some data.</p>
+
+<h2>SNI Support
+<a name="SNI Support"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Newer
+extensions to <small>SSL</small> can distinguish between
+multiple hostnames on the same <small>IP</small> address
+using Server Name Indication ( <small>SNI</small> ).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Support for
+<small>SNI</small> on the client side was added somewhere in
+the OpenSSL 0.9.8 series, but only with 1.0 a bug was fixed
+when the server could not decide about its hostname.
+Therefore client side <small>SNI</small> is only supported
+with OpenSSL 1.0 or higher in IO::Socket::SSL. With a
+supported version, <small>SNI</small> is used automatically
+on the client side, if it can determine the hostname from
+<tt>&quot;PeerAddr&quot;</tt> or
+<tt>&quot;PeerHost&quot;</tt>. On unsupported OpenSSL
+versions it will silently not use <small>SNI.</small> The
+hostname can also be given explicitly given with
+<tt>&quot;SSL_hostname&quot;</tt>, but in this case it will
+throw in error, if <small>SNI</small> is not supported. To
+check for support you might call
+<tt>&quot;IO::Socket::SSL&minus;&quot;</tt><i>can_client_sni()</i>&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">On the server
+side earlier versions of OpenSSL are supported, but only
+together with Net::SSLeay version &gt;= 1.50. To check for
+support you might call
+<tt>&quot;IO::Socket::SSL&minus;&quot;</tt><i>can_server_sni()</i>&gt;.
+If server side <small>SNI</small> is supported, you might
+specify different certificates per host with
+<tt>&quot;SSL_cert*&quot;</tt> and
+<tt>&quot;SSL_key*&quot;</tt>, and check the requested name
+using <tt>&quot;get_servername&quot;</tt>.</p>
+
+<h2>RETURN VALUES
+<a name="RETURN VALUES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A few changes
+have gone into IO::Socket::SSL v0.93 and later with respect
+to return values. The behavior on success remains unchanged,
+but for <i>all</i> functions, the return value on error is
+now an empty list. Therefore, the return value will be false
+in all contexts, but those who have been using the return
+values as arguments to subroutines (like
+<tt>&quot;mysub(IO::Socket::SSL(...)&minus;&quot;</tt>new,
+...)&gt;) may run into problems. The moral of the story:
+<i>always</i> check the return values of these functions
+before using them in any way that you consider
+meaningful.</p>
+
+<h2>DEBUGGING
+<a name="DEBUGGING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you are
+having problems using IO::Socket::SSL despite the fact that
+can recite backwards the section of this documentation
+labelled &rsquo;Using <small>SSL</small> &rsquo;, you should
+try enabling debugging. To specify the debug level, pass
+&rsquo;debug#&rsquo; (where # is a number from 0 to 3) to
+IO::Socket::SSL when calling it. The debug level will also
+be propagated to Net::SSLeay::trace, see also Net::SSLeay:
+<br>
+use IO::Socket::SSL qw(debug0);</p>
+
+<p style="margin-left:17%;">No debugging (default).</p>
+
+<p style="margin-left:11%;">use IO::Socket::SSL
+qw(debug1);</p>
+
+<p style="margin-left:17%;">Print out errors from
+IO::Socket::SSL and ciphers from Net::SSLeay.</p>
+
+<p style="margin-left:11%;">use IO::Socket::SSL
+qw(debug2);</p>
+
+<p style="margin-left:17%;">Print also information about
+call flow from IO::Socket::SSL and progress information from
+Net::SSLeay.</p>
+
+<p style="margin-left:11%;">use IO::Socket::SSL
+qw(debug3);</p>
+
+<p style="margin-left:17%;">Print also some data dumps from
+IO::Socket::SSL and from Net::SSLeay.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">See the
+&rsquo;example&rsquo; directory.</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+depends on Net::SSLeay. Up to version 1.43 of Net::SSLeay it
+was not thread safe, although it did probably work if you
+did not use SSL_verify_callback and SSL_password_cb.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use
+IO::Socket::SSL together with threads you should load it
+(e.g. use or require) inside the main thread before creating
+any other threads which use it. This way it is much faster
+because it will be initialized only once. Also there are
+reports that it might crash the other way.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Creating an
+IO::Socket::SSL object in one thread and closing it in
+another thread will not work.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+does not work together with Storable::fd_retrieve/fd_store.
+See <small>BUGS</small> file for more information and how to
+work around the problem.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Non-blocking
+and timeouts (which are based on non-blocking) are not
+supported on Win32, because the underlying IO::Socket::INET
+does not support non-blocking on this platform.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have a
+server and it looks like you have a memory leak you might
+check the size of your session cache. Default for
+Net::SSLeay seems to be 20480, see the example for
+SSL_create_ctx_callback for how to limit it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The default for
+SSL_verify_mode on the client is currently
+<small>SSL_VERIFY_NONE,</small> which is a very bad idea,
+thus the default will change in the near future. See
+documentation for SSL_verify_mode for more information.</p>
+
+<h2>LIMITATIONS
+<a name="LIMITATIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::SSL
+uses Net::SSLeay as the shiny interface to OpenSSL, which is
+the shiny interface to the ugliness of <small>SSL.</small>
+As a result, you will need both Net::SSLeay and OpenSSL on
+your computer before using this module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have
+Scalar::Util (standard with Perl 5.8.0 and above) or
+WeakRef, IO::Socket::SSL sockets will auto-close when they
+go out of scope, just like IO::Socket::INET sockets. If you
+do not have one of these modules, then IO::Socket::SSL
+sockets will stay open until the program ends or you
+explicitly close them. This is due to the fact that a
+circular reference is required to make IO::Socket::SSL
+sockets act simultaneously like objects and glob
+references.</p>
+
+<h2>DEPRECATIONS
+<a name="DEPRECATIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+functions are deprecated and are only retained for
+compatibility: <i><br>
+context_init()</i></p>
+
+<p style="margin-left:14%;">use the SSL_reuse_ctx option if
+you want to re-use a context</p>
+
+<p style="margin-left:11%;"><i>socketToSSL()</i> and
+<i>socket_to_SSL()</i></p>
+
+<p style="margin-left:14%;">use
+IO::Socket::SSL&minus;&gt;<i>start_SSL()</i> instead</p>
+
+<p style="margin-left:11%;"><i>kill_socket()</i></p>
+
+<p style="margin-left:14%;">use <i>close()</i> instead</p>
+
+
+<p style="margin-left:11%;"><i>get_peer_certificate()</i></p>
+
+<p style="margin-left:14%;">use the
+<i>peer_certificate()</i> function instead. Used to return
+X509_Certificate with methods subject_name and issuer_name.
+Now simply returns <tt>$self</tt> which has these methods
+(although deprecated).</p>
+
+<p style="margin-left:11%;"><i>issuer_name()</i></p>
+
+<p style="margin-left:14%;">use peer_certificate(
+&rsquo;issuer&rsquo; ) instead</p>
+
+<p style="margin-left:11%;"><i>subject_name()</i></p>
+
+<p style="margin-left:14%;">use peer_certificate(
+&rsquo;subject&rsquo; ) instead</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">IO::Socket::INET,
+IO::Socket::INET6, IO::Socket::IP, Net::SSLeay.</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Steffen
+Ullrich, &lt;steffen at genua.de&gt; is the current
+maintainer.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Peter Behroozi,
+&lt;behrooz at fas.harvard.edu&gt; (Note the lack of an
+&quot;i&quot; at the end of &quot;behrooz&quot;)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Marko Asplund,
+&lt;marko.asplund at kronodoc.fi&gt;, was the original
+author of IO::Socket::SSL.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Patches
+incorporated from various people, see file Changes.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The original
+versions of this module are Copyright (C) 1999&minus;2002
+Marko Asplund.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The rewrite of
+this module is Copyright (C) 2002&minus;2005 Peter
+Behroozi.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Versions 0.98
+and newer are Copyright (C) 2006&minus;2013 Steffen
+Ullrich.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This module is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+
+<h2>Appendix: Using SSL
+<a name="Appendix: Using SSL"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you are
+unfamiliar with the way OpenSSL works, good references may
+be found in both the book &quot;Network Security with
+OpenSSL&quot; (Oreilly &amp; Assoc.) and the web site
+&lt;http://www.tldp.org/HOWTO/SSL&minus;Certificates&minus;HOWTO/&gt;.
+Read on for a quick overview.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Long of
+It (Detail)</b> <br>
+The usual reason for using <small>SSL</small> is to keep
+your data safe. This means that not only do you have to
+encrypt the data while it is being transported over a
+network, but you also have to make sure that the right
+person gets the data. To accomplish this with
+<small>SSL,</small> you have to use certificates. A
+certificate closely resembles a Government-issued
+<small>ID</small> (at least in places where you can trust
+them). The <small>ID</small> contains some sort of
+identifying information such as a name and address, and is
+usually stamped with a seal of Government Approval.
+Theoretically, this means that you may trust the information
+on the card and do business with the owner of the card. The
+same ideas apply to <small>SSL</small> certificates, which
+have some identifying information and are
+&quot;stamped&quot; [most people refer to this as
+<i>signing</i> instead] by someone (a Certificate Authority)
+who you trust will adequately verify the identifying
+information. In this case, because of some clever number
+theory, it is extremely difficult to falsify the stamping
+process. Another useful consequence of number theory is that
+the certificate is linked to the encryption process, so you
+may encrypt data (using information on the certificate) that
+only the certificate owner can decrypt.</p>
+
+<p style="margin-left:11%; margin-top: 1em">What does this
+mean for you? It means that at least one person in the party
+has to have an <small>ID</small> to get drinks :&minus;).
+Seriously, it means that one of the people communicating has
+to have a certificate to ensure that your data is safe. For
+client/server interactions, the server must <b>always</b>
+have a certificate. If the server wants to verify that the
+client is safe, then the client must also have a personal
+certificate. To verify that a certificate is safe, one
+compares the stamped &quot;seal&quot; [commonly called an
+<i>encrypted digest/hash/signature</i>] on the certificate
+with the official &quot;seal&quot; of the Certificate
+Authority to make sure that they are the same. To do this,
+you will need the [unfortunately named] certificate of the
+Certificate Authority. With all these in hand, you can set
+up a <small>SSL</small> connection and be reasonably
+confident that no-one is reading your data.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Short of
+It (Summary)</b> <br>
+For servers, you will need to generate a cryptographic
+private key and a certificate request. You will need to send
+the certificate request to a Certificate Authority to get a
+real certificate back, after which you can start serving
+people. For clients, you will not need anything unless the
+server wants validation, in which case you will also need a
+private key and a real certificate. For more information
+about how to get these, see
+&lt;http://www.modssl.org/docs/2.8/ssl_faq.html#ToC24&gt;.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:46:46 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>EXPLAIN</title>
+
+</head>
+<body>
+
+<h1 align="center">EXPLAIN</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#OUTPUTS">OUTPUTS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">EXPLAIN &minus;
+show the execution plan of a statement</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">EXPLAIN [ (
+<i>option</i> [, ...] ) ] <i>statement</i> <br>
+EXPLAIN [ ANALYZE ] [ VERBOSE ] <i>statement</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>option</i> can be one of:</p>
+
+<p style="margin-left:11%; margin-top: 1em">ANALYZE [
+<i>boolean</i> ] <br>
+VERBOSE [ <i>boolean</i> ] <br>
+COSTS [ <i>boolean</i> ] <br>
+BUFFERS [ <i>boolean</i> ] <br>
+TIMING [ <i>boolean</i> ] <br>
+FORMAT { TEXT | XML | JSON | YAML }</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This command
+displays the execution plan that the PostgreSQL planner
+generates for the supplied statement. The execution plan
+shows how the table(s) referenced by the statement will be
+scanned &mdash; by plain sequential scan, index scan, etc.
+&mdash; and if multiple tables are referenced, what join
+algorithms will be used to bring together the required rows
+from each input table.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The most
+critical part of the display is the estimated statement
+execution cost, which is the planner's guess at how long it
+will take to run the statement (measured in cost units that
+are arbitrary, but conventionally mean disk page fetches).
+Actually two numbers are shown: the start&minus;up cost
+before the first row can be returned, and the total cost to
+return all the rows. For most queries the total cost is what
+matters, but in contexts such as a subquery in EXISTS, the
+planner will choose the smallest start&minus;up cost instead
+of the smallest total cost (since the executor will stop
+after getting one row, anyway). Also, if you limit the
+number of rows to return with a LIMIT clause, the planner
+makes an appropriate interpolation between the endpoint
+costs to estimate which plan is really the cheapest.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The ANALYZE
+option causes the statement to be actually executed, not
+only planned. Then actual runtime statistics are added to
+the display, including the total elapsed time expended
+within each plan node (in milliseconds) and the total number
+of rows it actually returned. This is useful for seeing
+whether the planner's estimates are close to reality.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Important</big></b>
+<br>
+Keep in mind that the statement is actually executed when
+the ANALYZE option is used. Although <b>EXPLAIN</b> will
+discard any output that a <b>SELECT</b> would return, other
+side effects of the statement will happen as usual. If you
+wish to use <b>EXPLAIN ANALYZE</b> on an <b>INSERT</b>,
+<b>UPDATE</b>, <b>DELETE</b>, <b>CREATE TABLE AS</b>, or
+<b>EXECUTE</b> statement without letting the command affect
+your data, use this approach:</p>
+
+<p style="margin-left:23%; margin-top: 1em">BEGIN; <br>
+EXPLAIN ANALYZE ...; <br>
+ROLLBACK;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Only the
+ANALYZE and VERBOSE options can be specified, and only in
+that order, without surrounding the option list in
+parentheses. Prior to PostgreSQL 9.0, the unparenthesized
+syntax was the only one supported. It is expected that all
+new options will be supported only in the parenthesized
+syntax.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">ANALYZE</p>
+
+<p style="margin-left:17%;">Carry out the command and show
+actual run times and other statistics. This parameter
+defaults to FALSE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">VERBOSE</p>
+
+<p style="margin-left:17%;">Display additional information
+regarding the plan. Specifically, include the output column
+list for each node in the plan tree, schema&minus;qualify
+table and function names, always label variables in
+expressions with their range table alias, and always print
+the name of each trigger for which statistics are displayed.
+This parameter defaults to FALSE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">COSTS</p>
+
+<p style="margin-left:17%;">Include information on the
+estimated startup and total cost of each plan node, as well
+as the estimated number of rows and the estimated width of
+each row. This parameter defaults to TRUE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">BUFFERS</p>
+
+<p style="margin-left:17%;">Include information on buffer
+usage. Specifically, include the number of shared blocks
+hit, read, dirtied, and written, the number of local blocks
+hit, read, dirtied, and written, and the number of temp
+blocks read and written. A <i>hit</i> means that a read was
+avoided because the block was found already in cache when
+needed. Shared blocks contain data from regular tables and
+indexes; local blocks contain data from temporary tables and
+indexes; while temp blocks contain short&minus;term working
+data used in sorts, hashes, Materialize plan nodes, and
+similar cases. The number of blocks <i>dirtied</i> indicates
+the number of previously unmodified blocks that were changed
+by this query; while the number of blocks <i>written</i>
+indicates the number of previously&minus;dirtied blocks
+evicted from cache by this backend during query processing.
+The number of blocks shown for an upper&minus;level node
+includes those used by all its child nodes. In text format,
+only non&minus;zero values are printed. This parameter may
+only be used when ANALYZE is also enabled. It defaults to
+FALSE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">TIMING</p>
+
+<p style="margin-left:17%;">Include the actual startup time
+and time spent in the node in the output. The overhead of
+repeatedly reading the system clock can slow down the query
+significantly on some systems, so it may be useful to set
+this parameter to FALSE when only actual row counts, and not
+exact times, are needed. This parameter may only be used
+when ANALYZE is also enabled. It defaults to TRUE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">FORMAT</p>
+
+<p style="margin-left:17%;">Specify the output format,
+which can be TEXT, XML, JSON, or YAML. Non&minus;text output
+contains the same information as the text output format, but
+is easier for programs to parse. This parameter defaults to
+TEXT.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>boolean</i></p>
+
+<p style="margin-left:17%;">Specifies whether the selected
+option should be turned on or off. You can write TRUE, ON,
+or 1 to enable the option, and FALSE, OFF, or 0 to disable
+it. The <i>boolean</i> value can also be omitted, in which
+case TRUE is assumed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>statement</i></p>
+
+<p style="margin-left:17%;">Any <b>SELECT</b>,
+<b>INSERT</b>, <b>UPDATE</b>, <b>DELETE</b>, <b>VALUES</b>,
+<b>EXECUTE</b>, <b>DECLARE</b>, or <b>CREATE TABLE AS</b>
+statement, whose execution plan you wish to see.</p>
+
+<h2>OUTPUTS
+<a name="OUTPUTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The command's
+result is a textual description of the plan selected for the
+<i>statement</i>, optionally annotated with execution
+statistics. Section 14.1, &ldquo;Using EXPLAIN&rdquo;, in
+the documentation describes the information provided.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">In order to
+allow the PostgreSQL query planner to make reasonably
+informed decisions when optimizing queries, the pg_statistic
+data should be up&minus;to&minus;date for all tables used in
+the query. Normally the autovacuum daemon will take care of
+that automatically. But if a table has recently had
+substantial changes in its contents, you might need to do a
+manual <b>ANALYZE</b>(7) rather than wait for autovacuum to
+catch up with the changes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In order to
+measure the run&minus;time cost of each node in the
+execution plan, the current implementation of <b>EXPLAIN
+ANALYZE</b> adds profiling overhead to query execution. As a
+result, running <b>EXPLAIN ANALYZE</b> on a query can
+sometimes take significantly longer than executing the query
+normally. The amount of overhead depends on the nature of
+the query, as well as the platform being used. The worst
+case occurs for plan nodes that in themselves require very
+little time per execution, and on machines that have
+relatively slow operating system calls for obtaining the
+time of day.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To show the
+plan for a simple query on a table with a single integer
+column and 10000 rows:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN SELECT
+* FROM foo;</p>
+
+<p style="margin-left:17%; margin-top: 1em">QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Seq Scan on foo (cost=0.00..155.00 rows=10000 width=4) <br>
+(1 row)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is the
+same query, with JSON output formatting:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN (FORMAT
+JSON) SELECT * FROM foo; <br>
+QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+[ + <br>
+{ + <br>
+&quot;Plan&quot;: { + <br>
+&quot;Node Type&quot;: &quot;Seq Scan&quot;,+ <br>
+&quot;Relation Name&quot;: &quot;foo&quot;, + <br>
+&quot;Alias&quot;: &quot;foo&quot;, + <br>
+&quot;Startup Cost&quot;: 0.00, + <br>
+&quot;Total Cost&quot;: 155.00, + <br>
+&quot;Plan Rows&quot;: 10000, + <br>
+&quot;Plan Width&quot;: 4 + <br>
+} + <br>
+} + <br>
+] <br>
+(1 row)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If there is an
+index and we use a query with an indexable WHERE condition,
+<b>EXPLAIN</b> might show a different plan:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN SELECT
+* FROM foo WHERE i = 4;</p>
+
+<p style="margin-left:17%; margin-top: 1em">QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Index Scan using fi on foo (cost=0.00..5.98 rows=1 width=4)
+<br>
+Index Cond: (i = 4) <br>
+(2 rows)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is the
+same query, but in YAML format:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN (FORMAT
+YAML) SELECT * FROM foo WHERE i='4'; <br>
+QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+&minus; Plan: + <br>
+Node Type: &quot;Index Scan&quot; + <br>
+Scan Direction: &quot;Forward&quot;+ <br>
+Index Name: &quot;fi&quot; + <br>
+Relation Name: &quot;foo&quot; + <br>
+Alias: &quot;foo&quot; + <br>
+Startup Cost: 0.00 + <br>
+Total Cost: 5.98 + <br>
+Plan Rows: 1 + <br>
+Plan Width: 4 + <br>
+Index Cond: &quot;(i = 4)&quot; <br>
+(1 row)</p>
+
+<p style="margin-left:11%; margin-top: 1em">XML format is
+left as an exercise for the reader.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is the
+same plan with cost estimates suppressed:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN (COSTS
+FALSE) SELECT * FROM foo WHERE i = 4;</p>
+
+<p style="margin-left:17%; margin-top: 1em">QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Index Scan using fi on foo <br>
+Index Cond: (i = 4) <br>
+(2 rows)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is an
+example of a query plan for a query using an aggregate
+function:</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN SELECT
+sum(i) FROM foo WHERE i &lt; 10;</p>
+
+<p style="margin-left:17%; margin-top: 1em">QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Aggregate (cost=23.93..23.93 rows=1 width=4) <br>
+&minus;&gt; Index Scan using fi on foo (cost=0.00..23.92
+rows=6 width=4) <br>
+Index Cond: (i &lt; 10) <br>
+(3 rows)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here is an
+example of using <b>EXPLAIN EXECUTE</b> to display the
+execution plan for a prepared query:</p>
+
+<p style="margin-left:17%; margin-top: 1em">PREPARE
+query(int, int) AS SELECT sum(bar) FROM test <br>
+WHERE id &gt; $1 AND id &lt; $2 <br>
+GROUP BY foo;</p>
+
+<p style="margin-left:17%; margin-top: 1em">EXPLAIN ANALYZE
+EXECUTE query(100, 200);</p>
+
+<p style="margin-left:17%; margin-top: 1em">QUERY PLAN <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+HashAggregate (cost=39.53..39.53 rows=1 width=8) (actual
+time=0.661..0.672 rows=7 loops=1) <br>
+&minus;&gt; Index Scan using test_pkey on test
+(cost=0.00..32.97 rows=1311 width=8) (actual
+time=0.050..0.395 rows=99 loops=1) <br>
+Index Cond: ((id &gt; $1) AND (id &lt; $2)) <br>
+Total runtime: 0.851 ms <br>
+(4 rows)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Of course, the
+specific numbers shown here depend on the actual contents of
+the tables involved. Also note that the numbers, and even
+the selected query strategy, might vary between PostgreSQL
+releases due to planner improvements. In addition, the
+<b>ANALYZE</b> command uses random sampling to estimate data
+statistics; therefore, it is possible for cost estimates to
+change after a fresh run of <b>ANALYZE</b>, even if the
+actual distribution of data in the table has not
+changed.</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+<b>EXPLAIN</b> statement defined in the SQL standard.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ANALYZE</b>(7)</p>
+<hr>
+</body>
+</html>

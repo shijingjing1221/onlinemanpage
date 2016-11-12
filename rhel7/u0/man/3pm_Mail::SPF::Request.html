@@ -1,0 +1,396 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:05:54 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::SPF::Request</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::SPF::Request</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::SPF::Request
+&minus; SPF request class</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use Mail::SPF;
+    my $request = Mail::SPF::Request&minus;&gt;new(
+        versions    =&gt; [1, 2],              # optional
+        scope       =&gt; 'mfrom',             # or 'helo', 'pra'
+        identity    =&gt; 'fred@example.com',
+        ip_address  =&gt; '192.168.0.1',
+        helo_identity                       # optional,
+                    =&gt; 'mta.example.com'    #   for %{h} macro expansion
+    );
+    my @versions    = $request&minus;&gt;versions;
+    my $scope       = $request&minus;&gt;scope;
+    my $authority_domain
+                    = $request&minus;&gt;authority_domain;
+    my $identity    = $request&minus;&gt;identity;   # 'localpart@domain' or 'domain'
+    my $domain      = $request&minus;&gt;domain;
+    my $localpart   = $request&minus;&gt;localpart;
+    my $ip_address  = $request&minus;&gt;ip_address;     # IPv4 or IPv6 address
+    my $ip_address_v6                           # native IPv6 address or
+                    = $request&minus;&gt;ip_address_v6;  #   IPv4&minus;mapped IPv6 address
+    my $helo_identity                           # additional HELO identity
+                    = $request&minus;&gt;helo_identity;  #   for non&minus;HELO scopes
+    my $record      = $request&minus;&gt;record;
+        # the record selected during processing of the request, may be undef
+    $request&minus;&gt;state(field =&gt; 'value');
+    my $value = $request&minus;&gt;state('field');</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An object of
+class <b>Mail::SPF::Request</b> represents an
+<small>SPF</small> request.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Constructors</b>
+<br>
+The following constructors are provided: <b><br>
+new(%options)</b>: returns <i>Mail::SPF::Request</i></p>
+
+<p style="margin-left:17%;">Creates a new
+<small>SPF</small> request object. The request is considered
+the <i>root-request</i> for any subsequent sub-requests (see
+the &quot;new_sub_request&quot; constructor).</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>%options</tt>
+is a list of key/value pairs representing any of the
+following options: <b><br>
+versions</b></p>
+
+<p style="margin-left:23%;">A reference to an <i>array</i>
+of <i>integer</i>s listing the versions of
+<small>SPF</small> records that may be used for the
+<small>SPF</small> check. Only those record versions that
+cover the desired scope will actually be used. At least one
+applicable version must be specified. For a single record
+version, a simple scalar may be specified instead of an
+array-ref. Defaults to all versions that cover the desired
+scope (see below); defaults to <b>[1, 2]</b> for the default
+scope of <b>&rsquo;mfrom&rsquo;</b>.</p>
+
+<p style="margin-left:23%; margin-top: 1em">The following
+versions are supported:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="2%">
+
+
+<p><b>1</b></p></td>
+<td width="4%"></td>
+<td width="33%">
+
+
+<p>Use <tt>&quot;v=spf1&quot;</tt> records.</p></td>
+<td width="38%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="2%">
+
+
+<p><b>2</b></p></td>
+<td width="4%"></td>
+<td width="33%">
+
+
+<p>Use <tt>&quot;spf2.0&quot;</tt> records.</p></td>
+<td width="38%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:23%; margin-top: 1em"><i>Example</i>:
+A value of <b>1</b> (or <b>[1]</b>) means that only
+<tt>&quot;v=spf1&quot;</tt> records should be used for the
+<small>SPF</small> check. If at the same time a scope of
+<b>&rsquo;pra&rsquo;</b> is specified, a
+<i>Mail::SPF::EInvalidScope</i> exception will be thrown as
+<tt>&quot;v=spf1&quot;</tt> records do not cover the
+<small>PRA</small> scope.</p>
+
+<p style="margin-left:17%;"><b>scope</b></p>
+
+<p style="margin-left:23%;">A string denoting the
+authorization scope of the identity that should be checked.
+Defaults to <b>&rsquo;mfrom&rsquo;</b>. The following scope
+values are supported: <b><br>
+&rsquo;helo&rsquo;</b></p>
+
+<p style="margin-left:29%;">The given identity is the
+<tt>&quot;HELO&quot;</tt> parameter of an
+<small>SMTP</small> transaction ( <small>RFC 2821</small> )
+and should be checked against <small>SPF</small> records
+that cover the <tt>&quot;helo&quot;</tt> scope
+(<tt>&quot;v=spf1&quot;</tt>). See the SPFv1 specification (
+<small>RFC 4408</small> ) for the formal definition of the
+<tt>&quot;HELO&quot;</tt> scope.</p>
+
+<p style="margin-left:23%;"><b>&rsquo;mfrom&rsquo;</b></p>
+
+<p style="margin-left:29%;">The given identity is the
+<tt>&quot;MAIL FROM&quot;</tt> parameter of an
+<small>SMTP</small> transaction ( <small>RFC 2821</small> ),
+and should be checked against <small>SPF</small> records
+that cover the <tt>&quot;mfrom&quot;</tt> scope
+(<tt>&quot;v=spf1&quot;</tt> and
+<tt>&quot;spf2.0/mfrom&quot;</tt>). See the SPFv1
+specification ( <small>RFC 4408</small> ) for the formal
+definition of the <tt>&quot;MAIL FROM&quot;</tt> scope.</p>
+
+<p style="margin-left:29%; margin-top: 1em"><i>Note</i>: In
+the case of an empty <tt>&quot;MAIL FROM&quot;</tt>
+<small>SMTP</small> transaction parameter (<tt>&quot;MAIL
+FROM:&lt;&gt;&quot;</tt>), you should perform a check with
+the <tt>&quot;helo&quot;</tt> scope instead.</p>
+
+<p style="margin-left:23%;"><b>&rsquo;pra&rsquo;</b></p>
+
+<p style="margin-left:29%;">The given identity is the
+&quot;Purported Responsible Address&quot; of an internet
+message ( <small>RFC 2822</small> ) and should be checked
+against <small>SPF</small> records that cover the
+<tt>&quot;pra&quot;</tt> scope
+(<tt>&quot;spf2.0/pra&quot;</tt>). See the
+<small>PRA</small> specification ( <small>RFC 4407</small> )
+for the formal definition of the <small>PRA</small>
+scope.</p>
+
+<p style="margin-left:17%;"><b>authority_domain</b></p>
+
+<p style="margin-left:23%;">A string denoting the domain
+name that should be queried for sender policy records.
+Defaults to the domain of the <tt>&quot;identity&quot;</tt>
+option. There is usually no need to specify the
+<tt>&quot;authority_domain&quot;</tt> option.</p>
+
+<p style="margin-left:17%;"><b>identity</b></p>
+
+<p style="margin-left:23%;"><i>Required</i>. A string
+denoting the sender identity whose authorization should be
+checked. This is a domain name for the
+<tt>&quot;helo&quot;</tt> scope, and an e&minus;mail address
+for the <tt>&quot;mfrom&quot;</tt> and
+<tt>&quot;pra&quot;</tt> scopes.</p>
+
+<p style="margin-left:23%; margin-top: 1em"><i>Note</i>: An
+empty identity must not be passed. In the case of an empty
+<tt>&quot;MAIL FROM&quot;</tt> <small>SMTP</small>
+transaction parameter, you should perform a check with the
+<tt>&quot;helo&quot;</tt> scope instead.</p>
+
+<p style="margin-left:17%;"><b>ip_address</b></p>
+
+<p style="margin-left:23%;"><i>Required</i> for checks with
+the <tt>&quot;helo&quot;</tt>, <tt>&quot;mfrom&quot;</tt>,
+and <tt>&quot;pra&quot;</tt> scopes. Either a string or a
+<i>NetAddr::IP</i> object denoting the <small>IP</small>
+address of the host claiming the identity that is being
+checked. Can be either an IPv4 or an IPv6 address. An
+IPv4&minus;mapped IPv6 address (e.g.
+&rsquo;::ffff:192.168.0.1&rsquo;) is treated as an IPv4
+address.</p>
+
+<p style="margin-left:17%;"><b>helo_identity</b></p>
+
+<p style="margin-left:23%;">A string denoting the
+<tt>&quot;HELO&quot;</tt> <small>SMTP</small> transaction
+parameter in the case that the main identity is of a scope
+other than <tt>&quot;helo&quot;</tt>. This identity is then
+used merely for the expansion of <tt>&quot;%{h}&quot;</tt>
+macros during the policy evaluation of the main identity.
+Defaults to <b>undef</b>, which will be expanded to
+<b>&rsquo;unknown&rsquo;</b>. If the main identity is of the
+<tt>&quot;helo&quot;</tt> scope, this option is unused.</p>
+
+
+<p style="margin-left:11%;"><b>new_sub_request(%options)</b>:
+returns <i>Mail::SPF::Request</i></p>
+
+<p style="margin-left:17%;">Must be invoked on an existing
+request object. Creates a new sub-request object by cloning
+the invoked request, which is then considered the new
+request&rsquo;s <i>super-request</i>. Any specified options
+(see the &quot;new&quot; constructor) override the
+parameters of the super-request. There is usually no need to
+specify any options <i>besides</i> the
+<tt>&quot;authority_domain&quot;</tt> option.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Instance
+methods</b> <br>
+The following instance methods are provided: <b><br>
+root_request</b>: returns <i>Mail::SPF::Request</i></p>
+
+<p style="margin-left:17%;">Returns the root of the
+request&rsquo;s chain of super-requests. Specifically,
+returns the request itself if it has no super-requests.</p>
+
+<p style="margin-left:11%;"><b>super_request</b>: returns
+<i>Mail::SPF::Request</i></p>
+
+<p style="margin-left:17%;">Returns the super-request of
+the request, or <b>undef</b> if there is none.</p>
+
+<p style="margin-left:11%;"><b>versions</b>: returns
+<i>list</i> of <i>string</i></p>
+
+<p style="margin-left:17%;">Returns a list of the
+<small>SPF</small> record versions that are used for
+request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;versions&quot;</tt>
+option.</p>
+
+<p style="margin-left:11%;"><b>scope</b>: returns
+<i>string</i></p>
+
+<p style="margin-left:17%;">Returns the scope of the
+request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;scope&quot;</tt> option.</p>
+
+<p style="margin-left:11%;"><b>authority_domain</b>:
+returns <i>string</i></p>
+
+<p style="margin-left:17%;">Returns the authority domain of
+the request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;authority_domain&quot;</tt>
+option.</p>
+
+<p style="margin-left:11%;"><b>identity</b>: returns
+<i>string</i></p>
+
+<p style="margin-left:17%;">Returns the identity of the
+request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;identity&quot;</tt>
+option.</p>
+
+<p style="margin-left:11%;"><b>domain</b>: returns
+<i>string</i></p>
+
+<p style="margin-left:17%;">Returns the identity domain of
+the request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;identity&quot;</tt>
+option.</p>
+
+<p style="margin-left:11%;"><b>localpart</b>: returns
+<i>string</i></p>
+
+<p style="margin-left:17%;">Returns the identity localpart
+of the request. See the description of the &quot;new&quot;
+constructor&rsquo;s <tt>&quot;identity&quot;</tt>
+option.</p>
+
+<p style="margin-left:11%;"><b>ip_address</b>: returns
+<i>NetAddr::IP</i></p>
+
+<p style="margin-left:17%;">Returns the <small>IP</small>
+address of the request as a <i>NetAddr::IP</i> object. See
+the description of the &quot;new&quot; constructor&rsquo;s
+<tt>&quot;ip_address&quot;</tt> option.</p>
+
+<p style="margin-left:11%;"><b>ip_address_v6</b>: returns
+<i>NetAddr::IP</i></p>
+
+<p style="margin-left:17%;">Like the
+<tt>&quot;ip_address&quot;</tt> method, however, an IPv4
+address is returned as an IPv4&minus;mapped IPv6 address
+(e.g. &rsquo;::ffff:192.168.0.1&rsquo;) to facilitate
+uniform processing.</p>
+
+<p style="margin-left:11%;"><b>helo_identity</b>: returns
+<i>string</i></p>
+
+<p style="margin-left:17%;">Returns the
+<tt>&quot;HELO&quot;</tt> <small>SMTP</small> transaction
+parameter of the request. See the description of the
+&quot;new&quot; constructor&rsquo;s
+<tt>&quot;helo_identity&quot;</tt> option.</p>
+
+<p style="margin-left:11%;"><b>record</b>: returns
+<i>Mail::SPF::Record</i></p>
+
+<p style="margin-left:17%;">Returns the <small>SPF</small>
+record selected during the processing of the request, or
+<b>undef</b> if there is none.</p>
+
+<p style="margin-left:11%;"><b>state($field)</b>: returns
+anything <b><br>
+state($field, $value)</b>: returns anything</p>
+
+<p style="margin-left:17%;">Provides an interface for
+storing temporary state information with the request object.
+This is primarily meant to be used internally by
+<i>Mail::SPF::Server</i> and other Mail::SPF classes.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+<tt>$value</tt> is specified, stores it in a state field
+named <tt>$field</tt>. Returns the current (new) value of
+the state field named <tt>$field</tt>. This method may be
+used as an lvalue.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::SPF,
+Mail::SPF::Server</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://tools.ietf.org/html/rfc4408&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+availability, support, and license information, see the
+<small>README</small> file included with Mail::SPF.</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Julian Mehnle
+&lt;julian@mehnle.net&gt;, Shevek
+&lt;cpan@anarres.org&gt;</p>
+<hr>
+</body>
+</html>

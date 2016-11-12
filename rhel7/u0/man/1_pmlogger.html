@@ -1,0 +1,762 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:13:33 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMLOGGER</title>
+
+</head>
+<body>
+
+<h1 align="center">PMLOGGER</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONFIGURATION FILE SYNTAX">CONFIGURATION FILE SYNTAX</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#AUTOMATIC RESTART">AUTOMATIC RESTART</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#ENVIRONMENT">ENVIRONMENT</a><br>
+<a href="#PCP ENVIRONMENT">PCP ENVIRONMENT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmlogger</b>
+&minus; create archive log for performance metrics</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmlogger</b>
+[<b>&minus;c</b> <i>configfile</i>] [<b>&minus;h</b>
+<i>host</i>] [<b>&minus;l</b> <i>logfile</i>]
+[<b>&minus;L</b>] [<b>&minus;m</b> <i>note</i>]
+[<b>&minus;n</b> <i>pmnsfile</i>] [<b>&minus;P</b>]
+[<b>&minus;r</b>] [<b>&minus;s</b> <i>endsize</i>]
+[<b>&minus;t</b> <i>interval</i>] [<b>&minus;T</b>
+<i>endtime</i>] [<b>&minus;u</b>] [<b>&minus;U</b>
+<i>username</i>] [<b>&minus;v</b> <i>volsize</i>]
+[<b>&minus;V</b> <i>version</i>] [<b>&minus;x</b> <i>fd</i>]
+[<b>&minus;y</b>] <i>archive</i></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><b>pmlogger</b></i>
+creates the archive logs of performance metric values that
+may be &lsquo;&lsquo;played back&rsquo;&rsquo; by other
+Performance Co-Pilot (see <b>PCPIntro</b>(1)) tools. These
+logs form the basis of the VCR paradigm and retrospective
+performance analysis services common to the PCP toolkit.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The mandatory
+argument <i>archive</i> is the base name for the physical
+files that constitute an archive log.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>&minus;V</b> option specifies the version for the archive
+that is generated. By default a version 2 archive is
+generated, and the only value currently supported for
+<i>version</i> is 2.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unless directed
+to another host by the <b>&minus;h</b> option,
+<b>pmlogger</b> will contact the Performance Metrics
+Collector Daemon (PMCD) on the local host and use that as
+the source of the metric values to be logged.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To support the
+required flexibility and control over what is logged and
+when, <b>pmlogger</b> maintains an independent two level
+logging state for each instance of each performance metric.
+At the first (mandatory) level, logging is allowed to be
+<b>on</b> (with an associated interval between samples), or
+<b>off</b> or <b>maybe</b>. In the latter case, the second
+(advisory) level logging is allowed to be <b>on</b> (with an
+associated interval between samples), or <b>off</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The mandatory
+level allows universal specification that some metrics must
+be logged, or must <b>not</b> be logged. The default state
+for all instances of all metrics when <b>pmlogger</b> starts
+is mandatory maybe and advisory off.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Use
+<b>pmlc</b>(1) to interrogate and change the logging state
+once <b>pmlogger</b> is running.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a
+metric&rsquo;s state is mandatory (on or off) and a request
+is made to change it to mandatory maybe, the new state is
+mandatory maybe and advisory off. If a metric&rsquo;s state
+is already advisory (on or off) and a request is made to
+change it to mandatory maybe, the current state is
+retained.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is not
+possible for <b>pmlogger</b> to log specific instances of a
+metric and all instances of the same metric concurrently. If
+specific instances are being logged and a request to log all
+instances is made, then all instances of the metric will be
+logged according to the new request, superseding any prior
+logging request for the metric. A request to log all
+instances of a metric will supersede any previous request to
+log all instances. A request to log specific instances of a
+metric when all instances are already being logged is
+refused. To do this one must turn off logging for all
+instances of the metric first. In each case, the validity of
+the request is checked first; for example a request to
+change a metric&rsquo;s logging state to advisory on when it
+is currently mandatory off is never permitted (it is
+necessary to change the state to mandatory maybe first).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Optionally,
+each system running <b>pmcd</b>(1) may also be configured to
+run a &lsquo;&lsquo;primary&rsquo;&rsquo; <b>pmlogger</b>
+instance. Like <b>pmcd</b>(1), this <b>pmlogger</b> instance
+is launched by <b>$PCP_RC_DIR/pcp</b>, and is affected by
+the files <i>$PCP_SYSCONF_DIR/pmlogger</i> (use
+<b>chkconfig</b>(1M) to activate or disable the primary
+<b>pmlogger</b> instance),
+<i>$PCP_SYSCONF_DIR/pmlogger/pmlogger.options</i> (command
+line options passed to the primary <b>pmlogger</b>) and
+<i>$PCP_SYSCONF_DIR/pmlogger/config.default</i> (the default
+initial configuration file for the primary
+<b>pmlogger</b>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The primary
+<b>pmlogger</b> instance is identified by the
+<b>&minus;P</b> option. There may be at most one
+&lsquo;&lsquo;primary&rsquo;&rsquo; <b>pmlogger</b> instance
+on each system with an active <b>pmcd</b>(1). The primary
+<b>pmlogger</b> instance (if any) must be running on the
+same host as the <b>pmcd</b>(1) to which it connects, so the
+<b>&minus;h</b> and <b>&minus;P</b> options are mutually
+exclusive.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When launched
+as a non-primary instance, <b>pmlogger</b> will exit
+immediately if the configuration file causes no metric
+logging to be scheduled. The <b>&minus;L</b> option
+overrides this behavior, and causes a non-primary
+<b>pmlogger</b> instance to
+&lsquo;&lsquo;linger&rsquo;&rsquo;, presumably pending some
+future dynamic re-configuration and state change via
+<b>pmlc</b>(1). <b>pmlogger</b> will also linger without the
+<b>&minus;L</b> option being used if all the metrics to be
+logged are logged as once only metrics. When the once only
+metrics have been logged, a warning message will be
+generated stating that the event queue is empty and no more
+events will be scheduled.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By default all
+diagnostics and errors from <b>pmlogger</b> are written to
+the file <i>pmlogger.log</i> in the directory where
+<b>pmlogger</b> is launched. The <b>&minus;l</b> option may
+be used to override the default behavior. If the log file
+cannot be created or is not writable, output is written to
+standard error instead.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If specified,
+the <b>&minus;s</b> option instructs <b>pmlogger</b> to
+terminate after a certain size in records, bytes or time
+units has been accumulated. If <i>endsize</i> is an integer
+then <i>endsize</i> records will be written to the log. If
+<i>endsize</i> is an integer suffixed by <b>b</b> or
+<b>bytes</b> then <i>endsize</i> bytes of the archive data
+will be written out (note, however, that archive log record
+boundaries will not be broken and so this limit may be
+slightly surpassed). Other viable file size units include:
+<b>K</b>, <b>Kb</b>, <b>Kbyte</b>, <b>Kilobyte</b> for
+kilobytes and <b>M</b>, <b>Mb</b>, <b>Mbyte</b>,
+<b>Megabyte</b> for megabytes and <b>G</b>, <b>Gb</b>,
+<b>Gbyte</b>, <b>Gigabyte</b> for gigabytes. These units may
+be optionally suffixed by an <b>s</b> and may be of mixed
+case. Alternatively <i>endsize</i> may be an integer or a
+floating point number suffixed using a time unit as
+described in <b>PCPIntro</b>(1) for the <i>interval</i>
+argument (to the standard PCP <b>&minus;t</b> command line
+option). <br>
+Some examples of different formats:</p>
+
+<p style="margin-left:15%;"><b>&minus;s 100 <br>
+&minus;s 100bytes <br>
+&minus;s 100K <br>
+&minus;s 100Mb <br>
+&minus;s 10Gbyte <br>
+&minus;s 10mins <br>
+&minus;s 1.5hours</b></p>
+
+<p style="margin-left:11%;">The default is for
+<b>pmlogger</b> to run forever.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>&minus;r</b> option causes the size of the physical
+record(s) for each group of metrics and the expected
+contribution of the group to the size of the PCP archive for
+one full day of collection to be reported in the log file.
+This information is reported the first time each group is
+successfully written to the archive.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>&minus;U</b> option specifies the user account under
+which to run <b>pmlogger</b>. The default is the current
+user account for interactive use. When run as a daemon, the
+unprivileged &quot;pcp&quot; account is used in current
+versions of PCP, but in older versions the superuser account
+(&quot;root&quot;) was used by default.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The log file is
+potentially a multi-volume data set, and the <b>&minus;v</b>
+option causes <b>pmlogger</b> to start a new volume after a
+certain size in records, bytes, or time units has been
+accumulated for the current volume. The format of this size
+specification is identical to that of the <b>&minus;s</b>
+option (see above). The default is for <b>pmlogger</b> to
+create a single volume log. Additional volume switches can
+also be forced asynchronously by either using <b>pmlc</b>(1)
+or sending <b>pmlogger</b> a SIGHUP signal (see below).
+Note, if a scheduled volume switch is in operation due to
+the <b>&minus;v</b> option, then its counters will be reset
+after an asynchronous switch.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Independent of
+any <b>&minus;v</b> option, each volume of an archive is
+limited to no more than 2^31 bytes, so <i>pmlogger</i> will
+automatically create a new volume for the archive before
+this limit is reached.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Normally
+<b>pmlogger</b> operates on the distributed Performance
+Metrics Name Space (PMNS), however if the <b>&minus;n</b>
+option is specified an alternative local PMNS is loaded from
+the file <i>pmnsfile.</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Under normal
+circumstances, <b>pmlogger</b> will run forever (except for
+a <b>&minus;s</b> option or a termination signal). The
+<b>&minus;T</b> option may be used to limit the execution
+time using the format of time as prescribed by
+<b>PCPIntro</b>(1). The time is interpreted within the time
+zone of the PMCD server, unless the <b>&minus;y</b> option
+is given, within which case the time zone at this logger
+host is used. <br>
+Some examples of different formats:</p>
+
+<p style="margin-left:15%;"><b>&minus;T 10mins <br>
+&minus;T &rsquo;@ 11:30&rsquo;</b></p>
+
+<p style="margin-left:11%;">From this it can be seen that
+<b>&minus;T 10mins</b> and <b>&minus;s 10mins</b> perform
+identical actions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When
+<b>pmlogger</b> receives a SIGHUP signal, the current volume
+of the log is closed, and a new volume is opened. This
+mechanism (or the alternative mechanism via <b>pmlc</b>(1))
+may be used to manage the growth of the log files &minus;
+once a log volume is closed, that file may be archived
+without ill-effect on the continued operation of
+<b>pmlogger</b>. See also the <b>&minus;v</b> option
+above.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The buffers for
+the current log may be flushed to disk using the
+<b>flush</b> command of <b>pmlc</b>(1), or by sending
+<b>pmlogger</b> a SIGUSR1 signal or by using the
+<b>&minus;u</b> option (the latter forces every log write to
+be unbuffered). This is useful when the log needs to be read
+while <b>pmlogger</b> is still running.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When launched
+with the <b>&minus;x</b> option, pmlogger will accept
+asynchronous control requests on the file descriptor
+<i>fd</i>. This option is only expected to be used
+internally by PCP applications that support
+&lsquo;&lsquo;live record mode&rsquo;&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>&minus;m</b> option allows the string <i>note</i> to be
+appended to the map file for this instance of
+<b>pmlogger</b> in the <b>$PCP_TMP_DIR/pmlogger</b>
+directory. This is currently used internally to document the
+file descriptor (<i>fd</i>) when the <b>&minus;x</b> option
+is used, or to indicate that this <b>pmlogger</b> instance
+was started under the control of
+<b>pmlogger_check</b>(1).</p>
+
+<h2>CONFIGURATION FILE SYNTAX
+<a name="CONFIGURATION FILE SYNTAX"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+configuration file may be specified with the <b>&minus;c</b>
+option. If it is not, configuration specifications are read
+from standard input.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<i>configfile</i> does not exist, then a search is made in
+the directory <i>$PCP_SYSCONF_DIR/pmlogger</i> for a file of
+the same name, and if found that file is used, e.g. if
+<i>config.mumble</i> does not exist in the current directory
+and the file <i>$PCP_SYSCONF_DIR/pmlogger/config.mumble</i>
+does exist, then <b>&minus;c config.mumble</b> and
+<b>&minus;c $PCP_SYSCONF_DIR/pmlogger/config.mumble</b> are
+equivalent.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The syntax for
+the configuration file is as follows.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>1.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Words are separated by white space (space, tab or
+newline).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>The symbol &lsquo;&lsquo;#&rsquo;&rsquo; (hash)
+introduces a comment, and all text up to the next newline is
+ignored.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Keywords (shown in <b>bold</b> below) must appear
+literally (i.e. in lower case).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>4.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Each specification begins with the optional keyword
+<b>log</b>, followed by one of the states <b>mandatory
+on</b>, <b>mandatory off</b>, <b>mandatory maybe</b>,
+<b>advisory on</b> or <b>advisory off</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>5.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>For the <b>on</b> states, a logging interval must follow
+using the syntax &lsquo;&lsquo;<b>once</b>&rsquo;&rsquo;, or
+&lsquo;&lsquo;<b>default</b>&rsquo;&rsquo;, or
+&lsquo;&lsquo;<b>every</b> <i>N timeunits</i>&rsquo;&rsquo;,
+or simply &lsquo;&lsquo;<i>N timeunits</i>&rsquo;&rsquo;
+&minus; <i>N</i> is an unsigned integer, and
+<i>timeunits</i> is one of the keywords <b>msec</b>,
+<b>millisecond</b>, <b>sec</b>, <b>second</b>, <b>min</b>,
+<b>minute</b>, <b>hour</b> or the plural form of one of the
+above.</p> </td></tr>
+</table>
+
+<p style="margin-left:22%;">Internal limitations require
+the interval to be smaller than (approximately) 74 hours. An
+interval value of zero is a synonym for <b>once</b>. An
+interval of <b>default</b> means to use the default logging
+interval of 60 seconds; this default value may be changed to
+<i>interval</i> with the <b>&minus;t</b> command line
+option.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+</td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">The <i>interval</i> argument
+follows the syntax described in <b>PCPIntro</b>(1), and in
+the simplest form may be an unsigned integer (the implied
+units in this case are seconds).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>6.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Following the state and possible interval specifications
+comes a &lsquo;&lsquo;{&rsquo;&rsquo;, followed by a list of
+one or more metric specifications and a closing
+&lsquo;&lsquo;}&rsquo;&rsquo;. The list is white space (or
+comma) separated. If there is only one metric specification
+in the list, the braces are optional.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>7.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>A metric specification consists of a metric name
+optionally followed by a set of instance names. The metric
+name follows the standard PCP naming conventions, see
+<b>pmns</b>(5), and if the metric name is a non-leaf node in
+the PMNS (see <b>pmns</b>(5)), then <b>pmlogger</b> will
+recursively descend the PMNS and apply the logging
+specification to all descendent metric names that are leaf
+nodes in the PMNS. The set of instance names is a
+&lsquo;&lsquo;[&rsquo;&rsquo;, followed by a list of one or
+more space (or comma) separated names, numbers or strings,
+and a closing &lsquo;&lsquo;]&rsquo;&rsquo;. Elements in the
+list that are numbers are assumed to be internal instance
+identifiers, other elements are assumed to be external
+instance identifiers &minus; see <b>pmGetInDom</b>(3) for
+more information.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If no instances
+are given, then the logging specification is applied to all
+instances of the associated metric.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">8.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">There may be an arbitrary number
+of logging specifications. There is limited elimination
+amongst metrics that are listed redundantly.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>9.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Following all of the logging specifications, there may
+be an optional access control section, introduced by the
+literal token <b>[access]</b>. Thereafter come access
+control rules of the form &lsquo;&lsquo;<b>allow</b>
+<i>hostlist</i> <b>:</b> <i>operation</i>
+<b>;</b>&rsquo;&rsquo; and &lsquo;&lsquo;<b>disallow</b>
+<i>hostlist</i> <b>:</b> <i>operation</i>
+<b>;</b>&rsquo;&rsquo;.</p> </td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">The base
+<i>operations</i> are <b>advisory</b>, <b>mandatory</b> and
+<b>enquire</b>. In all other aspects, these access control
+statements follow the syntactic and semantic rules defined
+for the access control mechanisms used by PMCD and are fully
+documented in <b>pmcd</b>(1).</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For each PCP
+utility, there is a sample <b>pmlogger</b> configuration
+file that could be used to create an archive log suitable
+for replaying with that tool (i.e. includes all of the
+performance metrics used by the tool). For a tool named
+<i>foo</i> this configuration file is located in
+<i>$PCP_SYSCONF_DIR/pmlogger/config.foo</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+is a simple default configuration file for a primary
+<b>pmlogger</b> instance, and demonstrates most of the
+capabilities of the configuration specification
+language.</p>
+<pre style="margin-left:18%; margin-top: 1em">log mandatory on once { hinv.ncpu hinv.ndisk }
+log mandatory on every 10 minutes {
+    disk.all.write
+    disk.all.read
+    network.interface.in.packets [ &quot;et0&quot; ]
+    network.interface.out.packets [ &quot;et0&quot; ]
+    nfs.server.reqs [ &quot;lookup&quot; &quot;getattr&quot; &quot;read&quot; &quot;write&quot; ]
+}
+
+log advisory on every 30 minutes {
+    environ.temp
+    pmcd.pdu_in.total
+    pmcd.pdu_out.total
+}
+
+
+[access]
+disallow * : all except enquire;
+allow localhost : mandatory, advisory;</pre>
+
+
+<h2>AUTOMATIC RESTART
+<a name="AUTOMATIC RESTART"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">It is often
+useful for <b>pmlogger</b> processes (other than the primary
+instance) to be started and stopped when the local host is
+booted or shutdown. The script <i>$PCP_RC_DIR/pcplocal</i>
+and the necessary soft-links are provided, and can be
+modified by <b>root</b> to run PCP tools automatically. If
+you want to find out more before starting, read the manual
+pages for <b>rc2</b>(1), <b>rc0</b>(1), <b>shutdown</b>(1)
+and the file <i>/etc/init.d/README</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example,
+changing <i>$PCP_RC_DIR/pcplocal</i> so that it
+contains:</p>
+<pre style="margin-left:17%; margin-top: 1em">&acute;start&acute;)
+# Add startup actions here
+($PCP_BINADM_DIR/pmlogger_check &amp;)
+;;
+
+
+&acute;stop&acute;)
+# Add shutdown actions here
+($PCP_BINADM_DIR/pmsignal &minus;a &minus;s TERM pmlogger &amp;)
+;;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will start
+<b>pmlogger</b> instances at boot time and terminate them in
+an orderly fashion at system shutdown.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This script
+runs as <b>root</b>, so any <i>pmlogger</i> instances it
+launches are also run as <b>root</b>. To run some
+<b>pmlogger</b> instances as a particular user, create your
+own archive logger control file (see
+<b>pmlogger_check</b>(1)) and use the <b>su</b>(1) command.
+e.g.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">&acute;start&acute;)
+# Add startup actions here
+(su tanya &minus;c &quot;$PCP_BINADM_DIR/pmlogger_check &minus;c /usr/people/tanya/ctl&quot; &amp;)
+;;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">at boot time
+will start the <b>pmlogger</b> instances described in
+<i>/usr/people/tanya/ctl</i>, running as user
+<b>tanya</b>.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>archive</i><b>.meta</b></p>
+
+<p style="margin-left:26%;">metadata (metric descriptions,
+instance domains, etc.) for the archive log</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="14%">
+
+
+<p><i>archive</i><b>.0</b></p></td>
+<td width="1%"></td>
+<td width="74%">
+
+
+<p>initial volume of metrics values (subsequent volumes
+have suffixes <b>1</b>, <b>2</b>, ...)</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><i>archive</i><b>.index</b></p>
+
+<p style="margin-left:26%;">temporal index to support rapid
+random access to the other files in the archive log</p>
+
+
+<p style="margin-left:11%;"><b>$PCP_TMP_DIR/pmlogger</b></p>
+
+<p style="margin-left:26%;"><b>pmlogger</b> maintains the
+files in this directory as the map between the process id of
+the <b>pmlogger</b> instance and the IPC port that may be
+used to control each <b>pmlogger</b> instance (as used by
+<b>pmlc</b>(1))</p>
+
+
+<p style="margin-left:11%;"><b>$PCP_SYSCONF_DIR/pmlogger/config.default</b></p>
+
+<p style="margin-left:26%;">default configuration file for
+the primary logger instance launched from
+<b>$PCP_RC_DIR/pcp</b></p>
+
+
+<p style="margin-left:11%;"><b>$PCP_SYSCONF_DIR/pmlogger/config.</b>*</p>
+
+<p style="margin-left:26%;">assorted configuration files
+suitable for creating logs that may be subsequently replayed
+with the PCP visualization and monitoring tools</p>
+
+
+<p style="margin-left:11%;"><b>$PCP_LOG_DIR/pmlogger/</b><i>hostname</i></p>
+
+<p style="margin-left:26%;">Default directory for PCP
+archive files for performance metric values collected from
+the host <i>hostname</i>.</p>
+
+<p style="margin-left:11%;"><i>./pmlogger.log</i></p>
+
+<p style="margin-left:26%;">(or
+<b>$PCP_LOG_DIR/pmlogger/</b><i>hostname</i><b>/pmlogger.log</b>
+when started automatically by either <b>$PCP_RC_DIR/pcp</b>
+or one of the <b>pmlogger</b>(1) monitoring scripts such as
+<b>pmlogger_check</b>(1)) <br>
+all messages and diagnostics are directed here</p>
+
+
+<p style="margin-left:11%;"><b>$PCP_RC_DIR/pcplocal</b></p>
+
+<p style="margin-left:26%;">contains
+&lsquo;&lsquo;hooks&rsquo;&rsquo; to enable automatic
+restart at system boot time</p>
+
+<h2>ENVIRONMENT
+<a name="ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Normally
+<b>pmlogger</b> creates a socket to receive control messages
+from <b>pmlc</b>(1) on the first available TCP/IP port
+numbered 4330 or higher. The environment variable
+<b>PMLOGGER_PORT</b> may be used to specify an alternative
+starting port number.</p>
+
+<h2>PCP ENVIRONMENT
+<a name="PCP ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Environment
+variables with the prefix <b>PCP_</b> are used to
+parameterize the file and directory names used by PCP. On
+each installation, the file <i>/etc/pcp.conf</i> contains
+the local values for these variables. The <b>$PCP_CONF</b>
+variable may be used to specify an alternative configuration
+file, as described in <b>pcp.conf</b>(5).</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PCPIntro</b>(1),
+<b>pmcd</b>(1), <b>pmdumplog</b>(1), <b>pmlc</b>(1),
+<b>pmlogger_check</b>(1), <b>pcp.conf</b>(5),
+<b>pcp.env</b>(5) and <b>pmns</b>(5).</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The archive
+logs are sufficiently precious that <b>pmlogger</b> will not
+truncate an existing physical file. A message of the
+form</p>
+
+<p style="margin-left:12%;">__pmLogNewFile:
+&quot;foo.index&quot; already exists, not over-written <br>
+__pmLogCreate: File exists</p>
+
+<p style="margin-left:11%;">indicates this situation has
+arisen. You must explicitly remove the files and launch
+<b>pmlogger</b> again.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There may be at
+most one primary <b>pmlogger</b> instance per monitored
+host; attempting to bend this rule produces the error:</p>
+
+<p style="margin-left:12%;">pmlogger: there is already a
+primary pmlogger running</p>
+
+<p style="margin-left:11%; margin-top: 1em">Various other
+messages relating to the creation and/or deletion of files
+in <i>$PCP_TMP_DIR/pmlogger</i> suggest a permission problem
+on this directory, or some feral files have appeared
+therein.</p>
+<hr>
+</body>
+</html>

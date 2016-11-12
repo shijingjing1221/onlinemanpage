@@ -1,0 +1,517 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:25:52 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>BPFC</title>
+
+</head>
+<body>
+
+<h1 align="center">BPFC</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SYNTAX">SYNTAX</a><br>
+<a href="#SOURCE EXAMPLES">SOURCE EXAMPLES</a><br>
+<a href="#USAGE EXAMPLE">USAGE EXAMPLE</a><br>
+<a href="#LEGAL">LEGAL</a><br>
+<a href="#HISTORY">HISTORY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COLOPHON">COLOPHON</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">bpfc &minus; a
+Berkeley Packet Filter assembler and compiler</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc</b> {
+[<i>options</i>] | [<i>source-file</i>] }</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">bpfc is a small
+Berkeley Packet Filter assembler and compiler which is able
+to translate BPF assembler-like mnemonics into a numerical
+or C-like format, that can be read by tools such as
+netsniff-ng, iptables (xt_bpf) and many others. BPF is the
+one and only upstream filtering construct that is used in
+combination with packet(7) sockets, but also seccomp-BPF for
+system call sandboxing.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Linux
+kernel and also BSD kernels implement &quot;virtual
+machine&quot; like constructs and JIT compilers that mimic a
+small register-based machine in BPF architecture and execute
+filter code that is, for example, composed by bpfc on a data
+buffer that is given by network packets. The purpose of this
+is to shift computation in time, so that the kernel can drop
+or truncate incoming packets as early as possible without
+having to push them to user space for further analysis
+first. Meanwhile, BPF constructs also find application in
+other areas such as in the communication between user and
+kernel space like system call sand-boxing.</p>
+
+<p style="margin-left:11%; margin-top: 1em">At the time of
+writing this man page, the only available BPF compiler is
+part of the pcap(3) library and accessible through a
+high-level filter language that might be familiar to many
+people as tcpdump-like filters.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, it is
+quite often useful to bypass that compiler and write
+optimized code that cannot be produced by the pcap(3)
+compiler, or is wrongly optimized, or is defective on
+purpose in order to debug test kernel code. Also, a reason
+to use bpfc could be to try out some new BPF extensions that
+are not supported by other compilers. Furthermore, bpfc can
+be useful to verify JIT compiler behavior or to find
+possible bugs that need to be fixed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">bpfc is
+implemented with the help of flex(1) and bison(1), tokenizes
+the source file in the first stage and parses its content
+into an AST. In two code generation stages it emits target
+opcodes. bpfc furthermore supports Linux kernel BPF
+extensions. More about that can be found in the syntax
+section.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Linux
+kernel BPF JIT compiler is automatically turned on if
+detected by netsniff-ng. However, it can also be manually
+turned on through the command &rsquo;&rsquo;echo
+&quot;1&quot; &gt;
+/proc/sys/net/core/bpf_jit_enable&rsquo;&rsquo; (normal
+working mode) or &rsquo;&rsquo;echo &quot;2&quot; &gt;
+/proc/sys/net/core/bpf_jit_enable&rsquo;&rsquo; (debug mode
+where emitted opcodes of the image are printed to the kernel
+log). An architecture agnostic BPF JIT image disassembler
+can be found in the kernel source tree under
+&rsquo;&rsquo;tools/net/bpf_jit_disasm.c&rsquo;&rsquo; or
+within the netsniff-ng Git repository.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>-i
+&lt;source-file/-&gt;, --input &lt;source-file/-&gt;</b>
+<br>
+Read BPF assembly instruction from an input file or from
+stdin.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-p,
+--cpp</b> <br>
+Pass the bpf program through the C preprocessor before
+reading it in bpfc. This allows #define and #include
+directives (e.g. to include definitions from system headers)
+to be used in the bpf program.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-f
+&lt;format&gt;, --format &lt;format&gt;</b> <br>
+Specify a different output format than the default that is
+netsniff-ng compatible. The &lt;format&gt; specifier can be:
+C, netsniff-ng, xt_bpf, tcpdump.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-b,
+--bypass</b> <br>
+Bypass basic filter validation when emitting opcodes. This
+can be useful for explicitly creating malformed BPF
+expressions for injecting into the kernel, for example, for
+bug testing.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-V,
+--verbose</b> <br>
+Be more verbose and display some bpfc debugging
+information.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-d,
+--dump</b> <br>
+Dump all supported instructions to stdout.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-v,
+--version</b> <br>
+Show version information and exit.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-h,
+--help</b> <br>
+Show user help and exit.</p>
+
+<h2>SYNTAX
+<a name="SYNTAX"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The BPF
+architecture resp. register machine consists of the
+following elements:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Element
+Description</p>
+
+<p style="margin-left:11%; margin-top: 1em">A 32 bit wide
+accumulator <br>
+X 32 bit wide X register <br>
+M[] 16 x 32 bit wide misc registers aka &ldquo;scratch
+memory store&rdquo;, addressable from 0 to 15</p>
+
+<p style="margin-left:11%; margin-top: 1em">A program, that
+is translated by bpfc into
+&rsquo;&rsquo;opcodes&rsquo;&rsquo; is an array that
+consists of the following elements:</p>
+
+<p style="margin-left:11%; margin-top: 1em">o:16, jt:8,
+jf:8, k:32</p>
+
+<p style="margin-left:11%; margin-top: 1em">The element o
+is a 16 bit wide opcode that has a particular instruction
+encoded, jt and jf are two 8 bit wide jump targets, one for
+condition element k contains a miscellaneous argument that
+can be interpreted in different ways depending on the given
+instruction resp. opcode.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The instruction
+set consists of load, store, branch, alu, miscellaneous and
+return instructions that are also represented in bpfc
+syntax. This table also includes bpfc&rsquo;s own
+extensions. All operations are based on unsigned data
+structures:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Instruction
+Addressing mode Description</p>
+
+<p style="margin-left:11%; margin-top: 1em">ld 1, 2, 3, 4,
+10 Load word into A <br>
+ldi 4 Load word into A <br>
+ldh 1, 2 Load half-word into A <br>
+ldb 1, 2 Load byte into A <br>
+ldx 3, 4, 5, 10 Load word into X <br>
+ldxi 4 Load word into X <br>
+ldxb 5 Load byte into X</p>
+
+<p style="margin-left:11%; margin-top: 1em">st 3 Copy A
+into M[] <br>
+stx 3 Copy X into M[]</p>
+
+<p style="margin-left:11%; margin-top: 1em">jmp 6 Jump to
+label <br>
+ja 6 Jump to label <br>
+jeq 7, 8 Jump on k == A <br>
+jneq 8 Jump on k != A <br>
+jne 8 Jump on k != A <br>
+jlt 8 Jump on k &lt; A <br>
+jle 8 Jump on k &lt;= A <br>
+jgt 7, 8 Jump on k &gt; A <br>
+jge 7, 8 Jump on k &gt;= A <br>
+jset 7, 8 Jump on k &amp; A</p>
+
+<p style="margin-left:11%; margin-top: 1em">add 0, 4 A +
+&lt;x&gt; <br>
+sub 0, 4 A - &lt;x&gt; <br>
+mul 0, 4 A * &lt;x&gt; <br>
+div 0, 4 A / &lt;x&gt; <br>
+mod 0, 4 A % &lt;x&gt; <br>
+neg 0, 4 !A <br>
+and 0, 4 A &amp; &lt;x&gt; <br>
+or 0, 4 A | &lt;x&gt; <br>
+xor 0, 4 A ^ &lt;x&gt; <br>
+lsh 0, 4 A &lt;&lt; &lt;x&gt; <br>
+rsh 0, 4 A &gt;&gt; &lt;x&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">tax Copy A into
+X <br>
+txa Copy X into A</p>
+
+<p style="margin-left:11%; margin-top: 1em">ret 4, 9
+Return</p>
+
+<p style="margin-left:11%; margin-top: 1em">Addressing mode
+Syntax Description</p>
+
+<p style="margin-left:11%; margin-top: 1em">0 x Register X
+<br>
+1 [k] BHW at byte offset k in the packet <br>
+2 [x + k] BHW at the offset X + k in the packet <br>
+3 M[k] Word at offset k in M[] <br>
+4 #k Literal value stored in k <br>
+5 4*([k]&amp;0xf) Lower nibble * 4 at byte offset k in the
+packet <br>
+6 L Jump label L <br>
+7 #k,Lt,Lf Jump to Lt if true, otherwise jump to Lf <br>
+8 #k,Lt Jump to Lt if predicate is true <br>
+9 a Accumulator A <br>
+10 extension BPF extension (see next table)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Extension (and
+alias) Description</p>
+
+<p style="margin-left:11%; margin-top: 1em">#len, len,
+#pktlen, pktlen Length of packet (skb-&gt;len) <br>
+#pto, pto, #proto, proto Ethernet type field
+(skb-&gt;protocol) <br>
+#type, type Packet type (**) (skb-&gt;pkt_type) <br>
+#poff, poff Detected payload start offset <br>
+#ifx, ifx, #ifidx, ifidx Interface index
+(skb-&gt;dev-&gt;ifindex) <br>
+#nla, nla Netlink attribute of type X with offset A <br>
+#nlan, nlan Nested Netlink attribute of type X with offset A
+<br>
+#mark, mark Packet mark (skb-&gt;mark) <br>
+#que, que, #queue, queue, #Q, Q NIC queue index
+(skb-&gt;queue_mapping) <br>
+#hat, hat, #hatype, hatype NIC hardware type (**)
+(skb-&gt;dev-&gt;type) <br>
+#rxh, rxh, #rxhash, rxhash Receive hash (skb-&gt;rxhash)
+<br>
+#cpu, cpu Current CPU (raw_smp_processor_id()) <br>
+#vlant, vlant, #vlan_tci, vlan_tci VLAN TCI value
+(vlan_tx_tag_get(skb)) <br>
+#vlanp, vlanp VLAN present (vlan_tx_tag_present(skb))</p>
+
+<p style="margin-left:11%; margin-top: 1em">Further
+extension details (**) Value</p>
+
+<p style="margin-left:11%; margin-top: 1em">#type, type 0 -
+to us / host <br>
+1 - to all / broadcast <br>
+2 - to group / multicast <br>
+3 - to others (promiscuous mode) <br>
+4 - outgoing of any type</p>
+
+<p style="margin-left:11%; margin-top: 1em">#hat, hat,
+#hatype, hatype 1 - Ethernet 10Mbps <br>
+8 - APPLEtalk <br>
+19 - ATM <br>
+24 - IEEE 1394 IPv4 - RFC 2734 <br>
+32 - InfiniBand <br>
+768 - IPIP tunnel <br>
+769 - IP6IP6 tunnel <br>
+772 - Loopback device <br>
+778 - GRE over IP <br>
+783 - Linux-IrDA <br>
+801 - IEEE 802.11 <br>
+802 - IEEE 802.11 + Prism2 header <br>
+803 - IEEE 802.11 + radiotap header <br>
+823 - GRE over IP6 <br>
+824 - Netlink <br>
+[...] See include/uapi/linux/if_arp.h</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+majority of BPF extensions are available on Linux only.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are two
+types of comments in bpfc source-files:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. Multi-line
+C-style comments: /* put comment here */ <br>
+2. Single-line ASM-style comments: ; put comment here</p>
+
+<p style="margin-left:11%; margin-top: 1em">Used
+Abbreviations:</p>
+
+<p style="margin-left:11%; margin-top: 1em">BHW: byte,
+half-word, or word</p>
+
+<h2>SOURCE EXAMPLES
+<a name="SOURCE EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">In this
+section, we give a couple of examples of bpfc source files,
+in other words, some small example filter programs:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Only return
+packet headers (truncate packets):</b> <br>
+ld poff <br>
+ret a</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Only allow
+ARP packets:</b> <br>
+ldh [12] <br>
+jne #0x806, drop <br>
+ret #-1 <br>
+drop: ret #0</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Only allow
+IPv4 TCP packets:</b> <br>
+ldh [12] <br>
+jne #0x800, drop <br>
+ldb [23] <br>
+jneq #6, drop <br>
+ret #-1 <br>
+drop: ret #0</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Only allow
+IPv4 TCP SSH traffic:</b> <br>
+ldh [12] <br>
+jne #0x800, drop <br>
+ldb [23] <br>
+jneq #6, drop <br>
+ldh [20] <br>
+jset #0x1fff, drop <br>
+ldxb 4 * ([14] &amp; 0xf) <br>
+ldh [x + 14] <br>
+jeq #0x16, pass <br>
+ldh [x + 16] <br>
+jne #0x16, drop <br>
+pass: ret #-1 <br>
+drop: ret #0</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>A loadable
+x86_64 seccomp-BPF filter to allow a given set of
+syscalls:</b> <br>
+ld [4] /* offsetof(struct seccomp_data, arch) */ <br>
+jne #0xc000003e, bad /* AUDIT_ARCH_X86_64 */ <br>
+ld [0] /* offsetof(struct seccomp_data, nr) */ <br>
+jeq #15, good /* __NR_rt_sigreturn */ <br>
+jeq #231, good /* __NR_exit_group */ <br>
+jeq #60, good /* __NR_exit */ <br>
+jeq #0, good /* __NR_read */ <br>
+jeq #1, good /* __NR_write */ <br>
+jeq #5, good /* __NR_fstat */ <br>
+jeq #9, good /* __NR_mmap */ <br>
+jeq #14, good /* __NR_rt_sigprocmask */ <br>
+jeq #13, good /* __NR_rt_sigaction */ <br>
+jeq #35, good /* __NR_nanosleep */ <br>
+bad: ret #0 /* SECCOMP_RET_KILL */ <br>
+good: ret #0x7fff0000 /* SECCOMP_RET_ALLOW */</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Allow any
+(hardware accelerated) VLAN:</b> <br>
+ld vlanp <br>
+jeq #0, drop <br>
+ret #-1 <br>
+drop: ret #0</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Only allow
+traffic for (hardware accelerated) VLAN 10:</b> <br>
+ld vlant <br>
+jneq #10, drop <br>
+ret #-1 <br>
+drop: ret #0</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>More
+pedantic check for the above VLAN example:</b> <br>
+ld vlanp <br>
+jeq #0, drop <br>
+ld vlant <br>
+jneq #10, drop <br>
+ret #-1 <br>
+drop: ret #0</p>
+
+<h2>USAGE EXAMPLE
+<a name="USAGE EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc
+fubar</b> <br>
+Compile the source file &rsquo;&rsquo;fubar&rsquo;&rsquo;
+into BPF opcodes. Opcodes will be directed to stdout.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc -f
+xt_bpf -b -p -i fubar, resp. iptables -A INPUT -m bpf
+--bytecode &lsquo;bpfc -f xt_bpf -i fubar&lsquo; -j LOG</b>
+<br>
+Compile the source file &rsquo;&rsquo;fubar&rsquo;&rsquo;
+into BPF opcodes, bypass basic filter validation and emit
+opcodes in netfilter&rsquo;s xt_bpf readable format. Note
+that the source file &rsquo;&rsquo;fubar&rsquo;&rsquo; is
+first passed to the C preprocessor for textual replacements
+before handing over to the bpfc compiler.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc -</b>
+<br>
+Read bpfc instruction from stdin and emit opcodes to
+stdout.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc foo
+&gt; bar, resp. netsniff-ng -f bar ...</b> <br>
+Compile filter instructions from file foo and redirect
+bpfc&rsquo;s output into the file bar, that can then be read
+by netsniff-ng(8) through option &minus;f.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc -f
+tcpdump -i fubar</b> <br>
+Output opcodes from source file fubar in the same behavior
+as &rsquo;&rsquo;tcpdump &minus;ddd&rsquo;&rsquo;.</p>
+
+<h2>LEGAL
+<a name="LEGAL"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">bpfc is
+licensed under the GNU GPL version 2.0.</p>
+
+<h2>HISTORY
+<a name="HISTORY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>bpfc</b> was
+originally written for the netsniff-ng toolkit by Daniel
+Borkmann. It is currently maintained by Tobias Klauser
+&lt;tklauser@distanz.ch&gt; and Daniel Borkmann
+&lt;dborkma@tik.ee.ethz.ch&gt;.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>netsniff-ng</b>(8),
+<b>trafgen</b>(8), <b>mausezahn</b>(8), <b>ifpps</b>(8),
+<b>flowtop</b>(8), <b>astraceroute</b>(8),
+<b>curvetun</b>(8)</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Manpage was
+written by Daniel Borkmann.</p>
+
+<h2>COLOPHON
+<a name="COLOPHON"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This page is
+part of the Linux netsniff-ng toolkit project. A description
+of the project, and information about reporting bugs, can be
+found at http://netsniff-ng.org/.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:35:16 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Win::Hivex::Regedit</title>
+
+</head>
+<body>
+
+<h1 align="center">Win::Hivex::Regedit</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#ENCODING STRINGS">ENCODING STRINGS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Win::Hivex::Regedit
+&minus; Helper for reading and writing regedit format
+files</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> use Win::Hivex;
+ use Win::Hivex::Regedit qw(reg_import reg_export);
+ $h = Win::Hivex&minus;&gt;open ('SOFTWARE', write =&gt; 1);
+ open FILE, &quot;updates.reg&quot;;
+ reg_import (\*FILE, $h);
+ $h&minus;&gt;commit (undef);
+ reg_export ($h, &quot;\\Microsoft\\Windows NT\\CurrentVersion&quot;, \*OUTFILE,
+    prefix =&gt; &quot;HKEY_LOCAL_MACHINE\\SOFTWARE&quot;);</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Win::Hivex::Regedit
+is a helper library for reading and writing the Windows
+regedit (or <tt>&quot;.REG&quot;</tt>) file format. This is
+the textual format that is commonly used on Windows for
+distributing groups of Windows Registry changes, and this
+format is read and written by the proprietary
+<tt>&quot;reg.exe&quot;</tt> and
+<tt>&quot;regedit.exe&quot;</tt> programs supplied with
+Windows. It is <i>not</i> the same as the binary
+&quot;hive&quot; format which the hivex library itself can
+read and write. Note that the regedit format is not
+well-specified, and hence deviations can occur between what
+the Windows program can read/write and what we can
+read/write. (Please file bugs for any deviations found).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Win::Hivex::Regedit
+is the low-level Perl library. There is also a command line
+tool for combining hive files and reg files
+(<i>hivexregedit</i>(1)). If you have a Windows virtual
+machine that you need to merge regedit-format changes into,
+use the high-level <i>virt&minus;win&minus;reg</i>(1) tool
+(part of libguestfs tools).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>FUNCTIONS</small>
+<br>
+reg_import</b></p>
+
+<pre style="margin-left:11%;"> reg_import ($fh, ($h|$map), [encoding =&gt; &quot;UTF&minus;16LE&quot;]);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This function
+imports the registry keys from file handle <tt>$fh</tt>
+either into the hive <tt>$h</tt> or via a map function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The hive handle
+<tt>$h</tt> must have been opened for writing, ie. using the
+<tt>&quot;write =&gt; 1&quot;</tt> flag to
+<tt>&quot;Win::Hivex&minus;&gt;open&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the binary
+hive file, the first part of the key name (eg.
+<tt>&quot;HKEY_LOCAL_MACHINE\SOFTWARE&quot;</tt>) is not
+stored. You just have to know (somehow) that this maps to
+the <tt>&quot;SOFTWARE&quot;</tt> hive. Therefore if you are
+given a file containing a mixture of keys that have to be
+added to different hives, you have to have a way to map
+these to the hive handles. This is outside the scope of the
+hivex library, but if the second argument is a
+<small>CODEREF</small> (ie. reference to a function) then
+this <tt>$map</tt> function is called on each key name:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> map ($keyname)
+ ==&gt; ($h, $keyname)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">As shown, the
+function should return a pair, hive handle, and the true key
+name (with the prefix stripped off). For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> sub map {
+   if ($_[0] =~ /^HKEY_LOCAL_MACHINE\\SOFTWARE(.*)/i) {
+     return ($software_h, $1);
+   } else ...
+ }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;encoding&quot;
+is the encoding used by default for strings. If not
+specified, this defaults to
+<tt>&quot;UTF&minus;16LE&quot;</tt>, however we highly
+advise you to specify it. See &quot; <small>ENCODING
+STRINGS&quot;</small> below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As with the
+regedit program, we merge the new registry keys with
+existing ones, and new node values with old ones. You can
+use the <tt>&quot;&minus;&quot;</tt> (minus) character to
+delete individual keys and values. This is explained in
+detail in the Wikipedia page on the Windows Registry.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Remember you
+need to call <tt>&quot;$h&minus;&gt;commit
+(undef)&quot;</tt> on the hivex handle before any changes
+are written to the hive file. See &quot; <small>WRITING TO
+HIVE FILES&quot;</small> in <i>hivex</i>(3).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>reg_export</b></p>
+
+
+<pre style="margin-left:11%;"> reg_export ($h, $key, $fh,
+             [prefix =&gt; $prefix],
+             [unsafe_printable_strings =&gt; 1]);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This function
+exports the registry keys starting at the root <tt>$key</tt>
+and recursively downwards into the file handle
+<tt>$fh</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$key</tt>
+is a case-insensitive path of the node to start from,
+relative to the root of the hive. It is an error if this
+path does not exist. Path elements should be separated by
+backslash characters.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$prefix</tt>
+is prefixed to each key name. The usual use for this is to
+make key names appear as they would on Windows. For example
+the key <tt>&quot;\Foo&quot;</tt> in the
+<small>SOFTWARE</small> Registry, with <tt>$prefix
+&quot;HKEY_LOCAL_MACHINE\SOFTWARE&quot;</tt>, would be
+written as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> [HKEY_LOCAL_MACHINE\SOFTWARE\Foo]
+ &quot;Key 1&quot;=...
+ &quot;Key 2&quot;=...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>&quot;unsafe_printable_strings&quot;</tt> is not given
+or is false, then the output is written as pure 7 bit
+<small>ASCII,</small> with line endings which are the
+default for the local host. Strings are always encoded as
+hex bytes. This is safe because it preserves the original
+content and encoding of strings. See &quot; <small>ENCODING
+STRINGS&quot;</small> below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>&quot;unsafe_printable_strings&quot;</tt> is true, then
+strings are assumed to be <small>UTF&minus;16LE</small> and
+are converted to <small>UTF&minus;8</small> for output. The
+final zero codepoint in the string is removed if there is
+one. This is unsafe because it does not preserve the
+fidelity of the strings in the Registry and because the
+content type of strings is not always
+<small>UTF&minus;16LE.</small> However it is useful if you
+just want to display strings for quick hacking and
+debugging.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You may need to
+convert the file&rsquo;s encoding using <i>iconv</i>(1) and
+line endings using <i>unix2dos</i>(1) if sending to a
+Windows user.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Nodes and keys
+are sorted alphabetically in the output.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This function
+does <i>not</i> print a header. The real regedit program
+will print a header like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> Windows Registry Editor Version 5.00</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">followed by a
+blank line. (Other headers are possible, see the Wikipedia
+page on the Windows Registry). If you want a header, you
+need to write it out yourself.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>reg_export_node</b></p>
+
+
+<pre style="margin-left:11%;"> reg_export_node ($h, $node, $fh, ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is exactly
+the same as &quot;reg_export&quot; except that instead of
+specifying the path to a key as a string, you pass a hivex
+library <tt>$node</tt> handle.</p>
+
+<h2>ENCODING STRINGS
+<a name="ENCODING STRINGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The situation
+with encoding strings in the Registry on Windows is very
+confused. There are two main encodings that you would find
+in the binary (hive) file, 7 bit <small>ASCII</small> and
+<small>UTF&minus;16LE.</small> (Other encodings are
+possible, it&rsquo;s also possible to have arbitrary binary
+data incorrectly marked with a string type).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The hive file
+itself doesn&rsquo;t contain any indication of string
+encoding. Windows probably guesses the encoding.</p>
+
+<p style="margin-left:11%; margin-top: 1em">We think that
+regedit probably either guesses which encoding to use based
+on the file encoding, or else has different defaults for
+different versions of Windows. Neither choice is appropriate
+for a tool used in a real operating system.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using
+&quot;reg_import&quot;, you should specify the default
+encoding for strings using the <tt>&quot;encoding&quot;</tt>
+parameter. If not specified, it defaults to
+<small>UTF&minus;16LE.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">The file itself
+that is imported should be in the local encoding for files
+(usually <small>UTF&minus;8</small> on modern Linux
+systems). This means if you receive a regedit file from a
+Windows system, you may sometimes have to reencode it:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> iconv &minus;f utf&minus;16le &minus;t utf&minus;8 &lt; input.reg | dos2unix &gt; output.reg</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">When writing
+regedit files (&quot;reg_export&quot;) we bypass this
+madness completely. <i>All</i> strings (even pure
+<small>ASCII</small> ) are written as hex bytes so there is
+no doubt about how they should be encoded when they are read
+back in.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2010&minus;2011 Red Hat Inc.</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Please see the
+file <small>COPYING.LIB</small> for the full license.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Win::Hivex</i>(3),
+<i>hivexregedit</i>(1), <i>virt&minus;win&minus;reg</i>(1),
+<i>iconv</i>(1), <i>dos2unix</i>(1), <i>unix2dos</i>(1),
+<i>hivex</i>(3), <i>hivexsh</i>(1),
+&lt;http://libguestfs.org&gt;, <i>Sys::Guestfs</i>(3).</p>
+<hr>
+</body>
+</html>

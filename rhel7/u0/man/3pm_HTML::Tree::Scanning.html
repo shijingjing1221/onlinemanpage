@@ -1,0 +1,965 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:58:18 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>HTML::Tree::Scanning</title>
+
+</head>
+<body>
+
+<h1 align="center">HTML::Tree::Scanning</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Scanning HTML">Scanning HTML</a><br>
+<a href="#BACK">BACK</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">HTML::Tree::Scanning
+&minus;&minus; article: &quot;Scanning HTML&quot;</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  # This an article, not a module.</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+article by Sean M. Burke first appeared in <i>The Perl
+Journal</i> #19 and is copyright 2000 The Perl Journal. It
+appears courtesy of Jon Orwant and The Perl Journal. This
+document may be distributed under the same terms as Perl
+itself.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(Note that this
+is discussed in chapters 6 through 10 of the book <i>Perl
+and <small>LWP</small></i>
+&lt;http://lwp.interglacial.com/&gt; which was written after
+the following documentation, and which is available free
+online.)</p>
+
+<h2>Scanning HTML
+<a name="Scanning HTML"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">&minus;&minus;
+Sean M. Burke</p>
+
+<p style="margin-left:11%; margin-top: 1em">In <i>The Perl
+Journal</i> issue 17, Ken MacFarlane&rsquo;s article
+&quot;Parsing <small>HTML</small> with HTML::Parser&quot;
+describes how the HTML::Parser module scans
+<small>HTML</small> source as a stream of start-tags,
+end-tags, text, comments, etc. In <small>TPJ</small> #18, my
+&quot;Trees&quot; article kicked around the idea of
+tree-shaped data structures. Now I&rsquo;ll try to tie it
+together, in a discussion of <small>HTML</small> trees.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>CPAN</small> module HTML::TreeBuilder takes the tags
+that HTML::Parser picks out, and builds a parse tree -- a
+tree-shaped network of objects...</p>
+
+<p style="margin-left:17%; margin-top: 1em">Footnote: And
+if you need a quick explanation of objects, see my
+<small>TPJ17</small> article &quot;A User&rsquo;s View of
+Object-Oriented Modules&quot;; or go whole hog and get
+Damian Conway&rsquo;s excellent book <i>Object-Oriented
+Perl</i>, from Manning Publications.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">...representing
+the structured content of the <small>HTML</small> document.
+And once the document is parsed as a tree, you&rsquo;ll find
+the common tasks of extracting data from that
+<small>HTML</small> document/tree to be quite
+straightforward.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>HTML::Parser,
+HTML::TreeBuilder, and HTML::Element</b> <br>
+You use HTML::TreeBuilder to make a parse tree out of an
+<small>HTML</small> source file, by simply saying:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use HTML::TreeBuilder;
+  my $tree = HTML::TreeBuilder&minus;&gt;new();
+  $tree&minus;&gt;parse_file('foo.html');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and then
+<tt>$tree</tt> contains a parse tree built from the
+<small>HTML</small> source from the file
+&quot;foo.html&quot;. The way this parse tree is represented
+is with a network of objects -- <tt>$tree</tt> is the root,
+an element with tag-name &quot;html&quot;, and its children
+typically include a &quot;head&quot; and &quot;body&quot;
+element, and so on. Elements in the tree are objects of the
+class HTML::Element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So, if you take
+this source:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;html&gt;&lt;head&gt;&lt;title&gt;Doc 1&lt;/title&gt;&lt;/head&gt;
+  &lt;body&gt;
+  Stuff &lt;hr&gt; 2000&minus;08&minus;17
+  &lt;/body&gt;&lt;/html&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and feed it to
+HTML::TreeBuilder, it&rsquo;ll return a tree of objects that
+looks like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">               html
+             /      \
+         head        body
+        /          /   |  \
+     title    &quot;Stuff&quot;  hr  &quot;2000&minus;08&minus;17&quot;
+       |
+    &quot;Doc 1&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is a
+pretty simple document, but if it were any more complex,
+it&rsquo;d be a bit hard to draw in that style, since
+it&rsquo;s sprawl left and right. The same tree can be
+represented a bit more easily sideways, with indenting:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  . html
+     . head
+        . title
+           . &quot;Doc 1&quot;
+     . body
+        . &quot;Stuff&quot;
+        . hr
+        . &quot;2000&minus;08&minus;17&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Either way
+expresses the same structure. In that structure, the root
+node is an object of the class HTML::Element</p>
+
+<p style="margin-left:17%; margin-top: 1em">Footnote: Well
+actually, the root is of the class HTML::TreeBuilder, but
+that&rsquo;s just a subclass of HTML::Element, plus the few
+extra methods like <tt>&quot;parse_file&quot;</tt> that
+elaborate the tree</p>
+
+<p style="margin-left:11%; margin-top: 1em">, with the tag
+name &quot;html&quot;, and with two children: an
+HTML::Element object whose tag names are &quot;head&quot;
+and &quot;body&quot;. And each of those elements have
+children, and so on down. Not all elements (as we&rsquo;ll
+call the objects of class HTML::Element) have children --
+the &quot;hr&quot; element doesn&rsquo;t. And note all nodes
+in the tree are elements -- the text nodes (&quot;Doc
+1&quot;, &quot;Stuff&quot;, and
+&quot;2000&minus;08&minus;17&quot;) are just strings.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Objects of the
+class HTML::Element each have three noteworthy attributes:
+<br>
+&quot;_tag&quot; -- (best accessed as
+&quot;$e&minus;&gt;tag&quot;) this element&rsquo;s tag-name,
+<br>
+lowercased (e.g., &quot;em&quot; for an &quot;em&quot;
+element).</p>
+
+<p style="margin-left:23%;">Footnote: Yes, this is
+misnamed. In proper <small>SGML</small> terminology, this is
+instead called a &quot; <small>GI&quot;,</small> short for
+&quot;generic identifier&quot;; and the term &quot;tag&quot;
+is used for a token of <small>SGML</small> source that
+represents either the start of an element (a start-tag like
+&quot;&lt;em lang=&rsquo;fr&rsquo;&gt;&quot;) or the end of
+an element (an end-tag like &quot;&lt;/em&gt;&quot;.
+However, since more people claim to have been abducted by
+aliens than to have ever seen the <small>SGML</small>
+standard, and since both encounters typically involve a
+feeling of &quot;missing time&quot;, it&rsquo;s not
+surprising that the terminology of the <small>SGML</small>
+standard is not closely followed.</p>
+
+<p style="margin-left:11%;">&quot;_parent&quot; -- (best
+accessed as &quot;$e&minus;&gt;parent&quot;) the element
+that is $obj&rsquo;s <br>
+parent, or undef if this element is the root of its tree.
+<br>
+&quot;_content&quot; -- (best accessed as
+&quot;$e&minus;&gt;content_list&quot;) the list of nodes
+<br>
+(i.e., elements or text segments) that are $e&rsquo;s
+children.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Moreover, if an
+element object has any attributes in the <small>SGML</small>
+sense of the word, then those are readable as
+<tt>&quot;$e&minus;&gt;attr('name')&quot;</tt> -- for
+example, with the object built from having parsed
+&quot;&lt;a
+<b>id=&rsquo;foo&rsquo;</b>&gt;bar&lt;/a&gt;&quot;,
+<tt>&quot;$e&minus;&gt;attr('id')&quot;</tt> will return the
+string &quot;foo&quot;. Moreover,
+<tt>&quot;$e&minus;&gt;tag&quot;</tt> on that object returns
+the string &quot;a&quot;,
+<tt>&quot;$e&minus;&gt;content_list&quot;</tt> returns a
+list consisting of just the single scalar &quot;bar&quot;,
+and <tt>&quot;$e&minus;&gt;parent&quot;</tt> returns the
+object that&rsquo;s this node&rsquo;s parent -- which may
+be, for example, a &quot;p&quot; element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">And
+that&rsquo;s all that there is to it -- you throw
+<small>HTML</small> source at TreeBuilder, and it returns a
+tree built of HTML::Element objects and some text
+strings.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, what
+do you <i>do</i> with a tree of objects? People code
+information into <small>HTML</small> trees not for the fun
+of arranging elements, but to represent the structure of
+specific text and images -- some text is in this
+&quot;li&quot; element, some other text is in that heading,
+some images are in that other table cell that has those
+attributes, and so on.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Now, it may
+happen that you&rsquo;re rendering that whole
+<small>HTML</small> tree into some layout format. Or you
+could be trying to make some systematic change to the
+<small>HTML</small> tree before dumping it out as
+<small>HTML</small> source again. But, in my experience, by
+far the most common programming task that Perl programmers
+face with <small>HTML</small> is in trying to extract some
+piece of information from a larger document. Since
+that&rsquo;s so common (and also since it involves concepts
+that are basic to more complex tasks), that is what the rest
+of this article will be about.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Scanning
+<small>HTML</small> trees</b> <br>
+Suppose you have a thousand <small>HTML</small> documents,
+each of them a press release. They all start out:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  [...lots of leading images and junk...]
+  &lt;h1&gt;ConGlomCo to Open New Corporate Office in Ougadougou&lt;/h1&gt;
+  BAKERSFIELD, CA, 2000&minus;04&minus;24 &minus;&minus; ConGlomCo's vice president in charge
+  of world conquest, Rock Feldspar, announced today the opening of a
+  new office in Ougadougou, the capital city of Burkino Faso, gateway
+  to the bustling &quot;Silicon Sahara&quot; of Africa...
+  [...etc...]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">...and what
+you&rsquo;ve got to do is, for each document, copy whatever
+text is in the &quot;h1&quot; element, so that you can, for
+example, make a table of contents of it. Now, there are
+three ways to do this:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>You can just use a regexp to scan the file for a text
+pattern.</p> </td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">For many very
+simple tasks, this will do fine. Many <small>HTML</small>
+documents are, in practice, very consistently formatted as
+far as placement of linebreaks and whitespace, so you could
+just get away with scanning the file like so:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  sub get_heading {
+    my $filename = $_[0];
+    local *HTML;
+    open(HTML, $filename)
+      or die &quot;Couldn't open $filename);
+    my $heading;
+   Line:
+    while(&lt;HTML&gt;) {
+      if( m{&lt;h1&gt;(.*?)&lt;/h1&gt;}i ) {  # match it!
+        $heading = $1;
+        last Line;
+      }
+    }
+    close(HTML);
+    warn &quot;No heading in $filename?&quot;
+     unless defined $heading;
+    return $heading;
+  }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This is quick
+and fast, but awfully fragile -- if there&rsquo;s a newline
+in the middle of a heading&rsquo;s text, it won&rsquo;t
+match the above regexp, and you&rsquo;ll get an error. The
+regexp will also fail if the &quot;h1&quot; element&rsquo;s
+start-tag has any attributes. If you have to adapt your code
+to fit more kinds of start-tags, you&rsquo;ll end up
+basically reinventing part of HTML::Parser, at which point
+you should probably just stop, and use HTML::Parser
+itself:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">You can use HTML::Parser to scan
+the file for an &quot;h1&quot; start-tag token, then capture
+all the text tokens until the &quot;h1&quot; close-tag. This
+approach is extensively covered in the Ken
+MacFarlane&rsquo;s <small>TPJ17</small> article
+&quot;Parsing <small>HTML</small> with HTML::Parser&quot;.
+(A variant of this approach is to use HTML::TokeParser,
+which presents a different and rather handier interface to
+the tokens that HTML::Parser picks out.)</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Using
+HTML::Parser is less fragile than our first approach, since
+it&rsquo;s not sensitive to the exact internal formatting of
+the start-tag (much less whether it&rsquo;s split across two
+lines). However, when you need more information about the
+context of the &quot;h1&quot; element, or if you&rsquo;re
+having to deal with any of the tricky bits of
+<small>HTML,</small> such as parsing of tables, you&rsquo;ll
+find out the flat list of tokens that HTML::Parser returns
+isn&rsquo;t immediately useful. To get something useful out
+of those tokens, you&rsquo;ll need to write code that knows
+some things about what elements take no content (as with
+&quot;hr&quot; elements), and that a &quot;&lt;/p&gt;&quot;
+end-tags are omissible, so a &quot;&lt;p&gt;&quot; will end
+any currently open paragraph -- and you&rsquo;re well on
+your way to pointlessly reinventing much of the code in
+HTML::TreeBuilder</p>
+
+<p style="margin-left:23%; margin-top: 1em">Footnote: And,
+as the person who last rewrote that module, I can attest
+that it wasn&rsquo;t terribly easy to get right! Never
+underestimate the perversity of people coding
+<small>HTML.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">, at which
+point you should probably just stop, and use
+HTML::TreeBuilder itself:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">You can use HTML::Treebuilder,
+and scan the tree of element objects that you get back.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The last
+approach, using HTML::TreeBuilder, is the diametric opposite
+of first approach: The first approach involves just
+elementary Perl and one regexp, whereas the TreeBuilder
+approach involves being at home with the concept of
+tree-shaped data structures and modules with object-oriented
+interfaces, as well as with the particular interfaces that
+HTML::TreeBuilder and HTML::Element provide.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, what
+the TreeBuilder approach has going for it is that it&rsquo;s
+the most robust, because it involves dealing with
+<small>HTML</small> in its &quot;native&quot; format -- it
+deals with the tree structure that <small>HTML</small> code
+represents, without any consideration of how the source is
+coded and with what tags omitted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So, to extract
+the text from the &quot;h1&quot; elements of an
+<small>HTML</small> document:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub get_heading {
+    my $tree = HTML::TreeBuilder&minus;&gt;new;
+    $tree&minus;&gt;parse_file($_[0]);   # !
+    my $heading;
+    my $h1 = $tree&minus;&gt;look_down('_tag', 'h1');  # !
+    if($h1) {
+      $heading = $h1&minus;&gt;as_text;   # !
+    } else {
+      warn &quot;No heading in $_[0]?&quot;;
+    }
+    $tree&minus;&gt;delete; # clear memory!
+    return $heading;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This uses some
+unfamiliar methods that need explaining. The
+<tt>&quot;parse_file&quot;</tt> method that we&rsquo;ve seen
+before, builds a tree based on source from the file given.
+The <tt>&quot;delete&quot;</tt> method is for marking a
+tree&rsquo;s contents as available for garbage collection,
+when you&rsquo;re done with the tree. The
+<tt>&quot;as_text&quot;</tt> method returns a string that
+contains all the text bits that are children (or otherwise
+descendants) of the given node -- to get the text content of
+the <tt>$h1</tt> object, we could just say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $heading = join '', $h1&minus;&gt;content_list;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">but that will
+work only if we&rsquo;re sure that the &quot;h1&quot;
+element&rsquo;s children will be only text bits -- if the
+document contained:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;h1&gt;Local Man Sees &lt;cite&gt;Blade&lt;/cite&gt; Again&lt;/h1&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">then the
+sub-tree would be:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  . h1
+    . &quot;Local Man Sees &quot;
+    . cite
+      . &quot;Blade&quot;
+    . &quot; Again'</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">so
+<tt>&quot;join '', $h1&minus;&gt;content_list&quot;</tt>
+will be something like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  Local Man Sees HTML::Element=HASH(0x15424040) Again</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">whereas
+<tt>&quot;$h1&minus;&gt;as_text&quot;</tt> would yield:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  Local Man Sees Blade Again</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and depending
+on what you&rsquo;re doing with the heading text, you might
+want the <tt>&quot;as_HTML&quot;</tt> method instead. It
+returns the (sub)tree represented as <small>HTML</small>
+source. <tt>&quot;$h1&minus;&gt;as_HTML&quot;</tt> would
+yield:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;h1&gt;Local Man Sees &lt;cite&gt;Blade&lt;/cite&gt; Again&lt;/h1&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">However, if you
+wanted the contents of <tt>$h1</tt> as <small>HTML,</small>
+but not the <tt>$h1</tt> itself, you could say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  join '',
+    map(
+      ref($_) ? $_&minus;&gt;as_HTML : $_,
+      $h1&minus;&gt;content_list
+    )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+<tt>&quot;map&quot;</tt> iterates over the nodes in
+<tt>$h1</tt>&rsquo;s list of children; and for each node
+that&rsquo;s just a text bit (as &quot;Local Man Sees &quot;
+is), it just passes through that string value, and for each
+node that&rsquo;s an actual object (causing
+<tt>&quot;ref&quot;</tt> to be true),
+<tt>&quot;as_HTML&quot;</tt> will used instead of the string
+value of the object itself (which would be something quite
+useless, as most object values are). So that
+<tt>&quot;as_HTML&quot;</tt> for the &quot;cite&quot;
+element will be the string
+&quot;&lt;cite&gt;Blade&lt;/cite&gt;&quot;. And then,
+finally, <tt>&quot;join&quot;</tt> just puts into one string
+all the strings that the <tt>&quot;map&quot;</tt>
+returns.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Last but not
+least, the most important method in our
+<tt>&quot;get_heading&quot;</tt> sub is the
+<tt>&quot;look_down&quot;</tt> method. This method looks
+down at the subtree starting at the given object
+(<tt>$h1</tt>), looking for elements that meet criteria you
+provide.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The criteria
+are specified in the method&rsquo;s argument list. Each
+criterion can consist of two scalars, a key and a value,
+which express that you want elements that have that
+attribute (like &quot;_tag&quot;, or &quot;src&quot;) with
+the given value (&quot;h1&quot;); or the criterion can be a
+reference to a subroutine that, when called on the given
+element, returns true if that is a node you&rsquo;re looking
+for. If you specify several criteria, then that&rsquo;s
+taken to mean that you want all the elements that each
+satisfy <i>all</i> the criteria. (In other words,
+there&rsquo;s an &quot;implicit <small>AND&quot;.</small>
+)</p>
+
+<p style="margin-left:11%; margin-top: 1em">And finally,
+there&rsquo;s a bit of an optimization -- if you call the
+<tt>&quot;look_down&quot;</tt> method in a scalar context,
+you get just the <i>first</i> node (or undef if none) --
+and, in fact, once <tt>&quot;look_down&quot;</tt> finds that
+first matching element, it doesn&rsquo;t bother looking any
+further.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So the
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h1 = $tree&minus;&gt;look_down('_tag', 'h1');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">returns the
+first element at-or-under <tt>$tree</tt> whose
+<tt>&quot;_tag&quot;</tt> attribute has the value
+<tt>&quot;h1&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Complex
+Criteria in Tree Scanning</b> <br>
+Now, the above <tt>&quot;look_down&quot;</tt> code looks
+like a lot of bother, with barely more benefit than just
+grepping the file! But consider if your criteria were more
+complicated -- suppose you found that some of the press
+releases that you were scanning had several &quot;h1&quot;
+elements, possibly before or after the one you actually
+want. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;h1&gt;&lt;center&gt;Visit Our Corporate Partner
+   &lt;br&gt;&lt;a href=&quot;/dyna/clickthru&quot;
+     &gt;&lt;img src=&quot;/dyna/vend_ad&quot;&gt;&lt;/a&gt;
+  &lt;/center&gt;&lt;/h1&gt;
+  &lt;h1&gt;&lt;center&gt;ConGlomCo President Schreck to Visit Regional HQ
+   &lt;br&gt;&lt;a href=&quot;/photos/Schreck_visit_large.jpg&quot;
+     &gt;&lt;img src=&quot;/photos/Schreck_visit.jpg&quot;&gt;&lt;/a&gt;
+  &lt;/center&gt;&lt;/h1&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Here, you want
+to ignore the first &quot;h1&quot; element because it
+contains an ad, and you want the text from the second
+&quot;h1&quot;. The problem is in formalizing the way you
+know that it&rsquo;s an ad. Since ad banners are always
+entreating you to &quot;visit&quot; the sponsoring site, you
+could exclude &quot;h1&quot; elements that contain the word
+&quot;visit&quot; under them:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $real_h1 = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    sub {
+      $_[0]&minus;&gt;as_text !~ m/\bvisit/i
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The first
+criterion looks for &quot;h1&quot; elements, and the second
+criterion limits those to only the ones whose text content
+doesn&rsquo;t match <tt>&quot;m/\bvisit/&quot;</tt>. But
+unfortunately, that won&rsquo;t work for our example, since
+the second &quot;h1&quot; mentions &quot;ConGlomCo President
+Schreck to <i>Visit</i> Regional
+<small>HQ&quot;.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Instead you
+could try looking for the first &quot;h1&quot; element that
+doesn&rsquo;t contain an image:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $real_h1 = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    sub {
+      not $_[0]&minus;&gt;look_down('_tag', 'img')
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This criterion
+sub might seem a bit odd, since it calls
+<tt>&quot;look_down&quot;</tt> as part of a larger
+<tt>&quot;look_down&quot;</tt> operation, but that&rsquo;s
+fine. Note that when considered as a boolean value, a
+<tt>&quot;look_down&quot;</tt> in a scalar context value
+returns false (specifically, undef) if there&rsquo;s no
+matching element at or under the given element; and it
+returns the first matching element (which, being a reference
+and object, is always a true value), if any matches. So,
+here,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub {
+    not $_[0]&minus;&gt;look_down('_tag', 'img')
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">means
+&quot;return true only if this element has no
+&rsquo;img&rsquo; element as descendants (and isn&rsquo;t an
+&rsquo;img&rsquo; element itself).&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em">This correctly
+filters out the first &quot;h1&quot; that contains the ad,
+but it also incorrectly filters out the second
+&quot;h1&quot; that contains a non-advertisement photo
+besides the headline text you want.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There clearly
+are detectable differences between the first and second
+&quot;h1&quot; elements -- the only second one contains the
+string &quot;Schreck&quot;, and we could just test for
+that:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $real_h1 = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    sub {
+      $_[0]&minus;&gt;as_text =~ m{Schreck}
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And that works
+fine for this one example, but unless all thousand of your
+press releases have &quot;Schreck&quot; in the headline,
+that&rsquo;s just not a general solution. However, if all
+the ads&minus;in&minus;&quot;h1&quot;s that you want to
+exclude involve a link whose <small>URL</small> involves
+&quot;/dyna/&quot;, then you can use that:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $real_h1 = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    sub {
+      my $link = $_[0]&minus;&gt;look_down('_tag','a');
+      return 1 unless $link;
+        # no link means it's fine
+      return 0 if $link&minus;&gt;attr('href') =~ m{/dyna/};
+        # a link to there is bad
+      return 1; # otherwise okay
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Or you can look
+at it another way and say that you want the first
+&quot;h1&quot; element that either contains no images, or
+else whose image has a &quot;src&quot; attribute whose value
+contains &quot;/photos/&quot;:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $real_h1 = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    sub {
+      my $img = $_[0]&minus;&gt;look_down('_tag','img');
+      return 1 unless $img;
+        # no image means it's fine
+      return 1 if $img&minus;&gt;attr('src') =~ m{/photos/};
+        # good if a photo
+      return 0; # otherwise bad
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Recall that
+this use of <tt>&quot;look_down&quot;</tt> in a scalar
+context means to return the first element at or under
+<tt>$tree</tt> that matches all the criteria. But if you
+notice that you can formulate criteria that&rsquo;ll match
+several possible &quot;h1&quot; elements, some of which may
+be bogus but the <i>last</i> one of which is always the one
+you want, then you can use <tt>&quot;look_down&quot;</tt> in
+a list context, and just use the last element of that
+list:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @h1s = $tree&minus;&gt;look_down(
+    '_tag', 'h1',
+    ...maybe more criteria...
+  );
+  die &quot;What, no h1s here?&quot; unless @h1s;
+  my $real_h1 = $h1s[&minus;1]; # last or only</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>A Case
+Study: Scanning Yahoo News&rsquo;s <small>HTML</small></b>
+<br>
+The above (somewhat contrived) case involves extracting data
+from a bunch of pre-existing <small>HTML</small> files. In
+that sort of situation, if your code works for all the
+files, then you know that the code <i>works</i> -- since the
+data it&rsquo;s meant to handle won&rsquo;t go changing or
+growing; and, typically, once you&rsquo;ve used the program,
+you&rsquo;ll never need to use it again.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The other kind
+of situation faced in many data extraction tasks is where
+the program is used recurringly to handle new data -- such
+as from ever-changing Web pages. As a real-world example of
+this, consider a program that you could use (suppose
+it&rsquo;s crontabbed) to extract headline-links from
+subsections of Yahoo News
+(<tt>&quot;http://dailynews.yahoo.com/&quot;</tt>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Yahoo News has
+several subsections: <br>
+http://dailynews.yahoo.com/h/tc/ for technology news <br>
+http://dailynews.yahoo.com/h/sc/ for science news <br>
+http://dailynews.yahoo.com/h/hl/ for health news <br>
+http://dailynews.yahoo.com/h/wl/ for world news <br>
+http://dailynews.yahoo.com/h/en/ for entertainment news</p>
+
+<p style="margin-left:11%; margin-top: 1em">and others. All
+of them are built on the same basic <small>HTML</small>
+template -- and a scarily complicated template it is,
+especially when you look at it with an eye toward making up
+rules that will select where the real headline-links are,
+while screening out all the links to other parts of Yahoo,
+other news services, etc. You will need to puzzle over the
+<small>HTML</small> source, and scrutinize the output of
+<tt>&quot;$tree&minus;&gt;dump&quot;</tt> on the parse tree
+of that <small>HTML.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Sometimes the
+only way to pin down what you&rsquo;re after is by position
+in the tree. For example, headlines of interest may be in
+the third column of the second row of the second table
+element in a page:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $table = ( $tree&minus;&gt;look_down('_tag','table') )[1];
+  my $row2  = ( $table&minus;&gt;look_down('_tag', 'tr' ) )[1];
+  my $col3  = ( $row2&minus;&gt;look&minus;down('_tag', 'td')   )[2];
+  ...then do things with $col3...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Or they may be
+all the links in a &quot;p&quot; element that has at least
+three &quot;br&quot; elements as children:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $p = $tree&minus;&gt;look_down(
+    '_tag', 'p',
+    sub {
+      2 &lt; grep { ref($_) and $_&minus;&gt;tag eq 'br' }
+               $_[0]&minus;&gt;content_list
+    }
+  );
+  @links = $p&minus;&gt;look_down('_tag', 'a');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">But almost
+always, you can get away with looking for properties of the
+of the thing itself, rather than just looking for contexts.
+Now, if you&rsquo;re lucky, the document you&rsquo;re
+looking through has clear semantic tagging, such is as
+useful in <small>CSS</small> -- note the
+class=&quot;headlinelink&quot; bit here:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;a href=&quot;...long_news_url...&quot; class=&quot;headlinelink&quot;&gt;Elvis
+  seen in tortilla&lt;/a&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you find
+anything like that, you could leap right in and select links
+with:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  @links = $tree&minus;&gt;look_down('class','headlinelink');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Regrettably,
+your chances of seeing any sort of semantic markup
+principles really being followed with actual
+<small>HTML</small> are pretty thin.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Footnote: In
+fact, your chances of finding a page that is simply free of
+<small>HTML</small> errors are even thinner. And
+surprisingly, sites like Amazon or Yahoo are typically worse
+as far as quality of code than personal sites whose entire
+production cycle involves simply being saved and uploaded
+from Netscape Composer.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The code may be
+sort of &quot;accidentally semantic&quot;, however -- for
+example, in a set of pages I was scanning recently, I found
+that looking for &quot;td&quot; elements with a
+&quot;width&quot; attribute value of &quot;375&quot; got me
+exactly what I wanted. No-one designing that page ever
+conceived of &quot;width=375&quot; as <i>meaning</i>
+&quot;this is a headline&quot;, but if you impute it to mean
+that, it works.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An approach
+like this happens to work for the Yahoo News code, because
+the headline-links are distinguished by the fact that they
+(and they alone) contain a &quot;b&quot; element:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;a href=&quot;...long_news_url...&quot;&gt;&lt;b&gt;Elvis seen in tortilla&lt;/b&gt;&lt;/a&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or, diagrammed
+as a part of the parse tree:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  . a  [href=&quot;...long_news_url...&quot;]
+    . b
+      . &quot;Elvis seen in tortilla&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A rule that
+matches these can be formalized as &quot;look for any
+&rsquo;a&rsquo; element that has only one daughter node,
+which must be a &rsquo;b&rsquo; element&quot;. And this is
+what it looks like when cooked up as a
+<tt>&quot;look_down&quot;</tt> expression and prefaced with
+a bit of code that retrieves the text of the given Yahoo
+News page and feeds it to TreeBuilder:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use strict;
+  use HTML::TreeBuilder 2.97;
+  use LWP::UserAgent;
+  sub get_headlines {
+    my $url = $_[0] || die &quot;What URL?&quot;;
+    my $response = LWP::UserAgent&minus;&gt;new&minus;&gt;request(
+      HTTP::Request&minus;&gt;new( GET =&gt; $url )
+    );
+    unless($response&minus;&gt;is_success) {
+      warn &quot;Couldn't get $url: &quot;, $response&minus;&gt;status_line, &quot;\n&quot;;
+      return;
+    }
+    my $tree = HTML::TreeBuilder&minus;&gt;new();
+    $tree&minus;&gt;parse($response&minus;&gt;content);
+    $tree&minus;&gt;eof;
+    my @out;
+    foreach my $link (
+      $tree&minus;&gt;look_down(   # !
+        '_tag', 'a',
+        sub {
+          return unless $_[0]&minus;&gt;attr('href');
+          my @c = $_[0]&minus;&gt;content_list;
+          @c == 1 and ref $c[0] and $c[0]&minus;&gt;tag eq 'b';
+        }
+      )
+    ) {
+      push @out, [ $link&minus;&gt;attr('href'), $link&minus;&gt;as_text ];
+    }
+    warn &quot;Odd, fewer than 6 stories in $url!&quot; if @out &lt; 6;
+    $tree&minus;&gt;delete;
+    return @out;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">...and add a
+bit of code to actually call that routine and display the
+results...</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  foreach my $section (qw[tc sc hl wl en]) {
+    my @links = get_headlines(
+      &quot;http://dailynews.yahoo.com/h/$section/&quot;
+    );
+    print
+      $section, &quot;: &quot;, scalar(@links), &quot; stories\n&quot;,
+      map((&quot;  &quot;, $_&minus;&gt;[0], &quot; : &quot;, $_&minus;&gt;[1], &quot;\n&quot;), @links),
+      &quot;\n&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And we&rsquo;ve
+got our own headline-extractor service! This in and of
+itself isn&rsquo;t no amazingly useful (since if you want to
+see the headlines, you <i>can</i> just look at the Yahoo
+News pages), but it could easily be the basis for quite
+useful features like filtering the headlines for matching
+certain keywords of interest to you.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Now, one of
+these days, Yahoo News will decide to change its
+<small>HTML</small> template. When this happens, this will
+appear to the above program as there being no links that
+meet the given criteria; or, less likely, dozens of
+erroneous links will meet the criteria. In either case, the
+criteria will have to be changed for the new template; they
+may just need adjustment, or you may need to scrap them and
+start over.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Regardez,
+duvet!</i> <br>
+It&rsquo;s often quite a challenge to write criteria to
+match the desired parts of an <small>HTML</small> parse
+tree. Very often you <i>can</i> pull it off with a simple
+<tt>&quot;$tree&minus;&gt;look_down('_tag',
+'h1')&quot;</tt>, but sometimes you do have to keep adding
+and refining criteria, until you might end up with complex
+filters like what I&rsquo;ve shown in this article. The
+benefit to learning how to deal with <small>HTML</small>
+parse trees is that one main search tool, the
+<tt>&quot;look_down&quot;</tt> method, can do most of the
+work, making simple things easy, while still making hard
+things possible.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>[end body of
+article]</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>[Author
+Credit]</b> <br>
+Sean M. Burke (<tt>&quot;sburke@cpan.org&quot;</tt>) is the
+current maintainer of <tt>&quot;HTML::TreeBuilder&quot;</tt>
+and <tt>&quot;HTML::Element&quot;</tt>, both originally by
+Gisle Aas.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Sean adds:
+&quot;I&rsquo;d like to thank the folks who listened to me
+ramble incessantly about HTML::TreeBuilder and HTML::Element
+at this year&rsquo;s Yet Another Perl Conference and
+O&rsquo;Reilly Open Source Software Convention.&quot;</p>
+
+<h2>BACK
+<a name="BACK"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Return to the
+HTML::Tree docs.</p>
+<hr>
+</body>
+</html>

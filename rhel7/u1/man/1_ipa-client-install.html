@@ -1,0 +1,570 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:56:47 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>ipa-client-install</title>
+
+</head>
+<body>
+
+<h1 align="center">ipa-client-install</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#EXIT STATUS">EXIT STATUS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">ipa&minus;client&minus;install
+&minus; Configure an IPA client</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">ipa&minus;client&minus;install
+[<i>OPTION</i>]...</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Configures a
+client machine to use IPA for authentication and identity
+services.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By default this
+configures SSSD to connect to an IPA server for
+authentication and authorization. Optionally one can instead
+configure PAM and NSS (Name Switching Service) to work with
+an IPA server over Kerberos and LDAP.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An authorized
+user is required to join a client machine to IPA. This can
+take the form of a kerberos principal or a one&minus;time
+password associated with the machine.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This same tool
+is used to unconfigure IPA and attempts to return the
+machine to its previous state. Part of this process is to
+unenroll the host from the IPA server. Unenrollment consists
+of disabling the principal key on the IPA server so that it
+may be re&minus;enrolled. The machine principal in
+/etc/krb5.keytab (host/&lt;fqdn&gt;@REALM) is used to
+authenticate to the IPA server to unenroll itself. If this
+principal does not exist then unenrollment will fail and an
+administrator will need to disable the host principal (ipa
+host&minus;disable &lt;fqdn&gt;).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Assumptions</b>
+<br>
+The ipa&minus;client&minus;install script assumes that the
+machine has already generated SSH keys. It will not generate
+SSH keys of its own accord. If SSH keys are not present (e.g
+when running the ipa&minus;client&minus;install in a
+kickstart, before ever running sshd), they will not be
+uploaded to the client host entry on the server.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Hostname
+Requirements</b> <br>
+Client must use a <b>static hostname</b>. If the machine
+hostname changes for example due to a dynamic hostname
+assignment by a DHCP server, client enrollment to IPA server
+breaks and user then would not be able to perform Kerberos
+authentication.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&minus;&minus;hostname
+option may be used to specify a static hostname that
+persists over reboot.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>DNS
+Autodiscovery</b> <br>
+Client installer by default tries to search for
+_ldap._tcp.DOMAIN DNS SRV records for all domains that are
+parent to its hostname. For example, if a client machine has
+a hostname &rsquo;client1.lab.example.com&rsquo;, the
+installer will try to retrieve an IPA server hostname from
+_ldap._tcp.lab.example.com, _ldap._tcp.example.com and
+_ldap._tcp.com DNS SRV records, respectively. The discovered
+domain is then used to configure client components (e.g.
+SSSD and Kerberos 5 configuration) on the machine.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When the client
+machine hostname is not in a subdomain of an IPA server, its
+domain can be passed with &minus;&minus;domain option. In
+that case, both SSSD and Kerberos components have the domain
+set in the configuration files and will use it to
+autodiscover IPA servers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Client machine
+can also be configured without a DNS autodiscovery at all.
+When both &minus;&minus;server and &minus;&minus;domain
+options are used, client installer will use the specified
+server and domain directly. &minus;&minus;server option
+accepts multiple server hostnames which can be used for
+failover mechanism. Without DNS autodiscovery, Kerberos is
+configured with a fixed list of KDC and Admin servers. SSSD
+is still configured to either try to read domain&rsquo;s SRV
+records or the specified fixed list of servers. When
+&minus;&minus;fixed&minus;primary option is specified, SSSD
+will not try to read DNS SRV record at all (see
+sssd&minus;ipa(5) for details).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Failover
+Mechanism</b> <br>
+When some of the IPA servers is not available, client
+components are able to fallback to other IPA replica and
+thus preserving a continued service. When client machine is
+configured to use DNS SRV record autodiscovery (no fixed
+server was passed to the installer), client components do
+the fallback automatically, based on the IPA server
+hostnames and priorities discovered from the DNS SRV
+records.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If DNS
+autodiscovery is not available, clients should be configured
+at least with a fixed list of IPA servers that can be used
+in case of a failure. When only one IPA server is
+configured, IPA client services will not be available in
+case of a failure of the IPA server. Please note, that in
+case of a fixed list of IPA servers, the fixed server lists
+in client components need to be updated when a new IPA
+server is enrolled or a current IPA server is
+decommissioned.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Coexistence
+With Other Directory Servers</b> <br>
+Other directory servers deployed in the network (e.g.
+Microsoft Active Directory) may use the same DNS SRV records
+to denote hosts with a directory service
+(_ldap._tcp.DOMAIN). Such DNS SRV records may break the
+installation if the installer discovers these DNS records
+before it finds DNS SRV records pointing to IPA servers. The
+installer would then fail to discover the IPA server and
+exit with error.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In order to
+avoid the aforementioned DNS autodiscovery issues, the
+client machine hostname should be in a domain with properly
+defined DNS SRV records pointing to IPA servers, either
+manually with a custom DNS server or with IPA DNS integrated
+solution. A second approach would be to avoid autodiscovery
+and configure the installer to use a fixed list of IPA
+server hostnames using the &minus;&minus;server option and
+with a &minus;&minus;fixed&minus;primary option disabling
+DNS SRV record autodiscovery in SSSD.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Re&minus;enrollment
+of the host</b> <br>
+Requirements:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. Host has not
+been un&minus;enrolled (the ipa&minus;client&minus;install
+&minus;&minus;uninstall command has not been run). <br>
+2. The host entry has not been disabled via the ipa
+host&minus;disable command.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If this has
+been the case, host can be re&minus;enrolled using the usual
+methods.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are two
+method of authenticating a re&minus;enrollment:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. You can use
+&minus;&minus;force&minus;join option with
+ipa&minus;client&minus;install command. This authenticates
+the re&minus;enrollment using the admin&rsquo;s credentials
+provided via the &minus;w/&minus;&minus;password option.
+<br>
+2. If providing the admin&rsquo;s password via the command
+line is not an option (e.g you want to create a script to
+re&minus;enroll a host and keep the admin&rsquo;s password
+secure), you can use backed up keytab from the previous
+enrollment of this host to authenticate. See
+&minus;&minus;keytab option.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Consequences of
+the re&minus;enrollment on the host entry:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. A new host
+certificate is issued <br>
+2. The old host certificate is revoked <br>
+3. New SSH keys are generated <br>
+4. ipaUniqueID is preserved</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>BASIC
+OPTIONS <br>
+&minus;&minus;domain</b>=<i>DOMAIN</i></p>
+
+<p style="margin-left:22%;">Set the domain name to DOMAIN.
+When no &minus;&minus;server option is specified, the
+installer will try to discover all available servers via DNS
+SRV record autodiscovery (see DNS Autodiscovery section for
+details).</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;server</b>=<i>SERVER</i></p>
+
+<p style="margin-left:22%;">Set the IPA server to connect
+to. May be specified multiple times to add multiple servers
+to ipa_server value in sssd.conf or krb5.conf. Only the
+first value is considered when used with
+&minus;&minus;no&minus;sssd. When this option is used, DNS
+autodiscovery for Kerberos is disabled and a fixed list of
+KDC and Admin servers is configured.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;realm</b>=<i>REALM_NAME</i></p>
+
+<p style="margin-left:22%;">Set the IPA realm name to
+REALM_NAME. Under normal circumstances, this option is not
+needed as the realm name is retrieved from the IPA
+server.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;fixed&minus;primary</b></p>
+
+<p style="margin-left:22%;">Configure SSSD to use a fixed
+server as the primary IPA server. The default is to use DNS
+SRV records to determine the primary server to use and fall
+back to the server the client is enrolled with. When used in
+conjunction with &minus;&minus;server then no _srv_ value is
+set in the ipa_server option in sssd.conf.</p>
+
+<p style="margin-left:11%;"><b>&minus;p</b>,
+<b>&minus;&minus;principal</b></p>
+
+<p style="margin-left:22%;">Authorized kerberos principal
+to use to join the IPA realm.</p>
+
+<p style="margin-left:11%;"><b>&minus;w</b>
+<i>PASSWORD</i>,
+<b>&minus;&minus;password</b>=<i>PASSWORD</i></p>
+
+<p style="margin-left:22%;">Password for joining a machine
+to the IPA realm. Assumes bulk password unless principal is
+also set.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;W</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Prompt for the password for joining a machine to the IPA
+realm.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>&minus;k</b>,
+<b>&minus;&minus;keytab</b></p>
+
+<p style="margin-left:22%;">Path to backed up host keytab
+from previous enrollment. Joins the host even if it is
+already enrolled.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;mkhomedir</b></p>
+
+<p style="margin-left:22%;">Configure PAM to create a users
+home directory if it does not exist.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;hostname</b></p>
+
+<p style="margin-left:22%;">The hostname of this machine
+(FQDN). If specified, the hostname will be set and the
+system configuration will be updated to persist over reboot.
+By default a nodename result from uname(2) is used.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;force&minus;join</b></p>
+
+<p style="margin-left:22%;">Join the host even if it is
+already enrolled.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;ntp&minus;server</b>=<i>NTP_SERVER</i></p>
+
+<p style="margin-left:22%;">Configure ntpd to use this NTP
+server.</p>
+
+<p style="margin-left:11%;"><b>&minus;N</b>,
+<b>&minus;&minus;no&minus;ntp</b></p>
+
+<p style="margin-left:22%;">Do not configure or enable
+NTP.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;force&minus;ntpd</b></p>
+
+<p style="margin-left:22%;">Stop and disable any
+time&amp;date synchronization services besides ntpd.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;nisdomain</b>=<i>NIS_DOMAIN</i></p>
+
+<p style="margin-left:22%;">Set the NIS domain name as
+specified. By default, this is set to the IPA domain
+name.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;nisdomain</b></p>
+
+<p style="margin-left:22%;">Do not configure NIS domain
+name.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;ssh&minus;trust&minus;dns</b></p>
+
+<p style="margin-left:22%;">Configure OpenSSH client to
+trust DNS SSHFP records.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;ssh</b></p>
+
+<p style="margin-left:22%;">Do not configure OpenSSH
+client.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;sshd</b></p>
+
+<p style="margin-left:22%;">Do not configure OpenSSH
+server.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;sudo</b></p>
+
+<p style="margin-left:22%;">Do not configure SSSD as a data
+source for sudo.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;dns&minus;sshfp</b></p>
+
+<p style="margin-left:22%;">Do not automatically create DNS
+SSHFP records.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&minus;&minus;noac</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Do not use Authconfig to modify the nsswitch.conf and
+PAM configuration.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>&minus;f</b>,
+<b>&minus;&minus;force</b></p>
+
+<p style="margin-left:22%;">Force the settings even if
+errors occur</p>
+
+<p style="margin-left:11%;"><b>&minus;d</b>,
+<b>&minus;&minus;debug</b></p>
+
+<p style="margin-left:22%;">Print debugging information to
+stdout</p>
+
+<p style="margin-left:11%;"><b>&minus;U</b>,
+<b>&minus;&minus;unattended</b></p>
+
+<p style="margin-left:22%;">Unattended installation. The
+user will not be prompted.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;ca&minus;cert&minus;file</b>=<i>CA_FILE</i></p>
+
+<p style="margin-left:22%;">Do not attempt to acquire the
+IPA CA certificate via automated means, instead use the CA
+certificate found locally in in <i>CA_FILE</i>. The
+<i>CA_FILE</i> must be an absolute path to a PEM formatted
+certificate file. The CA certificate found in <i>CA_FILE</i>
+is considered authoritative and will be installed without
+checking to see if it&rsquo;s valid for the IPA domain.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;request&minus;cert</b></p>
+
+<p style="margin-left:22%;">Request certificate for the
+machine. The certificate will be stored in /etc/ipa/nssdb
+under the nickname &quot;Local IPA host&quot;.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;automount&minus;location</b>=<i>LOCATION</i></p>
+
+<p style="margin-left:22%;">Configure automount by running
+ipa&minus;client&minus;automount(1) with <i>LOCATION</i> as
+automount location.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>SSSD OPTIONS
+<br>
+&minus;&minus;permit</b></p>
+
+<p style="margin-left:22%;">Configure SSSD to permit all
+access. Otherwise the machine will be controlled by the
+Host&minus;based Access Controls (HBAC) on the IPA
+server.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;enable&minus;dns&minus;updates</b></p>
+
+<p style="margin-left:22%;">This option tells SSSD to
+automatically update DNS with the IP address of this
+client.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;no&minus;krb5&minus;offline&minus;passwords</b></p>
+
+<p style="margin-left:22%;">Configure SSSD not to store
+user password when the server is offline.</p>
+
+<p style="margin-left:11%;"><b>&minus;S</b>,
+<b>&minus;&minus;no&minus;sssd</b></p>
+
+<p style="margin-left:22%;">Do not configure the client to
+use SSSD for authentication, use nss_ldap instead.</p>
+
+
+<p style="margin-left:11%;"><b>&minus;&minus;preserve&minus;sssd</b></p>
+
+<p style="margin-left:22%;">Disabled by default. When
+enabled, preserves old SSSD configuration if it is not
+possible to merge it with a new one. Effectively, if the
+merge is not possible due to SSSDConfig reader encountering
+unsupported options, <b>ipa&minus;client&minus;install</b>
+will not run further and ask to fix SSSD config first. When
+this option is not specified,
+<b>ipa&minus;client&minus;install</b> will back up SSSD
+config and create new one. The back up version will be
+restored during uninstall.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>UNINSTALL
+OPTIONS <br>
+&minus;&minus;uninstall</b></p>
+
+<p style="margin-left:22%;">Remove the IPA client software
+and restore the configuration to the pre&minus;IPA
+state.</p>
+
+<p style="margin-left:11%;"><b>&minus;U</b>,
+<b>&minus;&minus;unattended</b></p>
+
+<p style="margin-left:22%;">Unattended uninstallation. The
+user will not be prompted.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Files that will
+be replaced if SSSD is configured (default):</p>
+
+
+<p style="margin-left:22%; margin-top: 1em">/etc/sssd/sssd.conf</p>
+
+<p style="margin-left:11%;">Files that will be replaced if
+they exist and SSSD is not configured <br>
+(&minus;&minus;no&minus;sssd):</p>
+
+<p style="margin-left:22%; margin-top: 1em">/etc/ldap.conf
+/etc/nss_ldap.conf /etc/libnss&minus;ldap.conf
+/etc/pam_ldap.conf /etc/nslcd.conf</p>
+
+<p style="margin-left:11%;">Files replaced if NTP is
+enabled:</p>
+
+<p style="margin-left:22%; margin-top: 1em">/etc/ntp.conf
+/etc/sysconfig/ntpd /etc/ntp/step&minus;tickers</p>
+
+<p style="margin-left:11%;">Files always created (replacing
+existing content):</p>
+
+<p style="margin-left:22%; margin-top: 1em">/etc/krb5.conf
+/etc/ipa/ca.crt /etc/ipa/default.conf /etc/ipa/nssdb
+/etc/openldap/ldap.conf</p>
+
+<p style="margin-left:11%;">Files updated, existing content
+is maintained:</p>
+
+
+<p style="margin-left:22%; margin-top: 1em">/etc/nsswitch.conf
+/etc/pki/nssdb /etc/krb5.keytab /etc/sysconfig/network</p>
+
+<h2>EXIT STATUS
+<a name="EXIT STATUS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">0 if the
+installation was successful</p>
+
+<p style="margin-left:11%; margin-top: 1em">1 if an error
+occurred</p>
+
+<p style="margin-left:11%; margin-top: 1em">2 if
+uninstalling and the client is not configured</p>
+
+<p style="margin-left:11%; margin-top: 1em">3 if installing
+and the client is already configured</p>
+
+<p style="margin-left:11%; margin-top: 1em">4 if an
+uninstall error occurred</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ipa&minus;client&minus;automount(1),
+krb5.conf(5), sssd.conf(5)</b></p>
+<hr>
+</body>
+</html>

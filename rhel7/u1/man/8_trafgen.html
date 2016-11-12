@@ -1,0 +1,713 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:38:57 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>TRAFGEN</title>
+
+</head>
+<body>
+
+<h1 align="center">TRAFGEN</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SYNTAX">SYNTAX</a><br>
+<a href="#USAGE EXAMPLE">USAGE EXAMPLE</a><br>
+<a href="#NOTE">NOTE</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#LEGAL">LEGAL</a><br>
+<a href="#HISTORY">HISTORY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COLOPHON">COLOPHON</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen &minus;
+a fast, multithreaded network packet generator</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen</b>
+[<i>options</i>]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen is a
+fast, zero-copy network traffic generator for debugging,
+performance evaluation, and fuzz-testing. trafgen utilizes
+the packet(7) socket interface of Linux which postpones
+complete control over packet data and packet headers into
+the user space. It has a powerful packet configuration
+language, which is rather low-level and not limited to
+particular protocols. Thus, trafgen can be used for many
+purposes. Its only limitation is that it cannot mimic full
+streams resp. sessions. However, it is very useful for
+various kinds of load testing in order to analyze and
+subsequently improve systems behaviour under DoS attack
+scenarios, for instance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">trafgen is
+Linux specific, meaning there is no support for other
+operating systems, same as netsniff-ng(8), thus we can keep
+the code footprint quite minimal and to the point. trafgen
+makes use of packet(7) socket&rsquo;s TX_RING interface of
+the Linux kernel, which is a mmap(2)&rsquo;ed ring buffer
+shared between user and kernel space.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By default,
+trafgen starts as many processes as available CPUs, pins
+each of them to their respective CPU and sets up the ring
+buffer each in their own process space after having compiled
+a list of packets to transmit. Thus, this is likely the
+fastest one can get out of the box in terms of transmission
+performance from user space, without having to load
+unsupported or non-mainline third-party kernel modules. On
+Gigabit Ethernet, trafgen has a comparable performance to
+pktgen, the built-in Linux kernel traffic generator, except
+that trafgen is more flexible in terms of packet
+configuration possibilities. On 10-Gigabit-per-second
+Ethernet, trafgen might be slower than pktgen due to the
+user/kernel space overhead but still has a fairly high
+performance for out of the box kernels.</p>
+
+<p style="margin-left:11%; margin-top: 1em">trafgen has the
+potential to do fuzz testing, meaning a packet configuration
+can be built with random numbers on all or certain packet
+offsets that are freshly generated each time a packet is
+sent out. With a built-in IPv4 ping, trafgen can send out an
+ICMP probe after each packet injection to the remote host in
+order to test if it is still responsive/alive. Assuming
+there is no answer from the remote host after a certain
+threshold of probes, the machine is considered dead and the
+last sent packet is printed together with the random seed
+that was used by trafgen. You might not really get lucky
+fuzz-testing the Linux kernel, but presumably there are
+buggy closed-source embedded systems or network
+driver&rsquo;s firmware files that are prone to bugs, where
+trafgen could help in finding them.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen&rsquo;s
+configuration language is quite powerful, also due to the
+fact, that it supports C preprocessor macros. A stddef.h is
+being shipped with trafgen for this purpose, so that well
+known defines from Linux kernel or network programming can
+be reused. After a configuration file has passed the C
+preprocessor stage, it is processed by the trafgen packet
+compiler. The language itself supports a couple of features
+that are useful when assembling packets, such as built-in
+runtime checksum support for IP, UDP and TCP. Also it has an
+expression evaluator where arithmetic (basic operations, bit
+operations, bit shifting, ...) on constant expressions is
+being reduced to a single constant on compile time. Other
+features are &rsquo;&rsquo;fill&rsquo;&rsquo; macros, where
+a packet can be filled with n bytes by a constant, a
+compile-time random number or run-time random number (as
+mentioned with fuzz testing). Also, netsniff-ng(8) is able
+to convert a pcap file into a trafgen configuration file,
+thus such a configuration can then be further tweaked for a
+given scenario.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>-i
+&lt;cfg|-&gt;, -c &lt;cfg|i&gt;, --in &lt;cfg|-&gt;, --conf
+&lt;cfg|-&gt;</b> <br>
+Defines the input configuration file that can either be
+passed as a normal plain text file or via stdin
+(&rsquo;&rsquo;-&rsquo;&rsquo;). Note that currently, if a
+configuration is passed through stdin, only 1 CPU will be
+used.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-o
+&lt;dev&gt;, -d &lt;dev&gt;, --out &lt;dev&gt;, --dev
+&lt;dev&gt;</b> <br>
+Defines the outgoing networking device such as eth0, wlan0
+and others.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-p,
+--cpp</b> <br>
+Pass the packet configuration to the C preprocessor before
+reading it into trafgen. This allows #define and #include
+directives (e.g. to include definitions from system headers)
+to be used in the trafgen configuration file.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-J,
+--jumbo-support</b> <br>
+By default trafgen&rsquo;s ring buffer frames are of a fixed
+size of 2048 bytes. This means that if you&rsquo;re
+expecting jumbo frames or even super jumbo frames to pass
+your line, then you will need to enable support for that
+with the help of this option. However, this has the
+disadvantage of a performance regression and a bigger memory
+footprint for the ring buffer.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-R,
+--rfraw</b> <br>
+In case the output networking device is a wireless device,
+it is possible with trafgen to turn this into monitor mode
+and create a mon&lt;X&gt; device that trafgen will be
+transmitting on instead of wlan&lt;X&gt;, for instance. This
+enables trafgen to inject raw 802.11 frames.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-s
+&lt;ipv4&gt;, --smoke-test &lt;ipv4&gt;</b> <br>
+In case this option is enabled, trafgen will perform a smoke
+test. In other words, it will probe the remote end,
+specified by an &lt;ipv4&gt; address, that is being
+&rsquo;&rsquo;attacked&rsquo;&rsquo; with trafgen network
+traffic, if it is still alive and responsive. That means,
+after each transmitted packet that has been configured,
+trafgen sends out ICMP echo requests and waits for an answer
+before it continues. In case the remote end stays
+unresponsive, trafgen assumes that the machine has crashed
+and will print out the content of the last packet as a
+trafgen packet configuration and the random seed that has
+been used in order to reproduce a possible bug. This might
+be useful when testing proprietary embedded devices. It is
+recommended to have a direct link between the host running
+trafgen and the host being attacked by trafgen.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-n
+&lt;0|uint&gt;, --num &lt;0|uint&gt;</b> <br>
+Process a number of packets and then exit. If the number of
+packets is 0, then this is equivalent to infinite packets
+resp. processing until interrupted. Otherwise, a number
+given as an unsigned integer will limit processing.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-r,
+--rand</b> <br>
+Randomize the packet selection of the configuration file. By
+default, if more than one packet is defined in a packet
+configuration, packets are scheduled for transmission in a
+round robin fashion. With this option, they are selected
+randomly instread.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-P
+&lt;uint&gt;, --cpus &lt;uint&gt;</b> <br>
+Specify the number of processes trafgen shall fork(2) off.
+By default trafgen will start as many processes as CPUs that
+are online and pin them to each, respectively. Allowed value
+must be within interval [1,CPUs].</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-t
+&lt;uint&gt;, --gap &lt;uint&gt;</b> <br>
+Specify a static inter-packet timegap in micro-seconds. If
+this option is given, then instead of packet(7)&rsquo;s
+TX_RING interface, trafgen will use sendto(2) I/O for
+network packets, even if the &lt;uint&gt; argument is 0.
+This option is useful for a couple of reasons: i) comparison
+between sendto(2) and TX_RING performance, ii) low-traffic
+packet probing for a given interval, iii) ping-like
+debugging with specific payload patterns. Furthermore, the
+TX_RING interface does not cope with interpacket gaps.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-S
+&lt;size&gt;, --ring-size &lt;size&gt;</b> <br>
+Manually define the TX_RING resp. TX_RING size in
+&rsquo;&rsquo;&lt;num&gt;KiB/MiB/GiB&rsquo;&rsquo;. On
+default the size is being determined based on the network
+connectivity rate.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-k
+&lt;uint&gt;, --kernel-pull &lt;uint&gt;</b> <br>
+Manually define the interval in micro-seconds where the
+kernel should be triggered to batch process the ring buffer
+frames. By default, it is every 10us, but it can manually be
+prolonged, for instance..</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-E
+&lt;uint&gt;, --seed &lt;uint&gt;</b> <br>
+Manually set the seed for pseudo random number generator
+(PRNG) in trafgen. By default, a random seed from
+/dev/urandom is used to feed glibc&rsquo;s PRNG. If that
+fails, it falls back to the unix timestamp. It can be useful
+to set the seed manually in order to be able to reproduce a
+trafgen session, e.g. after fuzz testing.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-u
+&lt;uid&gt;, --user &lt;uid&gt; resp. -g &lt;gid&gt;,
+--group &lt;gid&gt;</b> <br>
+After ring setup, drop privileges to a non-root user/group
+combination.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-V,
+--verbose</b> <br>
+Let trafgen be more talkative and let it print the parsed
+configuration and some ring buffer statistics.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-e,
+--example</b> <br>
+Show a built-in packet configuration example. This might be
+a good starting point for an initial packet configuration
+scenario.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-C,
+--no-cpu-stats</b> <br>
+Do not print CPU time statistics on exit.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-v,
+--version</b> <br>
+Show version information and exit.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>-h,
+--help</b> <br>
+Show user help and exit.</p>
+
+<h2>SYNTAX
+<a name="SYNTAX"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen&rsquo;s
+packet configuration syntax is fairly simple. The very basic
+things one needs to know is that a configuration file is a
+simple plain text file where packets are defined. It can
+contain one or more packets. Packets are enclosed by opening
+&rsquo;{&rsquo; and closing &rsquo;}&rsquo; braces, for
+example:</p>
+
+<p style="margin-left:11%; margin-top: 1em">{ /* packet 1
+content goes here ... */ } <br>
+{ /* packet 2 content goes here ... */ }</p>
+
+<p style="margin-left:11%; margin-top: 1em">When trafgen is
+started using multiple CPUs (default), then each of those
+packets will be scheduled for transmission on all CPUs by
+default. However, it is possible to tell trafgen to schedule
+a packet only on a particular CPU:</p>
+
+<p style="margin-left:11%; margin-top: 1em">cpu(1): { /*
+packet 1 content goes here ... */ } <br>
+cpu(2-3): { /* packet 2 content goes here ... */ }</p>
+
+<p style="margin-left:11%; margin-top: 1em">Thus, in case
+we have a 4 core machine with CPU0-CPU3, packet 1 will be
+scheduled only on CPU1, packet 2 on CPU2 and CPU3. When
+using trafgen with &minus;&minus;num option, then these
+constraints will still be valid and the packet is fairly
+distributed among those CPUs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Packet content
+is delimited either by a comma or whitespace, or both:</p>
+
+<p style="margin-left:11%; margin-top: 1em">{ 0xca, 0xfe,
+0xba 0xbe }</p>
+
+<p style="margin-left:11%; margin-top: 1em">Packet content
+can be of the following:</p>
+
+<p style="margin-left:11%; margin-top: 1em">hex bytes:
+0xca, xff <br>
+decimal: 42 <br>
+binary: 0b11110000, b11110000 <br>
+octal: 011 <br>
+character: &rsquo;a&rsquo; <br>
+string: &quot;hello world&quot; <br>
+shellcode:
+&quot;\x31\xdb\x8d\x43\x17\x99\xcd\x80\x31\xc9&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Thus, a quite
+useless packet packet configuration might look like this
+(one can verify this when running this with trafgen in
+combination with &minus;V):</p>
+
+<p style="margin-left:11%; margin-top: 1em">{ 0xca, 42,
+0b11110000, 011, &rsquo;a&rsquo;, &quot;hello world&quot;,
+<br>
+&quot;\x31\xdb\x8d\x43\x17\x99\xcd\x80\x31\xc9&quot; }</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are a
+couple of helper functions in trafgen&rsquo;s language to
+make life easier to write configurations:</p>
+
+<p style="margin-left:11%; margin-top: 1em">i) Fill with
+garbage functions:</p>
+
+<p style="margin-left:11%; margin-top: 1em">byte fill
+function: fill(&lt;content&gt;, &lt;times&gt;): fill(0xca,
+128) <br>
+compile-time random: rnd(&lt;times&gt;): rnd(128), rnd()
+<br>
+runtime random numbers: drnd(&lt;times&gt;): drnd(128),
+drnd() <br>
+compile-time counter: seqinc(&lt;start-val&gt;,
+&lt;increment&gt;, &lt;times&gt;) <br>
+seqdec(&lt;start-val&gt;, &lt;decrement&gt;, &lt;times&gt;)
+<br>
+runtime counter (1byte): dinc(&lt;min-val&gt;,
+&lt;max-val&gt;, &lt;increment&gt;) <br>
+ddec(&lt;min-val&gt;, &lt;max-val&gt;,
+&lt;decrement&gt;)</p>
+
+<p style="margin-left:11%; margin-top: 1em">ii) Checksum
+helper functions (packet offsets start with 0):</p>
+
+<p style="margin-left:11%; margin-top: 1em">IP/ICMP
+checksum: csumip/csumicmp(&lt;off-from&gt;, &lt;off-to&gt;)
+<br>
+UDP checksum: csumudp(&lt;off-iphdr&gt;, &lt;off-udpdr&gt;)
+<br>
+TCP checksum: csumtcp(&lt;off-iphdr&gt;,
+&lt;off-tcphdr&gt;)</p>
+
+<p style="margin-left:11%; margin-top: 1em">iii) Multibyte
+functions, compile-time expression evaluation:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">const8(&lt;content&gt;),
+c8(&lt;content&gt;), const16(&lt;content&gt;),
+c16(&lt;content&gt;), <br>
+const32(&lt;content&gt;), c32(&lt;content&gt;),
+const64(&lt;content&gt;), c64(&lt;content&gt;)</p>
+
+<p style="margin-left:11%; margin-top: 1em">These functions
+write their result in network byte order into the packet
+configuration, e.g. const16(0xaa) will result in
+&rsquo;&rsquo;00 aa&rsquo;&rsquo;. Within c*() functions, it
+is possible to do some arithmetics:
+-,+,*,/,%,&amp;,|,&lt;&lt;,&gt;&gt;,^ E.g.
+const16((((1&lt;&lt;8)+0x32)|0b110)*2) will be evaluated to
+&rsquo;&rsquo;02 6c&rsquo;&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Furthermore,
+there are two types of comments in trafgen configuration
+files:</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. Multi-line
+C-style comments: /* put comment here */ <br>
+2. Single-line Shell-style comments: # put comment here</p>
+
+<p style="margin-left:11%; margin-top: 1em">Next to all of
+this, a configuration can be passed through the C
+preprocessor before the trafgen compiler gets to see it with
+option &minus;&minus;cpp. To give you a taste of a more
+advanced example, run &rsquo;&rsquo;trafgen
+&minus;e&rsquo;&rsquo;, fields are commented:</p>
+
+<p style="margin-left:11%; margin-top: 1em">/* Note:
+dynamic elements make trafgen slower! */ <br>
+#include &lt;stddef.h&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">{ <br>
+/* MAC Destination */ <br>
+fill(0xff, ETH_ALEN), <br>
+/* MAC Source */ <br>
+0x00, 0x02, 0xb3, drnd(3), <br>
+/* IPv4 Protocol */ <br>
+c16(ETH_P_IP), <br>
+/* IPv4 Version, IHL, TOS */ <br>
+0b01000101, 0, <br>
+/* IPv4 Total Len */ <br>
+c16(59), <br>
+/* IPv4 Ident */ <br>
+drnd(2), <br>
+/* IPv4 Flags, Frag Off */ <br>
+0b01000000, 0, <br>
+/* IPv4 TTL */ <br>
+64, <br>
+/* Proto TCP */ <br>
+0x06, <br>
+/* IPv4 Checksum (IP header from, to) */ <br>
+csumip(14, 33), <br>
+/* Source IP */ <br>
+drnd(4), <br>
+/* Dest IP */ <br>
+drnd(4), <br>
+/* TCP Source Port */ <br>
+drnd(2), <br>
+/* TCP Dest Port */ <br>
+c16(80), <br>
+/* TCP Sequence Number */ <br>
+drnd(4), <br>
+/* TCP Ackn. Number */ <br>
+c32(0), <br>
+/* TCP Header length + TCP SYN/ECN Flag */ <br>
+c16((8 &lt;&lt; 12) | TCP_FLAG_SYN | TCP_FLAG_ECE) <br>
+/* Window Size */ <br>
+c16(16), <br>
+/* TCP Checksum (offset IP, offset TCP) */ <br>
+csumtcp(14, 34), <br>
+/* TCP Options */ <br>
+0x00, 0x00, 0x01, 0x01, 0x08, 0x0a, 0x06, <br>
+0x91, 0x68, 0x7d, 0x06, 0x91, 0x68, 0x6f, <br>
+/* Data blob */ <br>
+&quot;gotcha!&quot;, <br>
+}</p>
+
+<p style="margin-left:11%; margin-top: 1em">Another
+real-world example by Jesper Dangaard Brouer [1]:</p>
+
+<p style="margin-left:11%; margin-top: 1em">{ <br>
+# --- ethernet header --- <br>
+0x00, 0x1b, 0x21, 0x3c, 0x9d, 0xf8, # mac destination <br>
+0x90, 0xe2, 0xba, 0x0a, 0x56, 0xb4, # mac source <br>
+const16(0x0800), # protocol <br>
+# --- ip header --- <br>
+# ipv4 version (4-bit) + ihl (4-bit), tos <br>
+0b01000101, 0, <br>
+# ipv4 total len <br>
+const16(40), <br>
+# id (note: runtime dynamic random) <br>
+drnd(2), <br>
+# ipv4 3-bit flags + 13-bit fragment offset <br>
+# 001 = more fragments <br>
+0b00100000, 0, <br>
+64, # ttl <br>
+17, # proto udp <br>
+# dynamic ip checksum (note: offsets are zero indexed) <br>
+csumip(14, 33), <br>
+192, 168, 51, 1, # source ip <br>
+192, 168, 51, 2, # dest ip <br>
+# --- udp header --- <br>
+# as this is a fragment the below stuff does not matter too
+much <br>
+const16(48054), # src port <br>
+const16(43514), # dst port <br>
+const16(20), # udp length <br>
+# udp checksum can be dyn calc via csumudp(offset ip, offset
+tcp) <br>
+# which is csumudp(14, 34), but for udp its allowed to be
+zero <br>
+const16(0), <br>
+# payload <br>
+&rsquo;A&rsquo;, fill(0x41, 11), <br>
+}</p>
+
+<p style="margin-left:11%; margin-top: 1em">[1]
+http://thread.gmane.org/gmane.linux.network/257155</p>
+
+<h2>USAGE EXAMPLE
+<a name="USAGE EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev eth0 --conf trafgen.cfg</b> <br>
+This is the most simple and, probably, the most common use
+of trafgen. It will generate traffic defined in the
+configuration file &rsquo;&rsquo;trafgen.cfg&rsquo;&rsquo;
+and transmit this via the &rsquo;&rsquo;eth0&rsquo;&rsquo;
+networking device. All online CPUs are used.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen -e |
+trafgen -i - -o lo --cpp -n 1</b> <br>
+This is an example where we send one packet of the built-in
+example through the loopback device. The example
+configuration is passed via stdin and also through the C
+preprocessor before trafgen&rsquo;s packet compiler will see
+it.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev eth0 --conf fuzzing.cfg --smoke-test 10.0.0.1</b> <br>
+Read the &rsquo;&rsquo;fuzzing.cfg&rsquo;&rsquo; packet
+configuration file (which contains drnd() calls) and send
+out the generated packets to the
+&rsquo;&rsquo;eth0&rsquo;&rsquo; device. After each sent
+packet, ping probe the attacked host with address 10.0.0.1
+to check if it&rsquo;s still alive. This also means, that we
+utilize 1 CPU only, and do not use the TX_RING, but
+sendto(2) packet I/O due to &rsquo;&rsquo;slow
+mode&rsquo;&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev wlan0 --rfraw --conf beacon-test.txf -V --cpus 2</b>
+<br>
+As an output device &rsquo;&rsquo;wlan0&rsquo;&rsquo; is
+used and put into monitoring mode, thus we are going to
+transmit raw 802.11 frames through the air. Use the use only
+2 CPUs.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev em1 --conf frag_dos.cfg --rand --gap 1000</b> <br>
+Use trafgen in sendto(2) mode instead of TX_RING mode and
+sleep after each sent packet a static timegap for 1000us.
+Generate packets from
+&rsquo;&rsquo;frag_dos.cfg&rsquo;&rsquo; and select next
+packets to send randomly instead of a round-robin fashion.
+The output device for packets is
+&rsquo;&rsquo;em1&rsquo;&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev eth0 --conf icmp.cfg --rand --num 1400000 -k1000</b>
+<br>
+Send only 1400000 packets using the
+&rsquo;&rsquo;icmp.cfg&rsquo;&rsquo; configuration file and
+then exit trafgen. Select packets randomly from that file
+for transmission and send them out via
+&rsquo;&rsquo;eth0&rsquo;&rsquo;. Also, trigger the kernel
+every 1000us for batching the ring frames from user space
+(default is 10us).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen
+--dev eth0 --conf tcp_syn.cfg -u &lsquo;id -u bob&lsquo; -g
+&lsquo;id -g bob&lsquo;</b> <br>
+Send out packets generated from the configuration file
+&rsquo;&rsquo;tcp_syn.cfg&rsquo;&rsquo; via the
+&rsquo;&rsquo;eth0&rsquo;&rsquo; networking device. After
+setting up the ring for transmission, drop credentials to
+the non-root user/group bob/bob.</p>
+
+<h2>NOTE
+<a name="NOTE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen can
+saturate a Gigabit Ethernet link without problems. As
+always, of course, this depends on your hardware as well.
+Not everywhere where it says Gigabit Ethernet on the box,
+will you reach almost physical line rate! Please also read
+the netsniff-ng(8) man page, section NOTE for further
+details about tuning your system e.g. with tuned(8).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you intend
+to use trafgen on a 10-Gbit/s Ethernet NIC, make sure you
+are using a multiqueue tc(8) discipline, and make sure that
+the packets you generate with trafgen will have a good
+distribution among tx_hashes so that you&rsquo;ll actually
+make use of multiqueues.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For introducing
+bit errors, delays with random variation and more, there is
+no built-in option in trafgen. Rather, one should reuse
+existing methods for that which integrate nicely with
+trafgen, such as tc(8) with its different disciplines, i.e.
+netem.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For more
+complex packet configurations, it is recommended to use
+high-level scripting for generating trafgen packet
+configurations in a more automated way, i.e. also to create
+different traffic distributions that are common for
+industrial benchmarking:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Traffic model
+Distribution</p>
+
+<p style="margin-left:11%; margin-top: 1em">IMIX 64:7,
+570:4, 1518:1 <br>
+Tolly 64:55, 78:5, 576:17, 1518:23 <br>
+Cisco 64:7, 594:4, 1518:1 <br>
+RPR Trimodal 64:60, 512:20, 1518:20 <br>
+RPR Quadrimodal 64:50, 512:15, 1518:15, 9218:20</p>
+
+<p style="margin-left:11%; margin-top: 1em">The low-level
+nature of trafgen makes trafgen rather protocol independent
+and therefore useful in many scenarios when stress testing
+is needed, for instance. However, if a traffic generator
+with higher level packet descriptions is desired,
+netsniff-ng&rsquo;s mausezahn(8) can be of good use as
+well.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For smoke/fuzz
+testing with trafgen, it is recommended to have a direct
+link between the host you want to analyze
+(&rsquo;&rsquo;victim&rsquo;&rsquo; machine) and the host
+you run trafgen on (&rsquo;&rsquo;attacker&rsquo;&rsquo;
+machine). If the ICMP reply from the victim fails, we assume
+that probably its kernel crashed, thus we print the last
+sent packet togther with the seed and quit probing. It might
+be very unlikely to find such a ping-of-death on modern
+Linux systems. However, there might be a good chance to find
+it on some proprietary (e.g. embedded) systems or buggy
+driver firmwares that are in the wild. Also, fuzz testing
+can be done on raw 802.11 frames, of course. In case you
+find a ping-of-death, please mention that you were using
+trafgen in your commit message of the fix!</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For old trafgen
+versions only, there could occur kernel crashes: we have
+fixed this bug in the mainline and stable kernels under
+commit 7f5c3e3a8 (&rsquo;&rsquo;af_packet: remove BUG
+statement in tpacket_destruct_skb&rsquo;&rsquo;) and also in
+trafgen.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Probably the
+best is if you upgrade trafgen to the latest version.</p>
+
+<h2>LEGAL
+<a name="LEGAL"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">trafgen is
+licensed under the GNU GPL version 2.0.</p>
+
+<h2>HISTORY
+<a name="HISTORY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>trafgen</b>
+was originally written for the netsniff-ng toolkit by Daniel
+Borkmann. It is currently maintained by Tobias Klauser
+&lt;tklauser@distanz.ch&gt; and Daniel Borkmann
+&lt;dborkma@tik.ee.ethz.ch&gt;.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>netsniff-ng</b>(8),
+<b>mausezahn</b>(8), <b>ifpps</b>(8), <b>bpfc</b>(8),
+<b>flowtop</b>(8), <b>astraceroute</b>(8),
+<b>curvetun</b>(8)</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Manpage was
+written by Daniel Borkmann.</p>
+
+<h2>COLOPHON
+<a name="COLOPHON"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This page is
+part of the Linux netsniff-ng toolkit project. A description
+of the project, and information about reporting bugs, can be
+found at http://netsniff-ng.org/.</p>
+<hr>
+</body>
+</html>

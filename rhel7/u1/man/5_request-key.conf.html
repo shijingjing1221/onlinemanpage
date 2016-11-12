@@ -1,0 +1,201 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:19:03 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>REQUEST-KEY.CONF</title>
+
+</head>
+<body>
+
+<h1 align="center">REQUEST-KEY.CONF</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">request-key.conf
+- Instantiation handler configuration file</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This file and
+its associated key-type specific variants are used by the
+/sbin/request-key program to determine which program it
+should run to instantiate a key.</p>
+
+<p style="margin-left:11%; margin-top: 1em">request-key
+looks first in /etc/request-key.d/ for a file of the key
+type name plus &quot;.conf&quot; that it can use. If that is
+not found, it will fall back to /etc/request-key.conf.</p>
+
+<p style="margin-left:11%; margin-top: 1em">request-key
+scans through the chosen file one line at a time until it
+finds a match, which it will then use. If it doesn&rsquo;t
+find a match, it&rsquo;ll return an error and the kernel
+will automatically negate the key.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Any blank line
+or line beginning with a hash mark &rsquo;#&rsquo; is
+considered to be a comment and ignored.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All other lines
+are assumed to be command lines with a number of white space
+separated fields:</p>
+
+<p style="margin-left:11%; margin-top: 1em">&lt;op&gt;
+&lt;type&gt; &lt;description&gt; &lt;callout-info&gt;
+&lt;prog&gt; &lt;arg1&gt; &lt;arg2&gt; ...</p>
+
+<p style="margin-left:11%; margin-top: 1em">The first four
+fields are used to match the parameters passed to
+request-key by the kernel. <i>op</i> is the operation type;
+currently the only supported operation is
+&quot;create&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>type</i>,
+<i>description</i> and <i>callout-info</i> match the three
+parameters passed to <b>keyctl request2</b> or the
+<b>request_key()</b> system call. Each of these may contain
+one or more asterisk &rsquo;*&rsquo; characters as wildcards
+anywhere within the string.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Should a match
+be made, the program specified by &lt;prog&gt; will be
+exec&rsquo;d. This must have a fully qualified path name.
+argv[0] will be set from the part of the program name that
+follows the last slash &rsquo;/&rsquo; character.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the program
+name is prefixed with a pipe bar character &rsquo;|&rsquo;,
+then the program will be forked and exec&rsquo;d attached to
+three pipes. The callout information will be piped to it on
+it&rsquo;s stdin and the intended payload data will be
+retrieved from its stdout. Anything sent to stderr will be
+posted in syslog. If the program exits 0, then
+/sbin/request-key will attempt to instantiate the key with
+the data read from stdout. If it fails in any other way,
+then request-key will attempt to execute the appropriate
+&rsquo;negate&rsquo; operation command.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The program
+arguments can be substituted with various macros. Only
+complete argument substitution is supported - macro
+substitutions can&rsquo;t be embedded. All macros begin with
+a percent character &rsquo;%&rsquo;. An argument beginning
+with two percent characters will have one of them
+discarded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+macros are supported:</p>
+
+<p style="margin-left:22%; margin-top: 1em">%o Operation
+type <br>
+%k Key ID <br>
+%t Key type <br>
+%d Key description <br>
+%c Callout information <br>
+%u Key UID <br>
+%g Key GID <br>
+%T Requestor&rsquo;s thread keyring <br>
+%P Requestor&rsquo;s process keyring <br>
+%S Requestor&rsquo;s session keyring</p>
+
+<p style="margin-left:11%; margin-top: 1em">There&rsquo;s
+another macro substitution too that permits the
+interpolation of the contents of a key:</p>
+
+
+<p style="margin-left:22%; margin-top: 1em">%{&lt;type&gt;:&lt;description&gt;}</p>
+
+<p style="margin-left:11%; margin-top: 1em">This performs a
+lookup for a key of the given type and description on the
+requestor&rsquo;s keyrings, and if found, substitutes the
+contents for the macro. If not found an error will be logged
+and the key under construction will be negated.</p>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A basic file
+will be installed in the /etc. This will contain two
+debugging lines that can be used to test the
+installation:</p>
+
+<p style="margin-left:22%; margin-top: 1em">create user
+debug:* negate /bin/keyctl negate %k 30 %S <br>
+create user debug:loop:* * |/bin/cat <br>
+create user debug:* *
+/usr/share/keyutils/request-key-debug.sh %k %d %c %S <br>
+negate * * * /bin/keyctl negate %k 30 %S</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is set up
+so that something like:</p>
+
+<p style="margin-left:22%; margin-top: 1em">keyctl request2
+user debug:xxxx negate</p>
+
+<p style="margin-left:11%; margin-top: 1em">will create a
+negative user-defined key, something like:</p>
+
+<p style="margin-left:22%; margin-top: 1em">keyctl request2
+user debug:yyyy spoon</p>
+
+<p style="margin-left:11%; margin-top: 1em">will create an
+instantiated user-defined key with &quot;Debug spoon&quot;
+as the payload, and something like:</p>
+
+<p style="margin-left:22%; margin-top: 1em">keyctl request2
+user debug:loop:zzzz abcdefghijkl</p>
+
+<p style="margin-left:11%; margin-top: 1em">will create an
+instantiated user-defined key with the callout information
+as the payload.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>/etc/request-key.conf
+<br>
+/etc/request-key.d/&lt;keytype&gt;.conf</i></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><b>keyctl</b></i>(1),
+<b>request-key.conf</b>(5)</p>
+<hr>
+</body>
+</html>

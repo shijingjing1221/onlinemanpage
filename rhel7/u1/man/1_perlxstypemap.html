@@ -1,0 +1,993 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:13:18 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PERLXSTYPEMAP</title>
+
+</head>
+<body>
+
+<h1 align="center">PERLXSTYPEMAP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">perlxstypemap
+&minus; Perl XS C/Perl type mapping</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The more you
+think about interfacing between two languages, the more
+you&rsquo;ll realize that the majority of programmer effort
+has to go into converting between the data structures that
+are native to either of the languages involved. This trumps
+other matter such as differing calling conventions because
+the problem space is so much greater. There are simply more
+ways to shove data into memory than there are ways to
+implement a function call.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Perl
+<small>XS</small> &rsquo; attempt at a solution to this is
+the concept of typemaps. At an abstract level, a Perl
+<small>XS</small> typemap is nothing but a recipe for
+converting from a certain Perl data structure to a certain C
+data structure and vice versa. Since there can be C types
+that are sufficiently similar to warrant converting with the
+same logic, <small>XS</small> typemaps are represented by a
+unique identifier, henceforth called an &lt;
+<small>XS</small> type&gt; in this document. You can then
+tell the <small>XS</small> compiler that multiple C types
+are to be mapped with the same <small>XS</small>
+typemap.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In your
+<small>XS</small> code, when you define an argument with a C
+type or when you are using a <tt>&quot;CODE:&quot;</tt> and
+an <tt>&quot;OUTPUT:&quot;</tt> section together with a C
+return type of your <small>XSUB</small> , it&rsquo;ll be the
+typemapping mechanism that makes this easy.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Anatomy of a
+typemap</b> <br>
+In more practical terms, the typemap is a collection of code
+fragments which are used by the <b>xsubpp</b> compiler to
+map C function parameters and values to Perl values. The
+typemap file may consist of three sections labelled
+<tt>&quot;TYPEMAP&quot;</tt>, <tt>&quot;INPUT&quot;</tt>,
+and <tt>&quot;OUTPUT&quot;</tt>. An unlabelled initial
+section is assumed to be a <tt>&quot;TYPEMAP&quot;</tt>
+section. The <small>INPUT</small> section tells the compiler
+how to translate Perl values into variables of certain C
+types. The <small>OUTPUT</small> section tells the compiler
+how to translate the values from certain C types into values
+Perl can understand. The <small>TYPEMAP</small> section
+tells the compiler which of the <small>INPUT</small> and
+<small>OUTPUT</small> code fragments should be used to map a
+given C type to a Perl value. The section labels
+<tt>&quot;TYPEMAP&quot;</tt>, <tt>&quot;INPUT&quot;</tt>, or
+<tt>&quot;OUTPUT&quot;</tt> must begin in the first column
+on a line by themselves, and must be in uppercase.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each type of
+section can appear an arbitrary number of times and does not
+have to appear at all. For example, a typemap may commonly
+lack <tt>&quot;INPUT&quot;</tt> and
+<tt>&quot;OUTPUT&quot;</tt> sections if all it needs to do
+is associate additional C types with core <small>XS</small>
+types like T_PTROBJ. Lines that start with a hash
+<tt>&quot;#&quot;</tt> are considered comments and ignored
+in the <tt>&quot;TYPEMAP&quot;</tt> section, but are
+considered significant in <tt>&quot;INPUT&quot;</tt> and
+<tt>&quot;OUTPUT&quot;</tt>. Blank lines are generally
+ignored.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Traditionally,
+typemaps needed to be written to a separate file,
+conventionally called <tt>&quot;typemap&quot;</tt> in a
+<small>CPAN</small> distribution. With ExtUtils::ParseXS
+(the <small>XS</small> compiler) version 3.12 or better
+which comes with perl 5.16, typemaps can also be embedded
+directly into <small>XS</small> code using a HERE-doc like
+syntax:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  TYPEMAP: &lt;&lt;HERE
+  ...
+  HERE</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where
+<tt>&quot;HERE&quot;</tt> can be replaced by other
+identifiers like with normal Perl HERE-docs. All details
+below about the typemap textual format remain valid.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;TYPEMAP&quot;</tt> section should contain one pair
+of C type and <small>XS</small> type per line as follows. An
+example from the core typemap file:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  TYPEMAP
+  # all variants of char* is handled by the T_PV typemap
+  char *          T_PV
+  const char *    T_PV
+  unsigned char * T_PV
+  ...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;INPUT&quot;</tt> and <tt>&quot;OUTPUT&quot;</tt>
+sections have identical formats, that is, each unindented
+line starts a new in&minus; or output map respectively. A
+new in&minus; or output map must start with the name of the
+<small>XS</small> type to map on a line by itself, followed
+by the code that implements it indented on the following
+lines. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  INPUT
+  T_PV
+    $var = ($type)SvPV_nolen($arg)
+  T_PTR
+    $var = INT2PTR($type,SvIV($arg))</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">We&rsquo;ll get
+to the meaning of those Perlish-looking variables in a
+little bit.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Finally,
+here&rsquo;s an example of the full typemap file for mapping
+C strings of the <tt>&quot;char *&quot;</tt> type to Perl
+scalars/strings:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  TYPEMAP
+  char *  T_PV
+  INPUT
+  T_PV
+    $var = ($type)SvPV_nolen($arg)
+  OUTPUT
+  T_PV
+    sv_setpv((SV*)$arg, $var);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Here&rsquo;s a
+more complicated example: suppose that you wanted
+<tt>&quot;struct netconfig&quot;</tt> to be blessed into the
+class <tt>&quot;Net::Config&quot;</tt>. One way to do this
+is to use underscores (_) to separate package names, as
+follows:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  typedef struct netconfig * Net_Config;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And then
+provide a typemap entry
+<tt>&quot;T_PTROBJ_SPECIAL&quot;</tt> that maps underscores
+to double-colons (::), and declare
+<tt>&quot;Net_Config&quot;</tt> to be of that type:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  TYPEMAP
+  Net_Config      T_PTROBJ_SPECIAL
+  INPUT
+  T_PTROBJ_SPECIAL
+    if (sv_derived_from($arg, \&quot;${(my $ntt=$ntype)=~s/_/::/g;\$ntt}\&quot;)){
+      IV tmp = SvIV((SV*)SvRV($arg));
+      $var = INT2PTR($type, tmp);
+    }
+    else
+      croak(\&quot;$var is not of type ${(my $ntt=$ntype)=~s/_/::/g;\$ntt}\&quot;)
+  OUTPUT
+  T_PTROBJ_SPECIAL
+    sv_setref_pv($arg, \&quot;${(my $ntt=$ntype)=~s/_/::/g;\$ntt}\&quot;,
+                 (void*)$var);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>INPUT</small> and <small>OUTPUT</small> sections
+substitute underscores for double-colons on the fly, giving
+the desired effect. This example demonstrates some of the
+power and versatility of the typemap facility.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;INT2PTR&quot;</tt> macro (defined in perl.h) casts
+an integer to a pointer of a given type, taking care of the
+possible different size of integers and pointers. There are
+also <tt>&quot;PTR2IV&quot;</tt>,
+<tt>&quot;PTR2UV&quot;</tt>, <tt>&quot;PTR2NV&quot;</tt>
+macros, to map the other way, which may be useful in
+<small>OUTPUT</small> sections.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Role of
+the typemap File in Your Distribution</b> <br>
+The default typemap in the <i>lib/ExtUtils</i> directory of
+the Perl source contains many useful types which can be used
+by Perl extensions. Some extensions define additional
+typemaps which they keep in their own directory. These
+additional typemaps may reference <small>INPUT</small> and
+<small>OUTPUT</small> maps in the main typemap. The
+<b>xsubpp</b> compiler will allow the extension&rsquo;s own
+typemap to override any mappings which are in the default
+typemap. Instead of using an additional <i>typemap</i> file,
+typemaps may be embedded verbatim in <small>XS</small> with
+a heredoc-like syntax. See the documentation on the
+<tt>&quot;TYPEMAP:&quot;</tt> <small>XS</small> keyword.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+<small>CPAN</small> distributions, you can assume that the
+<small>XS</small> types defined by the perl core are already
+available. Additionally, the core typemap has default
+<small>XS</small> types for a large number of C types. For
+example, if you simply return a <tt>&quot;char *&quot;</tt>
+from your <small>XSUB</small> , the core typemap will have
+this C type associated with the T_PV <small>XS</small> type.
+That means your C string will be copied into the
+<small>PV</small> (pointer value) slot of a new scalar that
+will be returned from your <small>XSUB</small> to to
+Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you&rsquo;re
+developing a <small>CPAN</small> distribution using
+<small>XS</small> , you may add your own file called
+<i>typemap</i> to the distribution. That file may contain
+typemaps that either map types that are specific to your
+code or that override the core typemap file&rsquo;s mappings
+for common C types.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Sharing
+typemaps Between <small>CPAN</small> Distributions</b> <br>
+Starting with ExtUtils::ParseXS version 3.13_01 (comes with
+perl 5.16 and better), it is rather easy to share typemap
+code between multiple <small>CPAN</small> distributions. The
+general idea is to share it as a module that offers a
+certain <small>API</small> and have the dependent modules
+declare that as a built-time requirement and import the
+typemap into the <small>XS</small> . An example of such a
+typemap-sharing module on <small>CPAN</small> is
+<tt>&quot;ExtUtils::Typemaps::Basic&quot;</tt>. Two steps to
+getting that module&rsquo;s typemaps available in your
+code:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Declare <tt>&quot;ExtUtils::Typemaps::Basic&quot;</tt>
+as a build-time dependency in
+<tt>&quot;Makefile.PL&quot;</tt> (use
+<tt>&quot;BUILD_REQUIRES&quot;</tt>), or in your
+<tt>&quot;Build.PL&quot;</tt> (use
+<tt>&quot;build_requires&quot;</tt>).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Include the following line in the <small>XS</small>
+section of your <small>XS</small> file: (don&rsquo;t break
+the line)</p></td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em">  INCLUDE_COMMAND: $^X &minus;MExtUtils::Typemaps::Cmd
+                   &minus;e &quot;print embeddable_typemap(q{Basic})&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Writing
+typemap Entries</b> <br>
+Each <small>INPUT</small> or <small>OUTPUT</small> typemap
+entry is a double-quoted Perl string that will be evaluated
+in the presence of certain variables to get the final C code
+for mapping a certain C type.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This means that
+you can embed Perl code in your typemap (C) code using
+constructs such as <tt>&quot;${ perl code that evaluates to
+scalar reference here }&quot;</tt>. A common use case is to
+generate error messages that refer to the true function name
+even when using the <small>ALIAS XS</small> feature:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ${ $ALIAS ? \q[GvNAME(CvGV(cv))] : \qq[\&quot;$pname\&quot;] }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For many
+typemap examples, refer to the core typemap file that can be
+found in the perl source tree at
+<i>lib/ExtUtils/typemap</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Perl
+variables that are available for interpolation into typemaps
+are the following:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><i>$var</i> &minus; the name of
+the input or output variable, eg. <small>RETVAL</small> for
+return values.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$type</i> &minus; the raw C type of the parameter,
+any <tt>&quot;:&quot;</tt> replaced with
+<tt>&quot;_&quot;</tt>.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$ntype</i> &minus; the supplied type with
+<tt>&quot;*&quot;</tt> replaced with
+<tt>&quot;Ptr&quot;</tt>. e.g. for a type of
+<tt>&quot;Foo::Bar&quot;</tt>, <i>$ntype</i> is
+<tt>&quot;Foo::Bar&quot;</tt></p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$arg</i> &minus; the stack entry, that the parameter
+is input from or output to, e.g. <tt>ST(0)</tt></p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$argoff</i> &minus; the argument stack offset of the
+argument. ie. 0 for the first argument, etc.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$pname</i> &minus; the full name of the
+<small>XSUB</small> , with including the
+<tt>&quot;PACKAGE&quot;</tt> name, with any
+<tt>&quot;PREFIX&quot;</tt> stripped. This is the non-ALIAS
+name.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$Package</i> &minus; the package specified by the
+most recent <tt>&quot;PACKAGE&quot;</tt> keyword.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><i>$ALIAS</i> &minus; non-zero if the current
+<small>XSUB</small> has any aliases declared with
+<tt>&quot;ALIAS&quot;</tt>.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Full Listing
+of Core Typemaps</b> <br>
+Each C type is represented by an entry in the typemap file
+that is responsible for converting perl variables (
+<small>SV</small> , <small>AV</small> , <small>HV</small> ,
+<small>CV</small> , etc.) to and from that type. The
+following sections list all <small>XS</small> types that
+come with perl by default. <br>
+T_SV</p>
+
+<p style="margin-left:17%;">This simply passes the C
+representation of the Perl variable (an SV*) in and out of
+the <small>XS</small> layer. This can be used if the C code
+wants to deal directly with the Perl variable.</p>
+
+<p style="margin-left:11%;">T_SVREF</p>
+
+<p style="margin-left:17%;">Used to pass in and return a
+reference to an <small>SV</small> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that this
+typemap does not decrement the reference count when
+returning the reference to an SV*. See also:
+T_SVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:11%;">T_SVREF_FIXED</p>
+
+<p style="margin-left:17%;">Used to pass in and return a
+reference to an <small>SV</small> . This is a fixed variant
+of T_SVREF that decrements the refcount appropriately when
+returning a reference to an SV*. Introduced in perl
+5.15.4.</p>
+
+<p style="margin-left:11%;">T_AVREF</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl array. From the C level this is a
+pointer to an <small>AV</small> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that this
+typemap does not decrement the reference count when
+returning an AV*. See also: T_AVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:11%;">T_AVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl array. From the C level this is a
+pointer to an <small>AV</small> . This is a fixed variant of
+T_AVREF that decrements the refcount appropriately when
+returning an AV*. Introduced in perl 5.15.4.</p>
+
+<p style="margin-left:11%;">T_HVREF</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl hash. From the C level this is a pointer
+to an <small>HV</small> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that this
+typemap does not decrement the reference count when
+returning an HV*. See also: T_HVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:11%;">T_HVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl hash. From the C level this is a pointer
+to an <small>HV</small> . This is a fixed variant of T_HVREF
+that decrements the refcount appropriately when returning an
+HV*. Introduced in perl 5.15.4.</p>
+
+<p style="margin-left:11%;">T_CVREF</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl subroutine (e.g. <tt>$sub</tt> = sub { 1
+};). From the C level this is a pointer to a
+<small>CV</small> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that this
+typemap does not decrement the reference count when
+returning an HV*. See also: T_HVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:11%;">T_CVREF_REFCOUNT_FIXED</p>
+
+<p style="margin-left:17%;">From the perl level this is a
+reference to a perl subroutine (e.g. <tt>$sub</tt> = sub { 1
+};). From the C level this is a pointer to a
+<small>CV</small> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">This is a fixed
+variant of T_HVREF that decrements the refcount
+appropriately when returning an HV*. Introduced in perl
+5.15.4.</p>
+
+<p style="margin-left:11%;">T_SYSRET</p>
+
+<p style="margin-left:17%;">The T_SYSRET typemap is used to
+process return values from system calls. It is only
+meaningful when passing values from C to perl (there is no
+concept of passing a system return value from Perl to
+C).</p>
+
+<p style="margin-left:17%; margin-top: 1em">System calls
+return &minus;1 on error (setting <small>ERRNO</small> with
+the reason) and (usually) 0 on success. If the return value
+is &minus;1 this typemap returns <tt>&quot;undef&quot;</tt>.
+If the return value is not &minus;1, this typemap translates
+a 0 (perl false) to &quot;0 but true&quot; (which is perl
+true) or returns the value itself, to indicate that the
+command succeeded.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+<small>POSIX</small> module makes extensive use of this
+type.</p>
+
+<p style="margin-left:11%;">T_UV</p>
+
+<p style="margin-left:17%;">An unsigned integer.</p>
+
+<p style="margin-left:11%;">T_IV</p>
+
+<p style="margin-left:17%;">A signed integer. This is cast
+to the required integer type when passed to C and converted
+to an <small>IV</small> when passed back to Perl.</p>
+
+<p style="margin-left:11%;">T_INT</p>
+
+<p style="margin-left:17%;">A signed integer. This typemap
+converts the Perl value to a native integer type (the
+<tt>&quot;int&quot;</tt> type on the current platform). When
+returning the value to perl it is processed in the same way
+as for T_IV.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Its behaviour
+is identical to using an <tt>&quot;int&quot;</tt> type in
+<small>XS</small> with T_IV.</p>
+
+<p style="margin-left:11%;">T_ENUM</p>
+
+<p style="margin-left:17%;">An enum value. Used to transfer
+an enum component from C. There is no reason to pass an enum
+value to C since it is stored as an <small>IV</small> inside
+perl.</p>
+
+<p style="margin-left:11%;">T_BOOL</p>
+
+<p style="margin-left:17%;">A boolean type. This can be
+used to pass true and false values to and from C.</p>
+
+<p style="margin-left:11%;">T_U_INT</p>
+
+<p style="margin-left:17%;">This is for unsigned integers.
+It is equivalent to using T_UV but explicitly casts the
+variable to type <tt>&quot;unsigned int&quot;</tt>. The
+default type for <tt>&quot;unsigned int&quot;</tt> is
+T_UV.</p>
+
+<p style="margin-left:11%;">T_SHORT</p>
+
+<p style="margin-left:17%;">Short integers. This is
+equivalent to T_IV but explicitly casts the return to type
+<tt>&quot;short&quot;</tt>. The default typemap for
+<tt>&quot;short&quot;</tt> is T_IV.</p>
+
+<p style="margin-left:11%;">T_U_SHORT</p>
+
+<p style="margin-left:17%;">Unsigned short integers. This
+is equivalent to T_UV but explicitly casts the return to
+type <tt>&quot;unsigned short&quot;</tt>. The default
+typemap for <tt>&quot;unsigned short&quot;</tt> is T_UV.</p>
+
+<p style="margin-left:17%; margin-top: 1em">T_U_SHORT is
+used for type <tt>&quot;U16&quot;</tt> in the standard
+typemap.</p>
+
+<p style="margin-left:11%;">T_LONG</p>
+
+<p style="margin-left:17%;">Long integers. This is
+equivalent to T_IV but explicitly casts the return to type
+<tt>&quot;long&quot;</tt>. The default typemap for
+<tt>&quot;long&quot;</tt> is T_IV.</p>
+
+<p style="margin-left:11%;">T_U_LONG</p>
+
+<p style="margin-left:17%;">Unsigned long integers. This is
+equivalent to T_UV but explicitly casts the return to type
+<tt>&quot;unsigned long&quot;</tt>. The default typemap for
+<tt>&quot;unsigned long&quot;</tt> is T_UV.</p>
+
+<p style="margin-left:17%; margin-top: 1em">T_U_LONG is
+used for type <tt>&quot;U32&quot;</tt> in the standard
+typemap.</p>
+
+<p style="margin-left:11%;">T_CHAR</p>
+
+<p style="margin-left:17%;">Single 8&minus;bit
+characters.</p>
+
+<p style="margin-left:11%;">T_U_CHAR</p>
+
+<p style="margin-left:17%;">An unsigned byte.</p>
+
+<p style="margin-left:11%;">T_FLOAT</p>
+
+<p style="margin-left:17%;">A floating point number. This
+typemap guarantees to return a variable cast to a
+<tt>&quot;float&quot;</tt>.</p>
+
+<p style="margin-left:11%;">T_NV</p>
+
+<p style="margin-left:17%;">A Perl floating point number.
+Similar to T_IV and T_UV in that the return type is cast to
+the requested numeric type rather than to a specific
+type.</p>
+
+<p style="margin-left:11%;">T_DOUBLE</p>
+
+<p style="margin-left:17%;">A double precision floating
+point number. This typemap guarantees to return a variable
+cast to a <tt>&quot;double&quot;</tt>.</p>
+
+<p style="margin-left:11%;">T_PV</p>
+
+<p style="margin-left:17%;">A string (char *).</p>
+
+<p style="margin-left:11%;">T_PTR</p>
+
+<p style="margin-left:17%;">A memory address (pointer).
+Typically associated with a <tt>&quot;void *&quot;</tt>
+type.</p>
+
+<p style="margin-left:11%;">T_PTRREF</p>
+
+<p style="margin-left:17%;">Similar to T_PTR except that
+the pointer is stored in a scalar and the reference to that
+scalar is returned to the caller. This can be used to hide
+the actual pointer value from the programmer since it is
+usually not required directly from within perl.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The typemap
+checks that a scalar reference is passed from perl to
+<small>XS</small> .</p>
+
+<p style="margin-left:11%;">T_PTROBJ</p>
+
+<p style="margin-left:17%;">Similar to T_PTRREF except that
+the reference is blessed into a class. This allows the
+pointer to be used as an object. Most commonly used to deal
+with C structs. The typemap checks that the perl object
+passed into the <small>XS</small> routine is of the correct
+class (or part of a subclass).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The pointer is
+blessed into a class that is derived from the name of type
+of the pointer but with all &rsquo;*&rsquo; in the name
+replaced with &rsquo;Ptr&rsquo;.</p>
+
+<p style="margin-left:11%;">T_REF_IV_REF</p>
+
+<p style="margin-left:17%;"><small>NOT YET</small></p>
+
+<p style="margin-left:11%;">T_REF_IV_PTR</p>
+
+<p style="margin-left:17%;">Similar to T_PTROBJ in that the
+pointer is blessed into a scalar object. The difference is
+that when the object is passed back into <small>XS</small>
+it must be of the correct type (inheritance is not
+supported).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The pointer is
+blessed into a class that is derived from the name of type
+of the pointer but with all &rsquo;*&rsquo; in the name
+replaced with &rsquo;Ptr&rsquo;.</p>
+
+<p style="margin-left:11%;">T_PTRDESC</p>
+
+<p style="margin-left:17%;"><small>NOT YET</small></p>
+
+<p style="margin-left:11%;">T_REFREF</p>
+
+<p style="margin-left:17%;">Similar to T_PTRREF, except the
+pointer stored in the referenced scalar is dereferenced and
+copied to the output variable. This means that T_REFREF is
+to T_PTRREF as T_OPAQUE is to T_OPAQUEPTR. All clear?</p>
+
+<p style="margin-left:17%; margin-top: 1em">Only the
+<small>INPUT</small> part of this is implemented (Perl to
+<small>XSUB</small> ) and there are no known users in core
+or on <small>CPAN</small> .</p>
+
+<p style="margin-left:11%;">T_REFOBJ</p>
+
+<p style="margin-left:17%;"><small>NOT YET</small></p>
+
+<p style="margin-left:11%;">T_OPAQUEPTR</p>
+
+<p style="margin-left:17%;">This can be used to store bytes
+in the string component of the <small>SV</small> . Here the
+representation of the data is irrelevant to perl and the
+bytes themselves are just stored in the <small>SV</small> .
+It is assumed that the C variable is a pointer (the bytes
+are copied from that memory location). If the pointer is
+pointing to something that is represented by 8 bytes then
+those 8 bytes are stored in the <small>SV</small> (and
+<i>length()</i> will report a value of 8). This entry is
+similar to T_OPAQUE.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In principle
+the <i>unpack()</i> command can be used to convert the bytes
+back to a number (if the underlying type is known to be a
+number).</p>
+
+<p style="margin-left:17%; margin-top: 1em">This entry can
+be used to store a C structure (the number of bytes to be
+copied is calculated using the C <tt>&quot;sizeof&quot;</tt>
+function) and can be used as an alternative to T_PTRREF
+without having to worry about a memory leak (since Perl will
+clean up the <small>SV</small> ).</p>
+
+<p style="margin-left:11%;">T_OPAQUE</p>
+
+<p style="margin-left:17%;">This can be used to store data
+from non-pointer types in the string part of an
+<small>SV</small> . It is similar to T_OPAQUEPTR except that
+the typemap retrieves the pointer directly rather than
+assuming it is being supplied. For example, if an integer is
+imported into Perl using T_OPAQUE rather than T_IV the
+underlying bytes representing the integer will be stored in
+the <small>SV</small> but the actual integer value will not
+be available. i.e. The data is opaque to perl.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The data may be
+retrieved using the <tt>&quot;unpack&quot;</tt> function if
+the underlying type of the byte stream is known.</p>
+
+<p style="margin-left:17%; margin-top: 1em">T_OPAQUE
+supports input and output of simple types. T_OPAQUEPTR can
+be used to pass these bytes back into C if a pointer is
+acceptable.</p>
+
+<p style="margin-left:11%;">Implicit array</p>
+
+<p style="margin-left:17%;">xsubpp supports a special
+syntax for returning packed C arrays to perl. If the
+<small>XS</small> return type is given as</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  array(type, nelem)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">xsubpp will
+copy the contents of <tt>&quot;nelem *
+sizeof(type)&quot;</tt> bytes from <small>RETVAL</small> to
+an <small>SV</small> and push it onto the stack. This is
+only really useful if the number of items to be returned is
+known at compile time and you don&rsquo;t mind having a
+string of bytes in your <small>SV</small> . Use T_ARRAY to
+push a variable number of arguments onto the return stack
+(they won&rsquo;t be packed as a single string though).</p>
+
+<p style="margin-left:17%; margin-top: 1em">This is similar
+to using T_OPAQUEPTR but can be used to process more than
+one element.</p>
+
+<p style="margin-left:11%;">T_PACKED</p>
+
+<p style="margin-left:17%;">Calls user-supplied functions
+for conversion. For <tt>&quot;OUTPUT&quot;</tt> (
+<small>XSUB</small> to Perl), a function named
+<tt>&quot;XS_pack_$ntype&quot;</tt> is called with the
+output Perl scalar and the C variable to convert from.
+<tt>$ntype</tt> is the normalized C type that is to be
+mapped to Perl. Normalized means that all
+<tt>&quot;*&quot;</tt> are replaced by the string
+<tt>&quot;Ptr&quot;</tt>. The return value of the function
+is ignored.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Conversely for
+<tt>&quot;INPUT&quot;</tt> (Perl to <small>XSUB</small> )
+mapping, the function named
+<tt>&quot;XS_unpack_$ntype&quot;</tt> is called with the
+input Perl scalar as argument and the return value is cast
+to the mapped C type and assigned to the output C
+variable.</p>
+
+<p style="margin-left:17%; margin-top: 1em">An example
+conversion function for a typemapped struct <tt>&quot;foo_t
+*&quot;</tt> might be:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  static void
+  XS_pack_foo_tPtr(SV *out, foo_t *in)
+  {
+    dTHX; /* alas, signature does not include pTHX_ */
+    HV* hash = newHV();
+    hv_stores(hash, &quot;int_member&quot;, newSViv(in&minus;&gt;int_member));
+    hv_stores(hash, &quot;float_member&quot;, newSVnv(in&minus;&gt;float_member));
+    /* ... */
+    /* mortalize as thy stack is not refcounted */
+    sv_setsv(out, sv_2mortal(newRV_noinc((SV*)hash)));
+  }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The conversion
+from Perl to C is left as an exercise to the reader, but the
+prototype would be:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  static foo_t *
+  XS_unpack_foo_tPtr(SV *in);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Instead of an
+actual C function that has to fetch the thread context using
+<tt>&quot;dTHX&quot;</tt>, you can define macros of the same
+name and avoid the overhead. Also, keep in mind to possibly
+free the memory allocated by
+<tt>&quot;XS_unpack_foo_tPtr&quot;</tt>.</p>
+
+<p style="margin-left:11%;">T_PACKEDARRAY</p>
+
+<p style="margin-left:17%;">T_PACKEDARRAY is similar to
+T_PACKED. In fact, the <tt>&quot;INPUT&quot;</tt> (Perl to
+<small>XSUB</small> ) typemap is indentical, but the
+<tt>&quot;OUTPUT&quot;</tt> typemap passes an additional
+argument to the <tt>&quot;XS_pack_$ntype&quot;</tt>
+function. This third parameter indicates the number of
+elements in the output so that the function can handle C
+arrays sanely. The variable needs to be declared by the user
+and must have the name <tt>&quot;count_$ntype&quot;</tt>
+where <tt>$ntype</tt> is the normalized C type name as
+explained above. The signature of the function would be for
+the example above and <tt>&quot;foo_t **&quot;</tt>:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  static void
+  XS_pack_foo_tPtrPtr(SV *out, foo_t *in, UV count_foo_tPtrPtr);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The type of the
+third parameter is arbitrary as far as the typemap is
+concerned. It just has to be in line with the declared
+variable.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Of course,
+unless you know the number of elements in the
+<tt>&quot;sometype **&quot;</tt> C array, within your
+<small>XSUB</small> , the return value from <tt>&quot;foo_t
+** XS_unpack_foo_tPtrPtr(...)&quot;</tt> will be hard to
+decypher. Since the details are all up to the
+<small>XS</small> author (the typemap user), there are
+several solutions, none of which particularly elegant. The
+most commonly seen solution has been to allocate memory for
+N+1 pointers and assign <tt>&quot;NULL&quot;</tt> to the
+(N+1)th to facilitate iteration.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Alternatively,
+using a customized typemap for your purposes in the first
+place is probably preferrable.</p>
+
+<p style="margin-left:11%;">T_DATAUNIT</p>
+
+<p style="margin-left:17%;"><small>NOT YET</small></p>
+
+<p style="margin-left:11%;">T_CALLBACK</p>
+
+<p style="margin-left:17%;"><small>NOT YET</small></p>
+
+<p style="margin-left:11%;">T_ARRAY</p>
+
+<p style="margin-left:17%;">This is used to convert the
+perl argument list to a C array and for pushing the contents
+of a C array onto the perl argument stack.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The usual
+calling signature is</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  @out = array_func( @in );</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Any number of
+arguments can occur in the list before the array but the
+input and output arrays must be the last elements in the
+list.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When used to
+pass a perl list to C the <small>XS</small> writer must
+provide a function (named after the array type but with
+&rsquo;Ptr&rsquo; substituted for &rsquo;*&rsquo;) to
+allocate the memory required to hold the list. A pointer
+should be returned. It is up to the <small>XS</small> writer
+to free the memory on exit from the function. The variable
+<tt>&quot;ix_$var&quot;</tt> is set to the number of
+elements in the new array.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When returning
+a C array to Perl the <small>XS</small> writer must provide
+an integer variable called <tt>&quot;size_$var&quot;</tt>
+containing the number of elements in the array. This is used
+to determine how many elements should be pushed onto the
+return argument stack. This is not required on input since
+Perl knows how many arguments are on the stack when the
+routine is called. Ordinarily this variable would be called
+<tt>&quot;size_RETVAL&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Additionally,
+the type of each element is determined from the type of the
+array. If the array uses type <tt>&quot;intArray
+*&quot;</tt> xsubpp will automatically work out that it
+contains variables of type <tt>&quot;int&quot;</tt> and use
+that typemap entry to perform the copy of each element. All
+pointer &rsquo;*&rsquo; and &rsquo;Array&rsquo; tags are
+removed from the name to determine the subtype.</p>
+
+<p style="margin-left:11%;">T_STDIO</p>
+
+<p style="margin-left:17%;">This is used for passing perl
+filehandles to and from C using <tt>&quot;FILE *&quot;</tt>
+structures.</p>
+
+<p style="margin-left:11%;">T_INOUT</p>
+
+<p style="margin-left:17%;">This is used for passing perl
+filehandles to and from C using <tt>&quot;PerlIO
+*&quot;</tt> structures. The file handle can used for
+reading and writing. This corresponds to the
+<tt>&quot;+&lt;&quot;</tt> mode, see also T_IN and
+T_OUT.</p>
+
+<p style="margin-left:17%; margin-top: 1em">See perliol for
+more information on the Perl <small>IO</small> abstraction
+layer. Perl must have been built with
+<tt>&quot;&minus;Duseperlio&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">There is no
+check to assert that the filehandle passed from Perl to C
+was created with the right <tt>&quot;open()&quot;</tt>
+mode.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Hint: The
+perlxstut tutorial covers the T_INOUT, T_IN, and T_OUT
+<small>XS</small> types nicely.</p>
+
+<p style="margin-left:11%;">T_IN</p>
+
+<p style="margin-left:17%;">Same as T_INOUT, but the
+filehandle that is returned from C to Perl can only be used
+for reading (mode <tt>&quot;&lt;&quot;</tt>).</p>
+
+<p style="margin-left:11%;">T_OUT</p>
+
+<p style="margin-left:17%;">Same as T_INOUT, but the
+filehandle that is returned from C to Perl is set to use the
+open mode <tt>&quot;+&gt;&quot;</tt>.</p>
+<hr>
+</body>
+</html>

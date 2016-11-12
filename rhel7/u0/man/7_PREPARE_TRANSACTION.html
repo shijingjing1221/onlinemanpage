@@ -1,0 +1,196 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:14:46 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PREPARE TRANSACTION</title>
+
+</head>
+<body>
+
+<h1 align="center">PREPARE TRANSACTION</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">PREPARE_TRANSACTION
+&minus; prepare the current transaction for two&minus;phase
+commit</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">PREPARE
+TRANSACTION <i>transaction_id</i></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><b>PREPARE
+TRANSACTION</b></i> prepares the current transaction for
+two&minus;phase commit. After this command, the transaction
+is no longer associated with the current session; instead,
+its state is fully stored on disk, and there is a very high
+probability that it can be committed successfully, even if a
+database crash occurs before the commit is requested.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once prepared,
+a transaction can later be committed or rolled back with
+COMMIT PREPARED (<b>COMMIT_PREPARED</b>(7)) or ROLLBACK
+PREPARED (<b>ROLLBACK_PREPARED</b>(7)), respectively. Those
+commands can be issued from any session, not only the one
+that executed the original transaction.</p>
+
+<p style="margin-left:11%; margin-top: 1em">From the point
+of view of the issuing session, <b>PREPARE TRANSACTION</b>
+is not unlike a <b>ROLLBACK</b> command: after executing it,
+there is no active current transaction, and the effects of
+the prepared transaction are no longer visible. (The effects
+will become visible again if the transaction is
+committed.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<b>PREPARE TRANSACTION</b> command fails for any reason, it
+becomes a <b>ROLLBACK</b>: the current transaction is
+canceled.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>transaction_id</i></p>
+
+<p style="margin-left:17%;">An arbitrary identifier that
+later identifies this transaction for <b>COMMIT PREPARED</b>
+or <b>ROLLBACK PREPARED</b>. The identifier must be written
+as a string literal, and must be less than 200 bytes long.
+It must not be the same as the identifier used for any
+currently prepared transaction.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PREPARE
+TRANSACTION</b> is not intended for use in applications or
+interactive sessions. Its purpose is to allow an external
+transaction manager to perform atomic global transactions
+across multiple databases or other transactional resources.
+Unless you're writing a transaction manager, you probably
+shouldn't be using <b>PREPARE TRANSACTION</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This command
+must be used inside a transaction block. Use <b>BEGIN</b>(7)
+to start one.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is not
+currently allowed to <b>PREPARE</b> a transaction that has
+executed any operations involving temporary tables, created
+any cursors WITH HOLD, or executed <b>LISTEN</b> or
+<b>UNLISTEN</b>. Those features are too tightly tied to the
+current session to be useful in a transaction to be
+prepared.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+transaction modified any run&minus;time parameters with
+<b>SET</b> (without the LOCAL option), those effects persist
+after <b>PREPARE TRANSACTION</b>, and will not be affected
+by any later <b>COMMIT PREPARED</b> or <b>ROLLBACK
+PREPARED</b>. Thus, in this one respect <b>PREPARE
+TRANSACTION</b> acts more like <b>COMMIT</b> than
+<b>ROLLBACK</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All currently
+available prepared transactions are listed in the
+pg_prepared_xacts system view.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Caution</big></b>
+<br>
+It is unwise to leave transactions in the prepared state for
+a long time. This will interfere with the ability of
+<b>VACUUM</b> to reclaim storage, and in extreme cases could
+cause the database to shut down to prevent transaction ID
+wraparound (see Section 23.1.5, &ldquo;Preventing
+Transaction ID Wraparound Failures&rdquo;, in the
+documentation). Keep in mind also that the transaction
+continues to hold whatever locks it held. The intended usage
+of the feature is that a prepared transaction will normally
+be committed or rolled back as soon as an external
+transaction manager has verified that other databases are
+also prepared to commit.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If you have not
+set up an external transaction manager to track prepared
+transactions and ensure they get closed out promptly, it is
+best to keep the prepared&minus;transaction feature disabled
+by setting max_prepared_transactions to zero. This will
+prevent accidental creation of prepared transactions that
+might then be forgotten and eventually cause problems.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Prepare the
+current transaction for two&minus;phase commit, using foobar
+as the transaction identifier:</p>
+
+<p style="margin-left:17%; margin-top: 1em">PREPARE
+TRANSACTION 'foobar';</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PREPARE
+TRANSACTION</b> is a PostgreSQL extension. It is intended
+for use by external transaction management systems, some of
+which are covered by standards (such as X/Open XA), but the
+SQL side of those systems is not standardized.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">COMMIT PREPARED
+(<b>COMMIT_PREPARED</b>(7)), ROLLBACK PREPARED
+(<b>ROLLBACK_PREPARED</b>(7))</p>
+<hr>
+</body>
+</html>

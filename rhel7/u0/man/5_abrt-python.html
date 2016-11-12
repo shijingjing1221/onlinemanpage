@@ -1,0 +1,522 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:29:35 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>ABRT-PYTHON</title>
+
+</head>
+<body>
+
+<h1 align="center">ABRT-PYTHON</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#USAGE EXAMPLES">USAGE EXAMPLES</a><br>
+<a href="#STABLE API DOCUMENTATION">STABLE API DOCUMENTATION</a><br>
+<a href="#PROBLEM OBJECT PROPERTIES">PROBLEM OBJECT PROPERTIES</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">abrt-python
+&minus; abrt-python Documentation</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">High&minus;level
+API for querying, creating and manipulating problems handled
+by <i>ABRT</i> in Python.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It works on top
+of low&minus;level DBus or socket API provided by ABRT.
+Socket API serves only as a fallback option for systems
+without new DBus problem API as it can only handle the
+creation of new problems.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This project
+lives in the <i>abrt repository</i> and is distributed under
+GPLv2 license.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Contents:</p>
+
+<h2>USAGE EXAMPLES
+<a name="USAGE EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Creating new
+problem</b></p>
+<pre style="margin-left:15%;">import problem
+
+prob = problem.Runtime(
+        reason='egg_error_message: assertion &quot;error&quot; failed',
+    )
+
+
+prob.add_current_process_data()
+prob.add_current_environment()
+prob.save()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Creating
+problem for different executable</b></p>
+<pre style="margin-left:15%;">import problem
+
+prob = problem.Selinux(reason='Front fell off')
+
+prob.executable = '/usr/bin/time'
+
+prob.save()</pre>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Adding
+custom data</b></p>
+<pre style="margin-left:15%;">import problem
+
+prob = problem.Runtime(
+        reason='Error getting devices:'
+        'GDBus.Error:org.freedesktop.DBus.Error.UnknownMethod: '
+        'No such interface `org.gnome.SettingsDaemon.Power` on object at path '
+        '/org/gnome/SettingsDaemon/Power'
+    )
+
+prob.add_current_process_data()
+prob.custom_data = 'any'
+prob['dict_access_example'] = 'works'
+
+print(prob)
+print('')
+
+for key, value in prob.items():
+    print('{0}={1}'.format(key, value))
+
+print 'Identifier:', prob.save()</pre>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Querying
+problems</b></p>
+<pre style="margin-left:15%;">import problem
+
+
+for prob in problem.list():
+    print(prob)
+    print(repr(prob.time))
+    if hasattr(prob, 'pid'):
+        print(prob.pid)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Querying all
+problems</b> <br>
+The <b>list_all</b> method will try to authenticate via
+<i>polkit</i> to gain access to all problems on the
+system.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If there is no
+authentication agent running or authentication is
+unsuccessful, the list of problems which belong to current
+user is returned (same as returned by the <b>list</b>
+method).</p>
+<pre style="margin-left:15%; margin-top: 1em">import problem
+
+
+for prob in problem.list(auth=True):
+    print(prob)
+    if hasattr(prob, 'username'):
+        print('Problem belongs to {0}'.format(prob.username))</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Editing
+existing problems</b></p>
+<pre style="margin-left:15%;">import problem
+
+for prob in problem.list():
+    if prob.type == problem.JAVA:
+        prob.delete()
+
+    if prob.type == problem.CCPP:
+        if 'password' in prob.backtrace:
+            del prob.backtrace
+            prob.save()
+
+
+    if prob.type == problem.KERNELOOPS:
+        prob.backtrace = prob.backtrace.replace(' ?', '')
+        prob.save()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Watching for
+new problems</b></p>
+<pre style="margin-left:15%;">import problem
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+def monitor(prob):
+    print(prob)
+    prob.delete()
+
+pwatch = problem.get_problem_watcher()
+pwatch.add_callback(monitor)
+
+
+try:
+    pwatch.run()
+except KeyboardInterrupt:
+    pwatch.quit()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Watching for
+new problems in a thread</b></p>
+<pre style="margin-left:15%;">from __future__ import print_function
+
+import sys
+import time
+import problem
+import threading
+
+class ProblemWatchThread(threading.Thread):
+    def __init__(self):
+        super(ProblemWatchThread, self).__init__()
+        self.pwatch = problem.get_problem_watcher()
+        self.pwatch.add_callback(self.handle)
+        self.probcount = 0
+
+    def handle(self, prob):
+        self.probcount += 1
+        print('{0}: {1}'.format(self.probcount, prob))
+        # prob.delete()
+
+    def run(self):
+        self.pwatch.run()
+
+    def stop(self):
+        self.pwatch.quit()
+
+pwt = ProblemWatchThread()
+pwt.start()
+
+i = 0
+print('Waiting for new problem to appear')
+spinner = ['\\', '|', '/', '&minus;']
+
+try:
+    while True:
+        time.sleep(0.1)
+        print('{0}\r'.format(spinner[i]), end='')
+        i += 1
+        i = i % len(spinner)
+        sys.stdout.flush()
+except KeyboardInterrupt:
+    pwt.stop()
+
+pwt.stop()</pre>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Getting bug
+numbers of problems reported to bugzilla</b></p>
+<pre style="margin-left:15%;">import problem
+
+bugs = set()
+
+for prob in problem.list():
+    if not hasattr(prob, 'reported_to'):
+        continue
+
+    for line in prob.reported_to.splitlines():
+        if line.startswith('Bugzilla:'):
+            bug_num = int(line.split('=')[&minus;1])
+            bugs.add(bug_num)
+
+print(bugs)</pre>
+
+<h2>STABLE API DOCUMENTATION
+<a name="STABLE API DOCUMENTATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>class
+problem.Problem(typ, reason)</b></p>
+
+<p style="margin-left:22%;">Base class for the other
+problem types.</p>
+
+<p style="margin-left:22%; margin-top: 1em">No need to use
+this class directly, use one of the specific problem
+classes. <b><br>
+add_current_environment()</b></p>
+
+<p style="margin-left:32%;">Add environment of current
+process to this problem object</p>
+
+
+<p style="margin-left:22%;"><b>add_current_process_data()</b></p>
+
+<p style="margin-left:32%;">Add pid, gid and executable of
+current process to this problem object</p>
+
+<p style="margin-left:22%;"><b>delete()</b></p>
+
+<p style="margin-left:32%;">Delete this problem</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>save()</b></p></td>
+<td width="1%"></td>
+<td width="66%">
+
+
+<p>Create this problem or update modified data</p></td>
+<td width="2%">
+</td></tr>
+</table>
+
+<p style="margin-left:32%; margin-top: 1em">Create or
+update the project if some of its fields were modified.</p>
+
+<p style="margin-left:32%; margin-top: 1em">Return
+<b>None</b> in case of modification, identifier if new
+problem was created.</p>
+
+
+<p style="margin-left:11%;"><b>problem.list(auth=False)</b></p>
+
+<p style="margin-left:22%;">Return the list of the
+problems</p>
+
+<p style="margin-left:22%; margin-top: 1em">Use
+<b>auth=True</b> if authentication should be attempted.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If
+authentication via polkit fails, function behaves as if
+<b>auth=False</b> was specified (only users problems are
+returned).</p>
+
+<p style="margin-left:11%;"><b>problem.get(identifier,
+auth=False)</b></p>
+
+<p style="margin-left:22%;">Return problem object matching
+<b>identifier</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">Return
+<b>None</b> in case the problem does not exist.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Use
+<b>auth=True</b> if authentication should be attempted.</p>
+
+
+<p style="margin-left:11%;"><b>problem.get_problem_watcher(auth=False)</b></p>
+
+<p style="margin-left:22%;">Return <b>ProblemWatcher</b>
+object which can be used to attach callbacks called when new
+problem is created</p>
+
+<p style="margin-left:22%; margin-top: 1em">Use
+<b>auth=True</b> if authentication should be attempted for
+new problem that doesn't belong to current user. If not set
+such a problem is ignored.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Specific
+problem types <br>
+class problem.Ccpp(reason)</b></p>
+
+<p style="margin-left:22%;">C, C++ problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Java(reason)</b></p>
+
+<p style="margin-left:22%;">Java problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Kerneloops(reason)</b></p>
+
+<p style="margin-left:22%;">Kerneloops problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Python(reason)</b></p>
+
+<p style="margin-left:22%;">Python problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Runtime(reason)</b></p>
+
+<p style="margin-left:22%;">Runtime problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Selinux(reason)</b></p>
+
+<p style="margin-left:22%;">Selinux problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Unknown(reason)</b></p>
+
+<p style="margin-left:22%;">Unknown problem</p>
+
+<p style="margin-left:11%;"><b>class
+problem.Xorg(reason)</b></p>
+
+<p style="margin-left:22%;">Xorg problem</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ProblemWatcher
+<br>
+class problem.watch.ProblemWatcher(auth)</b></p>
+
+<p style="margin-left:22%;">New problem signal handler
+attached to DBus signal</p>
+
+<p style="margin-left:22%; margin-top: 1em">Use
+<b>auth=True</b> if authentication should be attempted for
+new problem that doesn't belong to current user. If not set
+such a problem is ignored. <b><br>
+add_callback(fun)</b></p>
+
+<p style="margin-left:32%;">Add callback to be called when
+new problem occurs.</p>
+
+<p style="margin-left:32%; margin-top: 1em">Each callback
+function receives <b>Problem</b> instance</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>quit()</b></p></td>
+<td width="1%"></td>
+<td width="39%">
+
+
+<p>Stop event listener loop</p></td>
+<td width="29%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>run()</b></p></td>
+<td width="1%"></td>
+<td width="39%">
+
+
+<p>Start event listener loop</p></td>
+<td width="29%">
+</td></tr>
+</table>
+
+<h2>PROBLEM OBJECT PROPERTIES
+<a name="PROBLEM OBJECT PROPERTIES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Currently,
+there is no strict specification of problem properties and
+you are free to add your own data as you see fit (log files,
+process data) provided you are planning to use them for
+reporting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Mandatory
+properties required prior saving:</p>
+
+
+<p align="center" style="margin-top: 1em"><img src="grohtml-310771.png" alt="Image grohtml-310771.png"></p>
+
+<p style="margin-left:11%;">Following properties are added
+by the server when new problem is created:</p>
+
+
+<p align="center" style="margin-top: 1em"><img src="grohtml-310772.png" alt="Image grohtml-310772.png"></p>
+
+<p style="margin-left:11%;">Parsed package data is also
+available:</p>
+
+
+<p align="center" style="margin-top: 1em"><img src="grohtml-310773.png" alt="Image grohtml-310773.png"></p>
+
+<p style="margin-left:11%;">Other common properties
+(presence differs based on problem type):</p>
+
+
+<p align="center" style="margin-top: 1em"><img src="grohtml-310774.png" alt="Image grohtml-310774.png"></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="2%"></td>
+<td width="12%">
+
+
+<p style="margin-top: 1em"><i>genindex</i></p></td>
+<td width="74%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="12%">
+
+
+<p><i>modindex</i></p></td>
+<td width="74%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="12%">
+
+
+<p><i>search</i></p></td>
+<td width="74%">
+</td></tr>
+</table>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Richard
+Marko</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">2012, Richard
+Marko</p>
+<hr>
+</body>
+</html>

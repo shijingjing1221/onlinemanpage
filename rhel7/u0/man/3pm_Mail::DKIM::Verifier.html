@@ -1,0 +1,519 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:05:40 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::DKIM::Verifier</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::DKIM::Verifier</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONSTRUCTOR">CONSTRUCTOR</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::DKIM::Verifier
+&minus; verifies a DKIM&minus;signed message</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use Mail::DKIM::Verifier;
+  # create a verifier object
+  my $dkim = Mail::DKIM::Verifier&minus;&gt;new();
+  # read an email from a file handle
+  $dkim&minus;&gt;load(*STDIN);
+  # or read an email and pass it into the verifier, incrementally
+  while (&lt;STDIN&gt;)
+  {
+      # remove local line terminators
+      chomp;
+      s/\015$//;
+      # use SMTP line terminators
+      $dkim&minus;&gt;PRINT(&quot;$_\015\012&quot;);
+  }
+  $dkim&minus;&gt;CLOSE;
+  # what is the result of the verify?
+  my $result = $dkim&minus;&gt;result;
+  # there might be multiple signatures, what is the result per signature?
+  foreach my $signature ($dkim&minus;&gt;signatures)
+  {
+      print &quot;signature identity: &quot; . $signature&minus;&gt;identity . &quot;\n&quot;;
+      print &quot;verify result: &quot; . $signature&minus;&gt;result_detail . &quot;\n&quot;;
+  }
+  # the alleged author of the email may specify how to handle email
+  foreach my $policy ($dkim&minus;&gt;policies)
+  {
+      die &quot;fraudulent message&quot; if ($policy&minus;&gt;apply($dkim) eq &quot;reject&quot;);
+  }</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The verifier
+object allows an email message to be scanned for
+<small>DKIM</small> and DomainKeys signatures and those
+signatures to be verified. The verifier tracks the state of
+the message as it is read into memory. When the message has
+been completely read, the signatures are verified and the
+results of the verification can be accessed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To use the
+verifier, first create the verifier object. Then start
+&quot;feeding&quot; it the email message to be verified.
+When all the _headers_ have been read, the verifier:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> 1. checks whether any DomainKeys/DKIM signatures were found
+ 2. queries for the public keys needed to verify the signatures
+ 3. sets up the appropriate algorithms and canonicalization objects
+ 4. canonicalizes the headers and computes the header hash</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Then, when the
+_body_ of the message has been completely fed into the
+verifier, the body hash is computed and the signatures are
+verified.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The results of
+the verification can be checked with
+&quot;<i>result()</i>&quot; or
+&quot;<i>signatures()</i>&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Messages that
+do not verify may be checked against the alleged
+sender&rsquo;s published signing policy with
+&quot;<i>policies()</i>&quot; and &quot;<i>apply()</i>&quot;
+in Mail::DKIM::Policy.</p>
+
+<h2>CONSTRUCTOR
+<a name="CONSTRUCTOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>new()</i>
+<br>
+Constructs an object-oriented verifier.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $dkim = Mail::DKIM::Verifier&minus;&gt;new();
+  my $dkim = Mail::DKIM::Verifier&minus;&gt;new(%options);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The only option
+supported at this time is: <br>
+Debug_Canonicalization</p>
+
+<p style="margin-left:17%;">if specified, the canonicalized
+message for the first signature is written to the referenced
+string or file handle.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><small>PRINT</small>
+()</i> <br>
+Feeds part of the message to the verifier.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;PRINT(&quot;a line of the message\015\012&quot;);
+  $dkim&minus;&gt;PRINT(&quot;more of&quot;);
+  $dkim&minus;&gt;PRINT(&quot; the message\015\012bye\015\012&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Feeds content
+of the message being verified into the verifier. The
+<small>API</small> is designed this way so that the entire
+message does <small>NOT</small> need to be read into memory
+at once.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Please note
+that although the <i><small>PRINT</small> ()</i> method
+expects you to use SMTP-style line termination characters,
+you should <small>NOT</small> use the SMTP-style
+dot-stuffing technique described in <small>RFC 2821</small>
+section 4.5.2. Nor should you use a &lt; <small>CR</small>
+&gt;&lt; <small>LF</small> &gt;.&lt; <small>CR</small>
+&gt;&lt; <small>LF</small> &gt; sequence to terminate the
+message.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><small>CLOSE</small>
+()</i> <br>
+Call this when finished feeding in the message.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;CLOSE;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+finishes the canonicalization process, computes a hash, and
+verifies the signature.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>fetch_author_domain_policies()</i>
+<br>
+Retrieves <small>ADSP</small> records from
+<small>DNS.</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @policies = $dkim&minus;&gt;fetch_author_domain_policies;
+  foreach my $policy (@policies)
+  {
+      my $policy_result = $policy&minus;&gt;apply($dkim);
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+will retrieve all applicable
+&quot;author-domain-signing-practices&quot; published in
+<small>DNS</small> for this message. Author policies are
+keyed to the email address(es) in the From: header, i.e. the
+claimed author of the message.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+returns a *list* of policy records, since there is allowed
+to be zero or multiple email addresses in the From:
+header.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result of
+the <i>apply()</i> method is one of: &quot;accept&quot;,
+&quot;reject&quot;, &quot;neutral&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See also:
+&quot;<i>policies()</i>&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>fetch_author_policy()</i>
+<br>
+Retrieves a signing policy from <small>DNS.</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $policy = $dkim&minus;&gt;fetch_author_policy;
+  my $policy_result = $policy&minus;&gt;apply($dkim);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+retrieves the <small>DKIM</small> Sender Signing Practices
+record as described in Internet Draft
+draft&minus;ietf&minus;dkim&minus;ssp&minus;00&minus;01dc.
+This Internet Draft is now obsolete; this method is only
+kept for backward-compatibility purposes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Please use the
+&quot;<i>policies()</i>&quot; method instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>fetch_sender_policy()</i>
+<br>
+Retrieves a signing policy from <small>DNS.</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $policy = $dkim&minus;&gt;fetch_sender_policy;
+  my $policy_result = $policy&minus;&gt;apply($dkim);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;sender&quot; policy is the sender signing policy as
+described by the DomainKeys specification, now available in
+<small>RFC4870</small> (historical). I call it the
+&quot;sender&quot; policy because it is keyed to the email
+address in the Sender: header, or the From: header if there
+is no Sender header. This is the person whom the message
+claims as the &quot;transmitter&quot; of the message (not
+necessarily the author).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the email
+being verified has no From or Sender header from which to
+get an email address (which violates email standards), then
+this method will <tt>&quot;die&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result of
+the <i>apply()</i> method is one of: &quot;accept&quot;,
+&quot;reject&quot;, &quot;neutral&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See also:
+&quot;<i>policies()</i>&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>load()</i>
+<br>
+Load the entire message from a file handle.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;load($file_handle);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Reads a
+complete message from the designated file handle, feeding it
+into the verifier. The message must use &lt;
+<small>CRLF</small> &gt; line terminators (same as the
+<small>SMTP</small> protocol).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>message_originator()</i>
+<br>
+Access the &quot;From&quot; header.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $address = $dkim&minus;&gt;message_originator;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+&quot;originator address&quot; found in the message, as a
+Mail::Address object. This is typically the (first) name and
+email address found in the From: header. If there is no
+From: header, then an empty Mail::Address object is
+returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To get just the
+email address part, do:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $email = $dkim&minus;&gt;message_originator&minus;&gt;address;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See also
+&quot;<i>message_sender()</i>&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>message_sender()</i>
+<br>
+Access the &quot;From&quot; or &quot;Sender&quot;
+header.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $address = $dkim&minus;&gt;message_sender;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+&quot;sender&quot; found in the message, as a Mail::Address
+object. This is typically the (first) name and email address
+found in the Sender: header. If there is no Sender: header,
+it is the first name and email address in the From: header.
+If neither header is present, then an empty Mail::Address
+object is returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To get just the
+email address part, do:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $email = $dkim&minus;&gt;message_sender&minus;&gt;address;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;sender&quot; is the mailbox of the agent responsible
+for the actual transmission of the message. For example, if
+a secretary were to send a message for another person, the
+&quot;sender&quot; would be the secretary and the
+&quot;originator&quot; would be the actual author.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>policies()</i>
+<br>
+Retrieves applicable signing policies from
+<small>DNS.</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @policies = $dkim&minus;&gt;policies;
+  foreach my $policy (@policies)
+  {
+      $policy_result = $policy&minus;&gt;apply($dkim);
+      # $policy_result is one of &quot;accept&quot;, &quot;reject&quot;, &quot;neutral&quot;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+searches for and returns any signing policies that would
+apply to this message. Signing policies are selected based
+on the domain that the message *claims* to be from. So, for
+example, if a message claims to be from security@bank, and
+forwarded by trusted@listserv, when in reality the message
+came from foe@evilcorp, this method would check for signing
+policies for security@bank and trusted@listserv. The signing
+policies might tell whether foe@evilcorp (the real sender)
+is allowed to send mail claiming to be from your bank or
+your listserv.</p>
+
+<p style="margin-left:11%; margin-top: 1em">I say
+&quot;might tell&quot;, because in reality this is still
+really hard to specify with any accuracy. In addition, most
+senders do not publish useful policies.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>result()</i>
+<br>
+Access the result of the verification.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $result = $dkim&minus;&gt;result;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Gives the
+result of the verification. The following values are
+possible: <br>
+pass</p>
+
+<p style="margin-left:17%;">Returned if a valid
+DKIM-Signature header was found, and the signature contains
+a correct value for the message.</p>
+
+<p style="margin-left:11%;">fail</p>
+
+<p style="margin-left:17%;">Returned if a valid
+DKIM-Signature header was found, but the signature does not
+contain a correct value for the message.</p>
+
+<p style="margin-left:11%;">invalid</p>
+
+<p style="margin-left:17%;">Returned if a DKIM-Signature
+could not be checked because of a problem in the signature
+itself or the public key record. I.e. the signature could
+not be processed.</p>
+
+<p style="margin-left:11%;">temperror</p>
+
+<p style="margin-left:17%;">Returned if a DKIM-Signature
+could not be checked due to some error which is likely
+transient in nature, such as a temporary inability to
+retrieve a public key. A later attempt may produce a better
+result.</p>
+
+<p style="margin-left:11%;">none</p>
+
+<p style="margin-left:17%;">Returned if no DKIM-Signature
+headers (valid or invalid) were found.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In case of
+multiple signatures, the &quot;best&quot; result will be
+returned. Best is defined as &quot;pass&quot;, followed by
+&quot;fail&quot;, &quot;invalid&quot;, and &quot;none&quot;.
+To examine the results of individual signatures, use the
+&quot;<i>signatures()</i>&quot; method to retrieve the
+signature objects. See &quot;<i>result()</i>&quot; in
+Mail::DKIM::Signature.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>result_detail()</i>
+<br>
+Access the result, plus details if available.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $detail = $dkim&minus;&gt;result_detail;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The detail is
+constructed by taking the result (e.g. &quot;pass&quot;,
+&quot;fail&quot;, &quot;invalid&quot; or &quot;none&quot;)
+and appending any details provided by the verification
+process in parenthesis.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+are possible results from the <i>result_detail()</i>
+method:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  pass
+  fail (bad RSA signature)
+  fail (OpenSSL error: ...)
+  fail (message has been altered)
+  fail (body has been altered)
+  invalid (bad identity)
+  invalid (invalid domain in d tag)
+  invalid (missing q tag)
+  invalid (missing d tag)
+  invalid (missing s tag)
+  invalid (unsupported version 0.1)
+  invalid (unsupported algorithm ...)
+  invalid (unsupported canonicalization ...)
+  invalid (unsupported query protocol ...)
+  invalid (signature is expired)
+  invalid (public key: not available)
+  invalid (public key: unknown query type ...)
+  invalid (public key: syntax error)
+  invalid (public key: unsupported version)
+  invalid (public key: unsupported key type)
+  invalid (public key: missing p= tag)
+  invalid (public key: invalid data)
+  invalid (public key: does not support email)
+  invalid (public key: does not support hash algorithm 'sha1')
+  invalid (public key: does not support signing subdomains)
+  invalid (public key: revoked)
+  invalid (public key: granularity mismatch)
+  invalid (public key: granularity is empty)
+  invalid (public key: OpenSSL error: ...)
+  none</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>signature()</i>
+<br>
+Access the message&rsquo;s <small>DKIM</small>
+signature.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $sig = $dkim&minus;&gt;signature;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Accesses the
+signature found and verified in this message. The returned
+object is of type Mail::DKIM::Signature.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In case of
+multiple signatures, the signature with the &quot;best&quot;
+result will be returned. Best is defined as
+&quot;pass&quot;, followed by &quot;fail&quot;,
+&quot;invalid&quot;, and &quot;none&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>signatures()</i>
+<br>
+Access all of this message&rsquo;s signatures.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @all_signatures = $dkim&minus;&gt;signatures;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use
+<tt>$signature</tt>&minus;&gt;result or
+<tt>$signature</tt>&minus;&gt;result_detail to access the
+verification results of each signature.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Jason Long,
+&lt;jlong@messiah.edu&gt;</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2006&minus;2009 by Messiah College</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself, either Perl version
+5.8.6 or, at your option, any later version of Perl 5 you
+may have available.</p>
+<hr>
+</body>
+</html>

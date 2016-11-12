@@ -1,0 +1,212 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:09:48 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PAM_FAIL_DELAY</title>
+
+</head>
+<body>
+
+<h1 align="center">PAM_FAIL_DELAY</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#RATIONALE">RATIONALE</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#RETURN VALUES">RETURN VALUES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#STANDARDS">STANDARDS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">pam_fail_delay
+&minus; request a delay on failure</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;security/pam_appl.h&gt;</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="89%">
+
+
+<p style="margin-top: 1em"><b>int
+pam_fail_delay(pam_handle_t&nbsp;*</b><i>pamh</i><b>,
+unsigned&nbsp;int&nbsp;</b><i>usec</i><b>);</b></p> </td></tr>
+</table>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pam_fail_delay</b> function provides a mechanism by which
+an application or module can suggest a minimum delay of
+<i>usec</i> micro&minus;seconds. The function keeps a record
+of the longest time requested with this function. Should
+<b>pam_authenticate</b>(3) fail, the failing return to the
+application is delayed by an amount of time randomly
+distributed (by up to 25%) about this longest value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Independent of
+success, the delay time is reset to its zero default value
+when the PAM service module returns control to the
+application. The delay occurs <i>after</i> all
+authentication modules have been called, but <i>before</i>
+control is returned to the service application.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using this
+function the programmer should check if it is available
+with:</p>
+
+<p style="margin-left:17%; margin-top: 1em">#ifdef
+HAVE_PAM_FAIL_DELAY <br>
+.... <br>
+#endif /* HAVE_PAM_FAIL_DELAY */</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+applications written with a single thread that are event
+driven in nature, generating this delay may be undesirable.
+Instead, the application may want to register the delay in
+some other way. For example, in a single threaded server
+that serves multiple authentication requests from a single
+event loop, the application might want to simply mark a
+given connection as blocked until an application timer
+expires. For this reason the delay function can be changed
+with the <i>PAM_FAIL_DELAY</i> item. It can be queried and
+set with <b>pam_get_item</b>(3) and <b>pam_set_item</b> (3)
+respectively. The value used to set it should be a function
+pointer of the following prototype:</p>
+
+<p style="margin-left:17%; margin-top: 1em">void
+(*delay_fn)(int retval, unsigned usec_delay, void
+*appdata_ptr);</p>
+
+<p style="margin-left:11%; margin-top: 1em">The arguments
+being the <i>retval</i> return code of the module stack, the
+<i>usec_delay</i> micro&minus;second delay that libpam is
+requesting and the <i>appdata_ptr</i> that the application
+has associated with the current <i>pamh</i>. This last value
+was set by the application when it called
+<b>pam_start</b>(3) or explicitly with
+<b>pam_set_item</b>(3). Note, if PAM_FAIL_DELAY item is
+unset (or set to NULL), then no delay will be performed.</p>
+
+<h2>RATIONALE
+<a name="RATIONALE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">It is often
+possible to attack an authentication scheme by exploiting
+the time it takes the scheme to deny access to an applicant
+user. In cases of <i>short</i> timeouts, it may prove
+possible to attempt a <i>brute force</i> dictionary attack
+&minus;&minus; with an automated process, the attacker tries
+all possible passwords to gain access to the system. In
+other cases, where individual failures can take measurable
+amounts of time (indicating the nature of the failure), an
+attacker can obtain useful information about the
+authentication process. These latter attacks make use of
+procedural delays that constitute a <i>covert channel</i> of
+useful information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To minimize the
+effectiveness of such attacks, it is desirable to introduce
+a random delay in a failed authentication process.
+Preferable this value should be set by the application or a
+special PAM module. Standard PAM modules should not modify
+the delay unconditional.</p>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For example, a
+login application may require a failure delay of roughly 3
+seconds. It will contain the following code:</p>
+
+<p style="margin-left:17%; margin-top: 1em">pam_fail_delay
+(pamh, 3000000 /* micro&minus;seconds */ ); <br>
+pam_authenticate (pamh, 0);</p>
+
+<p style="margin-left:11%; margin-top: 1em">if the modules
+do not request a delay, the failure delay will be between
+2.25 and 3.75 seconds.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, the
+modules, invoked in the authentication process, may also
+request delays:</p>
+
+<p style="margin-left:17%; margin-top: 1em">module #1:
+pam_fail_delay (pamh, 2000000); <br>
+module #2: pam_fail_delay (pamh, 4000000);</p>
+
+<p style="margin-left:11%; margin-top: 1em">in this case,
+it is the largest requested value that is used to compute
+the actual failed delay: here between 3 and 5 seconds.</p>
+
+<h2>RETURN VALUES
+<a name="RETURN VALUES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">PAM_SUCCESS</p>
+
+<p style="margin-left:17%;">Delay was successful
+adjusted.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">PAM_SYSTEM_ERR</p>
+
+<p style="margin-left:17%;">A NULL pointer was submitted as
+PAM handle.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pam_start</b>(3),
+<b>pam_get_item</b>(3), <b>pam_strerror</b>(3)</p>
+
+<h2>STANDARDS
+<a name="STANDARDS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pam_fail_delay</b> function is an Linux&minus;PAM
+extension.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,984 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:53:36 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>guestfs-performance</title>
+
+</head>
+<body>
+
+<h1 align="center">guestfs-performance</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#BASELINE MEASUREMENTS">BASELINE MEASUREMENTS</a><br>
+<a href="#UNDERSTANDING THE APPLIANCE AND WHEN IT IS BUILT/CACHED">UNDERSTANDING THE APPLIANCE AND WHEN IT IS BUILT/CACHED</a><br>
+<a href="#USING A FIXED APPLIANCE">USING A FIXED APPLIANCE</a><br>
+<a href="#REDUCING THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED">REDUCING THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED</a><br>
+<a href="#SHORTENING THE TIME TAKEN FOR INSPECTION OF VMs">SHORTENING THE TIME TAKEN FOR INSPECTION OF VMs</a><br>
+<a href="#PARALLEL APPLIANCES">PARALLEL APPLIANCES</a><br>
+<a href="#USING USER-MODE LINUX">USING USER-MODE LINUX</a><br>
+<a href="#TROUBLESHOOTING POOR PERFORMANCE">TROUBLESHOOTING POOR PERFORMANCE</a><br>
+<a href="#DETAILED TIMINGS USING ANNOTATE">DETAILED TIMINGS USING ANNOTATE</a><br>
+<a href="#DETAILED TIMINGS USING SYSTEMTAP">DETAILED TIMINGS USING SYSTEMTAP</a><br>
+<a href="#DETAILED DEBUGGING USING GDB">DETAILED DEBUGGING USING GDB</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#BUGS">BUGS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">guestfs&minus;performance
+&minus; engineering libguestfs for greatest performance</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This page
+documents how to get the greatest performance out of
+libguestfs, especially when you expect to use libguestfs to
+manipulate thousands of virtual machines or disk images.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Three main
+areas are covered. Libguestfs runs an appliance (a small
+Linux distribution) inside qemu/KVM. The first two areas
+are: minimizing the time taken to start this appliance, and
+the number of times the appliance has to be started. The
+third area is shortening the time taken for inspection of
+VMs.</p>
+
+<h2>BASELINE MEASUREMENTS
+<a name="BASELINE MEASUREMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Before making
+changes to how you use libguestfs, take baseline
+measurements.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>BASELINE:
+STARTING THE APPLIANCE</small></b> <br>
+On an unloaded machine, time how long it takes to start up
+the appliance:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> time guestfish &minus;a /dev/null run</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Run this
+command several times in a row and discard the first few
+runs, so that you are measuring a typical &quot;hot
+cache&quot; case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Explanation</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">This command
+starts up the libguestfs appliance on a null disk, and then
+immediately shuts it down. The first time you run the
+command, it will create an appliance and cache it (usually
+under <tt>&quot;/var/tmp/.guestfs&minus;*&quot;</tt>).
+Subsequent runs should reuse the cached appliance.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Expected
+results</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">You should
+expect to be getting times under 6 seconds. If the times you
+see on an unloaded machine are above this, then see the
+section &quot; <small>TROUBLESHOOTING POOR
+PERFORMANCE&quot;</small> below.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>BASELINE:
+PERFORMING INSPECTION OF A GUEST</small></b> <br>
+For this test you will need an unloaded machine and at least
+one real guest or disk image. If you are planning to use
+libguestfs against only X guests (eg. X = Windows), then
+using an X guest here would be most appropriate. If you are
+planning to run libguestfs against a mix of guests, then use
+a mix of guests for testing here.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Time how long
+it takes to perform inspection and mount the disks of the
+guest. Use the first command if you will be using disk
+images, and the second command if you will be using
+libvirt.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> time guestfish &minus;&minus;ro &minus;a disk.img &minus;i exit
+ time guestfish &minus;&minus;ro &minus;d GuestName &minus;i exit</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Run the command
+several times in a row and discard the first few runs, so
+that you are measuring a typical &quot;hot cache&quot;
+case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Explanation</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">This command
+starts up the libguestfs appliance on the named disk image
+or libvirt guest, performs libguestfs inspection on it (see
+&quot; <small>INSPECTION&quot;</small> in
+<i>guestfs</i>(3)), mounts the guest&rsquo;s disks, then
+discards all these results and shuts down.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The first time
+you run the command, it will create an appliance and cache
+it (usually under
+<tt>&quot;/var/tmp/.guestfs&minus;*&quot;</tt>). Subsequent
+runs should reuse the cached appliance.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Expected
+results</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">You should
+expect times which are &le; 5 seconds greater than measured
+in the first baseline test above. (For example, if the first
+baseline test ran in 5 seconds, then this test should run in
+&le; 10 seconds).</p>
+
+<h2>UNDERSTANDING THE APPLIANCE AND WHEN IT IS BUILT/CACHED
+<a name="UNDERSTANDING THE APPLIANCE AND WHEN IT IS BUILT/CACHED"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The first time
+you use libguestfs, it will build and cache an appliance.
+This is usually in
+<tt>&quot;/var/tmp/.guestfs&minus;*&quot;</tt>, unless you
+have set <tt>$TMPDIR</tt> or <tt>$LIBGUESTFS_CACHEDIR</tt>
+in which case it will be under that temporary directory.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For more
+information about how the appliance is constructed, see
+&quot; <small>SUPERMIN APPLIANCES&quot;</small> in
+<i>supermin</i>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Every time
+libguestfs runs it will check that no host files used by the
+appliance have changed. If any have, then the appliance is
+rebuilt. This usually happens when a package is installed or
+updated on the host (eg. using programs like
+<tt>&quot;yum&quot;</tt> or
+<tt>&quot;apt&minus;get&quot;</tt>). The reason for
+reconstructing the appliance is security: the new program
+that has been installed might contain a security fix, and so
+we want to include the fixed program in the appliance
+automatically.</p>
+
+<p style="margin-left:11%; margin-top: 1em">These are the
+performance implications:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>The process of building (or rebuilding) the cached
+appliance is slow, and you can avoid this happening by using
+a fixed appliance (see below).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>If not using a fixed appliance, be aware that updating
+software on the host will cause a one time rebuild of the
+appliance.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><tt>&quot;/var/tmp&quot;</tt> (or <tt>$TMPDIR</tt>,
+<tt>$LIBGUESTFS_CACHEDIR</tt>) should be on a fast disk, and
+have plenty of space for the appliance.</p></td></tr>
+</table>
+
+<h2>USING A FIXED APPLIANCE
+<a name="USING A FIXED APPLIANCE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To fully
+control when the appliance is built, you can build a fixed
+appliance. This appliance should be stored on a fast local
+disk.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To build the
+appliance, run the command:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> libguestfs&minus;make&minus;fixed&minus;appliance &lt;directory&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">replacing
+<tt>&quot;&lt;directory&gt;&quot;</tt> with the name of a
+directory where the appliance will be stored (normally you
+would name a subdirectory, for example:
+<tt>&quot;/usr/local/lib/guestfs/appliance&quot;</tt> or
+<tt>&quot;/dev/shm/appliance&quot;</tt>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Then set
+<tt>$LIBGUESTFS_PATH</tt> (and ensure this environment
+variable is set in your libguestfs program), or modify your
+program so it calls <tt>&quot;guestfs_set_path&quot;</tt>.
+For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> export LIBGUESTFS_PATH=/usr/local/lib/guestfs/appliance</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Now you can run
+libguestfs programs, virt tools, guestfish etc. as normal.
+The programs will use your fixed appliance, and will not
+ever build, rebuild, or cache their own appliance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(For detailed
+information on this subject, see:
+<i>libguestfs&minus;make&minus;fixed&minus;appliance</i>(1)).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>PERFORMANCE
+OF THE FIXED APPLIANCE</small></b> <br>
+In our testing we did not find that using a fixed appliance
+gave any measurable performance benefit, even when the
+appliance was located in memory (ie. on
+<tt>&quot;/dev/shm&quot;</tt>). However there are two points
+to consider:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Using a fixed appliance stops
+libguestfs from ever rebuilding the appliance, meaning that
+libguestfs will have more predictable start-up times.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>The appliance is loaded on demand. A simple test such
+as:</p> </td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em"> time guestfish &minus;a /dev/null run</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">does not load
+very much of the appliance. A real libguestfs program using
+complicated <small>API</small> calls would demand-load a lot
+more of the appliance. Being able to store the appliance in
+a specified location makes the performance more
+predictable.</p>
+
+<h2>REDUCING THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED
+<a name="REDUCING THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">By far the most
+effective, though not always the simplest way to get good
+performance is to ensure that the appliance is launched the
+minimum number of times. This will probably involve changing
+your libguestfs application.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Try to call
+<tt>&quot;guestfs_launch&quot;</tt> at most once per target
+virtual machine or disk image.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Instead of
+using a separate instance of <i>guestfish</i>(1) to make a
+series of changes to the same guest, use a single instance
+of guestfish and/or use the guestfish
+<i>&minus;&minus;listen</i> option.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Consider
+writing your program as a daemon which holds a guest open
+while making a series of changes. Or marshal all the
+operations you want to perform before opening the guest.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+try adding disks from multiple guests to a single appliance.
+Before trying this, note the following points:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Adding multiple guests to one
+appliance is a security problem because it may allow one
+guest to interfere with the disks of another guest. Only do
+it if you trust all the guests, or if you can group guests
+by trust.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>There is a hard limit to the number of disks you can add
+to a single appliance. Call &quot;guestfs_max_disks&quot; in
+<i>guestfs</i>(3) to get this limit. For further information
+see &quot; <small>LIMITS&quot;</small> in
+<i>guestfs</i>(3).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Using libguestfs this way is complicated. Disks can have
+unexpected interactions: for example, if two guests use the
+same <small>UUID</small> for a filesystem (because they were
+cloned), or have volume groups with the same name (but see
+<tt>&quot;guestfs_lvm_set_filter&quot;</tt>).</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>virt&minus;df</i>(1)
+adds multiple disks by default, so the source code for this
+program would be a good place to start.</p>
+
+<h2>SHORTENING THE TIME TAKEN FOR INSPECTION OF VMs
+<a name="SHORTENING THE TIME TAKEN FOR INSPECTION OF VMs"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The main advice
+is obvious: Do not perform inspection (which is expensive)
+unless you need the results.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you
+previously performed inspection on the guest, then it may be
+safe to cache and reuse the results from last time.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Some disks
+don&rsquo;t need to be inspected at all: for example, if you
+are creating a disk image, or if the disk image is not a
+<small>VM,</small> or if the disk image has a known
+layout.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Even when basic
+inspection (<tt>&quot;guestfs_inspect_os&quot;</tt>) is
+required, auxiliary inspection operations may be
+avoided:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Mounting disks is only necessary
+to get further filesystem information.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Listing applications
+(<tt>&quot;guestfs_inspect_list_applications&quot;</tt>) is
+an expensive operation on Linux, but almost free on
+Windows.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Generating a guest icon
+(<tt>&quot;guestfs_inspect_get_icon&quot;</tt>) is cheap on
+Linux but expensive on Windows.</p></td></tr>
+</table>
+
+<h2>PARALLEL APPLIANCES
+<a name="PARALLEL APPLIANCES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Libguestfs
+appliances are mostly I/O bound and you can launch multiple
+appliances in parallel. Provided there is enough free
+memory, there should be little difference in launching 1
+appliance vs N appliances in parallel.</p>
+
+<p style="margin-left:11%; margin-top: 1em">On a
+2&minus;core (4&minus;thread) laptop with 16
+<small>GB</small> of <small>RAM,</small> using the (not
+especially realistic) test Perl script below, the following
+plot shows excellent scalability when running between 1 and
+20 appliances in parallel:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  12 ++&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;++
+     +    +    +    +    +     +    +    +    +    +    *
+     |                                                  |
+     |                                               *  |
+  11 ++                                                ++
+     |                                                  |
+     |                                                  |
+     |                                          *  *    |
+  10 ++                                                ++
+     |                                        *         |
+     |                                                  |
+ s   |                                                  |
+   9 ++                                                ++
+ e   |                                                  |
+     |                                     *            |
+ c   |                                                  |
+   8 ++                                  *             ++
+ o   |                                *                 |
+     |                                                  |
+ n 7 ++                                                ++
+     |                              *                   |
+ d   |                           *                      |
+     |                                                  |
+ s 6 ++                                                ++
+     |                      *  *                        |
+     |                   *                              |
+     |                                                  |
+   5 ++                                                ++
+     |                                                  |
+     |                 *                                |
+     |            * *                                   |
+   4 ++                                                ++
+     |                                                  |
+     |                                                  |
+     +    *  * *    +    +     +    +    +    +    +    +
+   3 ++&minus;*&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;++
+     0    2    4    6    8     10   12   14   16   18   20
+               number of parallel appliances</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It is possible
+to run many more than 20 appliances in parallel, but if you
+are using the libvirt backend then you should be aware that
+out of the box libvirt limits the number of client
+connections to 20.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The simple Perl
+script below was used to collect the data for the plot
+above, but there is much more information on this subject,
+including more advanced test scripts and graphs, available
+in the following blog postings:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://rwmj.wordpress.com/2013/02/25/multiple&minus;libguestfs&minus;appliances&minus;in&minus;parallel&minus;part&minus;1/
+http://rwmj.wordpress.com/2013/02/25/multiple&minus;libguestfs&minus;appliances&minus;in&minus;parallel&minus;part&minus;2/
+http://rwmj.wordpress.com/2013/02/25/multiple&minus;libguestfs&minus;appliances&minus;in&minus;parallel&minus;part&minus;3/
+http://rwmj.wordpress.com/2013/02/25/multiple&minus;libguestfs&minus;appliances&minus;in&minus;parallel&minus;part&minus;4/</p>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> #!/usr/bin/perl &minus;w
+ use strict;
+ use threads;
+ use Sys::Guestfs;
+ use Time::HiRes qw(time);
+ sub test {
+     my $g = Sys::Guestfs&minus;&gt;new;
+     $g&minus;&gt;add_drive_ro (&quot;/dev/null&quot;);
+     $g&minus;&gt;launch ();
+     # You could add some work for libguestfs to do here.
+     $g&minus;&gt;close ();
+ }
+ # Get everything into cache.
+ test (); test (); test ();
+ for my $nr_threads (1..20) {
+     my $start_t = time ();
+     my @threads;
+     foreach (1..$nr_threads) {
+         push @threads, threads&minus;&gt;create (\&amp;test)
+     }
+     foreach (@threads) {
+         $_&minus;&gt;join ();
+         if (my $err = $_&minus;&gt;error ()) {
+             die &quot;launch failed with $nr_threads threads: $err&quot;
+         }
+     }
+     my $end_t = time ();
+     printf (&quot;%d %.2f\n&quot;, $nr_threads, $end_t &minus; $start_t);
+ }</pre>
+
+
+<h2>USING USER-MODE LINUX
+<a name="USING USER-MODE LINUX"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Since
+libguestfs 1.24, it has been possible to use the User-Mode
+Linux (uml) backend instead of <small>KVM</small> (see
+&quot;USER-MODE <small>LINUX BACKEND&quot;</small> in
+<i>guestfs</i>(3)). This section makes some general remarks
+about this backend, but it is <b>highly advisable</b> to
+measure your own workload under <small>UML</small> rather
+than trusting comments or intuition.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><small>UML</small> usually
+performs the same or slightly slower than
+<small>KVM,</small> on baremetal.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>However <small>UML</small> often performs the same under
+virtualization as it does on baremetal, whereas
+<small>KVM</small> can run much slower under virtualization
+(since hardware virt acceleration is not available).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Upload and download is as much as 10 times slower on
+<small>UML</small> than <small>KVM.</small> Libguestfs sends
+this data over the <small>UML</small> emulated serial port,
+which is far less efficient than <small>KVM</small> &rsquo;s
+virtio-serial.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p><small>UML</small> lacks some features (eg. qcow2
+support), so it may not be applicable at all.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">For some actual
+figures, see:
+http://rwmj.wordpress.com/2013/08/14/performance&minus;of&minus;user&minus;mode&minus;linux&minus;as&minus;a&minus;libguestfs&minus;backend/#content</p>
+
+<h2>TROUBLESHOOTING POOR PERFORMANCE
+<a name="TROUBLESHOOTING POOR PERFORMANCE"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ENSURE
+HARDWARE VIRTUALIZATION IS AVAILABLE</small></b> <br>
+Use <tt>&quot;/proc/cpuinfo&quot;</tt> and this page:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://virt&minus;tools.org/learning/check&minus;hardware&minus;virt/</p>
+
+<p style="margin-left:11%; margin-top: 1em">to ensure that
+hardware virtualization is available. Note that you may need
+to enable it in your <small>BIOS.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Hardware virt
+is not usually available inside VMs, and libguestfs will run
+slowly inside another virtual machine whatever you do.
+Nested virtualization does not work well in our experience,
+and is certainly no substitute for running libguestfs on
+baremetal.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ENSURE
+KVM IS AVAILABLE</small></b> <br>
+Ensure that <small>KVM</small> is enabled and available to
+the user that will run libguestfs. It should be safe to set
+0666 permissions on <tt>&quot;/dev/kvm&quot;</tt> and most
+distributions now do this.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>PROCESSORS
+TO AVOID</small></b> <br>
+Avoid processors that don&rsquo;t have hardware
+virtualization, and some processors which are simply very
+slow ( <small>AMD</small> Geode being a great example).</p>
+
+<h2>DETAILED TIMINGS USING ANNOTATE
+<a name="DETAILED TIMINGS USING ANNOTATE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use the
+<i>annotate</i>(1)/<i>annotate&minus;output</i>(1) command
+to show detailed timings:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> $ annotate&minus;output +'%T.%N' guestfish &minus;a /dev/null run &minus;v
+ 22:17:53.215784625 I: Started guestfish &minus;a /dev/null run &minus;v
+ 22:17:53.240335409 E: libguestfs: [00000ms] supermin&minus;helper &minus;&minus;verbose &minus;f checksum '/usr/lib64/guestfs/supermin.d' x86_64
+ 22:17:53.266857866 E: supermin helper [00000ms] whitelist = (not specified), host_cpu = x86_64, kernel = (null), initrd = (null), appliance = (null)
+ 22:17:53.272704072 E: supermin helper [00000ms] inputs[0] = /usr/lib64/guestfs/supermin.d
+ 22:17:53.276528651 E: checking modpath /lib/modules/3.4.0&minus;1.fc17.x86_64.debug is a directory
+ [etc]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The timestamps
+are <tt>&quot;hours:minutes:seconds.nanoseconds&quot;</tt>.
+By comparing the timestamps you can see exactly how long
+each operation in the boot sequence takes.</p>
+
+<h2>DETAILED TIMINGS USING SYSTEMTAP
+<a name="DETAILED TIMINGS USING SYSTEMTAP"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can use
+SystemTap (<i>stap</i>(1)) to get detailed timings from
+libguestfs programs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Save the
+following script as <tt>&quot;time.stap&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> global last;
+ function display_time () {
+       now = gettimeofday_us ();
+       delta = 0;
+       if (last &gt; 0)
+             delta = now &minus; last;
+       last = now;
+       printf (&quot;%d (+%d):&quot;, now, delta);
+ }
+ probe begin {
+       last = 0;
+       printf (&quot;ready\n&quot;);
+ }
+ /* Display all calls to static markers. */
+ probe process(&quot;/usr/lib*/libguestfs.so.0&quot;)
+           .provider(&quot;guestfs&quot;).mark(&quot;*&quot;) ? {
+       display_time();
+       printf (&quot;\t%s %s\n&quot;, $$name, $$parms);
+ }
+ /* Display all calls to guestfs_* functions. */
+ probe process(&quot;/usr/lib*/libguestfs.so.0&quot;)
+           .function(&quot;guestfs_[a&minus;z]*&quot;) ? {
+       display_time();
+       printf (&quot;\t%s %s\n&quot;, probefunc(), $$parms);
+ }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Run it as root
+in one window:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> # stap time.stap
+ ready</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It prints
+&quot;ready&quot; when SystemTap has loaded the program. Run
+your libguestfs program, guestfish or a virt tool in another
+window. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> $ guestfish &minus;a /dev/null run</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In the stap
+window you will see a large amount of output, with the time
+taken for each step shown (microseconds in parenthesis). For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> xxxx (+0):     guestfs_create
+ xxxx (+29):    guestfs_set_pgroup g=0x17a9de0 pgroup=0x1
+ xxxx (+9):     guestfs_add_drive_opts_argv g=0x17a9de0 [...]
+ xxxx (+8):     guestfs___safe_strdup g=0x17a9de0 str=0x7f8a153bed5d
+ xxxx (+19):    guestfs___safe_malloc g=0x17a9de0 nbytes=0x38
+ xxxx (+5):     guestfs___safe_strdup g=0x17a9de0 str=0x17a9f60
+ xxxx (+10):    guestfs_launch g=0x17a9de0
+ xxxx (+4):     launch_start
+ [etc]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You will need
+to consult, and even modify, the source to libguestfs to
+fully understand the output.</p>
+
+<h2>DETAILED DEBUGGING USING GDB
+<a name="DETAILED DEBUGGING USING GDB"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can attach
+to the appliance BIOS/kernel using gdb. If you know what
+you&rsquo;re doing, this can be a useful way to diagnose
+boot regressions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Firstly, you
+have to change qemu so it runs with the
+<tt>&quot;&minus;S&quot;</tt> and
+<tt>&quot;&minus;s&quot;</tt> options. These options cause
+qemu to pause at boot and allow you to attach a debugger.
+Read <i>qemu</i>(1) for further information. Libguestfs
+invokes qemu several times (to scan the help output and so
+on) and you only want the final invocation of qemu to use
+these options, so use a qemu wrapper script like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> #!/bin/bash &minus;
+ # Set this to point to the real qemu binary.
+ qemu=/usr/bin/qemu&minus;kvm
+ if [ &quot;$1&quot; != &quot;&minus;global&quot; ]; then
+     # Scanning help output etc.
+     exec $qemu &quot;$@&quot;
+ else
+     # Really running qemu.
+     exec $qemu &minus;S &minus;s &quot;$@&quot;
+ fi</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Now run
+guestfish or another libguestfs tool with the qemu wrapper
+(see &quot; <small>QEMU WRAPPERS&quot;</small> in
+<i>guestfs</i>(3) to understand what this is doing):</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> LIBGUESTFS_HV=/path/to/qemu&minus;wrapper guestfish &minus;a /dev/null &minus;v run</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This should
+pause just after qemu launches. In another window, attach to
+qemu using gdb:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> $ gdb
+ (gdb) set architecture i8086
+ The target architecture is assumed to be i8086
+ (gdb) target remote :1234
+ Remote debugging using :1234
+ 0x0000fff0 in ?? ()
+ (gdb) cont</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">At this point
+you can use standard gdb techniques, eg. hitting
+<tt>&quot;^C&quot;</tt> to interrupt the boot and
+<tt>&quot;bt&quot;</tt> get a stack trace, setting
+breakpoints, etc. Note that when you are past the
+<small>BIOS</small> and into the Linux kernel, you&rsquo;ll
+want to change the architecture back to 32 or 64 bit.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>supermin</i>(1),
+<i>guestfish</i>(1), <i>guestfs</i>(3),
+<i>guestfs&minus;examples</i>(3),
+<i>libguestfs&minus;make&minus;fixed&minus;appliance</i>(1),
+<i>stap</i>(1), <i>qemu</i>(1), <i>gdb</i>(1),
+http://libguestfs.org/.</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Richard W.M.
+Jones (<tt>&quot;rjones at redhat dot com&quot;</tt>)</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2012 Red Hat Inc.</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the terms of the <small>GNU</small> Lesser General
+Public License as published by the Free Software Foundation;
+either version 2 of the License, or (at your option) any
+later version.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+distributed in the hope that it will be useful, but
+<small>WITHOUT ANY WARRANTY</small> ; without even the
+implied warranty of <small>MERCHANTABILITY</small> or
+<small>FITNESS FOR A PARTICULAR PURPOSE.</small> See the
+<small>GNU</small> Lesser General Public License for more
+details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should have
+received a copy of the <small>GNU</small> Lesser General
+Public License along with this library; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, <small>MA 02110&minus;1301 USA</small></p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To get a list
+of bugs against libguestfs, use this link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p style="margin-left:11%; margin-top: 1em">To report a new
+bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p style="margin-left:11%; margin-top: 1em">When reporting
+a bug, please supply:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">The version of libguestfs.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Where you got libguestfs (eg. which Linux distro,
+compiled from source, etc)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Describe the bug accurately and give a way to reproduce
+it.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Run <i>libguestfs&minus;test&minus;tool</i>(1) and paste
+the <b>complete, unedited</b> output into the bug
+report.</p> </td></tr>
+ </table>
+<hr>
+</body>
+</html>

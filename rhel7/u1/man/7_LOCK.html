@@ -1,0 +1,250 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:18:32 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>LOCK</title>
+
+</head>
+<body>
+
+<h1 align="center">LOCK</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">LOCK &minus;
+lock a table</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">LOCK [ TABLE ]
+[ ONLY ] <i>name</i> [ * ] [, ...] [ IN <i>lockmode</i> MODE
+] [ NOWAIT ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>lockmode</i> is one of:</p>
+
+<p style="margin-left:11%; margin-top: 1em">ACCESS SHARE |
+ROW SHARE | ROW EXCLUSIVE | SHARE UPDATE EXCLUSIVE <br>
+| SHARE | SHARE ROW EXCLUSIVE | EXCLUSIVE | ACCESS
+EXCLUSIVE</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>LOCK
+TABLE</b> obtains a table&minus;level lock, waiting if
+necessary for any conflicting locks to be released. If
+NOWAIT is specified, <b>LOCK TABLE</b> does not wait to
+acquire the desired lock: if it cannot be acquired
+immediately, the command is aborted and an error is emitted.
+Once obtained, the lock is held for the remainder of the
+current transaction. (There is no <b>UNLOCK TABLE</b>
+command; locks are always released at transaction end.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">When acquiring
+locks automatically for commands that reference tables,
+PostgreSQL always uses the least restrictive lock mode
+possible. <b>LOCK TABLE</b> provides for cases when you
+might need more restrictive locking. For example, suppose an
+application runs a transaction at the Read Committed
+isolation level and needs to ensure that data in a table
+remains stable for the duration of the transaction. To
+achieve this you could obtain SHARE lock mode over the table
+before querying. This will prevent concurrent data changes
+and ensure subsequent reads of the table see a stable view
+of committed data, because SHARE lock mode conflicts with
+the ROW EXCLUSIVE lock acquired by writers, and your <b>LOCK
+TABLE</b> <i>name</i> <b>IN SHARE MODE</b> statement will
+wait until any concurrent holders of ROW EXCLUSIVE mode
+locks commit or roll back. Thus, once you obtain the lock,
+there are no uncommitted writes outstanding; furthermore
+none can begin until you release the lock.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To achieve a
+similar effect when running a transaction at the REPEATABLE
+READ or SERIALIZABLE isolation level, you have to execute
+the <b>LOCK TABLE</b> statement before executing any
+<b>SELECT</b> or data modification statement. A REPEATABLE
+READ or SERIALIZABLE transaction's view of data will be
+frozen when its first <b>SELECT</b> or data modification
+statement begins. A <b>LOCK TABLE</b> later in the
+transaction will still prevent concurrent writes &mdash; but
+it won't ensure that what the transaction reads corresponds
+to the latest committed values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a
+transaction of this sort is going to change the data in the
+table, then it should use SHARE ROW EXCLUSIVE lock mode
+instead of SHARE mode. This ensures that only one
+transaction of this type runs at a time. Without this, a
+deadlock is possible: two transactions might both acquire
+SHARE mode, and then be unable to also acquire ROW EXCLUSIVE
+mode to actually perform their updates. (Note that a
+transaction's own locks never conflict, so a transaction can
+acquire ROW EXCLUSIVE mode when it holds SHARE mode &mdash;
+but not if anyone else holds SHARE mode.) To avoid
+deadlocks, make sure all transactions acquire locks on the
+same objects in the same order, and if multiple lock modes
+are involved for a single object, then transactions should
+always acquire the most restrictive mode first.</p>
+
+<p style="margin-left:11%; margin-top: 1em">More
+information about the lock modes and locking strategies can
+be found in Section 13.3, &ldquo;Explicit Locking&rdquo;, in
+the documentation.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>name</i></p>
+
+<p style="margin-left:17%;">The name (optionally
+schema&minus;qualified) of an existing table to lock. If
+ONLY is specified before the table name, only that table is
+locked. If ONLY is not specified, the table and all its
+descendant tables (if any) are locked. Optionally, * can be
+specified after the table name to explicitly indicate that
+descendant tables are included.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The command
+LOCK TABLE a, b; is equivalent to LOCK TABLE a; LOCK TABLE
+b;. The tables are locked one&minus;by&minus;one in the
+order specified in the <b>LOCK TABLE</b> command.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>lockmode</i></p>
+
+<p style="margin-left:17%;">The lock mode specifies which
+locks this lock conflicts with. Lock modes are described in
+Section 13.3, &ldquo;Explicit Locking&rdquo;, in the
+documentation.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If no lock mode
+is specified, then ACCESS EXCLUSIVE, the most restrictive
+mode, is used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">NOWAIT</p>
+
+<p style="margin-left:17%;">Specifies that <b>LOCK
+TABLE</b> should not wait for any conflicting locks to be
+released: if the specified lock(s) cannot be acquired
+immediately without waiting, the transaction is aborted.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">LOCK TABLE ...
+IN ACCESS SHARE MODE requires SELECT privileges on the
+target table. All other forms of <b>LOCK</b> require
+table&minus;level UPDATE, DELETE, or TRUNCATE
+privileges.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>LOCK
+TABLE</b> is useless outside a transaction block: the lock
+would remain held only to the completion of the statement.
+Therefore PostgreSQL reports an error if <b>LOCK</b> is used
+outside a transaction block. Use <b>BEGIN</b>(7) and
+<b>COMMIT</b>(7) (or <b>ROLLBACK</b>(7)) to define a
+transaction block.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>LOCK
+TABLE</b> only deals with table&minus;level locks, and so
+the mode names involving ROW are all misnomers. These mode
+names should generally be read as indicating the intention
+of the user to acquire row&minus;level locks within the
+locked table. Also, ROW EXCLUSIVE mode is a sharable table
+lock. Keep in mind that all the lock modes have identical
+semantics so far as <b>LOCK TABLE</b> is concerned,
+differing only in the rules about which modes conflict with
+which. For information on how to acquire an actual
+row&minus;level lock, see Section 13.3.2, &ldquo;Row-level
+Locks&rdquo;, in the documentation and the FOR UPDATE/FOR
+SHARE Clause in the <b>SELECT</b> reference
+documentation.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Obtain a SHARE
+lock on a primary key table when going to perform inserts
+into a foreign key table:</p>
+
+<p style="margin-left:17%; margin-top: 1em">BEGIN WORK;
+<br>
+LOCK TABLE films IN SHARE MODE; <br>
+SELECT id FROM films <br>
+WHERE name = 'Star Wars: Episode I &minus; The Phantom
+Menace'; <br>
+&minus;&minus; Do ROLLBACK if record was not returned <br>
+INSERT INTO films_user_comments VALUES <br>
+(_id_, 'GREAT! I was waiting for it for so long!'); <br>
+COMMIT WORK;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Take a SHARE
+ROW EXCLUSIVE lock on a primary key table when going to
+perform a delete operation:</p>
+
+<p style="margin-left:17%; margin-top: 1em">BEGIN WORK;
+<br>
+LOCK TABLE films IN SHARE ROW EXCLUSIVE MODE; <br>
+DELETE FROM films_user_comments WHERE id IN <br>
+(SELECT id FROM films WHERE rating &lt; 5); <br>
+DELETE FROM films WHERE rating &lt; 5; <br>
+COMMIT WORK;</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+<b>LOCK TABLE</b> in the SQL standard, which instead uses
+<b>SET TRANSACTION</b> to specify concurrency levels on
+transactions. PostgreSQL supports that too; see SET
+TRANSACTION (<b>SET_TRANSACTION</b>(7)) for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Except for
+ACCESS SHARE, ACCESS EXCLUSIVE, and SHARE UPDATE EXCLUSIVE
+lock modes, the PostgreSQL lock modes and the <b>LOCK
+TABLE</b> syntax are compatible with those present in
+Oracle.</p>
+<hr>
+</body>
+</html>

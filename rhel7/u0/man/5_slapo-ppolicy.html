@@ -1,0 +1,849 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:22:54 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SLAPO_PPOLICY</title>
+
+</head>
+<body>
+
+<h1 align="center">SLAPO_PPOLICY</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONFIGURATION">CONFIGURATION</a><br>
+<a href="#OBJECT CLASS">OBJECT CLASS</a><br>
+<a href="#OBJECT CLASS ATTRIBUTES">OBJECT CLASS ATTRIBUTES</a><br>
+<a href="#OPERATIONAL ATTRIBUTES">OPERATIONAL ATTRIBUTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">slapo&minus;ppolicy
+&minus; Password Policy overlay to slapd</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">/etc/openldap/slapd.conf</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>ppolicy</b> overlay is an implementation of the most
+recent IETF Password Policy proposal for LDAP. When
+instantiated, it intercepts, decodes and applies specific
+password policy controls to overall use of a backend
+database, changes to user password fields, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The overlay
+provides a variety of password control mechanisms. They
+include password aging -- both minimum and maximum ages,
+password reuse and duplication control, account time-outs,
+mandatory password resets, acceptable password content, and
+even grace logins. Different groups of users may be
+associated with different password policies, and there is no
+limit to the number of password policies that may be
+created.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that some
+of the policies do not take effect when the operation is
+performed with the <b>rootdn</b> identity; all the
+operations, when performed with any other identity, may be
+subjected to constraints, like access control.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+IETF Password Policy proposal for LDAP makes sense when
+considering a single-valued password attribute, while the
+userPassword attribute allows multiple values. This
+implementation enforces a single value for the userPassword
+attribute, despite its specification.</p>
+
+<h2>CONFIGURATION
+<a name="CONFIGURATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These
+<b>slapd.conf</b> configuration options apply to the ppolicy
+overlay. They should appear after the <b>overlay</b>
+directive. <b><br>
+ppolicy_default &lt;policyDN&gt;</b></p>
+
+<p style="margin-left:22%;">Specify the DN of the pwdPolicy
+object to use when no specific policy is set on a given
+user&rsquo;s entry. If there is no specific policy for an
+entry and no default is given, then no policies will be
+enforced.</p>
+
+
+<p style="margin-left:11%;"><b>ppolicy_forward_updates</b></p>
+
+<p style="margin-left:22%;">Specify that policy state
+changes that result from Bind operations (such as recording
+failures, lockout, etc.) on a consumer should be forwarded
+to a master instead of being written directly into the
+consumer&rsquo;s local database. This setting is only useful
+on a replication consumer, and also requires the
+<b>updateref</b> setting and <b>chain</b> overlay to be
+appropriately configured.</p>
+
+
+<p style="margin-left:11%;"><b>ppolicy_hash_cleartext</b></p>
+
+<p style="margin-left:22%;">Specify that cleartext
+passwords present in Add and Modify requests should be
+hashed before being stored in the database. This violates
+the X.500/LDAP information model, but may be needed to
+compensate for LDAP clients that don&rsquo;t use the
+Password Modify extended operation to manage passwords. It
+is recommended that when this option is used that compare,
+search, and read access be denied to all directory
+users.</p>
+
+<p style="margin-left:11%;"><b>ppolicy_use_lockout</b></p>
+
+<p style="margin-left:22%;">A client will always receive an
+LDAP <b>InvalidCredentials</b> response when Binding to a
+locked account. By default, when a Password Policy control
+was provided on the Bind request, a Password Policy response
+will be included with no special error code set. This option
+changes the Password Policy response to include the
+<b>AccountLocked</b> error code. Note that sending the
+<b>AccountLocked</b> error code provides useful information
+to an attacker; sites that are sensitive to security issues
+should not enable this option.</p>
+
+<h2>OBJECT CLASS
+<a name="OBJECT CLASS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>ppolicy</b> overlay depends on the <b>pwdPolicy</b>
+object class. The definition of that class is as
+follows:</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.2.1 <br>
+NAME &rsquo;pwdPolicy&rsquo; <br>
+AUXILIARY <br>
+SUP top <br>
+MUST ( pwdAttribute ) <br>
+MAY ( <br>
+pwdMinAge $ pwdMaxAge $ pwdInHistory $ <br>
+pwdCheckQuality $ pwdMinLength $ <br>
+pwdExpireWarning $ pwdGraceAuthnLimit $ <br>
+pwdLockout $ pwdLockoutDuration $ <br>
+pwdMaxFailure $ pwdFailureCountInterval $ <br>
+pwdMustChange $ pwdAllowUserChange $ <br>
+pwdSafeModify ) )</p>
+
+<p style="margin-left:11%; margin-top: 1em">This
+implementation also provides an additional
+<b>pwdPolicyChecker</b> objectclass, used for password
+quality checking (see below).</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.4754.2.99.1 <br>
+NAME &rsquo;pwdPolicyChecker&rsquo; <br>
+AUXILIARY <br>
+SUP top <br>
+MAY ( pwdCheckModule ) )</p>
+
+<p style="margin-left:11%; margin-top: 1em">Every account
+that should be subject to password policy control should
+have a <b>pwdPolicySubentry</b> attribute containing the DN
+of a valid <b>pwdPolicy</b> entry, or they can simply use
+the configured default. In this way different users may be
+managed according to different policies.</p>
+
+<h2>OBJECT CLASS ATTRIBUTES
+<a name="OBJECT CLASS ATTRIBUTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Each one of the
+sections below details the meaning and use of a particular
+attribute of this <b>pwdPolicy</b> object class.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdAttribute</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the name of the attribute to which the password
+policy is applied. For example, the password policy may be
+applied to the <b>userPassword</b> attribute.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note: in this
+implementation, the only value accepted for
+<b>pwdAttribute</b> is <i>userPassword</i> .</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.1 <br>
+NAME &rsquo;pwdAttribute&rsquo; <br>
+EQUALITY objectIdentifierMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdMinAge</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of seconds that must elapse between
+modifications allowed to the password. If this attribute is
+not present, zero seconds is assumed (i.e. the password may
+be modified whenever and however often is desired).</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.2 <br>
+NAME &rsquo;pwdMinAge&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdMaxAge</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of seconds after which a modified
+password will expire. If this attribute is not present, or
+if its value is zero (0), then passwords will not
+expire.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.3 <br>
+NAME &rsquo;pwdMaxAge&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdInHistory</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+is used to specify the maximum number of used passwords that
+will be stored in the <b>pwdHistory</b> attribute. If the
+<b>pwdInHistory</b> attribute is not present, or if its
+value is zero (0), used passwords will not be stored in
+<b>pwdHistory</b> and thus any previously-used password may
+be reused. No history checking occurs if the password is
+being modified by the <b>rootdn</b>, although the password
+is saved in the history.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.4 <br>
+NAME &rsquo;pwdInHistory&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdCheckQuality</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+indicates if and how password syntax will be checked while a
+password is being modified or added. If this attribute is
+not present, or its value is zero (0), no syntax checking
+will be done. If its value is one (1), the server will check
+the syntax, and if the server is unable to check the syntax,
+whether due to a client-side hashed password or some other
+reason, it will be accepted. If its value is two (2), the
+server will check the syntax, and if the server is unable to
+check the syntax it will return an error refusing the
+password.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.5 <br>
+NAME &rsquo;pwdCheckQuality&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdMinLength</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">When syntax
+checking is enabled (see also the <b>pwdCheckQuality</b>
+attribute), this attribute contains the minimum number of
+characters that will be accepted in a password. If this
+attribute is not present, minimum password length is not
+enforced. If the server is unable to check the length of the
+password, whether due to a client-side hashed password or
+some other reason, the server will, depending on the value
+of <b>pwdCheckQuality</b>, either accept the password
+without checking it (if <b>pwdCheckQuality</b> is zero (0)
+or one (1)) or refuse it (if <b>pwdCheckQuality</b> is two
+(2)).</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.6 <br>
+NAME &rsquo;pwdMinLength&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdExpireWarning</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the maximum number of seconds before a password is
+due to expire that expiration warning messages will be
+returned to a user who is authenticating to the directory.
+If this attribute is not present, or if the value is zero
+(0), no warnings will be sent.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.7 <br>
+NAME &rsquo;pwdExpireWarning&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdGraceAuthnLimit</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of times that an expired password may be
+used to authenticate a user to the directory. If this
+attribute is not present or if its value is zero (0), users
+with expired passwords will not be allowed to authenticate
+to the directory.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.8 <br>
+NAME &rsquo;pwdGraceAuthnLimit&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdLockout</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+specifies the action that should be taken by the directory
+when a user has made a number of failed attempts to
+authenticate to the directory. If <b>pwdLockout</b> is set
+(its value is &quot;TRUE&quot;), the user will not be
+allowed to attempt to authenticate to the directory after
+there have been a specified number of consecutive failed
+bind attempts. The maximum number of consecutive failed bind
+attempts allowed is specified by the <b>pwdMaxFailure</b>
+attribute. If <b>pwdLockout</b> is not present, or if its
+value is &quot;FALSE&quot;, the password may be used to
+authenticate no matter how many consecutive failed bind
+attempts have been made.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.9 <br>
+NAME &rsquo;pwdLockout&rsquo; <br>
+EQUALITY booleanMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdLockoutDuration</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of seconds during which the password
+cannot be used to authenticate the user to the directory due
+to too many consecutive failed bind attempts. (See also
+<b>pwdLockout</b> and <b>pwdMaxFailure</b>.) If
+<b>pwdLockoutDuration</b> is not present, or if its value is
+zero (0), the password cannot be used to authenticate the
+user to the directory again until it is reset by an
+administrator.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.10 <br>
+NAME &rsquo;pwdLockoutDuration&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdMaxFailure</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of consecutive failed bind attempts
+after which the password may not be used to authenticate a
+user to the directory. If <b>pwdMaxFailure</b> is not
+present, or its value is zero (0), then a user will be
+allowed to continue to attempt to authenticate to the
+directory, no matter how many consecutive failed bind
+attempts have occurred with that user&rsquo;s DN. (See also
+<b>pwdLockout</b> and <b>pwdLockoutDuration</b>.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.11 <br>
+NAME &rsquo;pwdMaxFailure&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdFailureCountInterval</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the number of seconds after which old consecutive
+failed bind attempts are purged from the failure counter,
+even though no successful authentication has occurred. If
+<b>pwdFailureCountInterval</b> is not present, or its value
+is zero (0), the failure counter will only be reset by a
+successful authentication.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.12 <br>
+NAME &rsquo;pwdFailureCountInterval&rsquo; <br>
+EQUALITY integerMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdMustChange</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+specifies whether users must change their passwords when
+they first bind to the directory after a password is set or
+reset by the administrator, or not. If <b>pwdMustChange</b>
+has a value of &quot;TRUE&quot;, users must change their
+passwords when they first bind to the directory after a
+password is set or reset by the administrator. If
+<b>pwdMustChange</b> is not present, or its value is
+&quot;FALSE&quot;, users are not required to change their
+password upon binding after the administrator sets or resets
+the password.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.13 <br>
+NAME &rsquo;pwdMustChange&rsquo; <br>
+EQUALITY booleanMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdAllowUserChange</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+specifies whether users are allowed to change their own
+passwords or not. If <b>pwdAllowUserChange</b> is set to
+&quot;TRUE&quot;, or if the attribute is not present, users
+will be allowed to change their own passwords. If its value
+is &quot;FALSE&quot;, users will not be allowed to change
+their own passwords.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note: this
+implies that when <b>pwdAllowUserChange</b> is set to
+&quot;TRUE&quot;, users will still be able to change the
+password of another user, subjected to access control. This
+restriction only applies to modifications of ones&rsquo;s
+own password. It should also be noted that
+<b>pwdAllowUserChange</b> was defined in the specification
+to provide rough access control to the password attribute in
+implementations that do not allow fine-grain access control.
+Since OpenLDAP provides fine-grain access control, the use
+of this attribute is discouraged; ACLs should be used
+instead (see <b>slapd.access</b>(5) for details).</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.14 <br>
+NAME &rsquo;pwdAllowUserChange&rsquo; <br>
+EQUALITY booleanMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdSafeModify</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+denotes whether the user&rsquo;s existing password must be
+sent along with their new password when changing a password.
+If <b>pwdSafeModify</b> is set to &quot;TRUE&quot;, the
+existing password must be sent along with the new password.
+If the attribute is not present, or its value is
+&quot;FALSE&quot;, the existing password need not be sent
+along with the new password.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.15 <br>
+NAME &rsquo;pwdSafeModify&rsquo; <br>
+EQUALITY booleanMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 <br>
+SINGLE&minus;VALUE )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdCheckModule</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+names a user-defined loadable module that must instantiate
+the check_password() function. This function will be called
+to further check a new password if <b>pwdCheckQuality</b> is
+set to one (1) or two (2), after all of the built-in
+password compliance checks have been passed. This function
+will be called according to this function prototype:</p>
+
+<p style="margin-left:17%;">int <i>check_password</i> (char
+*pPasswd, char **ppErrStr, Entry *pEntry);</p>
+
+<p style="margin-left:11%;">The <b>pPasswd</b> parameter
+contains the clear-text user password, the <b>ppErrStr</b>
+parameter contains a double pointer that allows the function
+to return human-readable details about any error it
+encounters. The optional <b>pEntry</b> parameter, if
+non-NULL, carries a pointer to the entry whose password is
+being checked. If <b>ppErrStr</b> is NULL, then
+<i>funcName</i> must NOT attempt to use it/them. A return
+value of LDAP_SUCCESS from the called function indicates
+that the password is ok, any other value indicates that the
+password is unacceptable. If the password is unacceptable,
+the server will return an error to the client, and
+<b>ppErrStr</b> may be used to return a human-readable
+textual explanation of the error. The error string must be
+dynamically allocated as it will be free()&rsquo;d by
+slapd.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.4754.1.99.1 <br>
+NAME &rsquo;pwdCheckModule&rsquo; <br>
+EQUALITY caseExactIA5Match <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 <br>
+SINGLE&minus;VALUE )</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note: The
+user-defined loadable module named by <b>pwdCheckModule</b>
+must be in <b>slapd&rsquo;s</b> standard executable search
+PATH.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note:
+<b>pwdCheckModule</b> is a non-standard extension to the
+LDAP password policy proposal.</p>
+
+<h2>OPERATIONAL ATTRIBUTES
+<a name="OPERATIONAL ATTRIBUTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The operational
+attributes used by the <b>ppolicy</b> module are stored in
+the user&rsquo;s entry. Most of these attributes are not
+intended to be changed directly by users; they are there to
+track user activity. They have been detailed here so that
+administrators and users can both understand the workings of
+the <b>ppolicy</b> module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+current IETF Password Policy proposal does not define how
+these operational attributes are expected to behave in a
+replication environment. In general, authentication attempts
+on a slave server only affect the copy of the operational
+attributes on that slave and will not affect any attributes
+for a user&rsquo;s entry on the master server. Operational
+attribute changes resulting from authentication attempts on
+a master server will usually replicate to the slaves (and
+also overwrite any changes that originated on the slave).
+These behaviors are not guaranteed and are subject to change
+when a formal specification emerges.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>userPassword</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>userPassword</b> attribute is not strictly part of the
+<b>ppolicy</b> module. It is, however, the attribute that is
+tracked and controlled by the module. Please refer to the
+standard OpenLDAP schema for its definition.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdPolicySubentry</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+refers directly to the <b>pwdPolicy</b> subentry that is to
+be used for this particular directory user. If
+<b>pwdPolicySubentry</b> exists, it must contain the DN of a
+valid <b>pwdPolicy</b> object. If it does not exist, the
+<b>ppolicy</b> module will enforce the default password
+policy rules on the user associated with this authenticating
+DN. If there is no default, or the referenced subentry does
+not exist, then no policy rules will be enforced.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.23 <br>
+NAME &rsquo;pwdPolicySubentry&rsquo; <br>
+DESC &rsquo;The pwdPolicy subentry in effect for <br>
+this object&rsquo; <br>
+EQUALITY distinguishedNameMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 <br>
+SINGLE&minus;VALUE <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdChangedTime</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+denotes the last time that the entry&rsquo;s password was
+changed. This value is used by the password expiration
+policy to determine whether the password is too old to be
+allowed to be used for user authentication. If
+<b>pwdChangedTime</b> does not exist, the user&rsquo;s
+password will not expire.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.16 <br>
+NAME &rsquo;pwdChangedTime&rsquo; <br>
+DESC &rsquo;The time the password was last changed&rsquo;
+<br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 <br>
+EQUALITY generalizedTimeMatch <br>
+ORDERING generalizedTimeOrderingMatch <br>
+SINGLE&minus;VALUE <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdAccountLockedTime</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the time that the user&rsquo;s account was locked.
+If the account has been locked, the password may no longer
+be used to authenticate the user to the directory. If
+<b>pwdAccountLockedTime</b> is set to 000001010000Z, the
+user&rsquo;s account has been permanently locked and may
+only be unlocked by an administrator. Note that account
+locking only takes effect when the <b>pwdLockout</b>
+password policy attribute is set to &quot;TRUE&quot;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.17 <br>
+NAME &rsquo;pwdAccountLockedTime&rsquo; <br>
+DESC &rsquo;The time an user account was locked&rsquo; <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 <br>
+EQUALITY generalizedTimeMatch <br>
+ORDERING generalizedTimeOrderingMatch <br>
+SINGLE&minus;VALUE <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdFailureTime</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the timestamps of each of the consecutive
+authentication failures made upon attempted authentication
+to this DN (i.e. account). If too many timestamps accumulate
+here (refer to the <b>pwdMaxFailure</b> password policy
+attribute for details), and the <b>pwdLockout</b> password
+policy attribute is set to &quot;TRUE&quot;, the account may
+be locked. (Please also refer to the <b>pwdLockout</b>
+password policy attribute.) Excess timestamps beyond those
+allowed by <b>pwdMaxFailure</b> may also be purged. If a
+successful authentication is made to this DN (i.e. to this
+user account), then <b>pwdFailureTime</b> will be cleansed
+of entries.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.19 <br>
+NAME &rsquo;pwdFailureTime&rsquo; <br>
+DESC &rsquo;The timestamps of the last consecutive <br>
+authentication failures&rsquo; <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 <br>
+EQUALITY generalizedTimeMatch <br>
+ORDERING generalizedTimeOrderingMatch <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation )</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdHistory</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+contains the history of previously used passwords for this
+DN (i.e. for this user account). The values of this
+attribute are stored in string format as follows:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">pwdHistory=</p>
+
+<p style="margin-left:23%;">time &quot;#&quot; syntaxOID
+&quot;#&quot; length &quot;#&quot; data</p>
+
+<p style="margin-left:17%; margin-top: 1em">time=</p>
+
+<p style="margin-left:23%;">GeneralizedTime as specified in
+section 3.3.13 of [RFC4517]</p>
+
+<p style="margin-left:17%; margin-top: 1em">syntaxOID =
+numericoid</p>
+
+<p style="margin-left:23%;">This is the string
+representation of the dotted-decimal OID that defines the
+syntax used to store the password. numericoid is described
+in section 1.4 of [RFC4512].</p>
+
+<p style="margin-left:17%; margin-top: 1em">length =
+NumericString</p>
+
+<p style="margin-left:23%;">The number of octets in the
+data. NumericString is described in section 3.3.23 of
+[RFC4517].</p>
+
+<p style="margin-left:17%; margin-top: 1em">data =</p>
+
+<p style="margin-left:23%;">Octets representing the
+password in the format specified by syntaxOID.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This format
+allows the server to store and transmit a history of
+passwords that have been used. In order for equality
+matching on the values in this attribute to function
+properly, the time field is in GMT format.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.20 <br>
+NAME &rsquo;pwdHistory&rsquo; <br>
+DESC &rsquo;The history of user passwords&rsquo; <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 <br>
+EQUALITY octetStringMatch <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdGraceUseTime</b>
+This attribute contains the list of timestamps of logins
+made after the user password in the DN has expired. These
+post-expiration logins are known as &quot;<i>grace
+logins</i>&quot;. If too many <i>grace logins</i> have been
+used (please refer to the <b>pwdGraceLoginLimit</b> password
+policy attribute), then the DN will no longer be allowed to
+be used to authenticate the user to the directory until the
+administrator changes the DN&rsquo;s <b>userPassword</b>
+attribute.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.21 <br>
+NAME &rsquo;pwdGraceUseTime&rsquo; <br>
+DESC &rsquo;The timestamps of the grace login once the
+password has expired&rsquo; <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 <br>
+EQUALITY generalizedTimeMatch <br>
+NO&minus;USER&minus;MODIFICATION <br>
+USAGE directoryOperation)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pwdReset</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This attribute
+indicates whether the user&rsquo;s password has been reset
+by the administrator and thus must be changed upon first use
+of this DN for authentication to the directory. If
+<b>pwdReset</b> is set to &quot;TRUE&quot;, then the
+password was reset and the user must change it upon first
+authentication. If the attribute does not exist, or is set
+to &quot;FALSE&quot;, the user need not change their
+password due to administrative reset.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(
+1.3.6.1.4.1.42.2.27.8.1.22 <br>
+NAME &rsquo;pwdReset&rsquo; <br>
+DESC &rsquo;The indication that the password has <br>
+been reset&rsquo; <br>
+EQUALITY booleanMatch <br>
+SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 <br>
+SINGLE&minus;VALUE <br>
+USAGE directoryOperation)</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:22%; margin-top: 1em">database bdb
+<br>
+suffix dc=example,dc=com <br>
+... <br>
+overlay ppolicy <br>
+ppolicy_default
+&quot;cn=Standard,ou=Policies,dc=example,dc=com&quot;</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ldap</b>(3),
+<b>slapd.conf</b>(5), <b>slapd&minus;config</b>(5),
+<b>slapo&minus;chain</b>(5).</p>
+
+<p style="margin-left:11%; margin-top: 1em">&quot;OpenLDAP
+Administrator&rsquo;s Guide&quot;
+(http://www.OpenLDAP.org/doc/admin/)</p>
+
+<p style="margin-left:11%; margin-top: 1em">IETF LDAP
+password policy proposal by P. Behera, L. Poitou and J.
+Sermersheim: documented in IETF document
+&quot;draft-behera-ldap-password-policy-09.txt&quot;.</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The LDAP
+Password Policy specification is not yet an approved
+standard, and it is still evolving. This code will continue
+to be in flux until the specification is finalized.</p>
+
+<h2>ACKNOWLEDGEMENTS
+<a name="ACKNOWLEDGEMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module was
+written in 2004 by Howard Chu of Symas Corporation with
+significant input from Neil Dunbar and Kartik Subbarao of
+Hewlett-Packard.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This manual
+page borrows heavily and shamelessly from the specification
+upon which the password policy module it describes is based.
+This source is the IETF LDAP password policy proposal by P.
+Behera, L. Poitou and J. Sermersheim. The proposal is fully
+documented in the IETF document named
+draft-behera-ldap-password-policy-09.txt, written in July of
+2005.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>OpenLDAP
+Software</b> is developed and maintained by The OpenLDAP
+Project &lt;http://www.openldap.org/&gt;. <b>OpenLDAP
+Software</b> is derived from University of Michigan LDAP 3.3
+Release.</p>
+<hr>
+</body>
+</html>

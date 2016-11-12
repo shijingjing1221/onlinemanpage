@@ -1,0 +1,178 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:40:33 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>USB_UNLINK_URB</title>
+
+</head>
+<body>
+
+<h1 align="center">USB_UNLINK_URB</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#RETURN">RETURN</a><br>
+<a href="#UNLINKING AND ENDPOINT QUEUES">UNLINKING AND ENDPOINT QUEUES</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">usb_unlink_urb
+&minus; abort/cancel a transfer request for an endpoint</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="57%">
+
+
+<p style="margin-top: 1em"><b>int
+usb_unlink_urb(struct&nbsp;urb&nbsp;*&nbsp;</b><i>urb</i><b>);</b></p> </td>
+<td width="32%">
+</td></tr>
+</table>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>urb</i></b></p>
+
+<p style="margin-left:17%;">pointer to urb describing a
+previously submitted request, may be NULL</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This routine
+cancels an in&minus;progress request. URBs complete only
+once per submission, and may be canceled only once per
+submission. Successful cancellation means termination of
+<i>urb</i> will be expedited and the completion handler will
+be called with a status code indicating that the request has
+been canceled (rather than any other code).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Drivers should
+not call this routine or related routines, such as
+<b>usb_kill_urb</b> or <b>usb_unlink_anchored_urbs</b>,
+after their disconnect method has returned. The disconnect
+function should synchronize with a driver's I/O routines to
+insure that all URB&minus;related activity has completed
+before it returns.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This request is
+asynchronous, however the HCD might call the
+&minus;&gt;<b>complete</b> callback during unlink. Therefore
+when drivers call <b>usb_unlink_urb</b>, they must not hold
+any locks that may be taken by the completion function.
+Success is indicated by returning &minus;EINPROGRESS, at
+which time the URB will probably not yet have been given
+back to the device driver. When it is eventually called, the
+completion function will see <i>urb</i>&minus;&gt;status ==
+&minus;ECONNRESET. Failure is indicated by
+<b>usb_unlink_urb</b> returning any other value. Unlinking
+will fail when <i>urb</i> is not currently
+&ldquo;linked&rdquo; (i.e., it was never submitted, or it
+was unlinked before, or the hardware is already finished
+with it), even if the completion handler has not yet
+run.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The URB must
+not be deallocated while this routine is running. In
+particular, when a driver calls this routine, it must insure
+that the completion handler cannot deallocate the URB.</p>
+
+<h2>RETURN
+<a name="RETURN"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&minus;EINPROGRESS
+on success. See description for other values on failure.</p>
+
+<h2>UNLINKING AND ENDPOINT QUEUES
+<a name="UNLINKING AND ENDPOINT QUEUES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">[The behaviors
+and guarantees described below do not apply to virtual root
+hubs but only to endpoint queues for physical USB
+devices.]</p>
+
+<p style="margin-left:11%; margin-top: 1em">Host Controller
+Drivers (HCDs) place all the URBs for a particular endpoint
+in a queue. Normally the queue advances as the controller
+hardware processes each request. But when an URB terminates
+with an error its queue generally stops (see below), at
+least until that URB's completion routine returns. It is
+guaranteed that a stopped queue will not restart until all
+its unlinked URBs have been fully retired, with their
+completion routines run, even if that's not until some time
+after the original completion handler returns. The same
+behavior and guarantee apply when an URB terminates because
+it was unlinked.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Bulk and
+interrupt endpoint queues are guaranteed to stop whenever an
+URB terminates with any sort of error, including
+&minus;ECONNRESET, &minus;ENOENT, and &minus;EREMOTEIO.
+Control endpoint queues behave the same way except that they
+are not guaranteed to stop for &minus;EREMOTEIO errors.
+Queues for isochronous endpoints are treated differently,
+because they must advance at fixed rates. Such queues do not
+stop when an URB encounters an error or is unlinked. An
+unlinked isochronous URB may leave a gap in the stream of
+packets; it is undefined whether such gaps can be filled
+in.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that early
+termination of an URB because a short packet was received
+will generate a &minus;EREMOTEIO error if and only if the
+URB_SHORT_NOT_OK flag is set. By setting this flag, USB
+device drivers can build deep queues for large or complex
+bulk transfers and clean them up reliably after any sort of
+aborted transfer by unlinking all pending URBs at the first
+fault.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When a control
+URB terminates with an error other than &minus;EREMOTEIO, it
+is quite likely that the status stage of the transfer will
+not take place.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+<hr>
+</body>
+</html>

@@ -1,0 +1,425 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:16:43 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PROXYMAP</title>
+
+</head>
+<body>
+
+<h1 align="center">PROXYMAP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SERVER PROCESS MANAGEMENT">SERVER PROCESS MANAGEMENT</a><br>
+<a href="#SECURITY">SECURITY</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#CONFIGURATION PARAMETERS">CONFIGURATION PARAMETERS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#README FILES">README FILES</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#HISTORY">HISTORY</a><br>
+<a href="#AUTHOR(S)">AUTHOR(S)</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">proxymap
+&minus; Postfix lookup table proxy server</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>proxymap</b>
+[generic Postfix daemon options]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) server provides read-only or read-write
+table lookup service to Postfix processes. These services
+are implemented with distinct service names: <b>proxymap</b>
+and <b>proxywrite</b>, respectively. The purpose of these
+services is:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>To overcome chroot restrictions. For example, a chrooted
+SMTP server needs access to the system passwd file in order
+to reject mail for non-existent local addresses, but it is
+not practical to maintain a copy of the passwd file in the
+chroot jail. The solution:</p></td></tr>
+</table>
+
+
+<p style="margin-left:22%; margin-top: 1em">local_recipient_maps
+= <br>
+proxy:unix:passwd.byname $alias_maps</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">To consolidate the number of
+open lookup tables by sharing one open table among multiple
+processes. For example, making mysql connections from every
+Postfix daemon process results in &quot;too many
+connections&quot; errors. The solution:</p></td></tr>
+</table>
+
+
+<p style="margin-left:22%; margin-top: 1em">virtual_alias_maps
+= <br>
+proxy:mysql:/etc/postfix/virtual_alias.cf</p>
+
+<p style="margin-left:22%; margin-top: 1em">The total
+number of connections is limited by the number of proxymap
+server processes.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">To provide single-updater
+functionality for lookup tables that do not reliably support
+multiple writers (i.e. all file-based tables).</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) server implements the following requests:
+<b><br>
+open</b> <i>maptype:mapname flags</i></p>
+
+<p style="margin-left:22%;">Open the table with type
+<i>maptype</i> and name <i>mapname</i>, as controlled by
+<i>flags</i>. The reply includes the <i>maptype</i>
+dependent flags (to distinguish a fixed string table from a
+regular expression table).</p>
+
+<p style="margin-left:11%;"><b>lookup</b>
+<i>maptype:mapname flags key</i></p>
+
+<p style="margin-left:22%;">Look up the data stored under
+the requested key. The reply is the request completion
+status code and the lookup result value. The
+<i>maptype:mapname</i> and <i>flags</i> are the same as with
+the <b>open</b> request.</p>
+
+<p style="margin-left:11%;"><b>update</b>
+<i>maptype:mapname flags key value</i></p>
+
+<p style="margin-left:22%;">Update the data stored under
+the requested key. The reply is the request completion
+status code. The <i>maptype:mapname</i> and <i>flags</i> are
+the same as with the <b>open</b> request.</p>
+
+<p style="margin-left:22%; margin-top: 1em">To implement
+single-updater maps, specify a process limit of 1 in the
+master.cf file entry for the <b>proxywrite</b> service.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This request is
+supported in Postfix 2.5 and later.</p>
+
+<p style="margin-left:11%;"><b>delete</b>
+<i>maptype:mapname flags key</i></p>
+
+<p style="margin-left:22%;">Delete the data stored under
+the requested key. The reply is the request completion
+status code. The <i>maptype:mapname</i> and <i>flags</i> are
+the same as with the <b>open</b> request.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This request is
+supported in Postfix 2.5 and later.</p>
+
+<p style="margin-left:11%;"><b>sequence</b>
+<i>maptype:mapname flags function</i></p>
+
+<p style="margin-left:22%;">Iterate over the specified
+database. The <i>function</i> is one of DICT_SEQ_FUN_FIRST
+or DICT_SEQ_FUN_NEXT. The reply is the request completion
+status code and a lookup key and result value, if found.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This request is
+supported in Postfix 2.9 and later.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The request
+completion status is one of OK, RETRY, NOKEY (lookup failed
+because the key was not found), BAD (malformed request) or
+DENY (the table is not approved for proxy read or update
+access).</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+<b>close</b> command, nor are tables implicitly closed when
+a client disconnects. The purpose is to share tables among
+multiple client processes.</p>
+
+<h2>SERVER PROCESS MANAGEMENT
+<a name="SERVER PROCESS MANAGEMENT"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>proxymap</b>(8)
+servers run under control by the Postfix <b>master</b>(8)
+server. Each server can handle multiple simultaneous
+connections. When all servers are busy while a client
+connects, the <b>master</b>(8) creates a new
+<b>proxymap</b>(8) server process, provided that the process
+limit is not exceeded. Each server terminates after serving
+at least <b>$max_use</b> clients or after <b>$max_idle</b>
+seconds of idle time.</p>
+
+<h2>SECURITY
+<a name="SECURITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) server opens only tables that are
+approved via the <b>proxy_read_maps</b> or
+<b>proxy_write_maps</b> configuration parameters, does not
+talk to users, and can run at fixed low privilege, chrooted
+or not. However, running the proxymap server chrooted
+severely limits usability, because it can open only chrooted
+tables.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) server is not a trusted daemon process,
+and must not be used to look up sensitive information such
+as UNIX user or group IDs, mailbox file/directory names or
+external commands.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In Postfix
+version 2.2 and later, the proxymap client recognizes
+requests to access a table for security-sensitive purposes,
+and opens the table directly. This allows the same main.cf
+setting to be used by sensitive and non-sensitive
+processes.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Postfix-writable
+data files should be stored under a dedicated directory that
+is writable only by the Postfix mail system, such as the
+Postfix-owned <b>data_directory</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In particular,
+Postfix-writable files should never exist in root-owned
+directories. That would open up a particular type of
+security hole where ownership of a file or directory does
+not match the provider of its content.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Problems and
+transactions are logged to <b>syslogd</b>(8).</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) server provides service to multiple
+clients, and must therefore not be used for tables that have
+high-latency lookups.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>proxymap</b>(8) read-write service does not explicitly
+close lookup tables (even if it did, this could not be
+relied on, because the process may be terminated between
+table updates). The read-write service should therefore not
+be used with tables that leave persistent storage in an
+inconsistent state between updates (for example, CDB).
+Tables that support &quot;sync on update&quot; should be
+safe (for example, Berkeley DB) as should tables that are
+implemented by a real DBMS.</p>
+
+<h2>CONFIGURATION PARAMETERS
+<a name="CONFIGURATION PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">On busy mail
+systems a long time may pass before <b>proxymap</b>(8)
+relevant changes to <b>main.cf</b> are picked up. Use the
+command &quot;<b>postfix reload</b>&quot; to speed up a
+change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The text below
+provides only a parameter summary. See <b>postconf</b>(5)
+for more details including examples. <b><br>
+config_directory (see &rsquo;postconf -d&rsquo;
+output)</b></p>
+
+<p style="margin-left:22%;">The default location of the
+Postfix main.cf and master.cf configuration files.</p>
+
+<p style="margin-left:11%;"><b>data_directory (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The directory with
+Postfix-writable data files (for example: caches,
+pseudo-random numbers).</p>
+
+<p style="margin-left:11%;"><b>daemon_timeout
+(18000s)</b></p>
+
+<p style="margin-left:22%;">How much time a Postfix daemon
+process may take to handle a request before it is terminated
+by a built-in watchdog timer.</p>
+
+<p style="margin-left:11%;"><b>ipc_timeout (3600s)</b></p>
+
+<p style="margin-left:22%;">The time limit for sending or
+receiving information over an internal communication
+channel.</p>
+
+<p style="margin-left:11%;"><b>max_idle (100s)</b></p>
+
+<p style="margin-left:22%;">The maximum amount of time that
+an idle Postfix daemon process waits for an incoming
+connection before terminating voluntarily.</p>
+
+<p style="margin-left:11%;"><b>max_use (100)</b></p>
+
+<p style="margin-left:22%;">The maximal number of incoming
+connections that a Postfix daemon process will service
+before terminating voluntarily.</p>
+
+<p style="margin-left:11%;"><b>process_id
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process ID of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>process_name
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process name of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>proxy_read_maps (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The lookup tables that the
+<b>proxymap</b>(8) server is allowed to access for the
+read-only service.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Available in
+Postfix 2.5 and later: <b><br>
+data_directory (see &rsquo;postconf -d&rsquo;
+output)</b></p>
+
+<p style="margin-left:22%;">The directory with
+Postfix-writable data files (for example: caches,
+pseudo-random numbers).</p>
+
+<p style="margin-left:11%;"><b>proxy_write_maps (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The lookup tables that the
+<b>proxymap</b>(8) server is allowed to access for the
+read-write service.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">postconf(5),
+configuration parameters <br>
+master(5), generic daemon options</p>
+
+<h2>README FILES
+<a name="README FILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use
+&quot;<b>postconf readme_directory</b>&quot; or
+&quot;<b>postconf html_directory</b>&quot; to locate this
+information. <br>
+DATABASE_README, Postfix lookup table overview</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Secure
+Mailer license must be distributed with this software.</p>
+
+<h2>HISTORY
+<a name="HISTORY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The proxymap
+service was introduced with Postfix 2.0.</p>
+
+<h2>AUTHOR(S)
+<a name="AUTHOR(S)"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Wietse Venema
+<br>
+IBM T.J. Watson Research <br>
+P.O. Box 704 <br>
+Yorktown Heights, NY 10598, USA</p>
+<hr>
+</body>
+</html>

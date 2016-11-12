@@ -1,0 +1,262 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:13:31 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMGENMAP</title>
+
+</head>
+<body>
+
+<h1 align="center">PMGENMAP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#PCP ENVIRONMENT">PCP ENVIRONMENT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmgenmap</b>
+&minus; generate C code to simplify handling of performance
+metrics</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmgenmap</b>
+[<i>infile</i>]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Given one or
+more lists of metric names in <i>infile</i> or on standard
+input, <b>pmgenmap</b> generates C declarations and
+<b>cpp</b>(1) macros suitable for use across the Performance
+Metrics Programming Interface (PMAPI) on standard
+output.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+declarations produced by <b>pmgenmap</b> simplify the coding
+for client applications using the PMAPI.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The input
+should consist of one or more lists of metric names of the
+form</p>
+
+<pre style="margin-left:18%; margin-top: 1em">listname {
+    metricname1 symbolname1
+    metricname2 symbolname2
+    ...
+}</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">which will
+generate C and <b>cpp</b>(1) declarations of the form</p>
+
+<pre style="margin-left:18%; margin-top: 1em">char *listname[] = {
+#define symbolname1 0
+    &quot;metricname1&quot;,
+#define symbolname2 1
+    &quot;metricname2&quot;,
+    ...
+};</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The array
+declarations produced are suitable as parameters to
+<b>pmLookupName</b>(3) and the <b>#define</b>d constants may
+be used to index the <i>vset</i>s in the <i>pmResult</i>
+structure returned by a <b>pmFetch</b>(3) call.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Obviously,
+<i>listname</i> must conform to the C identifier naming
+rules, each <i>symbolname</i> must conform to the
+<b>cpp</b>(1) macro naming rules, and each <i>metricname</i>
+is expected to be a valid performance metrics name (see
+<b>pmns</b>(5) for more details).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The input may
+include <b>sh</b>-style comment lines, i.e. with a
+&lsquo;<b>#</b>&rsquo; as the first non-blank character of a
+line, and these are translated on output to either single
+line or multi-line C comments in the K&amp;R style. For
+example, the input:</p>
+<pre style="margin-left:18%; margin-top: 1em"># leading block of multi-line comments
+# initialization group
+foo {
+        a.b.c   ONE
+        d.e.f.g TWO
+        # embedded block of multi-lines
+        # comments and boring pad text
+        xx.yy.zz        THREE
+}
+
+# trailing single line comment</pre>
+
+<p style="margin-left:11%; margin-top: 1em">Produces the
+output:</p>
+<pre style="margin-left:18%; margin-top: 1em">/*
+ * leading block of multi-line comments
+ * initialization group
+ */
+char *foo[] = {
+#define ONE 0
+        &quot;a.b.c&quot;,
+#define TWO 1
+        &quot;d.e.f.g&quot;,
+/*
+ * embedded block of multi-lines
+ * comments and boring pad text
+ */
+#define THREE 2
+        &quot;xx.yy.zz&quot;,
+
+};
+
+
+/* trailing single line comment */</pre>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For brevity we
+have removed the error handling code, and assumed the chosen
+metrics do not have multiple values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The input
+file</p>
+
+<pre style="margin-left:18%; margin-top: 1em">mystats {
+    kernel.percpu.cpu.idle     IDLE
+    kernel.percpu.cpu.sys      SYS
+    kernel.percpu.cpu.user     USER
+    hinv.ncpu                       NCPU
+}</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">produces the
+following C code, suitable for <b>#include</b>-ing</p>
+<pre style="margin-left:18%; margin-top: 1em">/*
+ * Performance Metrics Name Space Map
+ * Built by pmgenmap from the file
+ * mystats.metrics
+ * on Wed Dec 28 19:44:17 EST 1994
+ *
+ * Do not edit this file!
+ */
+
+char *mystats[] = {
+#define IDLE    0
+        &quot;kernel.percpu.cpu.idle&quot;,
+#define SYS     1
+        &quot;kernel.percpu.cpu.sys&quot;,
+#define USER    2
+        &quot;kernel.percpu.cpu.user&quot;,
+#define NCPU    3
+        &quot;hinv.ncpu&quot;,
+
+};</pre>
+
+<p style="margin-left:11%; margin-top: 1em">Using the code
+generated by <b>pmgenmap</b>, we are now able to easily
+obtain metrics from the Performance Metrics Collection
+Subsystem (PMCS) as follows:</p>
+<pre style="margin-left:18%; margin-top: 1em">#define MAX_PMID 4
+
+    int         trip = 0;
+    int         numpmid = sizeof(mystats)/sizeof(mystats[0]);
+    double      duration;
+    pmResult    *resp;
+    pmResult    *prev;
+    pmID        pmidlist[MAX_PMID];
+
+    pmNewContext(PM_CONTEXT_HOST, &quot;localhost&quot;);
+    pmLookupName(numpmid, mystats, pmidlist);
+    pmFetch(numpmid, pmidlist, &amp;resp);
+
+
+    printf(&quot;%d CPUs: %d usr   %d sys   %d   idle0,
+           resp-&gt;vset[NCPU]-&gt;vlist[0].value.lval,
+           resp-&gt;vset[USER]-&gt;vlist[0].value.lval,
+           resp-&gt;vset[SYS]-&gt;vlist[0].value.lval,
+           resp-&gt;vset[IDLE]-&gt;vlist[0].value.lval);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Some calls to
+ensure portability have been removed from the code above for
+the sake of clarity &minus; the example above should not be
+used as a template for programming. In particular, the raw
+values of the metrics were used when <b>pmLookupDesc</b>(3)
+should have been called to determine the semantics of each
+metric.</p>
+
+<p style="margin-left:11%; margin-top: 1em">More complete
+examples that demonstrate the use of <b>pmgenmap</b> which
+may be used as a basis for program development are included
+in the PCP demos, e.g. <i>$PCP_DEMOS_DIR/pmclient</i>.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$PCP_VAR_DIR/pmns/</b><i>*</i></p>
+
+<p style="margin-left:26%;">default PMNS specification
+files</p>
+
+<h2>PCP ENVIRONMENT
+<a name="PCP ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Environment
+variables with the prefix <b>PCP_</b> are used to
+parameterize the file and directory names used by PCP. On
+each installation, the file <i>/etc/pcp.conf</i> contains
+the local values for these variables. The <b>$PCP_CONF</b>
+variable may be used to specify an alternative configuration
+file, as described in <b>pcp.conf</b>(5).</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>cpp</b>(1),
+<b>PMAPI</b>(3), <b>pmFetch</b>(3), <b>pmLookupName</b>(3),
+<b>pmNewContext</b>(3), <b>pcp.conf</b>(5),
+<b>pcp.env</b>(5) and <b>pmns</b>(5).</p>
+<hr>
+</body>
+</html>

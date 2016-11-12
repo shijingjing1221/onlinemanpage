@@ -1,0 +1,1508 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:28:59 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SELECT</title>
+
+</head>
+<body>
+
+<h1 align="center">SELECT</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">SELECT, TABLE,
+WITH &minus; retrieve rows from a table or view</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">[ WITH [
+RECURSIVE ] <i>with_query</i> [, ...] ] <br>
+SELECT [ ALL | DISTINCT [ ON ( <i>expression</i> [, ...] ) ]
+] <br>
+* | <i>expression</i> [ [ AS ] <i>output_name</i> ] [, ...]
+<br>
+[ FROM <i>from_item</i> [, ...] ] <br>
+[ WHERE <i>condition</i> ] <br>
+[ GROUP BY <i>expression</i> [, ...] ] <br>
+[ HAVING <i>condition</i> [, ...] ] <br>
+[ WINDOW <i>window_name</i> AS ( <i>window_definition</i> )
+[, ...] ] <br>
+[ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ]
+<i>select</i> ] <br>
+[ ORDER BY <i>expression</i> [ ASC | DESC | USING
+<i>operator</i> ] [ NULLS { FIRST | LAST } ] [, ...] ] <br>
+[ LIMIT { <i>count</i> | ALL } ] <br>
+[ OFFSET <i>start</i> [ ROW | ROWS ] ] <br>
+[ FETCH { FIRST | NEXT } [ <i>count</i> ] { ROW | ROWS }
+ONLY ] <br>
+[ FOR { UPDATE | SHARE } [ OF <i>table_name</i> [, ...] ] [
+NOWAIT ] [...] ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>from_item</i> can be one of:</p>
+
+<p style="margin-left:11%; margin-top: 1em">[ ONLY ]
+<i>table_name</i> [ * ] [ [ AS ] <i>alias</i> [ (
+<i>column_alias</i> [, ...] ) ] ] <br>
+( <i>select</i> ) [ AS ] <i>alias</i> [ (
+<i>column_alias</i> [, ...] ) ] <i><br>
+with_query_name</i> [ [ AS ] <i>alias</i> [ (
+<i>column_alias</i> [, ...] ) ] ] <i><br>
+function_name</i> ( [ <i>argument</i> [, ...] ] ) [ AS ]
+<i>alias</i> [ ( <i>column_alias</i> [, ...] |
+<i>column_definition</i> [, ...] ) ] <i><br>
+function_name</i> ( [ <i>argument</i> [, ...] ] ) AS (
+<i>column_definition</i> [, ...] ) <i><br>
+from_item</i> [ NATURAL ] <i>join_type from_item</i> [ ON
+<i>join_condition</i> | USING ( <i>join_column</i> [, ...] )
+]</p>
+
+<p style="margin-left:11%; margin-top: 1em">and
+<i>with_query</i> is:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>with_query_name</i>
+[ ( <i>column_name</i> [, ...] ) ] AS ( <i>select</i> |
+<i>values</i> | <i>insert</i> | <i>update</i> |
+<i>delete</i> )</p>
+
+<p style="margin-left:11%; margin-top: 1em">TABLE [ ONLY ]
+<i>table_name</i> [ * ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>SELECT</b>
+retrieves rows from zero or more tables. The general
+processing of <b>SELECT</b> is as follows:</p>
+
+<p style="margin-left:17%; margin-top: 1em">1. All queries
+in the WITH list are computed. These effectively serve as
+temporary tables that can be referenced in the FROM list. A
+WITH query that is referenced more than once in FROM is
+computed only once. (See WITH Clause below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">2. All elements
+in the FROM list are computed. (Each element in the FROM
+list is a real or virtual table.) If more than one element
+is specified in the FROM list, they are cross&minus;joined
+together. (See FROM Clause below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">3. If the WHERE
+clause is specified, all rows that do not satisfy the
+condition are eliminated from the output. (See WHERE Clause
+below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">4. If the GROUP
+BY clause is specified, the output is combined into groups
+of rows that match on one or more values. If the HAVING
+clause is present, it eliminates groups that do not satisfy
+the given condition. (See GROUP BY Clause and HAVING Clause
+below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">5. The actual
+output rows are computed using the <b>SELECT</b> output
+expressions for each selected row or row group. (See SELECT
+List below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">6. SELECT
+DISTINCT eliminates duplicate rows from the result. SELECT
+DISTINCT ON eliminates rows that match on all the specified
+expressions. SELECT ALL (the default) will return all
+candidate rows, including duplicates. (See DISTINCT Clause
+below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">7. Using the
+operators UNION, INTERSECT, and EXCEPT, the output of more
+than one <b>SELECT</b> statement can be combined to form a
+single result set. The UNION operator returns all rows that
+are in one or both of the result sets. The INTERSECT
+operator returns all rows that are strictly in both result
+sets. The EXCEPT operator returns the rows that are in the
+first result set but not in the second. In all three cases,
+duplicate rows are eliminated unless ALL is specified. The
+noise word DISTINCT can be added to explicitly specify
+eliminating duplicate rows. Notice that DISTINCT is the
+default behavior here, even though ALL is the default for
+<b>SELECT</b> itself. (See UNION Clause, INTERSECT Clause,
+and EXCEPT Clause below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">8. If the ORDER
+BY clause is specified, the returned rows are sorted in the
+specified order. If ORDER BY is not given, the rows are
+returned in whatever order the system finds fastest to
+produce. (See ORDER BY Clause below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">9. If the LIMIT
+(or FETCH FIRST) or OFFSET clause is specified, the
+<b>SELECT</b> statement only returns a subset of the result
+rows. (See LIMIT Clause below.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">10. If FOR
+UPDATE or FOR SHARE is specified, the <b>SELECT</b>
+statement locks the selected rows against concurrent
+updates. (See FOR UPDATE/FOR SHARE Clause below.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">You must have
+SELECT privilege on each column used in a <b>SELECT</b>
+command. The use of FOR UPDATE or FOR SHARE requires UPDATE
+privilege as well (for at least one column of each table so
+selected).</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>WITH
+Clause</b> <br>
+The WITH clause allows you to specify one or more subqueries
+that can be referenced by name in the primary query. The
+subqueries effectively act as temporary tables or views for
+the duration of the primary query. Each subquery can be a
+<b>SELECT</b>, <b>VALUES</b>, <b>INSERT</b>, <b>UPDATE</b>
+or <b>DELETE</b> statement. When writing a
+data&minus;modifying statement (<b>INSERT</b>, <b>UPDATE</b>
+or <b>DELETE</b>) in WITH, it is usual to include a
+RETURNING clause. It is the output of RETURNING, <i>not</i>
+the underlying table that the statement modifies, that forms
+the temporary table that is read by the primary query. If
+RETURNING is omitted, the statement is still executed, but
+it produces no output so it cannot be referenced as a table
+by the primary query.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A name (without
+schema qualification) must be specified for each WITH query.
+Optionally, a list of column names can be specified; if this
+is omitted, the column names are inferred from the
+subquery.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If RECURSIVE is
+specified, it allows a <b>SELECT</b> subquery to reference
+itself by name. Such a subquery must have the form</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><i>non_recursive_term</i>
+UNION [ ALL | DISTINCT ] <i>recursive_term</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">where the
+recursive self&minus;reference must appear on the
+right&minus;hand side of the UNION. Only one recursive
+self&minus;reference is permitted per query. Recursive
+data&minus;modifying statements are not supported, but you
+can use the results of a recursive <b>SELECT</b> query in a
+data&minus;modifying statement. See Section 7.8, &ldquo;WITH
+Queries (Common Table Expressions)&rdquo;, in the
+documentation for an example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Another effect
+of RECURSIVE is that WITH queries need not be ordered: a
+query can reference another one that is later in the list.
+(However, circular references, or mutual recursion, are not
+implemented.) Without RECURSIVE, WITH queries can only
+reference sibling WITH queries that are earlier in the WITH
+list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A key property
+of WITH queries is that they are evaluated only once per
+execution of the primary query, even if the primary query
+refers to them more than once. In particular,
+data&minus;modifying statements are guaranteed to be
+executed once and only once, regardless of whether the
+primary query reads all or any of their output.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The primary
+query and the WITH queries are all (notionally) executed at
+the same time. This implies that the effects of a
+data&minus;modifying statement in WITH cannot be seen from
+other parts of the query, other than by reading its
+RETURNING output. If two such data&minus;modifying
+statements attempt to modify the same row, the results are
+unspecified.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See Section
+7.8, &ldquo;WITH Queries (Common Table Expressions)&rdquo;,
+in the documentation for additional information.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>FROM
+Clause</b> <br>
+The FROM clause specifies one or more source tables for the
+<b>SELECT</b>. If multiple sources are specified, the result
+is the Cartesian product (cross join) of all the sources.
+But usually qualification conditions are added to restrict
+the returned rows to a small subset of the Cartesian
+product.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The FROM clause
+can contain the following elements:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>table_name</i></p>
+
+<p style="margin-left:17%;">The name (optionally
+schema&minus;qualified) of an existing table or view. If
+ONLY is specified before the table name, only that table is
+scanned. If ONLY is not specified, the table and all its
+descendant tables (if any) are scanned. Optionally, * can be
+specified after the table name to explicitly indicate that
+descendant tables are included.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>alias</i></p>
+
+<p style="margin-left:17%;">A substitute name for the FROM
+item containing the alias. An alias is used for brevity or
+to eliminate ambiguity for self&minus;joins (where the same
+table is scanned multiple times). When an alias is provided,
+it completely hides the actual name of the table or
+function; for example given FROM foo AS f, the remainder of
+the <b>SELECT</b> must refer to this FROM item as f not foo.
+If an alias is written, a column alias list can also be
+written to provide substitute names for one or more columns
+of the table.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>select</i></p>
+
+<p style="margin-left:17%;">A sub&minus;<b>SELECT</b> can
+appear in the FROM clause. This acts as though its output
+were created as a temporary table for the duration of this
+single <b>SELECT</b> command. Note that the
+sub&minus;<b>SELECT</b> must be surrounded by parentheses,
+and an alias <i>must</i> be provided for it. A
+<b>VALUES</b>(7) command can also be used here.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>with_query_name</i></p>
+
+<p style="margin-left:17%;">A WITH query is referenced by
+writing its name, just as though the query's name were a
+table name. (In fact, the WITH query hides any real table of
+the same name for the purposes of the primary query. If
+necessary, you can refer to a real table of the same name by
+schema&minus;qualifying the table's name.) An alias can be
+provided in the same way as for a table.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>function_name</i></p>
+
+<p style="margin-left:17%;">Function calls can appear in
+the FROM clause. (This is especially useful for functions
+that return result sets, but any function can be used.) This
+acts as though its output were created as a temporary table
+for the duration of this single <b>SELECT</b> command. An
+alias can also be used. If an alias is written, a column
+alias list can also be written to provide substitute names
+for one or more attributes of the function's composite
+return type. If the function has been defined as returning
+the record data type, then an alias or the key word AS must
+be present, followed by a column definition list in the form
+( <i>column_name data_type</i> [, ... ] ). The column
+definition list must match the actual number and types of
+columns returned by the function.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>join_type</i></p>
+
+<p style="margin-left:17%;">One of</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull; [ INNER
+] JOIN</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull; LEFT [
+OUTER ] JOIN</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull; RIGHT [
+OUTER ] JOIN</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull; FULL [
+OUTER ] JOIN</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull; CROSS
+JOIN</p>
+
+<p style="margin-left:17%; margin-top: 1em">For the INNER
+and OUTER join types, a join condition must be specified,
+namely exactly one of NATURAL, ON <i>join_condition</i>, or
+USING (<i>join_column</i> [, ...]). See below for the
+meaning. For CROSS JOIN, none of these clauses can
+appear.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A JOIN clause
+combines two FROM items. Use parentheses if necessary to
+determine the order of nesting. In the absence of
+parentheses, JOINs nest left&minus;to&minus;right. In any
+case JOIN binds more tightly than the commas separating FROM
+items.</p>
+
+<p style="margin-left:17%; margin-top: 1em">CROSS JOIN and
+INNER JOIN produce a simple Cartesian product, the same
+result as you get from listing the two items at the top
+level of FROM, but restricted by the join condition (if
+any). CROSS JOIN is equivalent to INNER JOIN ON (TRUE), that
+is, no rows are removed by qualification. These join types
+are just a notational convenience, since they do nothing you
+couldn't do with plain FROM and WHERE.</p>
+
+<p style="margin-left:17%; margin-top: 1em">LEFT OUTER JOIN
+returns all rows in the qualified Cartesian product (i.e.,
+all combined rows that pass its join condition), plus one
+copy of each row in the left&minus;hand table for which
+there was no right&minus;hand row that passed the join
+condition. This left&minus;hand row is extended to the full
+width of the joined table by inserting null values for the
+right&minus;hand columns. Note that only the JOIN clause's
+own condition is considered while deciding which rows have
+matches. Outer conditions are applied afterwards.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Conversely,
+RIGHT OUTER JOIN returns all the joined rows, plus one row
+for each unmatched right&minus;hand row (extended with nulls
+on the left). This is just a notational convenience, since
+you could convert it to a LEFT OUTER JOIN by switching the
+left and right inputs.</p>
+
+<p style="margin-left:17%; margin-top: 1em">FULL OUTER JOIN
+returns all the joined rows, plus one row for each unmatched
+left&minus;hand row (extended with nulls on the right), plus
+one row for each unmatched right&minus;hand row (extended
+with nulls on the left).</p>
+
+<p style="margin-left:11%; margin-top: 1em">ON
+<i>join_condition</i></p>
+
+<p style="margin-left:17%;"><i>join_condition</i> is an
+expression resulting in a value of type boolean (similar to
+a WHERE clause) that specifies which rows in a join are
+considered to match.</p>
+
+<p style="margin-left:11%; margin-top: 1em">USING (
+<i>join_column</i> [, ...] )</p>
+
+<p style="margin-left:17%;">A clause of the form USING ( a,
+b, ... ) is shorthand for ON left_table.a = right_table.a
+AND left_table.b = right_table.b .... Also, USING implies
+that only one of each pair of equivalent columns will be
+included in the join output, not both.</p>
+
+<p style="margin-left:11%; margin-top: 1em">NATURAL</p>
+
+<p style="margin-left:17%;">NATURAL is shorthand for a
+USING list that mentions all columns in the two tables that
+have the same names.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>WHERE
+Clause</b> <br>
+The optional WHERE clause has the general form</p>
+
+<p style="margin-left:17%; margin-top: 1em">WHERE
+<i>condition</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>condition</i> is any expression that evaluates to a
+result of type boolean. Any row that does not satisfy this
+condition will be eliminated from the output. A row
+satisfies the condition if it returns true when the actual
+row values are substituted for any variable references.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>GROUP BY
+Clause</b> <br>
+The optional GROUP BY clause has the general form</p>
+
+<p style="margin-left:17%; margin-top: 1em">GROUP BY
+<i>expression</i> [, ...]</p>
+
+<p style="margin-left:11%; margin-top: 1em">GROUP BY will
+condense into a single row all selected rows that share the
+same values for the grouped expressions. <i>expression</i>
+can be an input column name, or the name or ordinal number
+of an output column (<b>SELECT</b> list item), or an
+arbitrary expression formed from input&minus;column values.
+In case of ambiguity, a GROUP BY name will be interpreted as
+an input&minus;column name rather than an output column
+name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Aggregate
+functions, if any are used, are computed across all rows
+making up each group, producing a separate value for each
+group (whereas without GROUP BY, an aggregate produces a
+single value computed across all the selected rows). When
+GROUP BY is present, it is not valid for the <b>SELECT</b>
+list expressions to refer to ungrouped columns except within
+aggregate functions or if the ungrouped column is
+functionally dependent on the grouped columns, since there
+would otherwise be more than one possible value to return
+for an ungrouped column. A functional dependency exists if
+the grouped columns (or a subset thereof) are the primary
+key of the table containing the ungrouped column.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>HAVING
+Clause</b> <br>
+The optional HAVING clause has the general form</p>
+
+<p style="margin-left:17%; margin-top: 1em">HAVING
+<i>condition</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>condition</i> is the same as specified for the WHERE
+clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">HAVING
+eliminates group rows that do not satisfy the condition.
+HAVING is different from WHERE: WHERE filters individual
+rows before the application of GROUP BY, while HAVING
+filters group rows created by GROUP BY. Each column
+referenced in <i>condition</i> must unambiguously reference
+a grouping column, unless the reference appears within an
+aggregate function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The presence of
+HAVING turns a query into a grouped query even if there is
+no GROUP BY clause. This is the same as what happens when
+the query contains aggregate functions but no GROUP BY
+clause. All the selected rows are considered to form a
+single group, and the <b>SELECT</b> list and HAVING clause
+can only reference table columns from within aggregate
+functions. Such a query will emit a single row if the HAVING
+condition is true, zero rows if it is not true.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>WINDOW
+Clause</b> <br>
+The optional WINDOW clause has the general form</p>
+
+<p style="margin-left:17%; margin-top: 1em">WINDOW
+<i>window_name</i> AS ( <i>window_definition</i> ) [,
+...]</p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>window_name</i> is a name that can be referenced from
+OVER clauses or subsequent window definitions, and
+<i>window_definition</i> is</p>
+
+<p style="margin-left:17%; margin-top: 1em">[
+<i>existing_window_name</i> ] <br>
+[ PARTITION BY <i>expression</i> [, ...] ] <br>
+[ ORDER BY <i>expression</i> [ ASC | DESC | USING
+<i>operator</i> ] [ NULLS { FIRST | LAST } ] [, ...] ] <br>
+[ <i>frame_clause</i> ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">If an
+<i>existing_window_name</i> is specified it must refer to an
+earlier entry in the WINDOW list; the new window copies its
+partitioning clause from that entry, as well as its ordering
+clause if any. In this case the new window cannot specify
+its own PARTITION BY clause, and it can specify ORDER BY
+only if the copied window does not have one. The new window
+always uses its own frame clause; the copied window must not
+specify a frame clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The elements of
+the PARTITION BY list are interpreted in much the same
+fashion as elements of a GROUP BY Clause, except that they
+are always simple expressions and never the name or number
+of an output column. Another difference is that these
+expressions can contain aggregate function calls, which are
+not allowed in a regular GROUP BY clause. They are allowed
+here because windowing occurs after grouping and
+aggregation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Similarly, the
+elements of the ORDER BY list are interpreted in much the
+same fashion as elements of an ORDER BY Clause, except that
+the expressions are always taken as simple expressions and
+never the name or number of an output column.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The optional
+<i>frame_clause</i> defines the window frame for window
+functions that depend on the frame (not all do). The window
+frame is a set of related rows for each row of the query
+(called the current row). The <i>frame_clause</i> can be one
+of</p>
+
+<p style="margin-left:17%; margin-top: 1em">[ RANGE | ROWS
+] <i>frame_start</i> <br>
+[ RANGE | ROWS ] BETWEEN <i>frame_start</i> AND
+<i>frame_end</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>frame_start</i> and <i>frame_end</i> can be one of</p>
+
+<p style="margin-left:17%; margin-top: 1em">UNBOUNDED
+PRECEDING <i><br>
+value</i> PRECEDING <br>
+CURRENT ROW <i><br>
+value</i> FOLLOWING <br>
+UNBOUNDED FOLLOWING</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<i>frame_end</i> is omitted it defaults to CURRENT ROW.
+Restrictions are that <i>frame_start</i> cannot be UNBOUNDED
+FOLLOWING, <i>frame_end</i> cannot be UNBOUNDED PRECEDING,
+and the <i>frame_end</i> choice cannot appear earlier in the
+above list than the <i>frame_start</i> choice &mdash; for
+example RANGE BETWEEN CURRENT ROW AND <i>value</i> PRECEDING
+is not allowed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The default
+framing option is RANGE UNBOUNDED PRECEDING, which is the
+same as RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW;
+it sets the frame to be all rows from the partition start up
+through the current row's last peer in the ORDER BY ordering
+(which means all rows if there is no ORDER BY). In general,
+UNBOUNDED PRECEDING means that the frame starts with the
+first row of the partition, and similarly UNBOUNDED
+FOLLOWING means that the frame ends with the last row of the
+partition (regardless of RANGE or ROWS mode). In ROWS mode,
+CURRENT ROW means that the frame starts or ends with the
+current row; but in RANGE mode it means that the frame
+starts or ends with the current row's first or last peer in
+the ORDER BY ordering. The <i>value</i> PRECEDING and
+<i>value</i> FOLLOWING cases are currently only allowed in
+ROWS mode. They indicate that the frame starts or ends with
+the row that many rows before or after the current row.
+<i>value</i> must be an integer expression not containing
+any variables, aggregate functions, or window functions. The
+value must not be null or negative; but it can be zero,
+which selects the current row itself.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Beware that the
+ROWS options can produce unpredictable results if the ORDER
+BY ordering does not order the rows uniquely. The RANGE
+options are designed to ensure that rows that are peers in
+the ORDER BY ordering are treated alike; any two peer rows
+will be both in or both not in the frame.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The purpose of
+a WINDOW clause is to specify the behavior of window
+functions appearing in the query's SELECT List or ORDER BY
+Clause. These functions can reference the WINDOW clause
+entries by name in their OVER clauses. A WINDOW clause entry
+does not have to be referenced anywhere, however; if it is
+not used in the query it is simply ignored. It is possible
+to use window functions without any WINDOW clause at all,
+since a window function call can specify its window
+definition directly in its OVER clause. However, the WINDOW
+clause saves typing when the same window definition is
+needed for more than one window function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Window
+functions are described in detail in Section 3.5,
+&ldquo;Window Functions&rdquo;, in the documentation,
+Section 4.2.8, &ldquo;Window Function Calls&rdquo;, in the
+documentation, and Section 7.2.4, &ldquo;Window Function
+Processing&rdquo;, in the documentation.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>SELECT
+List</b> <br>
+The <b>SELECT</b> list (between the key words SELECT and
+FROM) specifies expressions that form the output rows of the
+<b>SELECT</b> statement. The expressions can (and usually
+do) refer to columns computed in the FROM clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Just as in a
+table, every output column of a <b>SELECT</b> has a name. In
+a simple <b>SELECT</b> this name is just used to label the
+column for display, but when the <b>SELECT</b> is a
+sub&minus;query of a larger query, the name is seen by the
+larger query as the column name of the virtual table
+produced by the sub&minus;query. To specify the name to use
+for an output column, write AS <i>output_name</i> after the
+column's expression. (You can omit AS, but only if the
+desired output name does not match any PostgreSQL keyword
+(see Appendix&nbsp;C, SQL Key Words). For protection against
+possible future keyword additions, it is recommended that
+you always either write AS or double&minus;quote the output
+name.) If you do not specify a column name, a name is chosen
+automatically by PostgreSQL. If the column's expression is a
+simple column reference then the chosen name is the same as
+that column's name. In more complex cases a function or type
+name may be used, or the system may fall back on a generated
+name such as ?column?.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An output
+column's name can be used to refer to the column's value in
+ORDER BY and GROUP BY clauses, but not in the WHERE or
+HAVING clauses; there you must write out the expression
+instead.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Instead of an
+expression, * can be written in the output list as a
+shorthand for all the columns of the selected rows. Also,
+you can write <i>table_name</i>.* as a shorthand for the
+columns coming from just that table. In these cases it is
+not possible to specify new names with AS; the output column
+names will be the same as the table columns' names.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>DISTINCT
+Clause</b> <br>
+If SELECT DISTINCT is specified, all duplicate rows are
+removed from the result set (one row is kept from each group
+of duplicates). SELECT ALL specifies the opposite: all rows
+are kept; that is the default.</p>
+
+<p style="margin-left:11%; margin-top: 1em">SELECT DISTINCT
+ON ( <i>expression</i> [, ...] ) keeps only the first row of
+each set of rows where the given expressions evaluate to
+equal. The DISTINCT ON expressions are interpreted using the
+same rules as for ORDER BY (see above). Note that the
+&ldquo;first row&rdquo; of each set is unpredictable unless
+ORDER BY is used to ensure that the desired row appears
+first. For example:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT DISTINCT
+ON (location) location, time, report <br>
+FROM weather_reports <br>
+ORDER BY location, time DESC;</p>
+
+<p style="margin-left:11%; margin-top: 1em">retrieves the
+most recent weather report for each location. But if we had
+not used ORDER BY to force descending order of time values
+for each location, we'd have gotten a report from an
+unpredictable time for each location.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The DISTINCT ON
+expression(s) must match the leftmost ORDER BY
+expression(s). The ORDER BY clause will normally contain
+additional expression(s) that determine the desired
+precedence of rows within each DISTINCT ON group.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>UNION
+Clause</b> <br>
+The UNION clause has this general form:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><i>select_statement</i>
+UNION [ ALL | DISTINCT ] <i>select_statement</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>select_statement</i>
+is any <b>SELECT</b> statement without an ORDER BY, LIMIT,
+FOR UPDATE, or FOR SHARE clause. (ORDER BY and LIMIT can be
+attached to a subexpression if it is enclosed in
+parentheses. Without parentheses, these clauses will be
+taken to apply to the result of the UNION, not to its
+right&minus;hand input expression.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The UNION
+operator computes the set union of the rows returned by the
+involved <b>SELECT</b> statements. A row is in the set union
+of two result sets if it appears in at least one of the
+result sets. The two <b>SELECT</b> statements that represent
+the direct operands of the UNION must produce the same
+number of columns, and corresponding columns must be of
+compatible data types.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result of
+UNION does not contain any duplicate rows unless the ALL
+option is specified. ALL prevents elimination of duplicates.
+(Therefore, UNION ALL is usually significantly quicker than
+UNION; use ALL when you can.) DISTINCT can be written to
+explicitly specify the default behavior of eliminating
+duplicate rows.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Multiple UNION
+operators in the same <b>SELECT</b> statement are evaluated
+left to right, unless otherwise indicated by
+parentheses.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently, FOR
+UPDATE and FOR SHARE cannot be specified either for a UNION
+result or for any input of a UNION.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>INTERSECT
+Clause</b> <br>
+The INTERSECT clause has this general form:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><i>select_statement</i>
+INTERSECT [ ALL | DISTINCT ] <i>select_statement</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>select_statement</i>
+is any <b>SELECT</b> statement without an ORDER BY, LIMIT,
+FOR UPDATE, or FOR SHARE clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The INTERSECT
+operator computes the set intersection of the rows returned
+by the involved <b>SELECT</b> statements. A row is in the
+intersection of two result sets if it appears in both result
+sets.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result of
+INTERSECT does not contain any duplicate rows unless the ALL
+option is specified. With ALL, a row that has <i>m</i>
+duplicates in the left table and <i>n</i> duplicates in the
+right table will appear min(<i>m</i>,<i>n</i>) times in the
+result set. DISTINCT can be written to explicitly specify
+the default behavior of eliminating duplicate rows.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Multiple
+INTERSECT operators in the same <b>SELECT</b> statement are
+evaluated left to right, unless parentheses dictate
+otherwise. INTERSECT binds more tightly than UNION. That is,
+A UNION B INTERSECT C will be read as A UNION (B INTERSECT
+C).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently, FOR
+UPDATE and FOR SHARE cannot be specified either for an
+INTERSECT result or for any input of an INTERSECT.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>EXCEPT
+Clause</b> <br>
+The EXCEPT clause has this general form:</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><i>select_statement</i>
+EXCEPT [ ALL | DISTINCT ] <i>select_statement</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>select_statement</i>
+is any <b>SELECT</b> statement without an ORDER BY, LIMIT,
+FOR UPDATE, or FOR SHARE clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The EXCEPT
+operator computes the set of rows that are in the result of
+the left <b>SELECT</b> statement but not in the result of
+the right one.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result of
+EXCEPT does not contain any duplicate rows unless the ALL
+option is specified. With ALL, a row that has <i>m</i>
+duplicates in the left table and <i>n</i> duplicates in the
+right table will appear max(<i>m</i>&minus;<i>n</i>,0) times
+in the result set. DISTINCT can be written to explicitly
+specify the default behavior of eliminating duplicate
+rows.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Multiple EXCEPT
+operators in the same <b>SELECT</b> statement are evaluated
+left to right, unless parentheses dictate otherwise. EXCEPT
+binds at the same level as UNION.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently, FOR
+UPDATE and FOR SHARE cannot be specified either for an
+EXCEPT result or for any input of an EXCEPT.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>ORDER BY
+Clause</b> <br>
+The optional ORDER BY clause has this general form:</p>
+
+<p style="margin-left:17%; margin-top: 1em">ORDER BY
+<i>expression</i> [ ASC | DESC | USING <i>operator</i> ] [
+NULLS { FIRST | LAST } ] [, ...]</p>
+
+<p style="margin-left:11%; margin-top: 1em">The ORDER BY
+clause causes the result rows to be sorted according to the
+specified expression(s). If two rows are equal according to
+the leftmost expression, they are compared according to the
+next expression and so on. If they are equal according to
+all specified expressions, they are returned in an
+implementation&minus;dependent order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each
+<i>expression</i> can be the name or ordinal number of an
+output column (<b>SELECT</b> list item), or it can be an
+arbitrary expression formed from input&minus;column
+values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The ordinal
+number refers to the ordinal (left&minus;to&minus;right)
+position of the output column. This feature makes it
+possible to define an ordering on the basis of a column that
+does not have a unique name. This is never absolutely
+necessary because it is always possible to assign a name to
+an output column using the AS clause.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is also
+possible to use arbitrary expressions in the ORDER BY
+clause, including columns that do not appear in the
+<b>SELECT</b> output list. Thus the following statement is
+valid:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT name
+FROM distributors ORDER BY code;</p>
+
+<p style="margin-left:11%; margin-top: 1em">A limitation of
+this feature is that an ORDER BY clause applying to the
+result of a UNION, INTERSECT, or EXCEPT clause can only
+specify an output column name or number, not an
+expression.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If an ORDER BY
+expression is a simple name that matches both an output
+column name and an input column name, ORDER BY will
+interpret it as the output column name. This is the opposite
+of the choice that GROUP BY will make in the same situation.
+This inconsistency is made to be compatible with the SQL
+standard.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Optionally one
+can add the key word ASC (ascending) or DESC (descending)
+after any expression in the ORDER BY clause. If not
+specified, ASC is assumed by default. Alternatively, a
+specific ordering operator name can be specified in the
+USING clause. An ordering operator must be a less&minus;than
+or greater&minus;than member of some B&minus;tree operator
+family. ASC is usually equivalent to USING &lt; and DESC is
+usually equivalent to USING &gt;. (But the creator of a
+user&minus;defined data type can define exactly what the
+default sort ordering is, and it might correspond to
+operators with other names.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If NULLS LAST
+is specified, null values sort after all non&minus;null
+values; if NULLS FIRST is specified, null values sort before
+all non&minus;null values. If neither is specified, the
+default behavior is NULLS LAST when ASC is specified or
+implied, and NULLS FIRST when DESC is specified (thus, the
+default is to act as though nulls are larger than
+non&minus;nulls). When USING is specified, the default nulls
+ordering depends on whether the operator is a
+less&minus;than or greater&minus;than operator.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+ordering options apply only to the expression they follow;
+for example ORDER BY x, y DESC does not mean the same thing
+as ORDER BY x DESC, y DESC.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Character&minus;string
+data is sorted according to the collation that applies to
+the column being sorted. That can be overridden at need by
+including a COLLATE clause in the <i>expression</i>, for
+example ORDER BY mycolumn COLLATE &quot;en_US&quot;. For
+more information see Section 4.2.10, &ldquo;Collation
+Expressions&rdquo;, in the documentation and Section 22.2,
+&ldquo;Collation Support&rdquo;, in the documentation.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>LIMIT
+Clause</b> <br>
+The LIMIT clause consists of two independent
+sub&minus;clauses:</p>
+
+<p style="margin-left:17%; margin-top: 1em">LIMIT {
+<i>count</i> | ALL } <br>
+OFFSET <i>start</i></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>count</i>
+specifies the maximum number of rows to return, while
+<i>start</i> specifies the number of rows to skip before
+starting to return rows. When both are specified,
+<i>start</i> rows are skipped before starting to count the
+<i>count</i> rows to be returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<i>count</i> expression evaluates to NULL, it is treated as
+LIMIT ALL, i.e., no limit. If <i>start</i> evaluates to
+NULL, it is treated the same as OFFSET 0.</p>
+
+<p style="margin-left:11%; margin-top: 1em">SQL:2008
+introduced a different syntax to achieve the same result,
+which PostgreSQL also supports. It is:</p>
+
+<p style="margin-left:17%; margin-top: 1em">OFFSET
+<i>start</i> { ROW | ROWS } <br>
+FETCH { FIRST | NEXT } [ <i>count</i> ] { ROW | ROWS }
+ONLY</p>
+
+<p style="margin-left:11%; margin-top: 1em">In this syntax,
+to write anything except a simple integer constant for
+<i>start</i> or <i>count</i>, you must write parentheses
+around it. If <i>count</i> is omitted in a FETCH clause, it
+defaults to 1. ROW and ROWS as well as FIRST and NEXT are
+noise words that don't influence the effects of these
+clauses. According to the standard, the OFFSET clause must
+come before the FETCH clause if both are present; but
+PostgreSQL is laxer and allows either order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using
+LIMIT, it is a good idea to use an ORDER BY clause that
+constrains the result rows into a unique order. Otherwise
+you will get an unpredictable subset of the query's rows
+&mdash; you might be asking for the tenth through twentieth
+rows, but tenth through twentieth in what ordering? You
+don't know what ordering unless you specify ORDER BY.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The query
+planner takes LIMIT into account when generating a query
+plan, so you are very likely to get different plans
+(yielding different row orders) depending on what you use
+for LIMIT and OFFSET. Thus, using different LIMIT/OFFSET
+values to select different subsets of a query result <i>will
+give inconsistent results</i> unless you enforce a
+predictable result ordering with ORDER BY. This is not a
+bug; it is an inherent consequence of the fact that SQL does
+not promise to deliver the results of a query in any
+particular order unless ORDER BY is used to constrain the
+order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is even
+possible for repeated executions of the same LIMIT query to
+return different subsets of the rows of a table, if there is
+not an ORDER BY to enforce selection of a deterministic
+subset. Again, this is not a bug; determinism of the results
+is simply not guaranteed in such a case.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>FOR
+UPDATE/FOR SHARE Clause</b> <br>
+The FOR UPDATE clause has this form:</p>
+
+<p style="margin-left:17%; margin-top: 1em">FOR UPDATE [ OF
+<i>table_name</i> [, ...] ] [ NOWAIT ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">The closely
+related FOR SHARE clause has this form:</p>
+
+<p style="margin-left:17%; margin-top: 1em">FOR SHARE [ OF
+<i>table_name</i> [, ...] ] [ NOWAIT ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">FOR UPDATE
+causes the rows retrieved by the <b>SELECT</b> statement to
+be locked as though for update. This prevents them from
+being modified or deleted by other transactions until the
+current transaction ends. That is, other transactions that
+attempt <b>UPDATE</b>, <b>DELETE</b>, or <b>SELECT FOR
+UPDATE</b> of these rows will be blocked until the current
+transaction ends. Also, if an <b>UPDATE</b>, <b>DELETE</b>,
+or <b>SELECT FOR UPDATE</b> from another transaction has
+already locked a selected row or rows, <b>SELECT FOR
+UPDATE</b> will wait for the other transaction to complete,
+and will then lock and return the updated row (or no row, if
+the row was deleted). Within a REPEATABLE READ or
+SERIALIZABLE transaction, however, an error will be thrown
+if a row to be locked has changed since the transaction
+started. For further discussion see Chapter 13, Concurrency
+Control, in the documentation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">FOR SHARE
+behaves similarly, except that it acquires a shared rather
+than exclusive lock on each retrieved row. A shared lock
+blocks other transactions from performing <b>UPDATE</b>,
+<b>DELETE</b>, or <b>SELECT FOR UPDATE</b> on these rows,
+but it does not prevent them from performing <b>SELECT FOR
+SHARE</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To prevent the
+operation from waiting for other transactions to commit, use
+the NOWAIT option. With NOWAIT, the statement reports an
+error, rather than waiting, if a selected row cannot be
+locked immediately. Note that NOWAIT applies only to the
+row&minus;level lock(s) &mdash; the required ROW SHARE
+table&minus;level lock is still taken in the ordinary way
+(see Chapter 13, Concurrency Control, in the documentation).
+You can use <b>LOCK</b>(7) with the NOWAIT option first, if
+you need to acquire the table&minus;level lock without
+waiting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If specific
+tables are named in FOR UPDATE or FOR SHARE, then only rows
+coming from those tables are locked; any other tables used
+in the <b>SELECT</b> are simply read as usual. A FOR UPDATE
+or FOR SHARE clause without a table list affects all tables
+used in the statement. If FOR UPDATE or FOR SHARE is applied
+to a view or sub&minus;query, it affects all tables used in
+the view or sub&minus;query. However, FOR UPDATE/FOR SHARE
+do not apply to WITH queries referenced by the primary
+query. If you want row locking to occur within a WITH query,
+specify FOR UPDATE or FOR SHARE within the WITH query.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Multiple FOR
+UPDATE and FOR SHARE clauses can be written if it is
+necessary to specify different locking behavior for
+different tables. If the same table is mentioned (or
+implicitly affected) by both FOR UPDATE and FOR SHARE
+clauses, then it is processed as FOR UPDATE. Similarly, a
+table is processed as NOWAIT if that is specified in any of
+the clauses affecting it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">FOR UPDATE and
+FOR SHARE cannot be used in contexts where returned rows
+cannot be clearly identified with individual table rows; for
+example they cannot be used with aggregation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When FOR UPDATE
+or FOR SHARE appears at the top level of a <b>SELECT</b>
+query, the rows that are locked are exactly those that are
+returned by the query; in the case of a join query, the rows
+locked are those that contribute to returned join rows. In
+addition, rows that satisfied the query conditions as of the
+query snapshot will be locked, although they will not be
+returned if they were updated after the snapshot and no
+longer satisfy the query conditions. If a LIMIT is used,
+locking stops once enough rows have been returned to satisfy
+the limit (but note that rows skipped over by OFFSET will
+get locked). Similarly, if FOR UPDATE or FOR SHARE is used
+in a cursor's query, only rows actually fetched or stepped
+past by the cursor will be locked.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When FOR UPDATE
+or FOR SHARE appears in a sub&minus;<b>SELECT</b>, the rows
+locked are those returned to the outer query by the
+sub&minus;query. This might involve fewer rows than
+inspection of the sub&minus;query alone would suggest, since
+conditions from the outer query might be used to optimize
+execution of the sub&minus;query. For example,</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+(SELECT * FROM mytable FOR UPDATE) ss WHERE col1 = 5;</p>
+
+<p style="margin-left:11%; margin-top: 1em">will lock only
+rows having col1 = 5, even though that condition is not
+textually within the sub&minus;query.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Caution</big></b>
+<br>
+Avoid locking a row and then modifying it within a later
+savepoint or PL/pgSQL exception block. A subsequent rollback
+would cause the lock to be lost. For example:</p>
+
+<p style="margin-left:23%; margin-top: 1em">BEGIN; <br>
+SELECT * FROM mytable WHERE key = 1 FOR UPDATE; <br>
+SAVEPOINT s; <br>
+UPDATE mytable SET ... WHERE key = 1; <br>
+ROLLBACK TO s;</p>
+
+<p style="margin-left:17%; margin-top: 1em">After the
+<b>ROLLBACK</b>, the row is effectively unlocked, rather
+than returned to its pre&minus;savepoint state of being
+locked but not modified. This hazard occurs if a row locked
+in the current transaction is updated or deleted, or if a
+shared lock is upgraded to exclusive: in all these cases,
+the former lock state is forgotten. If the transaction is
+then rolled back to a state between the original locking
+command and the subsequent change, the row will appear not
+to be locked at all. This is an implementation deficiency
+which will be addressed in a future release of
+PostgreSQL.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Caution</big></b>
+<br>
+It is possible for a <b>SELECT</b> command running at the
+READ COMMITTED transaction isolation level and using ORDER
+BY and FOR UPDATE/SHARE to return rows out of order. This is
+because ORDER BY is applied first. The command sorts the
+result, but might then block trying to obtain a lock on one
+or more of the rows. Once the SELECT unblocks, some of the
+ordering column values might have been modified, leading to
+those rows appearing to be out of order (though they are in
+order in terms of the original column values). This can be
+worked around at need by placing the FOR UPDATE/SHARE clause
+in a sub&minus;query, for example</p>
+
+<p style="margin-left:23%; margin-top: 1em">SELECT * FROM
+(SELECT * FROM mytable FOR UPDATE) ss ORDER BY column1;</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that this
+will result in locking all rows of mytable, whereas FOR
+UPDATE at the top level would lock only the actually
+returned rows. This can make for a significant performance
+difference, particularly if the ORDER BY is combined with
+LIMIT or other restrictions. So this technique is
+recommended only if concurrent updates of the ordering
+columns are expected and a strictly sorted result is
+required.</p>
+
+<p style="margin-left:17%; margin-top: 1em">At the
+REPEATABLE READ or SERIALIZABLE transaction isolation level
+this would cause a serialization failure (with a SQLSTATE of
+'40001'), so there is no possibility of receiving rows out
+of order under these isolation levels.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>TABLE
+Command</b> <br>
+The command</p>
+
+<p style="margin-left:17%; margin-top: 1em">TABLE
+<i>name</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">is completely
+equivalent to</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+<i>name</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">It can be used
+as a top&minus;level command or as a space&minus;saving
+syntax variant in parts of complex queries.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To join the
+table films with the table distributors:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT f.title,
+f.did, d.name, f.date_prod, f.kind <br>
+FROM distributors d, films f <br>
+WHERE f.did = d.did</p>
+
+<p style="margin-left:17%; margin-top: 1em">title | did |
+name | date_prod | kind <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+The Third Man | 101 | British Lion | 1949&minus;12&minus;23
+| Drama <br>
+The African Queen | 101 | British Lion |
+1951&minus;08&minus;11 | Romantic <br>
+...</p>
+
+<p style="margin-left:11%; margin-top: 1em">To sum the
+column len of all films and group the results by kind:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT kind,
+sum(len) AS total FROM films GROUP BY kind;</p>
+
+<p style="margin-left:17%; margin-top: 1em">kind | total
+<br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Action | 07:34 <br>
+Comedy | 02:58 <br>
+Drama | 14:28 <br>
+Musical | 06:42 <br>
+Romantic | 04:38</p>
+
+<p style="margin-left:11%; margin-top: 1em">To sum the
+column len of all films, group the results by kind and show
+those group totals that are less than 5 hours:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT kind,
+sum(len) AS total <br>
+FROM films <br>
+GROUP BY kind <br>
+HAVING sum(len) &lt; interval '5 hours';</p>
+
+<p style="margin-left:17%; margin-top: 1em">kind | total
+<br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Comedy | 02:58 <br>
+Romantic | 04:38</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+two examples are identical ways of sorting the individual
+results according to the contents of the second column
+(name):</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+distributors ORDER BY name; <br>
+SELECT * FROM distributors ORDER BY 2;</p>
+
+<p style="margin-left:17%; margin-top: 1em">did | name <br>
+
+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+109 | 20th Century Fox <br>
+110 | Bavaria Atelier <br>
+101 | British Lion <br>
+107 | Columbia <br>
+102 | Jean Luc Godard <br>
+113 | Luso films <br>
+104 | Mosfilm <br>
+103 | Paramount <br>
+106 | Toho <br>
+105 | United Artists <br>
+111 | Walt Disney <br>
+112 | Warner Bros. <br>
+108 | Westward</p>
+
+<p style="margin-left:11%; margin-top: 1em">The next
+example shows how to obtain the union of the tables
+distributors and actors, restricting the results to those
+that begin with the letter W in each table. Only distinct
+rows are wanted, so the key word ALL is omitted.</p>
+
+<p style="margin-left:17%; margin-top: 1em">distributors:
+actors: <br>
+did | name id | name <br>
+
+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+108 | Westward 1 | Woody Allen <br>
+111 | Walt Disney 2 | Warren Beatty <br>
+112 | Warner Bros. 3 | Walter Matthau <br>
+... ...</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT
+distributors.name <br>
+FROM distributors <br>
+WHERE distributors.name LIKE 'W%' <br>
+UNION <br>
+SELECT actors.name <br>
+FROM actors <br>
+WHERE actors.name LIKE 'W%';</p>
+
+<p style="margin-left:17%; margin-top: 1em">name <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+Walt Disney <br>
+Walter Matthau <br>
+Warner Bros. <br>
+Warren Beatty <br>
+Westward <br>
+Woody Allen</p>
+
+<p style="margin-left:11%; margin-top: 1em">This example
+shows how to use a function in the FROM clause, both with
+and without a column definition list:</p>
+
+<p style="margin-left:17%; margin-top: 1em">CREATE FUNCTION
+distributors(int) RETURNS SETOF distributors AS $$ <br>
+SELECT * FROM distributors WHERE did = $1; <br>
+$$ LANGUAGE SQL;</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+distributors(111); <br>
+did | name <br>
+
+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+111 | Walt Disney</p>
+
+<p style="margin-left:17%; margin-top: 1em">CREATE FUNCTION
+distributors_2(int) RETURNS SETOF record AS $$ <br>
+SELECT * FROM distributors WHERE did = $1; <br>
+$$ LANGUAGE SQL;</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+distributors_2(111) AS (f1 int, f2 text); <br>
+f1 | f2 <br>
+
+&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+111 | Walt Disney</p>
+
+<p style="margin-left:11%; margin-top: 1em">This example
+shows how to use a simple WITH clause:</p>
+
+<p style="margin-left:17%; margin-top: 1em">WITH t AS (
+<br>
+SELECT random() as x FROM generate_series(1, 3) <br>
+) <br>
+SELECT * FROM t <br>
+UNION ALL <br>
+SELECT * FROM t</p>
+
+<p style="margin-left:17%; margin-top: 1em">x <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+0.534150459803641 <br>
+0.520092216785997 <br>
+0.0735620250925422 <br>
+0.534150459803641 <br>
+0.520092216785997 <br>
+0.0735620250925422</p>
+
+<p style="margin-left:11%; margin-top: 1em">Notice that the
+WITH query was evaluated only once, so that we got two sets
+of the same three random values.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This example
+uses WITH RECURSIVE to find all subordinates (direct or
+indirect) of the employee Mary, and their level of
+indirectness, from a table that shows only direct
+subordinates:</p>
+
+<p style="margin-left:17%; margin-top: 1em">WITH RECURSIVE
+employee_recursive(distance, employee_name, manager_name) AS
+( <br>
+SELECT 1, employee_name, manager_name <br>
+FROM employee <br>
+WHERE manager_name = 'Mary' <br>
+UNION ALL <br>
+SELECT er.distance + 1, e.employee_name, e.manager_name <br>
+FROM employee_recursive er, employee e <br>
+WHERE er.employee_name = e.manager_name <br>
+) <br>
+SELECT distance, employee_name FROM employee_recursive;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Notice the
+typical form of recursive queries: an initial condition,
+followed by UNION, followed by the recursive part of the
+query. Be sure that the recursive part of the query will
+eventually return no tuples, or else the query will loop
+indefinitely. (See Section 7.8, &ldquo;WITH Queries (Common
+Table Expressions)&rdquo;, in the documentation for more
+examples.)</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Of course, the
+<b>SELECT</b> statement is compatible with the SQL standard.
+But there are some extensions and some missing features.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Omitted FROM
+Clauses</b> <br>
+PostgreSQL allows one to omit the FROM clause. It has a
+straightforward use to compute the results of simple
+expressions:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT 2+2;</p>
+
+<p style="margin-left:17%; margin-top: 1em">?column? <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+4</p>
+
+<p style="margin-left:11%; margin-top: 1em">Some other SQL
+databases cannot do this except by introducing a dummy
+one&minus;row table from which to do the <b>SELECT</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that if a
+FROM clause is not specified, the query cannot reference any
+database tables. For example, the following query is
+invalid:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT
+distributors.* WHERE distributors.name = 'Westward';</p>
+
+<p style="margin-left:11%; margin-top: 1em">PostgreSQL
+releases prior to 8.1 would accept queries of this form, and
+add an implicit entry to the query's FROM clause for each
+table referenced by the query. This is no longer
+allowed.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Omitting the
+AS Key Word</b> <br>
+In the SQL standard, the optional key word AS can be omitted
+before an output column name whenever the new column name is
+a valid column name (that is, not the same as any reserved
+keyword). PostgreSQL is slightly more restrictive: AS is
+required if the new column name matches any keyword at all,
+reserved or not. Recommended practice is to use AS or
+double&minus;quote output column names, to prevent any
+possible conflict against future keyword additions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In FROM items,
+both the standard and PostgreSQL allow AS to be omitted
+before an alias that is an unreserved keyword. But this is
+impractical for output column names, because of syntactic
+ambiguities.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>ONLY and
+Inheritance</b> <br>
+The SQL standard requires parentheses around the table name
+when writing ONLY, for example SELECT * FROM ONLY (tab1),
+ONLY (tab2) WHERE .... PostgreSQL considers these
+parentheses to be optional.</p>
+
+<p style="margin-left:11%; margin-top: 1em">PostgreSQL
+allows a trailing * to be written to explicitly specify the
+non&minus;ONLY behavior of including child tables. The
+standard does not allow this.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(These points
+apply equally to all SQL commands supporting the ONLY
+option.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Namespace
+Available to GROUP BY and ORDER BY</b> <br>
+In the SQL&minus;92 standard, an ORDER BY clause can only
+use output column names or numbers, while a GROUP BY clause
+can only use expressions based on input column names.
+PostgreSQL extends each of these clauses to allow the other
+choice as well (but it uses the standard's interpretation if
+there is ambiguity). PostgreSQL also allows both clauses to
+specify arbitrary expressions. Note that names appearing in
+an expression will always be taken as input&minus;column
+names, not as output&minus;column names.</p>
+
+<p style="margin-left:11%; margin-top: 1em">SQL:1999 and
+later use a slightly different definition which is not
+entirely upward compatible with SQL&minus;92. In most cases,
+however, PostgreSQL will interpret an ORDER BY or GROUP BY
+expression the same way SQL:1999 does.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Functional
+Dependencies</b> <br>
+PostgreSQL recognizes functional dependency (allowing
+columns to be omitted from GROUP BY) only when a table's
+primary key is included in the GROUP BY list. The SQL
+standard specifies additional conditions that should be
+recognized.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>WINDOW
+Clause Restrictions</b> <br>
+The SQL standard provides additional options for the window
+<i>frame_clause</i>. PostgreSQL currently supports only the
+options listed above.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>LIMIT and
+OFFSET</b> <br>
+The clauses LIMIT and OFFSET are PostgreSQL&minus;specific
+syntax, also used by MySQL. The SQL:2008 standard has
+introduced the clauses OFFSET ... FETCH {FIRST|NEXT} ... for
+the same functionality, as shown above in LIMIT Clause. This
+syntax is also used by IBM DB2. (Applications written for
+Oracle frequently use a workaround involving the
+automatically generated rownum column, which is not
+available in PostgreSQL, to implement the effects of these
+clauses.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>FOR UPDATE
+and FOR SHARE</b> <br>
+Although FOR UPDATE appears in the SQL standard, the
+standard allows it only as an option of <b>DECLARE
+CURSOR</b>. PostgreSQL allows it in any <b>SELECT</b> query
+as well as in sub&minus;<b>SELECT</b>s, but this is an
+extension. The FOR SHARE variant, and the NOWAIT option, do
+not appear in the standard.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Data&minus;Modifying
+Statements in WITH</b> <br>
+PostgreSQL allows <b>INSERT</b>, <b>UPDATE</b>, and
+<b>DELETE</b> to be used as WITH queries. This is not found
+in the SQL standard.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Nonstandard
+Clauses</b> <br>
+The clause DISTINCT ON is not defined in the SQL
+standard.</p>
+<hr>
+</body>
+</html>

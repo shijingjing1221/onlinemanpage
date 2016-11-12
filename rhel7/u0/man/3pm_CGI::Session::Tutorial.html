@@ -1,0 +1,955 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:34:27 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CGI::Session::Tutorial</title>
+
+</head>
+<body>
+
+<h1 align="center">CGI::Session::Tutorial</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#STATE MAINTENANCE OVERVIEW">STATE MAINTENANCE OVERVIEW</a><br>
+<a href="#PROGRAMMING STYLE">PROGRAMMING STYLE</a><br>
+<a href="#SECURITY">SECURITY</a><br>
+<a href="#LICENSING">LICENSING</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">CGI::Session::Tutorial
+&minus; Extended CGI::Session manual</p>
+
+<h2>STATE MAINTENANCE OVERVIEW
+<a name="STATE MAINTENANCE OVERVIEW"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<small>HTTP</small> is a stateless protocol, each subsequent
+click to a web site is treated as new request by the Web
+server. The server does not relate a visit with a previous
+one, thus all the state information from the previous
+requests are lost. This makes creating such applications as
+shopping carts, web sites requiring users to authenticate,
+impossible. So people had to do something about this despair
+situation <small>HTTP</small> was putting us in.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For our rescue
+come such technologies as <i><small>HTTP</small> Cookies</i>
+and <i><small>QUERY_STRING</small></i> s that help us save
+the users&rsquo; session for a certain period. Since
+<i><small>HTTP</small> Cookies</i> and
+<i><small>QUERY_STRING</small></i> s alone cannot take us
+too far ( <b><small>RFC 2965,</small> Section 5,
+&quot;Implementation Limitations&quot;</b>), several other
+libraries have been developed to extend their capabilities
+and promise a more reliable solution. CGI::Session is one of
+them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Before we
+discuss this library, let&rsquo;s look at some alternative
+solutions.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>COOKIE</small></b>
+<br>
+Cookie is a piece of text-information that a web server is
+entitled to place in the user&rsquo;s hard disk, assuming a
+user agent (such as Internet Explorer, Mozilla, etc) is
+compatible with the specification. After the cookie is
+placed, user agents are required to send these cookies back
+to the server as part of the <small>HTTP</small> request.
+This way the server application ( <small>CGI,</small> for
+example ) will have a way of relating previous requests by
+the same user agent, thus overcoming statelessness of
+<small>HTTP.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Although
+<i><small>HTTP</small> Cookies</i> seem to be promising
+solution for the statelessness of <small>HTTP,</small> they
+do carry certain limitations, such as limited number of
+cookies per domain and per user agent and limited size on
+each cookie. User Agents are required to store at least 300
+cookies at a time, 20 cookies per domain and allow 4096
+bytes of storage for each cookie. They also rise several
+Privacy and Security concerns, the lists of which can be
+found on the sections <b>6&minus;&quot;Privacy&quot;</b> and
+<b>7&minus;&quot;Security Considerations&quot;</b> of
+<b><small>RFC 2965</small></b> .</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>QUERY
+STRING</small></b> <br>
+Query string is a string appended to <small>URL</small>
+following a question mark (?) such as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    http://my.dot.com/login.cgi?user=sherzodr;password=top&minus;secret</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">As you probably
+guessed, it can also help you pass state information from a
+click to another, but how secure is it do you think,
+considering these URLs tend to get cached by most of the
+user agents and also logged in the servers access log, to
+which everyone can have access.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>HIDDEN
+FIELDS</small></b> <br>
+Hidden field is another alternative to using query strings
+and they come in two flavors: hidden fields used in
+<small>POST</small> methods and the ones in
+<small>GET.</small> The ones used in <small>GET</small>
+methods will turn into a true query strings once submitted,
+so all the disadvantages of QUERY_STRINGs apply. Although
+<small>POST</small> requests do not have limitations of its
+sister-GET, the pages that hold them get cached by Web
+browser, and are available within the source code of the
+page (obviously). They also become unwieldily to manage when
+one has oodles of state information to keep track of ( for
+instance, a shopping cart or an advanced search engine).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Query strings
+and hidden fields are also lost easily by closing the
+browser, or by clicking the browser&rsquo;s &quot;Back&quot;
+button.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>SERVER
+SIDE SESSION MANAGEMENT</small></b> <br>
+This technique is built upon the aforementioned technologies
+plus a server-side storage device, which saves the state
+data on the server side. Each session has a unique id
+associated with the data in the server. This id is also
+associated with the user agent either in the form of a
+<i><small>HTTP</small> Cookie</i>, a
+<i><small>QUERY_STRING</small></i> , hidden field or any
+combination of the above. This is necessary to make the
+connection with the client and his data.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Advantages:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>We no longer need to depend on User Agent constraints in
+cookie size.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Sensitive data no longer need to be traveling across the
+network at each request (which is the case with query
+strings, cookies and hidden fields). The only thing that
+travels is the unique id generated for the session
+(<b>5767393932698093d0b75ef614376314</b>, for instance),
+which should make no sense to third parties.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>User will not have sensitive data stored in his/her
+computer in unsecured file (which is a cookie file).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>It&rsquo;s possible to handle very big and even complex
+data structures transparently (which <i><small>HTTP</small>
+Cookies</i> do not handle).</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">That&rsquo;s
+what CGI::Session is all about &minus; implementing server
+side session management. Now is a good time to get feet
+wet.</p>
+
+<h2>PROGRAMMING STYLE
+<a name="PROGRAMMING STYLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Server side
+session management system might be seeming awfully
+convoluted if you have never dealt with it. Fortunately,
+with CGI::Session all the complexity is handled by the
+library transparently. This section of the manual can be
+treated as an introductory tutorial to both logic behind
+session management, and to CGI::Session programming
+style.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All
+applications making use of server side session management
+rely on the following pattern of operation regardless of the
+way the system is implemented:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Check if the user has session
+cookie dropped in his computer from previous request</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If the cookie does not exist, create a new session
+identifier, and drop it as cookie to the user&rsquo;s
+computer.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If session cookie exists, read the session
+<small>ID</small> from the cookie and load any previously
+saved session data from the server side storage. If session
+had any expiration date set it&rsquo;s useful to re-drop the
+same cookie to the user&rsquo;s computer so its expiration
+time will be reset to be relative to user&rsquo;s last
+activity time.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>4.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>Store any necessary data in the session that you want to
+make available for the next <small>HTTP</small> request.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">CGI::Session
+will handle all of the above steps. All you have to do is to
+choose what to store in the session.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>GETTING
+STARTED</small></b> <br>
+To make CGI::Session&rsquo;s functionality available in your
+program do either of the following somewhere on top of your
+program file:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Session;
+    # or
+    require CGI::Session;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Whenever
+you&rsquo;re ready to create a new session in your
+application, do the following:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session = new CGI::Session() or die CGI::Session&minus;&gt;errstr;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Above line will
+first try to re-initialize an existing session by consulting
+cookies and necessary <small>QUERY_STRING</small>
+parameters. If it fails will create a brand new session with
+a unique <small>ID,</small> which is normally called
+<i>session <small>ID</small></i> , <i><small>SID</small></i>
+for short, and can be accessed through <i>id()</i> &minus;
+object method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">We didn&rsquo;t
+check for any session cookies above, did we? No, we
+didn&rsquo;t, but CGI::Session did. It looked for a cookie
+called <tt>&quot;CGISESSID&quot;</tt>, and if it found it
+tried to load existing session from server side storage
+(<b>file</b> in our case). If cookie didn&rsquo;t exist it
+looked for a <small>QUERY_STRING</small> parameter called
+<tt>&quot;CGISESSID&quot;</tt>. If all the attempts to
+recover session <small>ID</small> failed, it created a new
+session.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>NOTE:</small>
+For the above syntax to work as intended your application
+needs to have write access to your computer&rsquo;s
+<i><small>TEMPDIR</small></i> folder, which is usually
+<i>/tmp</i> in <small>UNIX.</small> If it doesn&rsquo;t, or
+if you wish to store this application&rsquo;s session files
+in a different place, you may pass the third argument like
+so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session = new CGI::Session(undef, undef, {Directory=&gt;'../tmp/sessions'});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Now it will
+store all the newly created sessions in (and will attempt to
+initialize requested sessions from) that folder. Don&rsquo;t
+worry if the directory hierarchy you want to use
+doesn&rsquo;t already exist. It will be created for you. For
+details on how session data are stored refer to
+CGI::Session::Driver::file, which is the default driver used
+in our above example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is one
+small, but very important thing your application needs to
+perform after creating CGI::Session object as above. It
+needs to drop Session <small>ID</small> as an
+<i><small>HTTP</small> cookie</i> into the user&rsquo;s
+computer. CGI::Session will use this cookie to identify the
+user at his/her next request and will be able to load
+his/her previously stored session data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To make sure
+CGI::Session will be able to read your cookie at next
+request you need to consult its <tt>&quot;name()&quot;</tt>
+method for cookie&rsquo;s suggested name:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $cookie = $query&minus;&gt;cookie( &minus;name   =&gt; $session&minus;&gt;name,
+                              &minus;value  =&gt; $session&minus;&gt;id );
+    print $query&minus;&gt;header( &minus;cookie=&gt;$cookie );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;name()&quot;
+returns <tt>&quot;CGISESSID&quot;</tt> by default. If you
+prefer a different cookie name, you can change it as easily
+too, but you have to do it before CGI::Session object is
+created:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    CGI::Session&minus;&gt;name(&quot;SID&quot;);
+    $session = new CGI::Session();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Baking the
+cookie wasn&rsquo;t too difficult, was it? But there is an
+even easier way to send a cookie using CGI::Session:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    print $session&minus;&gt;header();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above will
+create the cookie using CGI::Cookie and will return proper
+http headers using <small>CGI</small> .pm&rsquo;s
+<small>CGI</small> method. Any arguments to CGI::Session
+will be passed to <i>CGI::header()</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Of course, this
+method of initialization will only work if client is
+accepting cookies. If not you would have to pass session
+<small>ID</small> in each <small>URL</small> of your
+application as <small>QUERY_STRING.</small> For CGI::Session
+to detect it the name of the parameter should be the same as
+returned by <i>name()</i>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    printf (&quot;&lt;a href=\&quot;$ENV{SCRIPT_NAME}?%s=%s\&quot;&gt;click me&lt;/a&gt;&quot;, $session&minus;&gt;name, $session&minus;&gt;id);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you already
+have session id to be initialized you may pass it as the
+only argument, or the second argument of multi-argument
+syntax:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session = new CGI::Session( $sid );
+    $session = new CGI::Session( &quot;serializer:freezethaw&quot;, $sid );
+    $session = new CGI::Session( &quot;driver:mysql&quot;, $sid, {Handle=&gt;$dbh} );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">By default
+CGI::Session uses standard <small>CGI</small> to parse
+queries and cookies. If you prefer to use a different, but
+compatible object you can pass that object in place of
+<tt>$sid:</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$cgi = new
+CGI::Simple(); <br>
+$session = new CGI::Session ( $cgi ); <br>
+$session = new CGI::Session(
+&quot;driver:db_file;serializer:storable&quot;, $cgi); <br>
+# etc</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+CGI::Simple</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>STORING
+DATA</small></b> <br>
+CGI::Session offers <i>param()</i> method, which behaves
+exactly as <small>CGI</small> .pm&rsquo;s <i>param()</i>
+with identical syntax. <i>param()</i> is used for storing
+data in session as well as for accessing already stored
+data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Imagine your
+customer submitted a login form on your Web site. You, as a
+good host, wanted to remember the guest&rsquo;s name, so you
+can a) greet him accordingly when he visits your site again,
+or b) to be helpful by filling out <i>user name</i> part of
+his login form, so the customer can jump right to the
+<i>password</i> field without having to type his username
+again.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $name = $cgi&minus;&gt;param('username');
+    $session&minus;&gt;param('username', $name);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Notice,
+we&rsquo;re grabbing <i>username</i> value of the field
+using <small>CGI</small> .pm&rsquo;s (or another compatible
+library&rsquo;s) <tt>&quot;param()&quot;</tt> method, and
+storing it in session using CGI::Session&rsquo;s
+<i>param()</i> method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have too
+many stuff to transfer into session, you may find yourself
+typing the above code over and over again. I&rsquo;ve done
+it, and believe me, it gets very boring too soon, and is
+also error-prone. So we introduced the following handy
+method:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;save_param(['name']);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you wanted
+to store multiple form fields just include them all in the
+second list:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;save_param(['name', 'email']);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you want to
+store all the available <i><small>QUERY_STRING</small></i>
+parameters you can omit the arguments:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;save_param();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>save_param()</i> for more details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When storing
+data in the session you&rsquo;re not limited to strings. You
+can store arrays, hashes and even most objects. You will
+need to pass them as references (except objects).</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example, to
+get all the selected values of a scrolling list and store it
+in the session:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my @fruits = $cgi&minus;&gt;param('fruits');
+    $session&minus;&gt;param('fruits', \@fruits);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For parameters
+with multiple values <i>save_param()</i> will do the right
+thing too. So the above is the same as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;save_param($cgi, ['fruits']);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">All the updates
+to the session data using above methods will not reflect in
+the data store until your application exits, or
+<tt>$session</tt> goes out of scope. If, for some reason,
+you need to commit the changes to the data store before your
+application exits you need to call <i>flush()</i>
+method:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;flush();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">I&rsquo;ve
+written a lot of code, and never felt need for using
+<tt>&quot;flush()&quot;</tt> method, since CGI::Session
+calls this method at the end of each request. There are,
+however, occasions I can think of one may need to call
+<i>flush()</i>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ACCESSING
+STORED DATA</small></b> <br>
+There&rsquo;s no point of storing data if you cannot access
+it. You can access stored session data by using the same
+<i>param()</i> method you once used to store them. Remember
+the Username field from the previous section that we stored
+in the session? Let&rsquo;s read it back so we can partially
+fill the Login form for the user:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $name = $session&minus;&gt;param(&quot;name&quot;);
+    printf &quot;&lt;input type=\&quot;text\&quot; name=\&quot;name\&quot; value=\&quot;%s\&quot; /&gt;&quot;, $name;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To retrieve
+previously stored <tt>@fruits</tt> do not forget to de
+reference it:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @fruits = @{ $session&minus;&gt;param('fruits') };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Very
+frequently, you may find yourself having to create
+pre-filled and pre-selected forms, like radio buttons,
+checkboxes and drop down menus according to the user&rsquo;s
+preferences or previous action. With text and textareas
+it&rsquo;s not a big deal &minus; you can simply retrieve a
+single parameter from the session and hard code the value
+into the text field. But how would you do it when you have a
+group of radio buttons, checkboxes and scrolling lists? For
+this purpose, CGI::Session provides <i>load_param()</i>
+method, which loads given session parameters to a
+<small>CGI</small> object (assuming they have been
+previously saved with <i>save_param()</i> or
+alternative):</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;load_param($cgi, [&quot;fruits&quot;]);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Now when you
+say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    print $cgi&minus;&gt;checkbox_group(fruits=&gt;['apple', 'banana', 'apricot']);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>load_param()</i> for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Generated
+checkboxes will be pre-filled using previously saved
+information. To see example of a real session-powered
+application consider
+http://handalak.com/cgi&minus;bin/subscriptions.cgi</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you&rsquo;re
+making use of HTML::Template to separate the code from the
+skin, you can as well associate CGI::Session object with
+HTML::Template and access all the parameters from within
+<small>HTML</small> files. We love this trick!</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $template = new HTML::Template(filename=&gt;&quot;some.tmpl&quot;, associate=&gt;$session);
+    print $template&minus;&gt;output();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Assuming the
+session object stored &quot;first_name&quot; and
+&quot;email&quot; parameters while being associated with
+HTML::Template, you can access those values from within your
+&quot;some.tmpl&quot; file now:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    Hello &lt;a href=&quot;mailto:&lt;TMPL_VAR email&gt;&quot;&gt; &lt;TMPL_VAR first_name&gt; &lt;/a&gt;!</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See
+HTML::Template&rsquo;s online manual for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>CLEARING
+SESSION DATA</small></b> <br>
+You store session data, you access session data and at some
+point you will want to clear certain session data, if not
+all. For this purpose CGI::Session provides <i>clear()</i>
+method which optionally takes one argument as an arrayref
+indicating which session parameters should be deleted from
+the session object:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;clear([&quot;~logged&minus;in&quot;, &quot;email&quot;]);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Above line
+deletes &quot;~logged&minus;in&quot; and &quot;email&quot;
+session parameters from the session. And next time you
+say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $email = $session&minus;&gt;param(&quot;email&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">it returns
+undef. If you omit the argument to <i>clear()</i>, be warned
+that all the session parameters you ever stored in the
+session object will get deleted. Note that it does not
+delete the session itself. Session stays open and
+accessible. It&rsquo;s just the parameters you stored in it
+gets deleted</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>clear()</i> for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>DELETING
+A SESSION</small></b> <br>
+If there&rsquo;s a start there&rsquo;s an end. If session
+could be created, it should be possible to delete it from
+the disk for good:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;delete();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above call
+to <i>delete()</i> deletes the session from the disk for
+good. Do not confuse it with <i>clear()</i>, which only
+clears certain session parameters but keeps the session
+open.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>delete()</i> for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>EXPIRATION</small></b>
+<br>
+CGI::Session provides limited means to expire sessions.
+Expiring a session is the same as deleting it via
+<i>delete()</i>, but deletion takes place automatically. To
+expire a session, you need to tell the library how long the
+session would be valid after the last access time. When that
+time is met, CGI::Session refuses to retrieve the session.
+It deletes the session and returns a brand new one. To
+assign expiration ticker for a session, use
+<i>expire()</i>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;expire(3600);     # expire after 3600 seconds
+    $session&minus;&gt;expire('+1h');    # expire after 1 hour
+    $session&minus;&gt;expire('+15m');   # expire after 15 minutes
+    $session&minus;&gt;expire('+1M');    # expire after a month and so on.</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">When session is
+set to expire at some time in the future, but session was
+not requested at or after that time has passed it will
+remain in the disk. When expired session is requested
+CGI::Session will remove the data from disk, and will
+initialize a brand new session.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>expire()</i> for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Before
+CGI::Session 4.x there was no way of intercepting requests
+to expired sessions. CGI::Session 4.x introduced new kind of
+constructor, <i>load()</i>, which is identical in use to
+<i>new()</i>, but is not allowed to create sessions. It can
+only load them. If session is found to be expired, or
+session does not exist it will return an empty CGI::Session
+object. And if session is expired, in addition to being
+empty, its status will also be set to expired. You can check
+against these conditions using <i>empty()</i> and
+<i>is_expired()</i> methods. If session was loaded
+successfully object returned by <tt>&quot;load()&quot;</tt>
+is as good a session as the one returned by
+<tt>&quot;new()&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session = CGI::Session&minus;&gt;load() or die CGI::Session&minus;&gt;errstr;
+    if ( $session&minus;&gt;is_expired ) {
+        die &quot;Your session expired. Please refresh your browser to re&minus;start your session&quot;;
+    }
+    if ( $session&minus;&gt;is_empty ) {
+        $session = $session&minus;&gt;new();
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Above example
+is worth an attention. Remember, all expired sessions are
+empty sessions, but not all empty sessions are expired
+sessions. Following this rule we have to check with
+<tt>&quot;is_expired()&quot;</tt> before checking with
+<tt>&quot;is_empty()&quot;</tt>. There is another thing
+about the above example. Notice how its creating new session
+when un existing session was requested? By calling
+<tt>&quot;new()&quot;</tt> as an object method! Handy thing
+about that is, when you call <tt>&quot;new()&quot;</tt> on a
+session object new object will be created using the same
+configuration as the previous object.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session = CGI::Session&minus;&gt;load(&quot;driver:mysql;serializer:storable&quot;, undef, {Handle=&gt;$dbh});
+    if ( $session&minus;&gt;is_expired ) {
+        die &quot;Your session is expired. Please refresh your browser to re&minus;start your session&quot;;
+    }
+    if ( $session&minus;&gt;is_empty ) {
+        $session = $session&minus;&gt;new();
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Initial
+<tt>$session</tt> object was configured with <b>mysql</b> as
+the driver, <b>storable</b> as the serializer and
+<b>$dbh</b> as the database handle. Calling <tt>&quot; new()
+&quot;</tt> on this object will return an object of the same
+configuration. So <tt>$session</tt> object returned from
+<tt>&quot; new() &quot;</tt> in the above example will use
+<b>mysql</b> as the driver, <b>storable</b> as the
+serializer and <b>$dbh</b> as the database handle.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>is_expired()</i>, <i>is_empty()</i>, <i>load()</i> for
+details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Sometimes it
+makes perfect sense to expire a certain session parameter,
+instead of the whole session. I usually do this in my login
+enabled sites, where after the user logs in successfully, I
+set his/her &quot;_logged_in&quot; session parameter to
+true, and assign an expiration ticker on that flag to
+something like 30 minutes. It means, after 30 idle minutes
+CGI::Session will clear &quot;_logged_in&quot; flag,
+indicating the user should log in over again. I agree, the
+same effect can be achieved by simply <i>expiring()</i> the
+session itself, but by doing this we would loose other
+session parameters, such as user&rsquo;s shopping cart,
+session-preferences and the like.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This feature
+can also be used to simulate layered authentication, such
+as, you can keep the user&rsquo;s access to his/her personal
+profile information for as long as 60 minutes after a
+successful login, but expire his/her access to his credit
+card information after 5 idle minutes. To achieve this
+effect, we will use <i>expire()</i> method again:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $session&minus;&gt;expire(_profile_access, '1h');
+    $session&minus;&gt;expire(_cc_access, '5m');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">With the above
+syntax, the person will still have access to his personal
+information even after 5 idle hours. But when he tries to
+access or update his/her credit card information, he may be
+displayed a &quot;login again, please&quot; screen.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<i>expire()</i> for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This concludes
+our discussion of CGI::Session programming style. The rest
+of the manual covers some &quot;
+<small>SECURITY&quot;</small> issues. Driver specs from the
+previous manual were moved to CGI::Session::Driver.</p>
+
+<h2>SECURITY
+<a name="SECURITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;How
+secure is using CGI::Session?&quot;, &quot;Can others hack
+down people&rsquo;s sessions using another browser if they
+can get the session id of the user?&quot;, &quot;Are the
+session ids easy to guess?&quot; are the questions I find
+myself answering over and over again.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>STORAGE</small></b>
+<br>
+Security of the library does in many aspects depend on the
+implementation. After making use of this library, you no
+longer have to send all the information to the user&rsquo;s
+cookie except for the session id. But, you still have to
+store the data in the server side. So another set of
+questions arise, can an evil person get access to session
+data in your server, even if he does, can he make sense out
+of the data in the session file, and even if he can, can he
+reuse the information against a person who created that
+session. As you see, the answer depends on yourself who is
+implementing it.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">First rule of thumb, do not
+store users&rsquo; passwords or other sensitive data in the
+session, please. If you have to, use one-way encryption,
+such as md5, or <small>SHA&minus;1&minus;1.</small> For my
+own experience I can assure you that in properly implemented
+session-powered Web applications there is never a need for
+it.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Default configuration of the driver makes use of
+Data::Dumper class to serialize data to make it possible to
+save it in the disk. Data::Dumper&rsquo;s result is a human
+readable data structure, which, if opened, can be
+interpreted easily. If you configure your session object to
+use either Storable or FreezeThaw as a serializer, this
+would make it more difficult for bad guys to make sense out
+of session data. But don&rsquo;t use this as the only
+precaution. Since evil fingers can type a quick program
+using Storable or FreezeThaw to decipher session files very
+easily.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Do not allow anyone to update contents of session files.
+If you&rsquo;re using default serializer serialized data
+string needs to be <i>eval()</i>ed to bring the original
+data structure back to life. Of course, we use Safe to do it
+safely, but your cautiousness does no harm either.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Do not keep sessions open for very long. This will
+increase the possibility that some bad guy may have
+someone&rsquo;s valid session id at a given time (acquired
+somehow). To do this use <i>expire()</i> method to set
+expiration ticker. The more sensitive the information on
+your Web site is, the sooner the session should be set to
+expire.</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>SESSION</small>
+IDs</b> <br>
+Session ids are not easily guessed (unless you&rsquo;re
+using incr <small>ID</small> generator)! Default
+configuration of CGI::Session uses Digest::MD5 to generate
+random, 32 character long identifier. Although this string
+cannot be guessed as easily by others, if they find it out
+somehow, can they use this identifier against the other
+person?</p>
+
+<p style="margin-left:11%; margin-top: 1em">Consider the
+scenario, where you just give someone either via email or an
+instant messaging a link to a Web site where you&rsquo;re
+currently logged in. The <small>URL</small> you give to that
+person contains a session id as part of a query string. If
+the site was initializing the session solely using query
+string parameter, after clicking on that link that person
+now appears to that site as you, and might have access to
+all of your private data instantly.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Even if
+you&rsquo;re solely using cookies as the session id
+transporters, it&rsquo;s not that difficult to plant a
+cookie in the cookie file with the same id and trick the web
+browser to send that particular session id to the server. So
+key for security is to check if the person who&rsquo;s
+asking us to retrieve a session data is indeed the person
+who initially created the session data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">One way to help
+with this is by also checking that the <small>IP</small>
+address that the session is being used from is always same.
+However, this turns out not to be practical in common cases
+because some large ISPs (such as <small>AOL</small> ) use
+proxies which cause each and every request from the same
+user to come from different <small>IP</small> address.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have an
+application where you are sure your users&rsquo; IPs are
+constant during a session, you can consider enabling an
+option to make this check:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Session ( '&minus;ip_match' );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For backwards
+compatibility, you can also achieve this by setting
+<tt>$CGI::Session::IP_MATCH</tt> to a true value. This makes
+sure that before initializing a previously stored session,
+it checks if the ip address stored in the session matches
+the ip address of the user asking for that session. In which
+case the library returns the session, otherwise it dies with
+a proper error message.</p>
+
+<h2>LICENSING
+<a name="LICENSING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">For support and
+licensing see CGI::Session</p>
+<hr>
+</body>
+</html>

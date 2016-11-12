@@ -1,0 +1,451 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:03:31 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>LVMCACHE</title>
+
+</head>
+<body>
+
+<h1 align="center">LVMCACHE</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Cache Terms">Cache Terms</a><br>
+<a href="#Cache Usage">Cache Usage</a><br>
+<a href="#Cache Removal">Cache Removal</a><br>
+<a href="#Cache Topics">Cache Topics</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">lvmcache
+&mdash; LVM caching</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>cache</b> logical volume type uses a small and fast LV to
+improve the performance of a large and slow LV. It does this
+by storing the frequently used blocks on the faster LV. LVM
+refers to the small fast LV as a <b>cache pool LV</b>. The
+large slow LV is called the <b>origin LV</b>. Due to
+requirements from dm-cache (the kernel driver), LVM further
+splits the cache pool LV into two devices - the <b>cache
+data LV</b> and <b>cache metadata LV</b>. The cache data LV
+is where copies of data blocks are kept from the origin LV
+to increase speed. The cache metadata LV holds the
+accounting information that specifies where data blocks are
+stored (e.g. on the origin LV or on the cache data LV).
+Users should be familiar with these LVs if they wish to
+create the best and most robust cached logical volumes.</p>
+
+<h2>Cache Terms
+<a name="Cache Terms"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">origin LV
+OriginLV large slow LV <br>
+cache data LV CacheDataLV small fast LV for cache pool data
+<br>
+cache metadata LV CacheMetaLV small fast LV for cache pool
+metadata <br>
+cache pool LV CachePoolLV CacheDataLV + CacheMetaLV <br>
+cache LV CacheLV OriginLV + CachePoolLV</p>
+
+<h2>Cache Usage
+<a name="Cache Usage"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The primary
+method for using a cache type logical volume:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>0. create
+OriginLV</b> <br>
+Create an LV or identify an existing LV to be the origin
+LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;n OriginLV &minus;L LargeSize VG SlowPVs</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvcreate &minus;n lvol0 &minus;L 100G vg</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>1. create
+CacheDataLV</b> <br>
+Create the cache data LV. This LV will hold data blocks from
+the OriginLV. The size of this LV is the size of the cache
+and will be reported as the size of the cache pool LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;n CacheDataLV &minus;L CacheSize VG FastPVs</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvcreate &minus;n cache0 &minus;L 10G vg /dev/fast</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>2. create
+CacheMetaLV</b> <br>
+Create the cache metadata LV. This LV will hold cache pool
+metadata. The size of this LV should be 1000 times smaller
+than the cache data LV, with a minimum size of 8MiB.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;n CacheMetaLV &minus;L MetaSize VG FastPVs</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvcreate &minus;n cache0meta &minus;L 12M vg /dev/fast</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a vg
+<br>
+LV VG Attr LSize Pool Origin <br>
+cache0 vg -wi-a----- 10.00g <br>
+cache0meta vg -wi-a----- 12.00m <br>
+lvol0 vg -wi-a----- 100.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>3. create
+CachePoolLV</b> <br>
+Combine the data and metadata LVs into a cache pool LV. The
+behavior of the cache pool LV can be set in this step. <br>
+CachePoolLV takes the name of CacheDataLV. <br>
+CacheDataLV is renamed CachePoolLV_cdata and becomes hidden.
+<br>
+CacheMetaLV is renamed CachePoolLV_cmeta and becomes
+hidden.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+&minus;&minus;type cache-pool &minus;&minus;poolmetadata
+VG/CacheMetaLV</b></p>
+
+<p style="margin-left:22%;"><b>VG/CacheDataLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvconvert &minus;&minus;type cache&minus;pool
+&minus;&minus;poolmetadata vg/cache0meta vg/cache0</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a vg
+<br>
+LV VG Attr LSize Pool Origin <br>
+cache0 vg Cwi---C--- 10.00g <br>
+[cache0_cdata] vg Cwi------- 10.00g <br>
+[cache0_cmeta] vg ewi------- 12.00m <br>
+lvol0 vg -wi-a----- 100.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>4. create
+CacheLV</b> <br>
+Create a cache LV by linking the cache pool LV to the origin
+LV. The user accessible cache LV takes the name of the
+origin LV, while the origin LV becomes a hidden LV with the
+name OriginLV_corig. This can be done while the origin LV is
+in use. <br>
+CacheLV takes the name of OriginLV. <br>
+OriginLV is renamed OriginLV_corig and becomes hidden.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+&minus;&minus;type cache &minus;&minus;cachepool
+VG/CachePoolLV VG/OriginLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvconvert &minus;&minus;type cache &minus;&minus;cachepool
+vg/cache0 vg/lvol0</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs -a vg
+<br>
+LV VG Attr LSize Pool Origin <br>
+cache0 vg Cwi---C--- 10.00g <br>
+[cache0_cdata] vg Cwi-ao---- 10.00g <br>
+[cache0_cmeta] vg ewi-ao---- 12.00m <br>
+lvol0 vg Cwi-a-C--- 100.00g cache0 [lvol0_corig] <br>
+[lvol0_corig] vg -wi-ao---- 100.00g</p>
+
+<h2>Cache Removal
+<a name="Cache Removal"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Split a
+cache pool LV off of a cache LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">A cache pool LV
+can be disconnected from a cache LV, leaving an unused cache
+pool LV, and an uncached origin LV. This command writes back
+data from the cache pool to the origin LV when
+necessary.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+--splitcache VG/CacheLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Removing a
+cache pool LV without removing its linked origin LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This writes
+back data from the cache pool to the origin LV when
+necessary, then removes the cache pool LV, leaving the
+uncached origin LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvremove
+VG/CachePoolLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">An alternative
+command that also disconnects the cache pool from the cache
+LV, and deletes the cache pool:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvconvert
+--uncache VG/CacheLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Example</i>
+<br>
+# lvs vg <br>
+LV VG Attr LSize Pool Origin <br>
+cache0 vg Cwi---C--- 10.00g <br>
+lvol0 vg Cwi-a-C--- 100.00g cache0 [lvol0_corig]</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvremove
+vg/cache0</p>
+
+<p style="margin-left:11%; margin-top: 1em"># lvs vg <br>
+LV VG Attr LSize Pool Origin <br>
+lvol0 vg -wi-a----- 100.00g</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Removing a
+cache LV: both origin LV and the cache pool LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Removing a
+cache LV removes both the origin LV and the linked cache
+pool LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvremove
+VG/CacheLV</b></p>
+
+<h2>Cache Topics
+<a name="Cache Topics"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Tolerate
+device failures in a cache pool LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Users who are
+concerned about the possibility of failures in their fast
+devices that could lead to data loss might consider making
+their cache pool sub-LVs redundant.</p>
+
+<p style="margin-left:11%; margin-top: 1em">0. Create an
+origin LV we wish to cache <br>
+# lvcreate &minus;L 10G &minus;n lv1 vg /dev/slow_devs</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. Create a
+2-way RAID1 cache data LV <br>
+# lvcreate &minus;&minus;type raid1 &minus;m 1 &minus;L 1G
+-n cache1 vg \</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>/dev/fast1 /dev/fast2</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">2. Create a
+2-way RAID1 cache metadata LV <br>
+# lvcreate &minus;&minus;type raid1 &minus;m 1 &minus;L 8M
+-n cache1meta vg \</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>/dev/fast1 /dev/fast2</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">3. Create a
+cache pool LV combining cache data LV and cache metadata LV
+<br>
+# lvconvert &minus;&minus;type cache&minus;pool
+&minus;&minus;poolmetadata vg/cache1meta vg/cache1</p>
+
+<p style="margin-left:11%; margin-top: 1em">4. Create a
+cached LV by combining the cache pool LV and origin LV <br>
+# lvconvert &minus;&minus;type cache &minus;&minus;cachepool
+vg/cache1 vg/lv1</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cache
+mode</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The default
+cache mode is &quot;writethrough&quot;. Writethrough ensures
+that any data written will be stored both in the cache pool
+LV and on the origin LV. The loss of a device associated
+with the cache pool LV in this case would not mean the loss
+of any data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A second cache
+mode is &quot;writeback&quot;. Writeback delays writing data
+blocks from the cache pool back to the origin LV. This mode
+will increase performance, but the loss of a device
+associated with the cache pool LV can result in lost
+data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The cache mode
+can be specified with the --cachemode option when a cache
+pool LV is created.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvm.conf</b>(5)
+<b>cache_pool_cachemode</b> <br>
+defines the default cache mode.</p>
+
+<p style="margin-left:11%; margin-top: 1em">0. Create an
+origin LV we wish to cache (yours may already exist) <br>
+# lvcreate &minus;L 10G &minus;n lv1 vg /dev/slow</p>
+
+<p style="margin-left:11%; margin-top: 1em">1. Create a
+cache data LV <br>
+# lvcreate &minus;L 1G &minus;n cache1 vg /dev/fast</p>
+
+<p style="margin-left:11%; margin-top: 1em">2. Create a
+cache metadata LV <br>
+# lvcreate &minus;L 8M &minus;n cache1meta vg /dev/fast</p>
+
+<p style="margin-left:11%; margin-top: 1em">3. Create a
+cache pool LV specifying cache mode &quot;writethrough&quot;
+<br>
+# lvconvert &minus;&minus;type cache&minus;pool
+&minus;&minus;poolmetadata vg/cache1meta \</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="92%">
+
+
+<p>&minus;&minus;cachemode writethrough vg/cache1</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">4. Create a
+cache LV by combining the cache pool LV and origin LV <br>
+# lvconvert &minus;&minus;type cache &minus;&minus;cachepool
+vg/cache1 vg/lv1</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Spare
+metadata LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+<b>lvmthin</b>(7) for a description of the &quot;pool
+metadata spare&quot; LV. The same concept is used for cache
+pools.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Automatic
+pool metadata LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">A cache data LV
+can be converted to cache pool LV without specifying a cache
+pool metadata LV. LVM will automatically create a metadata
+LV from the same VG.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate -n
+CacheDataLV -L CacheSize VG <br>
+lvconvert --type cache&minus;pool VG/CacheDataLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Create a new
+cache LV without an existing origin LV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">A cache LV can
+be created using an existing cache pool without an existing
+origin LV. A new origin LV is created and linked to the
+cache pool in a single step.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type cache &minus;L LargeSize &minus;n
+CacheLV</b></p>
+
+<p style="margin-left:22%;"><b>&minus;&minus;cachepool
+VG/CachePoolLV VG SlowPVs</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Single step
+cache pool LV creation</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">A cache pool LV
+can be created with a single lvcreate command, rather than
+using lvconvert on existing LVs. This one command creates a
+cache data LV, a cache metadata LV, and combines the two
+into a cache pool LV.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate
+&minus;&minus;type cache&minus;pool &minus;L CacheSize
+&minus;n CachePoolLV VG FastPVs</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Convert
+existing LVs to cache types</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">When an
+existing origin LV is converted to a cache LV, the specified
+cache pool may be a normal LV, rather than a cache pool LV.
+In this case, lvm will first convert the normal LV to a
+cache pool LV. A pool metadata LV may optionally be
+specified.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate -n
+OriginLV -L LargeSize VG <br>
+lvcreate -n CacheDataLV -L CacheSize VG <br>
+lvconvert --type cache --cachepool VG/CataDataLV
+VG/OriginLV</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This is
+equivalent to:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvcreate -n
+OriginLV -L LargeSize VG <br>
+lvcreate -n CacheDataLV -L CacheSize VG <br>
+lvconvert --type cache-pool VG/CacheDataLV <br>
+lvconvert --type cache --cachepool VG/CachePoolLV
+VG/OriginLV</b></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lvm.conf</b>(5),
+<b>lvchange</b>(8), <b>lvcreate</b>(8), <b>lvdisplay</b>(8),
+<b>lvextend</b>(8), <b>lvremove</b>(8), <b>lvrename</b>(8),
+<b>lvresize</b>(8), <b>lvs</b>(8), <b>vgchange</b>(8),
+<b>vgmerge</b>(8), <b>vgreduce</b>(8), <b>vgsplit</b>(8)</p>
+<hr>
+</body>
+</html>

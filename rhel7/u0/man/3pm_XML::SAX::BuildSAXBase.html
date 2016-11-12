@@ -1,0 +1,917 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:43:39 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>BuildSAXBase</title>
+
+</head>
+<body>
+
+<h1 align="center">BuildSAXBase</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#WRITING SAX DRIVERS AND FILTERS">WRITING SAX DRIVERS AND FILTERS</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#TODO">TODO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::SAX::Base
+&minus; Base class SAX Drivers and Filters</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  package MyFilter;
+  use XML::SAX::Base;
+  @ISA = ('XML::SAX::Base');</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module has
+a very simple task &minus; to be a base class for PerlSAX
+drivers and filters. It&rsquo;s default behaviour is to pass
+the input directly to the output unchanged. It can be useful
+to use this module as a base class so you don&rsquo;t have
+to, for example, implement the <i>characters()</i>
+callback.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The main
+advantages that it provides are easy dispatching of events
+the right way (ie it takes care for you of checking that the
+handler has implemented that method, or has defined an
+<small>AUTOLOAD</small> ), and the guarantee that filters
+will pass along events that they aren&rsquo;t implementing
+to handlers downstream that might nevertheless be interested
+in them.</p>
+
+<h2>WRITING SAX DRIVERS AND FILTERS
+<a name="WRITING SAX DRIVERS AND FILTERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Perl Sax
+<small>API</small> Reference is at
+&lt;http://perl&minus;xml.sourceforge.net/perl&minus;sax/&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Writing
+<small>SAX</small> Filters is tremendously easy: all you
+need to do is inherit from this module, and define the
+events you want to handle. A more detailed explanation can
+be found at
+http://www.xml.com/pub/a/2001/10/10/sax&minus;filters.html.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Writing Drivers
+is equally simple. The one thing you need to pay attention
+to is <b><small>NOT</small></b> to call events yourself
+(this applies to Filters as well). For instance:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  package MyFilter;
+  use base qw(XML::SAX::Base);
+  sub start_element {
+    my $self = shift;
+    my $data = shift;
+    # do something
+    $self&minus;&gt;{Handler}&minus;&gt;start_element($data); # BAD
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above
+example works well as precisely that: an example. But it has
+several faults: 1) it doesn&rsquo;t test to see whether the
+handler defines start_element. Perhaps it doesn&rsquo;t want
+to see that event, in which case you shouldn&rsquo;t throw
+it (otherwise it&rsquo;ll die). 2) it doesn&rsquo;t check
+ContentHandler and then Handler (ie it doesn&rsquo;t look to
+see that the user hasn&rsquo;t requested events on a
+specific handler, and if not on the default one), 3) if it
+did check all that, not only would the code be cumbersome
+(see this module&rsquo;s source to get an idea) but it would
+also probably have to check for a DocumentHandler (in case
+this were <small>SAX1</small> ) and for AUTOLOADs
+potentially defined in all these packages. As you can tell,
+that would be fairly painful. Instead of going through that,
+simply remember to use code similar to the following
+instead:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  package MyFilter;
+  use base qw(XML::SAX::Base);
+  sub start_element {
+    my $self = shift;
+    my $data = shift;
+    # do something to filter
+    $self&minus;&gt;SUPER::start_element($data); # GOOD (and easy) !
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This way, once
+you&rsquo;ve done your job you hand the ball back to
+XML::SAX::Base and it takes care of all those problems for
+you!</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+above example doesn&rsquo;t apply to filters only, drivers
+will benefit from the exact same feature.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A number of
+methods are defined within this class for the purpose of
+inheritance. Some probably don&rsquo;t need to be overridden
+(eg parse_file) but some clearly should be (eg parse).
+Options for these methods are described in the PerlSAX2
+specification available from
+http://cvs.sourceforge.net/cgi&minus;bin/viewcvs.cgi/~checkout~/perl&minus;xml/libxml&minus;perl/doc/sax&minus;2.0.html?rev=HEAD&amp;content&minus;type=text/html.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="8%">
+
+
+<p>parse</p></td>
+<td width="75%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">The parse
+method is the main entry point to parsing documents.
+Internally the parse method will detect what type of
+&quot;thing&quot; you are parsing, and call the appropriate
+method in your implementation class. Here is the mapping
+table of what is in the Source options (see the Perl
+<small>SAX 2.0</small> specification for the meaning of
+these values):</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  Source Contains           parse() calls
+  ===============           =============
+  CharacterStream (*)       _parse_characterstream($stream, $options)
+  ByteStream                _parse_bytestream($stream, $options)
+  String                    _parse_string($string, $options)
+  SystemId                  _parse_systemid($string, $options)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">However note
+that these methods may not be sensible if your driver class
+is not for parsing <small>XML.</small> An example might be a
+<small>DBI</small> driver that generates
+<small>XML/SAX</small> from a database table. If that is the
+case, you likely want to write your own <i>parse()</i>
+method.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Also note that
+the Source may contain both a PublicId entry, and an
+Encoding entry. To get at these, examine
+<tt>$options</tt>&minus;&gt;{Source} as passed to your
+method.</p>
+
+<p style="margin-left:17%; margin-top: 1em">(*) A
+CharacterStream is a filehandle that does not need any
+encoding translation done on it. This is implemented as a
+regular filehandle and only works under Perl 5.7.2 or higher
+using PerlIO. To get a single character, or number of
+characters from it, use the perl core <i>read()</i>
+function. To get a single byte from it (or number of bytes),
+you can use <i>sysread()</i>. The encoding of the stream
+should be in the Encoding entry for the Source.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p style="margin-top: 1em">parse_file, parse_uri,
+parse_string</p> </td>
+<td width="29%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">These are all
+convenience variations on <i>parse()</i>, and in fact simply
+set up the options before calling it. You probably
+don&rsquo;t need to override these.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="17%">
+
+
+<p style="margin-top: 1em">get_options</p></td>
+<td width="66%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">This is a
+convenience method to get options in <small>SAX2</small>
+style, or more generically either as hashes or as hashrefs
+(it returns a hashref). You will probably want to use this
+method in your own implementations of <i>parse()</i> and of
+<i>new()</i>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="37%">
+
+
+<p style="margin-top: 1em">get_feature, set_feature</p></td>
+<td width="46%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">These simply
+get and set features, and throw the appropriate exceptions
+defined in the specification if need be.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If your
+subclass defines features not defined in this one, then you
+should override these methods in such a way that they check
+for your features first, and then call the base
+class&rsquo;s methods for features not defined by your
+class. An example would be:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  sub get_feature {
+      my $self = shift;
+      my $feat = shift;
+      if (exists $MY_FEATURES{$feat}) {
+          # handle the feature in various ways
+      }
+      else {
+          return $self&minus;&gt;SUPER::get_feature($feat);
+      }
+  }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Currently this
+part is unimplemented.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="17%">
+
+
+<p style="margin-top: 1em">set_handler</p></td>
+<td width="66%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">This method
+takes a handler type (Handler, ContentHandler, etc.) and a
+handler object as arguments, and changes the current handler
+for that handler type, while taking care of resetting the
+internal state that needs to be reset. This allows one to
+change a handler during parse without running into problems
+(changing it on the parser object directly will most likely
+cause trouble).</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">set_document_handler,
+set_content_handler, set_dtd_handler, set_lexical_handler,
+set_decl_handler, set_error_handler, set_entity_resolver</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">These are just
+simple wrappers around the former method, and take a handler
+object as their argument. Internally they simply call
+set_handler with the correct arguments.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="17%">
+
+
+<p style="margin-top: 1em">get_handler</p></td>
+<td width="66%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">The inverse of
+set_handler, this method takes a an optional string
+containing a handler type (DTDHandler, ContentHandler, etc.
+&rsquo;Handler&rsquo; is used if no type is passed). It
+returns a reference to the object that implements that that
+class, or undef if that handler type is not set for the
+current driver/filter.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">get_document_handler,
+get_content_handler, get_dtd_handler, get_lexical_handler,
+get_decl_handler, get_error_handler, get_entity_resolver</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">These are just
+simple wrappers around the <i>get_handler()</i> method, and
+take no arguments. Internally they simply call get_handler
+with the correct handler type name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It would be
+rather useless to describe all the methods that this module
+implements here. They are all the methods supported in
+<small>SAX1</small> and <small>SAX2.</small> In case your
+memory is a little short, here is a list. The apparent
+duplicates are there so that both versions of
+<small>SAX</small> can be supported.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p style="margin-top: 1em">start_document</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_document</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_element</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_document</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_document</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_element</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_element</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>characters</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>processing_instruction</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>ignorable_whitespace</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>set_document_locator</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_prefix_mapping</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_prefix_mapping</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>skipped_entity</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_cdata</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_cdata</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>comment</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>entity_reference</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>notation_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>unparsed_entity_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>element_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>attlist_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>doctype_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>xml_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>entity_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>attribute_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>internal_entity_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>external_entity_decl</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>resolve_entity</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_dtd</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_dtd</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>start_entity</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>end_entity</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>warning</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>error</p></td>
+<td width="49%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="34%">
+
+
+<p>fatal_error</p></td>
+<td width="49%">
+</td></tr>
+</table>
+
+<h2>TODO
+<a name="TODO"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  &minus; more tests
+  &minus; conform to the &quot;SAX Filters&quot; and &quot;Java and DOM compatibility&quot;
+    sections of the SAX2 document.</pre>
+
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Kip Hampton
+(khampton@totalcinema.com) did most of the work, after
+porting it from XML::Filter::Base.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Robin Berjon
+(robin@knowscape.com) pitched in with patches to make it
+usable as a base for drivers as well as filters, along with
+other patches.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Matt Sergeant
+(matt@sergeant.org) wrote the original XML::Filter::Base,
+and patched a few things here and there, and imported it
+into the <small>XML::SAX</small> distribution.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>XML::SAX</small></p>
+<hr>
+</body>
+</html>

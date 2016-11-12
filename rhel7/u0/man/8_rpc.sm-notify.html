@@ -1,0 +1,443 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:17:42 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SM-NOTIFY</title>
+
+</head>
+<body>
+
+<h1 align="center">SM-NOTIFY</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#NSM OPERATION IN DETAIL">NSM OPERATION IN DETAIL</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SECURITY">SECURITY</a><br>
+<a href="#ADDITIONAL NOTES">ADDITIONAL NOTES</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">sm-notify
+&minus; send reboot notifications to NFS peers</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>/usr/sbin/sm-notify
+[-dfn] [-m</b> <i>minutes</i><b>] [-v</b> <i>name</i><b>]
+[-p</b> <i>notify-port</i><b>] [-P</b>
+<i>path</i><b>]</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">File locks are
+not part of persistent file system state. Lock state is thus
+lost when a host reboots.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Network file
+systems must also detect when lock state is lost because a
+remote host has rebooted. After an NFS client reboots, an
+NFS server must release all file locks held by applications
+that were running on that client. After a server reboots, a
+client must remind the server of file locks held by
+applications running on that client.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For NFS version
+2 and version 3, the <i>Network Status Monitor</i> protocol
+(or NSM for short) is used to notify NFS peers of reboots.
+On Linux, two separate user-space components constitute the
+NSM service: <b><br>
+sm-notify</b></p>
+
+<p style="margin-left:22%;">A helper program that notifies
+NFS peers after the local system reboots</p>
+
+<p style="margin-left:11%;"><b>rpc.statd</b></p>
+
+<p style="margin-left:22%;">A daemon that listens for
+reboot notifications from other hosts, and manages the list
+of hosts to be notified when the local system reboots</p>
+
+<p style="margin-left:11%; margin-top: 1em">The local NFS
+lock manager alerts its local <b>rpc.statd</b> of each
+remote peer that should be monitored. When the local system
+reboots, the <b>sm-notify</b> command notifies the NSM
+service on monitored peers of the reboot. When a remote
+reboots, that peer notifies the local <b>rpc.statd</b>,
+which in turn passes the reboot notification back to the
+local NFS lock manager.</p>
+
+<h2>NSM OPERATION IN DETAIL
+<a name="NSM OPERATION IN DETAIL"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The first file
+locking interaction between an NFS client and server causes
+the NFS lock managers on both peers to contact their local
+NSM service to store information about the opposite peer. On
+Linux, the local lock manager contacts <b>rpc.statd</b>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>rpc.statd</b>
+records information about each monitored NFS peer on
+persistent storage. This information describes how to
+contact a remote peer in case the local system reboots, how
+to recognize which monitored peer is reporting a reboot, and
+how to notify the local lock manager when a monitored peer
+indicates it has rebooted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An NFS client
+sends a hostname, known as the client&rsquo;s
+<i>caller_name</i>, in each file lock request. An NFS server
+can use this hostname to send asynchronous GRANT calls to a
+client, or to notify the client it has rebooted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Linux NFS
+server can provide the client&rsquo;s <i>caller_name</i> or
+the client&rsquo;s network address to <b>rpc.statd</b>. For
+the purposes of the NSM protocol, this name or address is
+known as the monitored peer&rsquo;s <i>mon_name</i>. In
+addition, the local lock manager tells <b>rpc.statd</b> what
+it thinks its own hostname is. For the purposes of the NSM
+protocol, this hostname is known as <i>my_name</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+equivalent interaction between an NFS server and a client to
+inform the client of the server&rsquo;s <i>caller_name</i>.
+Therefore NFS clients do not actually know what
+<i>mon_name</i> an NFS server might use in an SM_NOTIFY
+request. The Linux NFS client records the server&rsquo;s
+hostname used on the mount command to identify rebooting NFS
+servers.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Reboot
+notification</b> <br>
+When the local system reboots, the <b>sm-notify</b> command
+reads the list of monitored peers from persistent storage
+and sends an SM_NOTIFY request to the NSM service on each
+listed remote peer. It uses the <i>mon_name</i> string as
+the destination. To identify which host has rebooted, the
+<b>sm-notify</b> command normally sends <i>my_name</i>
+string recorded when that remote was monitored. The remote
+<b>rpc.statd</b> matches incoming SM_NOTIFY requests using
+this string, or the caller&rsquo;s network address, to one
+or more peers on its own monitor list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<b>rpc.statd</b> does not find a peer on its monitor list
+that matches an incoming SM_NOTIFY request, the notification
+is not forwarded to the local lock manager. In addition,
+each peer has its own <i>NSM state number</i>, a 32-bit
+integer that is bumped after each reboot by the
+<b>sm-notify</b> command. <b>rpc.statd</b> uses this number
+to distinguish between actual reboots and replayed
+notifications.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Part of NFS
+lock recovery is rediscovering which peers need to be
+monitored again. The <b>sm-notify</b> command clears the
+monitor list on persistent storage after each reboot.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em"><b>-d</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Keeps <b>sm-notify</b> attached
+to its controlling terminal and running in the foreground so
+that notification progress may be monitored directly.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>-f</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Send notifications even if <b>sm-notify</b> has already
+run since the last system reboot.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>-m</b> <i>retry-time</i></p>
+
+<p style="margin-left:22%;">Specifies the length of time,
+in minutes, to continue retrying notifications to
+unresponsive hosts. If this option is not specified,
+<b>sm-notify</b> attempts to send notifications for 15
+minutes. Specifying a value of 0 causes <b>sm-notify</b> to
+continue sending notifications to unresponsive peers until
+it is manually killed.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Notifications
+are retried if sending fails, the remote does not respond,
+the remote&rsquo;s NSM service is not registered, or if
+there is a DNS failure which prevents the remote&rsquo;s
+<i>mon_name</i> from being resolved to an address.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Hosts are not
+removed from the notification list until a valid reply has
+been received. However, the SM_NOTIFY procedure has a void
+result. There is no way for <b>sm-notify</b> to tell if the
+remote recognized the sender and has started appropriate
+lock recovery.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>-n</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Prevents <b>sm-notify</b> from updating the local
+system&rsquo;s NSM state number.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>-p</b> <i>port</i></p>
+
+<p style="margin-left:22%;">Specifies the source port
+number <b>sm-notify</b> should use when sending reboot
+notifications. If this option is not specified, a randomly
+chosen ephemeral port is used.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This option can
+be used to traverse a firewall between client and
+server.</p>
+
+<p style="margin-left:11%;"><b>&minus;P,
+&minus;&minus;state&minus;directory&minus;path</b>
+<i>pathname</i></p>
+
+<p style="margin-left:22%;">Specifies the pathname of the
+parent directory where NSM state information resides. If
+this option is not specified, <b>sm-notify</b> uses
+<i>/var/lib/nfs/statd</i> by default.</p>
+
+<p style="margin-left:22%; margin-top: 1em">After starting,
+<b>sm-notify</b> attempts to set its effective UID and GID
+to the owner and group of this directory.</p>
+
+<p style="margin-left:11%;"><b>-v</b> <i>ipaddr</i>
+<b>|</b> <i>hostname</i></p>
+
+<p style="margin-left:22%;">Specifies the network address
+from which to send reboot notifications, and the
+<i>mon_name</i> argument to use when sending SM_NOTIFY
+requests. If this option is not specified, <b>sm-notify</b>
+uses a wildcard address as the transport bind address, and
+uses the <i>my_name</i> recorded when the remote was
+monitored as the <i>mon_name</i> argument when sending
+SM_NOTIFY requests.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The
+<i>ipaddr</i> form can be expressed as either an IPv4 or an
+IPv6 presentation address. If the <i>ipaddr</i> form is
+used, the <b>sm-notify</b> command converts this address to
+a hostname for use as the <i>mon_name</i> argument when
+sending SM_NOTIFY requests.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This option can
+be useful in multi-homed configurations where the remote
+requires notification from a specific network address.</p>
+
+<h2>SECURITY
+<a name="SECURITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>sm-notify</b> command must be started as root to acquire
+privileges needed to access the state information database.
+It drops root privileges as soon as it starts up to reduce
+the risk of a privilege escalation attack.</p>
+
+<p style="margin-left:11%; margin-top: 1em">During normal
+operation, the effective user ID it chooses is the owner of
+the state directory. This allows it to continue to access
+files in that directory after it has dropped its root
+privileges. To control which user ID <b>rpc.statd</b>
+chooses, simply use <b>chown</b>(1) to set the owner of the
+state directory.</p>
+
+<h2>ADDITIONAL NOTES
+<a name="ADDITIONAL NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Lock recovery
+after a reboot is critical to maintaining data integrity and
+preventing unnecessary application hangs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To help
+<b>rpc.statd</b> match SM_NOTIFY requests to NLM requests, a
+number of best practices should be observed, including:</p>
+
+<p style="margin-left:22%; margin-top: 1em">The UTS
+nodename of your systems should match the DNS names that NFS
+peers use to contact them</p>
+
+<p style="margin-left:22%; margin-top: 1em">The UTS
+nodenames of your systems should always be fully qualified
+domain names</p>
+
+<p style="margin-left:22%; margin-top: 1em">The forward and
+reverse DNS mapping of the UTS nodenames should be
+consistent</p>
+
+<p style="margin-left:22%; margin-top: 1em">The hostname
+the client uses to mount the server should match the
+server&rsquo;s <i>mon_name</i> in SM_NOTIFY requests it
+sends</p>
+
+<p style="margin-left:11%; margin-top: 1em">Unmounting an
+NFS file system does not necessarily stop either the NFS
+client or server from monitoring each other. Both may
+continue monitoring each other for a time in case subsequent
+NFS traffic between the two results in fresh mounts and
+additional file locking.</p>
+
+<p style="margin-left:11%; margin-top: 1em">On Linux, if
+the <b>lockd</b> kernel module is unloaded during normal
+operation, all remote NFS peers are unmonitored. This can
+happen on an NFS client, for example, if an automounter
+removes all NFS mount points due to inactivity.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>IPv6 and
+TI-RPC support</b> <br>
+TI-RPC is a pre-requisite for supporting NFS on IPv6. If
+TI-RPC support is built into the <b>sm-notify</b> command
+,it will choose an appropriate IPv4 or IPv6 transport based
+on the network address returned by DNS for each remote peer.
+It should be fully compatible with remote systems that do
+not support TI-RPC or IPv6.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently, the
+<b>sm-notify</b> command supports sending notification only
+via datagram transport protocols.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="32%">
+
+
+
+<p style="margin-top: 1em"><i>/var/lib/nfs/statd/sm</i></p> </td>
+<td width="6%"></td>
+<td width="51%">
+
+
+<p style="margin-top: 1em">directory containing monitor
+list</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><i>/var/lib/nfs/statd/sm.bak</i></p>
+
+<p style="margin-left:49%;">directory containing notify
+list</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="37%">
+
+
+<p><i>/var/lib/nfs/statd/state</i></p></td>
+<td width="1%"></td>
+<td width="46%">
+
+
+<p>NSM state number for this host</p></td>
+<td width="5%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><i>/proc/sys/fs/nfs/nsm_local_state</i></p>
+
+<p style="margin-left:49%;">kernel&rsquo;s copy of the NSM
+state number</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>rpc.statd</b>(8),
+<b>nfs</b>(5), <b>uname</b>(2), <b>hostname</b>(7)</p>
+
+<p style="margin-left:11%; margin-top: 1em">RFC 1094 -
+&quot;NFS: Network File System Protocol Specification&quot;
+<br>
+RFC 1813 - &quot;NFS Version 3 Protocol Specification&quot;
+<br>
+OpenGroup Protocols for Interworking: XNFS, Version 3W -
+Chapter 11</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Olaf Kirch
+&lt;okir@suse.de&gt; <br>
+Chuck Lever &lt;chuck.lever@oracle.com&gt;</p>
+<hr>
+</body>
+</html>

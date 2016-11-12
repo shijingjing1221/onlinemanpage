@@ -1,0 +1,346 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:43:44 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>FLUSH</title>
+
+</head>
+<body>
+
+<h1 align="center">FLUSH</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SECURITY">SECURITY</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#CONFIGURATION PARAMETERS">CONFIGURATION PARAMETERS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#README FILES">README FILES</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#HISTORY">HISTORY</a><br>
+<a href="#AUTHOR(S)">AUTHOR(S)</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">flush &minus;
+Postfix fast flush server</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>flush</b>
+[generic Postfix daemon options]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>flush</b>(8) server maintains a record of deferred mail
+by destination. This information is used to improve the
+performance of the SMTP <b>ETRN</b> request, and of its
+command-line equivalent, &quot;<b>sendmail -qR</b>&quot; or
+&quot;<b>postqueue -f</b>&quot;. This program expects to be
+run from the <b>master</b>(8) process manager.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The record is
+implemented as a per-destination logfile with as contents
+the queue IDs of deferred mail. A logfile is append-only,
+and is truncated when delivery is requested for the
+corresponding destination. A destination is the part on the
+right-hand side of the right-most <b>@</b> in an email
+address.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Per-destination
+logfiles of deferred mail are maintained only for eligible
+destinations. The list of eligible destinations is specified
+with the <b>fast_flush_domains</b> configuration parameter,
+which defaults to <b>$relay_domains</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This server
+implements the following requests: <b><br>
+add</b> <i>sitename queueid</i></p>
+
+<p style="margin-left:22%;">Inform the <b>flush</b>(8)
+server that the message with the specified queue ID is
+queued for the specified destination.</p>
+
+<p style="margin-left:11%;"><b>send_site</b>
+<i>sitename</i></p>
+
+<p style="margin-left:22%;">Request delivery of mail that
+is queued for the specified destination.</p>
+
+<p style="margin-left:11%;"><b>send_file</b>
+<i>queueid</i></p>
+
+<p style="margin-left:22%;">Request delivery of the
+specified deferred message.</p>
+
+<p style="margin-left:11%;"><b>refresh</b></p>
+
+<p style="margin-left:22%;">Refresh non-empty
+per-destination logfiles that were not read in
+<b>$fast_flush_refresh_time</b> hours, by simulating send
+requests (see above) for the corresponding destinations.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Delete empty
+per-destination logfiles that were not updated in
+<b>$fast_flush_purge_time</b> days.</p>
+
+<p style="margin-left:22%; margin-top: 1em">This request
+completes in the background.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>purge</b></p></td>
+<td width="4%"></td>
+<td width="70%">
+
+
+<p>Do a <b>refresh</b> for all per-destination
+logfiles.</p> </td>
+<td width="8%">
+</td></tr>
+</table>
+
+<h2>SECURITY
+<a name="SECURITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>flush</b>(8) server is not security-sensitive. It does
+not talk to the network, and it does not talk to local
+users. The fast flush server can run chrooted at fixed low
+privilege.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Problems and
+transactions are logged to <b>syslogd</b>(8).</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Fast flush
+logfiles are truncated only after a &quot;send&quot;
+request, not when mail is actually delivered, and therefore
+can accumulate outdated or redundant data. In order to
+maintain sanity, &quot;refresh&quot; must be executed
+periodically. This can be automated with a suitable wakeup
+timer setting in the <b>master.cf</b> configuration
+file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Upon receipt of
+a request to deliver mail for an eligible destination, the
+<b>flush</b>(8) server requests delivery of all messages
+that are listed in that destination&rsquo;s logfile,
+regardless of the recipients of those messages. This is not
+an issue for mail that is sent to a <b>relay_domains</b>
+destination because such mail typically only has recipients
+in one domain.</p>
+
+<h2>CONFIGURATION PARAMETERS
+<a name="CONFIGURATION PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Changes to
+<b>main.cf</b> are picked up automatically as
+<b>flush</b>(8) processes run for only a limited amount of
+time. Use the command &quot;<b>postfix reload</b>&quot; to
+speed up a change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The text below
+provides only a parameter summary. See <b>postconf</b>(5)
+for more details including examples. <b><br>
+config_directory (see &rsquo;postconf -d&rsquo;
+output)</b></p>
+
+<p style="margin-left:22%;">The default location of the
+Postfix main.cf and master.cf configuration files.</p>
+
+<p style="margin-left:11%;"><b>daemon_timeout
+(18000s)</b></p>
+
+<p style="margin-left:22%;">How much time a Postfix daemon
+process may take to handle a request before it is terminated
+by a built-in watchdog timer.</p>
+
+<p style="margin-left:11%;"><b>fast_flush_domains
+($relay_domains)</b></p>
+
+<p style="margin-left:22%;">Optional list of destinations
+that are eligible for per-destination logfiles with mail
+that is queued to those destinations.</p>
+
+<p style="margin-left:11%;"><b>fast_flush_refresh_time
+(12h)</b></p>
+
+<p style="margin-left:22%;">The time after which a
+non-empty but unread per-destination &quot;fast flush&quot;
+logfile needs to be refreshed.</p>
+
+<p style="margin-left:11%;"><b>fast_flush_purge_time
+(7d)</b></p>
+
+<p style="margin-left:22%;">The time after which an empty
+per-destination &quot;fast flush&quot; logfile is
+deleted.</p>
+
+<p style="margin-left:11%;"><b>ipc_timeout (3600s)</b></p>
+
+<p style="margin-left:22%;">The time limit for sending or
+receiving information over an internal communication
+channel.</p>
+
+<p style="margin-left:11%;"><b>max_idle (100s)</b></p>
+
+<p style="margin-left:22%;">The maximum amount of time that
+an idle Postfix daemon process waits for an incoming
+connection before terminating voluntarily.</p>
+
+<p style="margin-left:11%;"><b>max_use (100)</b></p>
+
+<p style="margin-left:22%;">The maximal number of incoming
+connections that a Postfix daemon process will service
+before terminating voluntarily.</p>
+
+
+<p style="margin-left:11%;"><b>parent_domain_matches_subdomains
+(see &rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">What Postfix features match
+subdomains of &quot;domain.tld&quot; automatically, instead
+of requiring an explicit &quot;.domain.tld&quot;
+pattern.</p>
+
+<p style="margin-left:11%;"><b>process_id
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process ID of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>process_name
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process name of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>queue_directory (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The location of the Postfix
+top-level queue directory.</p>
+
+<p style="margin-left:11%;"><b>syslog_facility
+(mail)</b></p>
+
+<p style="margin-left:22%;">The syslog facility of Postfix
+logging.</p>
+
+<p style="margin-left:11%;"><b>syslog_name (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The mail system name that is
+prepended to the process name in syslog records, so that
+&quot;smtpd&quot; becomes, for example,
+&quot;postfix/smtpd&quot;.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">/var/spool/postfix/flush,
+&quot;fast flush&quot; logfiles.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">smtpd(8), SMTP
+server <br>
+qmgr(8), queue manager <br>
+postconf(5), configuration parameters <br>
+master(5), generic daemon options <br>
+master(8), process manager <br>
+syslogd(8), system logging</p>
+
+<h2>README FILES
+<a name="README FILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use
+&quot;<b>postconf readme_directory</b>&quot; or
+&quot;<b>postconf html_directory</b>&quot; to locate this
+information. <br>
+ETRN_README, Postfix ETRN howto</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Secure
+Mailer license must be distributed with this software.</p>
+
+<h2>HISTORY
+<a name="HISTORY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This service
+was introduced with Postfix version 1.0.</p>
+
+<h2>AUTHOR(S)
+<a name="AUTHOR(S)"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Wietse Venema
+<br>
+IBM T.J. Watson Research <br>
+P.O. Box 704 <br>
+Yorktown Heights, NY 10598, USA</p>
+<hr>
+</body>
+</html>

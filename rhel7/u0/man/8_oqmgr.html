@@ -1,0 +1,753 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:09:49 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>OQMGR</title>
+
+</head>
+<body>
+
+<h1 align="center">OQMGR</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#MAIL QUEUES">MAIL QUEUES</a><br>
+<a href="#DELIVERY STATUS REPORTS">DELIVERY STATUS REPORTS</a><br>
+<a href="#STRATEGIES">STRATEGIES</a><br>
+<a href="#TRIGGERS">TRIGGERS</a><br>
+<a href="#STANDARDS">STANDARDS</a><br>
+<a href="#SECURITY">SECURITY</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#CONFIGURATION PARAMETERS">CONFIGURATION PARAMETERS</a><br>
+<a href="#COMPATIBILITY CONTROLS">COMPATIBILITY CONTROLS</a><br>
+<a href="#ACTIVE QUEUE CONTROLS">ACTIVE QUEUE CONTROLS</a><br>
+<a href="#DELIVERY CONCURRENCY CONTROLS">DELIVERY CONCURRENCY CONTROLS</a><br>
+<a href="#RECIPIENT SCHEDULING CONTROLS">RECIPIENT SCHEDULING CONTROLS</a><br>
+<a href="#OTHER RESOURCE AND RATE CONTROLS">OTHER RESOURCE AND RATE CONTROLS</a><br>
+<a href="#SAFETY CONTROLS">SAFETY CONTROLS</a><br>
+<a href="#MISCELLANEOUS CONTROLS">MISCELLANEOUS CONTROLS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#README FILES">README FILES</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#AUTHOR(S)">AUTHOR(S)</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">oqmgr &minus;
+old Postfix queue manager</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>oqmgr</b>
+[generic Postfix daemon options]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon awaits the arrival of incoming mail
+and arranges for its delivery via Postfix delivery
+processes. The actual mail routing strategy is delegated to
+the <b>trivial-rewrite</b>(8) daemon. This program expects
+to be run from the <b>master</b>(8) process manager.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Mail addressed
+to the local <b>double-bounce</b> address is logged and
+discarded. This stops potential loops caused by
+undeliverable bounce notifications.</p>
+
+<h2>MAIL QUEUES
+<a name="MAIL QUEUES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon maintains the following queues:
+<b><br>
+incoming</b></p>
+
+<p style="margin-left:22%;">Inbound mail from the network,
+or mail picked up by the local <b>pickup</b>(8) agent from
+the <b>maildrop</b> directory.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>active</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Messages that the queue manager has opened for delivery.
+Only a limited number of messages is allowed to enter the
+<b>active</b> queue (leaky bucket strategy, for a fixed
+delivery rate).</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>deferred</b></p>
+
+<p style="margin-left:22%;">Mail that could not be
+delivered upon the first attempt. The queue manager
+implements exponential backoff by doubling the time between
+delivery attempts.</p>
+
+<p style="margin-left:11%;"><b>corrupt</b></p>
+
+<p style="margin-left:22%;">Unreadable or damaged queue
+files are moved here for inspection.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>hold</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Messages that are kept &quot;on hold&quot; are kept here
+until someone sets them free.</p></td></tr>
+</table>
+
+<h2>DELIVERY STATUS REPORTS
+<a name="DELIVERY STATUS REPORTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon keeps an eye on per-message delivery
+status reports in the following directories. Each status
+report file has the same name as the corresponding message
+file:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p style="margin-top: 1em"><b>bounce</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Per-recipient status information
+about why mail is bounced. These files are maintained by the
+<b>bounce</b>(8) daemon.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>defer</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Per-recipient status information about why mail is
+delayed. These files are maintained by the <b>defer</b>(8)
+daemon.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>trace</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Per-recipient status information as requested with the
+Postfix &quot;<b>sendmail -v</b>&quot; or &quot;<b>sendmail
+-bv</b>&quot; command. These files are maintained by the
+<b>trace</b>(8) daemon.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon is responsible for asking the
+<b>bounce</b>(8), <b>defer</b>(8) or <b>trace</b>(8) daemons
+to send delivery reports.</p>
+
+<h2>STRATEGIES
+<a name="STRATEGIES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The queue
+manager implements a variety of strategies for either
+opening queue files (input) or for message delivery
+(output). <b><br>
+leaky bucket</b></p>
+
+<p style="margin-left:22%;">This strategy limits the number
+of messages in the <b>active</b> queue and prevents the
+queue manager from running out of memory under heavy
+load.</p>
+
+<p style="margin-left:11%;"><b>fairness</b></p>
+
+<p style="margin-left:22%;">When the <b>active</b> queue
+has room, the queue manager takes one message from the
+<b>incoming</b> queue and one from the <b>deferred</b>
+queue. This prevents a large mail backlog from blocking the
+delivery of new mail.</p>
+
+<p style="margin-left:11%;"><b>slow start</b></p>
+
+<p style="margin-left:22%;">This strategy eliminates
+&quot;thundering herd&quot; problems by slowly adjusting the
+number of parallel deliveries to the same destination.</p>
+
+<p style="margin-left:11%;"><b>round robin</b></p>
+
+<p style="margin-left:22%;">The queue manager sorts
+delivery requests by destination. Round-robin selection
+prevents one destination from dominating deliveries to other
+destinations.</p>
+
+<p style="margin-left:11%;"><b>exponential backoff</b></p>
+
+<p style="margin-left:22%;">Mail that cannot be delivered
+upon the first attempt is deferred. The time interval
+between delivery attempts is doubled after each attempt.</p>
+
+<p style="margin-left:11%;"><b>destination status
+cache</b></p>
+
+<p style="margin-left:22%;">The queue manager avoids
+unnecessary delivery attempts by maintaining a short-term,
+in-memory list of unreachable destinations.</p>
+
+<h2>TRIGGERS
+<a name="TRIGGERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">On an idle
+system, the queue manager waits for the arrival of trigger
+events, or it waits for a timer to go off. A trigger is a
+one-byte message. Depending on the message received, the
+queue manager performs one of the following actions (the
+message is followed by the symbolic constant used internally
+by the software): <b><br>
+D (QMGR_REQ_SCAN_DEFERRED)</b></p>
+
+<p style="margin-left:22%;">Start a deferred queue scan. If
+a deferred queue scan is already in progress, that scan will
+be restarted as soon as it finishes.</p>
+
+<p style="margin-left:11%;"><b>I
+(QMGR_REQ_SCAN_INCOMING)</b></p>
+
+<p style="margin-left:22%;">Start an incoming queue scan.
+If an incoming queue scan is already in progress, that scan
+will be restarted as soon as it finishes.</p>
+
+<p style="margin-left:11%;"><b>A
+(QMGR_REQ_SCAN_ALL)</b></p>
+
+<p style="margin-left:22%;">Ignore deferred queue file time
+stamps. The request affects the next deferred queue
+scan.</p>
+
+<p style="margin-left:11%;"><b>F
+(QMGR_REQ_FLUSH_DEAD)</b></p>
+
+<p style="margin-left:22%;">Purge all information about
+dead transports and destinations.</p>
+
+<p style="margin-left:11%;"><b>W
+(TRIGGER_REQ_WAKEUP)</b></p>
+
+<p style="margin-left:22%;">Wakeup call, This is used by
+the master server to instantiate servers that should not go
+away forever. The action is to start an incoming queue
+scan.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon reads an entire buffer worth of
+triggers. Multiple identical trigger requests are collapsed
+into one, and trigger requests are sorted so that <b>A</b>
+and <b>F</b> precede <b>D</b> and <b>I</b>. Thus, in order
+to force a deferred queue run, one would request <b>A F
+D</b>; in order to notify the queue manager of the arrival
+of new mail one would request <b>I</b>.</p>
+
+<h2>STANDARDS
+<a name="STANDARDS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">RFC 3463
+(Enhanced status codes) <br>
+RFC 3464 (Delivery status notifications)</p>
+
+<h2>SECURITY
+<a name="SECURITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>oqmgr</b>(8) daemon is not security sensitive. It reads
+single-character messages from untrusted local users, and
+thus may be susceptible to denial of service attacks. The
+<b>oqmgr</b>(8) daemon does not talk to the outside world,
+and it can be run at fixed low privilege in a chrooted
+environment.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Problems and
+transactions are logged to the <b>syslog</b>(8) daemon.
+Corrupted message files are saved to the <b>corrupt</b>
+queue for further inspection.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Depending on
+the setting of the <b>notify_classes</b> parameter, the
+postmaster is notified of bounces and of other trouble.</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A single queue
+manager process has to compete for disk access with multiple
+front-end processes such as <b>cleanup</b>(8). A sudden
+burst of inbound mail can negatively impact outbound
+delivery rates.</p>
+
+<h2>CONFIGURATION PARAMETERS
+<a name="CONFIGURATION PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Changes to
+<b>main.cf</b> are not picked up automatically, as
+<b>oqmgr</b>(8) is a persistent process. Use the command
+&quot;<b>postfix reload</b>&quot; after a configuration
+change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The text below
+provides only a parameter summary. See <b>postconf</b>(5)
+for more details including examples.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the text
+below, <i>transport</i> is the first field in a
+<b>master.cf</b> entry.</p>
+
+<h2>COMPATIBILITY CONTROLS
+<a name="COMPATIBILITY CONTROLS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Available
+before Postfix version 2.5: <b><br>
+allow_min_user (no)</b></p>
+
+<p style="margin-left:22%;">Allow a sender or recipient
+address to have &lsquo;-&rsquo; as the first character.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Available with
+Postfix version 2.7 and later: <b><br>
+default_filter_nexthop (empty)</b></p>
+
+<p style="margin-left:22%;">When a content_filter or FILTER
+request specifies no explicit next-hop destination, use
+$default_filter_nexthop instead; when that value is empty,
+use the domain in the recipient address.</p>
+
+<h2>ACTIVE QUEUE CONTROLS
+<a name="ACTIVE QUEUE CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>qmgr_clog_warn_time
+(300s)</b></p>
+
+<p style="margin-left:22%;">The minimal delay between
+warnings that a specific destination is clogging up the
+Postfix active queue.</p>
+
+<p style="margin-left:11%;"><b>qmgr_message_active_limit
+(20000)</b></p>
+
+<p style="margin-left:22%;">The maximal number of messages
+in the active queue.</p>
+
+
+<p style="margin-left:11%;"><b>qmgr_message_recipient_limit
+(20000)</b></p>
+
+<p style="margin-left:22%;">The maximal number of
+recipients held in memory by the Postfix queue manager, and
+the maximal size of the short-term, in-memory
+&quot;dead&quot; destination status cache.</p>
+
+<h2>DELIVERY CONCURRENCY CONTROLS
+<a name="DELIVERY CONCURRENCY CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>qmgr_fudge_factor
+(100)</b></p>
+
+<p style="margin-left:22%;">Obsolete feature: the
+percentage of delivery resources that a busy mail system
+will use up for delivery of a large mailing list
+message.</p>
+
+
+<p style="margin-left:11%;"><b>initial_destination_concurrency
+(5)</b></p>
+
+<p style="margin-left:22%;">The initial per-destination
+concurrency level for parallel delivery to the same
+destination.</p>
+
+
+<p style="margin-left:11%;"><b>default_destination_concurrency_limit
+(20)</b></p>
+
+<p style="margin-left:22%;">The default maximal number of
+parallel deliveries to the same destination.</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_concurrency_limit
+<br>
+($default_destination_concurrency_limit)</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Available in
+Postfix version 2.5 and later: <i><br>
+transport</i><b>_initial_destination_concurrency <br>
+($initial_destination_concurrency)</b></p>
+
+<p style="margin-left:22%;">Initial concurrency for
+delivery via the named message <i>transport</i>.</p>
+
+
+<p style="margin-left:11%;"><b>default_destination_concurrency_failed_cohort_limit
+(1)</b></p>
+
+<p style="margin-left:22%;">How many pseudo-cohorts must
+suffer connection or handshake failure before a specific
+destination is considered unavailable (and further delivery
+is suspended).</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_concurrency_failed_cohort_limit
+<br>
+
+($default_destination_concurrency_failed_cohort_limit)</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+
+<p style="margin-left:11%;"><b>default_destination_concurrency_negative_feedback
+(1)</b></p>
+
+<p style="margin-left:22%;">The per-destination amount of
+delivery concurrency negative feedback, after a delivery
+completes with a connection or handshake failure.</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_concurrency_negative_feedback
+<br>
+
+($default_destination_concurrency_negative_feedback)</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+
+<p style="margin-left:11%;"><b>default_destination_concurrency_positive_feedback
+(1)</b></p>
+
+<p style="margin-left:22%;">The per-destination amount of
+delivery concurrency positive feedback, after a delivery
+completes without connection or handshake failure.</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_concurrency_positive_feedback
+<br>
+
+($default_destination_concurrency_positive_feedback)</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+
+<p style="margin-left:11%;"><b>destination_concurrency_feedback_debug
+(no)</b></p>
+
+<p style="margin-left:22%;">Make the queue manager&rsquo;s
+feedback algorithm verbose for performance analysis
+purposes.</p>
+
+<h2>RECIPIENT SCHEDULING CONTROLS
+<a name="RECIPIENT SCHEDULING CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>default_destination_recipient_limit
+(50)</b></p>
+
+<p style="margin-left:22%;">The default maximal number of
+recipients per message delivery.</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_recipient_limit</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+<h2>OTHER RESOURCE AND RATE CONTROLS
+<a name="OTHER RESOURCE AND RATE CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>minimal_backoff_time
+(300s)</b></p>
+
+<p style="margin-left:22%;">The minimal time between
+attempts to deliver a deferred message; prior to Postfix 2.4
+the default value was 1000s.</p>
+
+<p style="margin-left:11%;"><b>maximal_backoff_time
+(4000s)</b></p>
+
+<p style="margin-left:22%;">The maximal time between
+attempts to deliver a deferred message.</p>
+
+<p style="margin-left:11%;"><b>maximal_queue_lifetime
+(5d)</b></p>
+
+<p style="margin-left:22%;">The maximal time a message is
+queued before it is sent back as undeliverable.</p>
+
+<p style="margin-left:11%;"><b>queue_run_delay
+(300s)</b></p>
+
+<p style="margin-left:22%;">The time between deferred queue
+scans by the queue manager; prior to Postfix 2.4 the default
+value was 1000s.</p>
+
+<p style="margin-left:11%;"><b>transport_retry_time
+(60s)</b></p>
+
+<p style="margin-left:22%;">The time between attempts by
+the Postfix queue manager to contact a malfunctioning
+message delivery transport.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Available in
+Postfix version 2.1 and later: <b><br>
+bounce_queue_lifetime (5d)</b></p>
+
+<p style="margin-left:22%;">The maximal time a bounce
+message is queued before it is considered undeliverable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Available in
+Postfix version 2.5 and later: <b><br>
+default_destination_rate_delay (0s)</b></p>
+
+<p style="margin-left:22%;">The default amount of delay
+that is inserted between individual deliveries to the same
+destination; the resulting behavior depends on the value of
+the corresponding per-destination recipient limit.</p>
+
+
+<p style="margin-left:11%;"><i>transport</i><b>_destination_rate_delay
+$default_destination_rate_delay</b></p>
+
+<p style="margin-left:22%;">Idem, for delivery via the
+named message <i>transport</i>.</p>
+
+<h2>SAFETY CONTROLS
+<a name="SAFETY CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>qmgr_daemon_timeout
+(1000s)</b></p>
+
+<p style="margin-left:22%;">How much time a Postfix queue
+manager process may take to handle a request before it is
+terminated by a built-in watchdog timer.</p>
+
+<p style="margin-left:11%;"><b>qmgr_ipc_timeout
+(60s)</b></p>
+
+<p style="margin-left:22%;">The time limit for the queue
+manager to send or receive information over an internal
+communication channel.</p>
+
+<h2>MISCELLANEOUS CONTROLS
+<a name="MISCELLANEOUS CONTROLS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>config_directory
+(see &rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The default location of the
+Postfix main.cf and master.cf configuration files.</p>
+
+<p style="margin-left:11%;"><b>defer_transports
+(empty)</b></p>
+
+<p style="margin-left:22%;">The names of message delivery
+transports that should not deliver mail unless someone
+issues &quot;<b>sendmail -q</b>&quot; or equivalent.</p>
+
+
+<p style="margin-left:11%;"><b>delay_logging_resolution_limit
+(2)</b></p>
+
+<p style="margin-left:22%;">The maximal number of digits
+after the decimal point when logging sub-second delay
+values.</p>
+
+<p style="margin-left:11%;"><b>helpful_warnings
+(yes)</b></p>
+
+<p style="margin-left:22%;">Log warnings about problematic
+configuration settings, and provide helpful suggestions.</p>
+
+<p style="margin-left:11%;"><b>process_id
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process ID of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>process_name
+(read-only)</b></p>
+
+<p style="margin-left:22%;">The process name of a Postfix
+command or daemon process.</p>
+
+<p style="margin-left:11%;"><b>queue_directory (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The location of the Postfix
+top-level queue directory.</p>
+
+<p style="margin-left:11%;"><b>syslog_facility
+(mail)</b></p>
+
+<p style="margin-left:22%;">The syslog facility of Postfix
+logging.</p>
+
+<p style="margin-left:11%;"><b>syslog_name (see
+&rsquo;postconf -d&rsquo; output)</b></p>
+
+<p style="margin-left:22%;">The mail system name that is
+prepended to the process name in syslog records, so that
+&quot;smtpd&quot; becomes, for example,
+&quot;postfix/smtpd&quot;.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">/var/spool/postfix/incoming,
+incoming queue <br>
+/var/spool/postfix/active, active queue <br>
+/var/spool/postfix/deferred, deferred queue <br>
+/var/spool/postfix/bounce, non-delivery status <br>
+/var/spool/postfix/defer, non-delivery status <br>
+/var/spool/postfix/trace, delivery status</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">trivial-rewrite(8),
+address routing <br>
+bounce(8), delivery status reports <br>
+postconf(5), configuration parameters <br>
+master(5), generic daemon options <br>
+master(8), process manager <br>
+syslogd(8), system logging</p>
+
+<h2>README FILES
+<a name="README FILES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use
+&quot;<b>postconf readme_directory</b>&quot; or
+&quot;<b>postconf html_directory</b>&quot; to locate this
+information. <br>
+QSHAPE_README, Postfix queue analysis</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Secure
+Mailer license must be distributed with this software.</p>
+
+<h2>AUTHOR(S)
+<a name="AUTHOR(S)"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Wietse Venema
+<br>
+IBM T.J. Watson Research <br>
+P.O. Box 704 <br>
+Yorktown Heights, NY 10598, USA</p>
+<hr>
+</body>
+</html>

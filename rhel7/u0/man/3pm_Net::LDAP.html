@@ -1,0 +1,1413 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:08:28 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Net::LDAP</title>
+
+</head>
+<body>
+
+<h1 align="center">Net::LDAP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONSTRUCTOR">CONSTRUCTOR</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#CONTROLS">CONTROLS</a><br>
+<a href="#CALLBACKS">CALLBACKS</a><br>
+<a href="#LDAP ERROR CODES">LDAP ERROR CODES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a><br>
+<a href="#MAILING LIST">MAILING LIST</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Net::LDAP
+&minus; Lightweight Directory Access Protocol</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> use Net::LDAP;
+ $ldap = Net::LDAP&minus;&gt;new( 'ldap.bigfoot.com' ) or die &quot;$@&quot;;
+ $mesg = $ldap&minus;&gt;bind ;    # an anonymous bind
+ $mesg = $ldap&minus;&gt;search( # perform a search
+                        base   =&gt; &quot;c=US&quot;,
+                        filter =&gt; &quot;(&amp;(sn=Barr)(o=Texas Instruments))&quot;
+                      );
+ $mesg&minus;&gt;code &amp;&amp; die $mesg&minus;&gt;error;
+ foreach $entry ($mesg&minus;&gt;entries) { $entry&minus;&gt;dump; }
+ $mesg = $ldap&minus;&gt;unbind;   # take down session
+ $ldap = Net::LDAP&minus;&gt;new( 'ldap.umich.edu' );
+ # bind to a directory with dn and password
+ $mesg = $ldap&minus;&gt;bind( 'cn=root, o=University of Michigan, c=us',
+                      password =&gt; 'secret'
+                    );
+ $result = $ldap&minus;&gt;add( 'cn=Barbara Jensen, o=University of Michigan, c=US',
+                       attrs =&gt; [
+                         'cn'   =&gt; ['Barbara Jensen', 'Barbs Jensen'],
+                         'sn'   =&gt; 'Jensen',
+                         'mail' =&gt; 'b.jensen@umich.edu',
+                         'objectclass' =&gt; ['top', 'person',
+                                           'organizationalPerson',
+                                           'inetOrgPerson' ],
+                       ]
+                     );
+ $result&minus;&gt;code &amp;&amp; warn &quot;failed to add entry: &quot;, $result&minus;&gt;error ;
+ $mesg = $ldap&minus;&gt;unbind;  # take down session</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Net::LDAP</b>
+is a collection of modules that implements a
+<small>LDAP</small> services <small>API</small> for Perl
+programs. The module may be used to search directories or
+perform maintenance functions such as adding, deleting or
+modifying entries.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This document
+assumes that the reader has some knowledge of the
+<small>LDAP</small> protocol.</p>
+
+<h2>CONSTRUCTOR
+<a name="CONSTRUCTOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">new (
+<small>HOST, OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Creates a new <b>Net::LDAP</b>
+object and opens a connection to the named host.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;HOST&quot;</tt>
+may be a host name or an <small>IP</small> number.
+<small>TCP</small> port may be specified after the host name
+followed by a colon (such as localhost:10389). The default
+<small>TCP</small> port for <small>LDAP</small> is 389.</p>
+
+<p style="margin-left:17%; margin-top: 1em">You can also
+specify a <small>URI,</small> such as
+&rsquo;ldaps://127.0.0.1:666&rsquo; or
+&rsquo;ldapi://%2fvar%2flib%2fldap_sock&rsquo;. Note that
+&rsquo;%2f&rsquo;s in the <small>LDAPI</small> socket path
+will be translated into &rsquo;/&rsquo;. This is to support
+<small>LDAP</small> query options like base, search etc.
+although the query part of the <small>URI</small> will be
+ignored in this context. If port was not specified in the
+<small>URI,</small> the default is either 389 or 636 for
+&rsquo; <small>LDAP</small> &rsquo; and &rsquo;
+<small>LDAPS</small> &rsquo; schemes respectively.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;HOST&quot;</tt>
+may also be a reference to an array of hosts, host-port
+pairs or URIs to try. Each will be tried in order until a
+connection is made. Only when all have failed will the
+result of <tt>&quot;undef&quot;</tt> be returned. <br>
+port =&gt; N</p>
+
+<p style="margin-left:23%;">Port to connect to on the
+remote server. May be overridden by
+<tt>&quot;HOST&quot;</tt>.</p>
+
+<p style="margin-left:17%;">scheme =&gt; &rsquo;ldap&rsquo;
+| &rsquo;ldaps&rsquo; | &rsquo;ldapi&rsquo;</p>
+
+<p style="margin-left:23%;">Connection scheme to use when
+not using an <small>URI</small> as
+<tt>&quot;HOST&quot;</tt>. (Default: ldap)</p>
+
+<p style="margin-left:17%;">keepalive =&gt; 1</p>
+
+<p style="margin-left:23%;">If given, set the
+socket&rsquo;s <small>SO_KEEPALIVE</small> option depending
+on the boolean value of the option. (Default: use system
+default)</p>
+
+<p style="margin-left:23%; margin-top: 1em">Failures in
+changing the socket&rsquo;s <small>SO_KEEPALIVE</small>
+option are ignored.</p>
+
+<p style="margin-left:17%;">timeout =&gt; N</p>
+
+<p style="margin-left:23%;">Timeout passed to IO::Socket
+when connecting the remote server. (Default: 120)</p>
+
+<p style="margin-left:17%;">multihomed =&gt; N</p>
+
+<p style="margin-left:23%;">Will be passed to IO::Socket as
+the <tt>&quot;MultiHomed&quot;</tt> parameter when
+connecting to the remote server</p>
+
+<p style="margin-left:17%;">localaddr =&gt;
+<small>HOST</small></p>
+
+<p style="margin-left:23%;">Will be passed to IO::Socket as
+the <tt>&quot;LocalAddr&quot;</tt> parameter, which sets the
+client&rsquo;s <small>IP</small> address (as opposed to the
+server&rsquo;s <small>IP</small> address.)</p>
+
+<p style="margin-left:17%;">debug =&gt; N</p>
+
+<p style="margin-left:23%;">Set the debug level. See the
+debug method for details.</p>
+
+<p style="margin-left:17%;">async =&gt; 1</p>
+
+<p style="margin-left:23%;">Perform all operations
+asynchronously.</p>
+
+<p style="margin-left:17%;">onerror =&gt; &rsquo;die&rsquo;
+| &rsquo;warn&rsquo; | undef | sub { ... }</p>
+
+<p style="margin-left:23%;">In synchronous mode, change
+what happens when an error is detected. <br>
+&rsquo;die&rsquo;</p>
+
+<p style="margin-left:29%;">Net::LDAP will croak whenever
+an error is detected.</p>
+
+<p style="margin-left:23%;">&rsquo;warn&rsquo;</p>
+
+<p style="margin-left:29%;">Net::LDAP will warn whenever an
+error is detected.</p>
+
+<p style="margin-left:23%;">undef</p>
+
+<p style="margin-left:29%;">Net::LDAP will warn whenever an
+error is detected and <tt>&quot;&minus;w&quot;</tt> is in
+effect. The method that was called will return
+<tt>&quot;undef&quot;</tt>.</p>
+
+<p style="margin-left:23%;">sub { ... }</p>
+
+<p style="margin-left:29%;">The given sub will be called in
+a scalar context with a single argument, the result message.
+The value returned will be the return value for the method
+that was called.</p>
+
+<p style="margin-left:17%;">version =&gt; N</p>
+
+<p style="margin-left:23%;">Set the protocol version being
+used (default is LDAPv3). This is useful if you want to talk
+to an old server and therefore have to use LDAPv2.</p>
+
+<p style="margin-left:17%;">raw =&gt;
+<small>REGEX</small></p>
+
+<p style="margin-left:23%;">Use <small>REGEX</small> to
+denote the names of attributes that are to be considered
+binary in search results.</p>
+
+<p style="margin-left:23%; margin-top: 1em">When running on
+Perl 5.8 and this option is given Net::LDAP converts all
+values of attributes not matching this <small>REGEX</small>
+into Perl <small>UTF&minus;8</small> strings so that the
+regular Perl operators (pattern matching, ...) can operate
+as one expects even on strings with international
+characters.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If this option
+is not given or the version of Perl Net::LDAP is running on
+is too old strings are encoded the same as in earlier
+versions of perl-ldap.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Example: raw
+=&gt; qr/(?i:^jpegPhoto|;binary)/</p>
+
+<p style="margin-left:17%;">inet4 =&gt; N <br>
+inet6 =&gt; N</p>
+
+<p style="margin-left:23%;">Try to connect to the server
+using the specified <small>IP</small> protocol only, i.e.
+either IPv4 or IPv6. If the protocol selected is not
+supported, connecting will fail.</p>
+
+<p style="margin-left:23%; margin-top: 1em">The default is
+to use any of the two protocols.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em">  $ldap = Net::LDAP&minus;&gt;new( 'remote.host', async =&gt; 1 );</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>LDAPS</small>
+connections have some extra valid options, see the start_tls
+method for details. Note the default value for
+&rsquo;sslversion&rsquo; for <small>LDAPS</small> is
+&rsquo;sslv23&rsquo;, and the default port for
+<small>LDAPS</small> is 636.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For
+<small>LDAPI</small> connections, <small>HOST</small> is
+actually the location of a <small>UNIX</small> domain socket
+to connect to. The default location is
+&rsquo;/var/run/ldapi&rsquo;.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Each of the
+following methods take as arguments some number of fixed
+parameters followed by options, these options are passed in
+a named fashion, for example</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $mesg = $ldap&minus;&gt;bind( &quot;cn=me,o=example&quot;, password =&gt; &quot;mypasswd&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The return
+value from these methods is an object derived from the
+Net::LDAP::Message class. The methods of this class allow
+you to examine the status of the request. <br>
+abandon ( <small>ID, OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Abandon a previously issued
+request. <tt>&quot;ID&quot;</tt> may be a number or an
+object which is a sub-class of Net::LDAP::Message, returned
+from a previous method call. <br>
+control =&gt; <small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em">  $res = $ldap&minus;&gt;search( @search_args );
+  $mesg = $ldap&minus;&gt;abandon( $res ); # This could be written as $res&minus;&gt;abandon</pre>
+
+
+<p style="margin-left:11%;">add ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Add a new entry to the
+directory. <tt>&quot;DN&quot;</tt> can be either a
+Net::LDAP::Entry object or a string. <br>
+attrs =&gt; [ <small>ATTR</small> =&gt; <small>VALUE,
+...</small> ]</p>
+
+<p style="margin-left:23%;"><tt>&quot;VALUE&quot;</tt>
+should be a string if only a single value is wanted, or a
+reference to an array of strings if multiple values are
+wanted.</p>
+
+<p style="margin-left:23%; margin-top: 1em">This argument
+is not used if <tt>&quot;DN&quot;</tt> is a Net::LDAP::Entry
+object.</p>
+
+<p style="margin-left:17%;">control =&gt;
+<small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em">  # $entry is an object of class Net::LDAP::Entry
+  $mesg = $ldap&minus;&gt;add( $entry );
+  $mesg = $ldap&minus;&gt;add( $dn,
+                      attrs =&gt; [
+                        name  =&gt; 'Graham Barr',
+                        attr  =&gt; 'value1',
+                        attr  =&gt; 'value2',
+                        multi =&gt; [qw(value1 value2)]
+                      ]
+                    );</pre>
+
+
+<p style="margin-left:11%;">bind ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Bind (log in) to the server.
+<tt>&quot;DN&quot;</tt> is the <small>DN</small> to bind
+with. An anonymous bind may be done by calling bind without
+any arguments. <br>
+control =&gt; <small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below</p>
+
+<p style="margin-left:17%;">noauth | anonymous =&gt; 1</p>
+
+<p style="margin-left:23%;">Bind without any password. The
+value passed with this option is ignored.</p>
+
+<p style="margin-left:17%;">password =&gt;
+<small>PASSWORD</small></p>
+
+<p style="margin-left:23%;">Bind with the given
+password.</p>
+
+<p style="margin-left:17%;">sasl =&gt;
+<small>SASLOBJ</small></p>
+
+<p style="margin-left:23%;">Bind using a
+<small>SASL</small> mechanism. The argument given should be
+a sub-class of Authen::SASL or an Authen::SASL client
+connection by calling <tt>&quot;client_new&quot;</tt> on an
+Authen::SASL object.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If passed an
+Authen::SASL object then <tt>&quot;client_new&quot;</tt>
+will be called to create a client connection object. The
+hostname passed by <tt>&quot;Net::LDAP&quot;</tt> to
+<tt>&quot;client_new&quot;</tt> is the result of calling
+<tt>&quot;peerhost&quot;</tt> on the socket. If this is not
+correct for your environment, consider calling
+<tt>&quot;client_new&quot;</tt> and passing the client
+connection object.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em">  $mesg = $ldap&minus;&gt;bind; # Anonymous bind
+  $mesg = $ldap&minus;&gt;bind( $dn, password =&gt; $password );
+  # $sasl is an object of class Authen::SASL
+  $mesg = $ldap&minus;&gt;bind( $dn, sasl =&gt; $sasl, version =&gt; 3 );</pre>
+
+
+<p style="margin-left:11%;">compare ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Compare values in an attribute
+in the entry given by <tt>&quot;DN&quot;</tt> on the server.
+<tt>&quot;DN&quot;</tt> may be a string or a
+Net::LDAP::Entry object. <br>
+attr =&gt; <small>ATTR</small></p>
+
+<p style="margin-left:23%;">The name of the attribute to
+compare.</p>
+
+<p style="margin-left:17%;">value =&gt;
+<small>VALUE</small></p>
+
+<p style="margin-left:23%;">The value to compare with.</p>
+
+<p style="margin-left:17%;">control =&gt;
+<small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em">  $mesg = $ldap&minus;&gt;compare( $dn,
+                          attr  =&gt; 'cn',
+                          value =&gt; 'Graham Barr'
+                        );</pre>
+
+
+<p style="margin-left:11%;">delete ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Delete the entry given by
+<tt>&quot;DN&quot;</tt> from the server.
+<tt>&quot;DN&quot;</tt> may be a string or a
+Net::LDAP::Entry object. <br>
+control =&gt; <small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> $mesg = $ldap&minus;&gt;delete( $dn );</pre>
+
+
+<p style="margin-left:11%;">moddn ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Rename the entry given by
+<tt>&quot;DN&quot;</tt> on the server.
+<tt>&quot;DN&quot;</tt> may be a string or a
+Net::LDAP::Entry object. <br>
+newrdn =&gt; <small>RDN</small></p>
+
+<p style="margin-left:23%;">This value should be a new
+<small>RDN</small> to assign to <tt>&quot;DN&quot;</tt>.</p>
+
+<p style="margin-left:17%;">deleteoldrdn =&gt; 1</p>
+
+<p style="margin-left:23%;">This option should be passed if
+the existing <small>RDN</small> is to be deleted.</p>
+
+<p style="margin-left:17%;">newsuperior =&gt;
+<small>NEWDN</small></p>
+
+<p style="margin-left:23%;">If given this value should be
+the <small>DN</small> of the new superior for
+<tt>&quot;DN&quot;</tt>.</p>
+
+<p style="margin-left:17%;">control =&gt;
+<small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> $mesg = $ldap&minus;&gt;moddn( $dn, newrdn =&gt; 'cn=Graham Barr' );</pre>
+
+
+<p style="margin-left:11%;">modify ( <small>DN,
+OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Modify the contents of the
+entry given by <tt>&quot;DN&quot;</tt> on the server.
+<tt>&quot;DN&quot;</tt> may be a string or a
+Net::LDAP::Entry object. <br>
+add =&gt; { <small>ATTR</small> =&gt; <small>VALUE,
+...</small> }</p>
+
+<p style="margin-left:23%;">Add more attributes or values
+to the entry. <tt>&quot;VALUE&quot;</tt> should be a string
+if only a single value is wanted in the attribute, or a
+reference to an array of strings if multiple values are
+wanted.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    add =&gt; {
+      description =&gt; 'List of members',    # Add description attribute
+      member      =&gt; [
+        'cn=member1,ou=people,dc=example,dc=com',    # Add to attribute
+        'cn=member2,ou=people,dc=example,dc=com',
+      ]
+    }
+  );</pre>
+
+
+<p style="margin-left:17%;">delete =&gt; [ <small>ATTR,
+...</small> ]</p>
+
+<p style="margin-left:23%;">Delete complete attributes from
+the entry.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    delete =&gt; ['member','description'] # Delete attributes
+  );</pre>
+
+
+<p style="margin-left:17%;">delete =&gt; {
+<small>ATTR</small> =&gt; <small>VALUE, ...</small> }</p>
+
+<p style="margin-left:23%;">Delete individual values from
+an attribute. <tt>&quot;VALUE&quot;</tt> should be a string
+if only a single value is being deleted from the attribute,
+or a reference to an array of strings if multiple values are
+being deleted.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If
+<tt>&quot;VALUE&quot;</tt> is a reference to an empty array
+or all existing values of the attribute are being deleted,
+then the attribute will be deleted from the entry.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    delete =&gt; {
+      description =&gt; 'List of members',
+      member      =&gt; [
+        'cn=member1,ou=people,dc=example,dc=com',    # Remove members
+        'cn=member2,ou=people,dc=example,dc=com',
+      ],
+      seeAlso =&gt; [],   # Remove attribute
+    }
+  );</pre>
+
+
+<p style="margin-left:17%;">replace =&gt; {
+<small>ATTR</small> =&gt; <small>VALUE, ...</small> }</p>
+
+<p style="margin-left:23%;">Replace any existing values in
+each given attribute with <tt>&quot;VALUE&quot;</tt>.
+<tt>&quot;VALUE&quot;</tt> should be a string if only a
+single value is wanted in the attribute, or a reference to
+an array of strings if multiple values are wanted. A
+reference to an empty array will remove the entire
+attribute. If the attribute does not already exist in the
+entry, it will be created.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    replace =&gt; {
+      description =&gt; 'New List of members', # Change the description
+      member      =&gt; [ # Replace whole list with these
+        'cn=member1,ou=people,dc=example,dc=com',
+        'cn=member2,ou=people,dc=example,dc=com',
+      ],
+      seeAlso =&gt; [],   # Remove attribute
+    }
+  );</pre>
+
+
+<p style="margin-left:17%;">increment =&gt; {
+<small>ATTR</small> =&gt; <small>VALUE, ...</small> }</p>
+
+<p style="margin-left:23%;">Atomically increment the
+existing value in each given attribute by the provided
+<tt>&quot;VALUE&quot;</tt>. The attributes need to have
+integer syntax, or be otherwise &quot;incrementable&quot;.
+Note this will only work if the server advertizes support
+for <small>LDAP_FEATURE_MODIFY_INCREMENT.</small> Use
+&quot;supported_feature&quot; in Net::LDAP::RootDSE to check
+this.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    increment =&gt; {
+      uidNumber =&gt; 1 # increment uidNumber by 1
+    }
+  );</pre>
+
+
+<p style="margin-left:17%;">changes =&gt; [
+<small>OP</small> =&gt; [ <small>ATTR</small> =&gt;
+<small>VALUE</small> ], ... ]</p>
+
+<p style="margin-left:23%;">This is an alternative to
+<b>add</b>, <b>delete</b>, <b>replace</b> and
+<b>increment</b> where the whole operation can be given in a
+single argument. <tt>&quot;OP&quot;</tt> should be
+<b>add</b>, <b>delete</b>, <b>replace</b> or
+<b>increment</b>. <tt>&quot;VALUE&quot;</tt> should be
+either a string or a reference to an array of strings, as
+before.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Use this form
+if you want to control the order in which the operations
+will be performed.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;modify( $dn,
+    changes =&gt; [
+      add =&gt; [
+        description =&gt; 'A description',
+        member      =&gt; $newMember,
+      ],
+      delete =&gt; [
+        seeAlso =&gt; [],
+      ],
+      add =&gt; [
+        anotherAttribute =&gt; $value,
+      ],
+    ]
+  );</pre>
+
+
+<p style="margin-left:17%;">control =&gt;
+<small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> $mesg = $ldap&minus;&gt;modify( $dn, add =&gt; { sn =&gt; 'Barr' } );
+ $mesg = $ldap&minus;&gt;modify( $dn, delete =&gt; [qw(faxNumber)] );
+ $mesg = $ldap&minus;&gt;modify( $dn, delete =&gt; { 'telephoneNumber' =&gt; '911' } );
+ $mesg = $ldap&minus;&gt;modify( $dn, replace =&gt; { 'mail' =&gt; 'gbarr@pobox.com' } );
+ $mesg = $ldap&minus;&gt;modify( $dn,
+                        changes =&gt; [
+                            # add sn=Barr
+                          add     =&gt; [ sn =&gt; 'Barr' ],
+                            # delete all fax numbers
+                          delete  =&gt; [ faxNumber =&gt; []],
+                            # delete phone number 911
+                          delete  =&gt; [ telephoneNumber =&gt; ['911']],
+                            # change email address
+                          replace =&gt; [ mail =&gt; 'gbarr@pobox.com']
+                        ]
+                      );</pre>
+
+
+<p style="margin-left:11%;">search ( <small>OPTIONS</small>
+)</p>
+
+<p style="margin-left:17%;">Search the directory using a
+given filter. This can be used to read attributes from a
+single entry, from entries immediately below a particular
+entry, or a whole subtree of entries.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The result is
+an object of class Net::LDAP::Search. <br>
+base =&gt; <small>DN</small></p>
+
+<p style="margin-left:23%;">The <small>DN</small> that is
+the base object entry relative to which the search is to be
+performed.</p>
+
+<p style="margin-left:17%;">scope =&gt; &rsquo;base&rsquo;
+| &rsquo;one&rsquo; | &rsquo;sub&rsquo; |
+&rsquo;subtree&rsquo; | &rsquo;children&rsquo;</p>
+
+<p style="margin-left:23%;">By default the search is
+performed on the whole tree below the specified base object.
+This maybe changed by specifying a
+<tt>&quot;scope&quot;</tt> parameter with one of the
+following values: <br>
+base</p>
+
+<p style="margin-left:29%;">Search only the base
+object.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="5%">
+
+
+<p>one</p></td>
+<td width="1%"></td>
+<td width="71%">
+
+
+<p>Search the entries immediately below the base
+object.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="5%">
+
+
+<p>sub</p></td>
+<td width="1%"></td>
+<td width="71%">
+</td></tr>
+</table>
+
+<p style="margin-left:23%;">subtree</p>
+
+<p style="margin-left:29%;">Search the whole tree below
+(and including) the base object. This is the default.</p>
+
+<p style="margin-left:23%;">children</p>
+
+<p style="margin-left:29%;">Search the whole subtree below
+the base object, excluding the base object itself.</p>
+
+<p style="margin-left:29%; margin-top: 1em">Note:
+<i>children</i> scope requires LDAPv3 subordinate feature
+extension.</p>
+
+<p style="margin-left:17%;">deref =&gt; &rsquo;never&rsquo;
+| &rsquo;search&rsquo; | &rsquo;find&rsquo; |
+&rsquo;always&rsquo;</p>
+
+<p style="margin-left:23%;">By default aliases are
+dereferenced to locate the base object for the search, but
+not when searching subordinates of the base object. This may
+be changed by specifying a <tt>&quot;deref&quot;</tt>
+parameter with one of the following values: <br>
+never</p>
+
+<p style="margin-left:29%;">Do not dereference aliases in
+searching or in locating the base object of the search.</p>
+
+<p style="margin-left:23%;">search</p>
+
+<p style="margin-left:29%;">Dereference aliases in
+subordinates of the base object in searching, but not in
+locating the base object of the search.</p>
+
+<p style="margin-left:23%;">find</p>
+
+<p style="margin-left:29%;">Dereference aliases in locating
+the base object of the search, but not when searching
+subordinates of the base object. This is the default.</p>
+
+<p style="margin-left:23%;">always</p>
+
+<p style="margin-left:29%;">Dereference aliases both in
+searching and in locating the base object of the search.</p>
+
+<p style="margin-left:17%;">sizelimit =&gt; N</p>
+
+<p style="margin-left:23%;">A sizelimit that restricts the
+maximum number of entries to be returned as a result of the
+search. A value of 0, and the default, means that no
+restriction is requested. Servers may enforce a maximum
+number of entries to return.</p>
+
+<p style="margin-left:17%;">timelimit =&gt; N</p>
+
+<p style="margin-left:23%;">A timelimit that restricts the
+maximum time (in seconds) allowed for a search. A value of 0
+(the default), means that no timelimit will be
+requested.</p>
+
+<p style="margin-left:17%;">typesonly =&gt; 1</p>
+
+<p style="margin-left:23%;">Only attribute types (no
+values) should be returned. Normally attribute types and
+values are returned.</p>
+
+<p style="margin-left:17%;">filter =&gt;
+<small>FILTER</small></p>
+
+<p style="margin-left:23%;">A filter that defines the
+conditions an entry in the directory must meet in order for
+it to be returned by the search. This may be a string or a
+Net::LDAP::Filter object. Values inside filters may need to
+be escaped to avoid security problems; see Net::LDAP::Filter
+for a definition of the filter format, including the
+escaping rules.</p>
+
+<p style="margin-left:17%;">attrs =&gt; [ <small>ATTR,
+...</small> ]</p>
+
+<p style="margin-left:23%;">A list of attributes to be
+returned for each entry that matches the search filter.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If not
+specified, then the server will return the attributes that
+are specified as accessible by default given your bind
+credentials.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Certain
+additional attributes such as &quot;createTimestamp&quot;
+and other operational attributes may also be available for
+the asking:</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;search( ... ,
+                         attrs =&gt; ['createTimestamp']
+                       );</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">To retrieve the
+default attributes and additional ones, use
+&rsquo;*&rsquo;.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;search( ... ,
+                         attrs =&gt; ['*', 'createTimestamp']
+                       );</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">To retrieve no
+attributes (the server only returns the DNs of matching
+entries), use &rsquo;1.1&rsquo;:</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  $mesg = $ldap&minus;&gt;search( ... ,
+                         attrs =&gt; ['1.1']
+                       );</pre>
+
+
+<p style="margin-left:17%;">control =&gt;
+<small>CONTROL</small> <br>
+control =&gt; [ <small>CONTROL, ...</small> ]</p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CONTROLS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">callback =&gt;
+<small>CALLBACK</small></p>
+
+<p style="margin-left:23%;">See &quot;
+<small>CALLBACKS&quot;</small> below.</p>
+
+<p style="margin-left:17%;">raw =&gt;
+<small>REGEX</small></p>
+
+<p style="margin-left:23%;">Use <small>REGEX</small> to
+denote the names of attributes that are to be considered
+binary in search results.</p>
+
+<p style="margin-left:23%; margin-top: 1em">When running on
+Perl 5.8 and this option is given Net::LDAP converts all
+values of attributes not matching this <small>REGEX</small>
+into Perl <small>UTF&minus;8</small> strings so that the
+regular Perl operators (pattern matching, ...) can operate
+as one expects even on strings with international
+characters.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If this option
+is not given or the version of Perl Net::LDAP is running on
+is too old strings are encodeed the same as in earlier
+versions of perl-ldap.</p>
+
+<p style="margin-left:23%; margin-top: 1em">The value
+provided here overwrites the value inherited from the
+constructor.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Example: raw
+=&gt; qr/(?i:^jpegPhoto|;binary)/</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> $mesg = $ldap&minus;&gt;search(
+                        base   =&gt; $base_dn,
+                        scope  =&gt; 'sub',
+                        filter =&gt; '(|(objectclass=rfc822mailgroup)(sn=jones))'
+                      );
+ Net::LDAP::LDIF&minus;&gt;new( \*STDOUT,&quot;w&quot; )&minus;&gt;write( $mesg&minus;&gt;entries );</pre>
+
+
+<p style="margin-left:11%;">start_tls (
+<small>OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">Calling this method will
+convert the existing connection to using Transport Layer
+Security ( <small>TLS</small> ), which provides an encrypted
+connection. This is <i>only</i> possible if the connection
+uses LDAPv3, and requires that the server advertizes support
+for <small>LDAP_EXTENSION_START_TLS.</small> Use
+&quot;supported_extension&quot; in Net::LDAP::RootDSE to
+check this. <br>
+verify =&gt; &rsquo;none&rsquo; | &rsquo;optional&rsquo; |
+&rsquo;require&rsquo;</p>
+
+<p style="margin-left:23%;">How to verify the
+server&rsquo;s certificate: <br>
+none</p>
+
+<p style="margin-left:29%;">The server may provide a
+certificate but it will not be checked &minus; this may mean
+you are be connected to the wrong server</p>
+
+<p style="margin-left:23%;">optional</p>
+
+<p style="margin-left:29%;">Verify only when the server
+offers a certificate</p>
+
+<p style="margin-left:23%;">require</p>
+
+<p style="margin-left:29%;">The server must provide a
+certificate, and it must be valid.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If you set
+verify to optional or require, you must also set either
+cafile or capath. The most secure option is
+<b>require</b>.</p>
+
+<p style="margin-left:17%;">sslversion =&gt;
+&rsquo;sslv2&rsquo; | &rsquo;sslv3&rsquo; |
+&rsquo;sslv23&rsquo; | &rsquo;tlsv1&rsquo;</p>
+
+<p style="margin-left:23%;">This defines the version of the
+<small>SSL/TLS</small> protocol to use. Defaults to
+<b>&rsquo;tlsv1&rsquo;</b>.</p>
+
+<p style="margin-left:17%;">ciphers =&gt;
+<small>CIPHERS</small></p>
+
+<p style="margin-left:23%;">Specify which subset of cipher
+suites are permissible for this connection, using the
+standard OpenSSL string format. The default value is
+<b>&rsquo; <small>ALL</small> &rsquo;</b>, which permits all
+ciphers, even those that don&rsquo;t encrypt.</p>
+
+<p style="margin-left:17%;">clientcert =&gt;
+&rsquo;/path/to/cert.pem&rsquo; <br>
+clientkey =&gt; &rsquo;/path/to/key.pem&rsquo; <br>
+keydecrypt =&gt; sub { ... }</p>
+
+<p style="margin-left:23%;">If you want to use the client
+to offer a certificate to the server for <small>SSL</small>
+authentication (which is not the same as for the
+<small>LDAP</small> Bind operation) then set clientcert to
+the user&rsquo;s certificate file, and clientkey to the
+user&rsquo;s private key file. These files must be in
+<small>PEM</small> format.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If the private
+key is encrypted (highly recommended) then keydecrypt should
+be a subroutine that returns the decrypting key. For
+example:</p>
+
+<pre style="margin-left:23%; margin-top: 1em"> $ldap = Net::LDAP&minus;&gt;new( 'myhost.example.com', version =&gt; 3 );
+ $mesg = $ldap&minus;&gt;start_tls(
+                           verify =&gt; 'require',
+                           clientcert =&gt; 'mycert.pem',
+                           clientkey =&gt; 'mykey.pem',
+                           keydecrypt =&gt; sub { 'secret'; },
+                           capath =&gt; '/usr/local/cacerts/'
+                         );</pre>
+
+
+<p style="margin-left:17%;">capath =&gt;
+&rsquo;/path/to/servercerts/&rsquo; <br>
+cafile =&gt; &rsquo;/path/to/servercert.pem&rsquo;</p>
+
+<p style="margin-left:23%;">When verifying the
+server&rsquo;s certificate, either set capath to the
+pathname of the directory containing <small>CA</small>
+certificates, or set cafile to the filename containing the
+certificate of the <small>CA</small> who signed the
+server&rsquo;s certificate. These certificates must all be
+in <small>PEM</small> format.</p>
+
+<p style="margin-left:23%; margin-top: 1em">The directory
+in &rsquo;capath&rsquo; must contain certificates named
+using the hash value of the certificates&rsquo; subject
+names. To generate these names, use OpenSSL like this in
+Unix:</p>
+
+<pre style="margin-left:23%; margin-top: 1em">    ln &minus;s cacert.pem `openssl x509 &minus;hash &minus;noout &lt; cacert.pem`.0</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">(assuming that
+the certificate of the <small>CA</small> is in
+cacert.pem.)</p>
+
+<p style="margin-left:17%;">checkcrl =&gt; 1</p>
+
+<p style="margin-left:23%;">If capath has been configured,
+then it will also be searched for certificate revocation
+lists (CRLs) when verifying the server&rsquo;s certificate.
+The CRLs&rsquo; names must follow the form
+<b>hash</b>.r<b>num</b> where <b>hash</b> is the hash over
+the issuer&rsquo;s <small>DN</small> and <b>num</b> is a
+number starting with 0.</p>
+
+<p style="margin-left:23%; margin-top: 1em">See
+&quot;SSL_check_crl&quot; in IO::Socket::SSL for further
+information.</p>
+
+<p style="margin-left:11%;">unbind ( )</p>
+
+<p style="margin-left:17%;">The unbind method does not take
+any parameters and will unbind you from the server. Some
+servers may allow you to re-bind or perform other operations
+after unbinding. If you wish to switch to another set of
+credentials while continuing to use the same connection,
+re-binding with another <small>DN</small> and password,
+without unbind-ing, will generally work.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> $mesg = $ldap&minus;&gt;unbind;</pre>
+
+
+<p style="margin-left:11%;">done ( )</p>
+
+<p style="margin-left:17%;">Convencience alias for
+<tt>&quot;unbind()&quot;</tt>, named after the clean-up
+method of Net::LDAP::LDIF.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+methods are for convenience, and do not return
+<tt>&quot;Net::LDAP::Message&quot;</tt> objects. <br>
+async ( <small>VALUE</small> )</p>
+
+<p style="margin-left:17%;">If <tt>&quot;VALUE&quot;</tt>
+is given the async mode will be set. The previous value will
+be returned. The value is <i>true</i> if <small>LDAP</small>
+operations are being performed asynchronously.</p>
+
+<p style="margin-left:11%;">certificate ( )</p>
+
+<p style="margin-left:17%;">Returns an X509_Certificate
+object containing the server&rsquo;s certificate. See the
+IO::Socket::SSL documentation for information about this
+class.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example, to
+get the subject name (in a peculiar OpenSSL-specific format,
+different from <small>RFC 1779</small> and <small>RFC
+4514</small> ) from the server&rsquo;s certificate, do
+this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    print &quot;Subject DN: &quot; . $ldaps&minus;&gt;certificate&minus;&gt;subject_name . &quot;\n&quot;;</pre>
+
+
+<p style="margin-left:11%;">cipher ( )</p>
+
+<p style="margin-left:17%;">Returns the cipher mode being
+used by the connection, in the string format used by
+OpenSSL.</p>
+
+<p style="margin-left:11%;">debug ( <small>VALUE</small>
+)</p>
+
+<p style="margin-left:17%;">If <tt>&quot;VALUE&quot;</tt>
+is given the debug bit-value will be set. The previous value
+will be returned. Debug output will be sent to
+<tt>&quot;STDERR&quot;</tt>. The bits of this value are:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> 1   Show outgoing packets (using asn_hexdump).
+ 2   Show incoming packets (using asn_hexdump).
+ 4   Show outgoing packets (using asn_dump).
+ 8   Show incoming packets (using asn_dump).</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The default
+value is 0.</p>
+
+<p style="margin-left:11%;">disconnect ( )</p>
+
+<p style="margin-left:17%;">Disconnect from the server</p>
+
+<p style="margin-left:11%;">root_dse (
+<small>OPTIONS</small> )</p>
+
+<p style="margin-left:17%;">The root_dse method retrieves
+cached information from the server&rsquo;s rootDSE. <br>
+attrs =&gt; [ <small>ATTR, ...</small> ]</p>
+
+<p style="margin-left:23%;">A reference to a list of
+attributes to be returned. If not specified, then the
+following attributes will be requested</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  subschemaSubentry
+  namingContexts
+  altServer
+  supportedExtension
+  supportedFeatures
+  supportedControl
+  supportedSASLMechanisms
+  supportedLDAPVersion</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The result is
+an object of class Net::LDAP::RootDSE.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> my $root = $ldap&minus;&gt;root_dse;
+ # get naming Context
+ $root&minus;&gt;get_value( 'namingContexts', asref =&gt; 1 );
+ # get supported LDAP versions
+ $root&minus;&gt;supported_version;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">As the root
+<small>DSE</small> may change in certain circumstances
+&minus; for instance when you change the connection using
+start_tls &minus; you should always use the root_dse method
+to return the most up-to-date copy of the root
+<small>DSE.</small></p>
+
+<p style="margin-left:11%;">schema ( <small>OPTIONS</small>
+)</p>
+
+<p style="margin-left:17%;">Read schema information from
+the server.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The result is
+an object of class Net::LDAP::Schema. Read this
+documentation for further information about methods that can
+be performed with this object. <br>
+dn =&gt; <small>DN</small></p>
+
+<p style="margin-left:23%;">If a <small>DN</small> is
+supplied, it will become the base object entry from which
+the search for schema information will be conducted. If no
+<small>DN</small> is supplied the base object entry will be
+determined from the rootDSE entry.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>Example</b></p>
+
+
+<pre style="margin-left:17%; margin-top: 1em"> my $schema = $ldap&minus;&gt;schema;
+ # get objectClasses
+ @ocs = $schema&minus;&gt;all_objectclasses;
+ # Get the attributes
+ @atts = $schema&minus;&gt;all_attributes;</pre>
+
+
+<p style="margin-left:11%;">socket ( )</p>
+
+<p style="margin-left:17%;">Returns the underlying
+<tt>&quot;IO::Socket&quot;</tt> object being used.</p>
+
+<p style="margin-left:11%;">host ( )</p>
+
+<p style="margin-left:17%;">Returns the host to which the
+connection was established. For <small>LDAPI</small>
+connections the socket path is returned.</p>
+
+<p style="margin-left:11%;">port ( )</p>
+
+<p style="margin-left:17%;">Returns the the port connected
+to or <tt>&quot;undef&quot;</tt> in case of
+<small>LDAPI</small> connections.</p>
+
+<p style="margin-left:11%;">uri ( )</p>
+
+<p style="margin-left:17%;">Returns the <small>URI</small>
+connected to.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As the value
+returned is that element of the constructor&rsquo;s
+<small>HOST</small> argument with which the connection was
+established this may or may not be a legal
+<small>URI.</small></p>
+
+<p style="margin-left:11%;">scheme ( )</p>
+
+<p style="margin-left:17%;">Returns the scheme of the
+connection. One of <i>ldap</i>, <i>ldaps</i> or
+<i>ldapi</i>.</p>
+
+<p style="margin-left:11%;">sync ( <small>MESG</small>
+)</p>
+
+<p style="margin-left:17%;">Wait for a given
+<tt>&quot;MESG&quot;</tt> request to be completed by the
+server. If no <tt>&quot;MESG&quot;</tt> is given, then wait
+for all outstanding requests to be completed.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns an
+error code defined in Net::LDAP::Constant.</p>
+
+<p style="margin-left:11%;">process ( <small>MESG</small>
+)</p>
+
+<p style="margin-left:17%;">Process any messages that the
+server has sent, but do not block. If
+<tt>&quot;MESG&quot;</tt> is specified then return as soon
+as <tt>&quot;MESG&quot;</tt> has been processed.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns an
+error code defined in Net::LDAP::Constant.</p>
+
+<p style="margin-left:11%;">version ( )</p>
+
+<p style="margin-left:17%;">Returns the version of the
+<small>LDAP</small> protocol that is being used.</p>
+
+<h2>CONTROLS
+<a name="CONTROLS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Many of the
+methods described above accept a control option. This allows
+the user to pass controls to the server as described in
+LDAPv3.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A control is a
+reference to a <small>HASH</small> and should contain the
+three elements below. If any of the controls are blessed
+then the method <tt>&quot;to_asn&quot;</tt> will be called
+which should return a reference to a <small>HASH</small>
+containing the three elements described below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For most
+purposes Net::LDAP::Control objects are the easiest way to
+generate controls. <br>
+type =&gt; <small>OID</small></p>
+
+<p style="margin-left:17%;">This element must be present
+and is the name of the type of control being requested.</p>
+
+<p style="margin-left:11%;">critical =&gt;
+<small>FLAG</small></p>
+
+<p style="margin-left:17%;">critical is optional and should
+be a boolean value, if it is not specified then it is
+assumed to be <i>false</i>.</p>
+
+<p style="margin-left:11%;">value =&gt;
+<small>VALUE</small></p>
+
+<p style="margin-left:17%;">If the control being requested
+requires a value then this element should hold the value for
+the server.</p>
+
+<h2>CALLBACKS
+<a name="CALLBACKS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Most of the
+above commands accept a callback option. This option should
+be a reference to a subroutine. This subroutine will be
+called for each packet received from the server as a
+response to the request sent.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When the
+subroutine is called the first argument will be the
+Net::LDAP::Message object which was returned from the
+method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the request
+is a search then multiple packets can be received from the
+server. Each entry is received as a separate packet. For
+each of these the subroutine will be called with a
+Net::LDAP::Entry object as the second argument.</p>
+
+<p style="margin-left:11%; margin-top: 1em">During a search
+the server may also send a list of references. When such a
+list is received then the subroutine will be called with a
+Net::LDAP::Reference object as the second argument.</p>
+
+<h2>LDAP ERROR CODES
+<a name="LDAP ERROR CODES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Net::LDAP</b>
+also exports constants for the error codes that can be
+received from the server, see Net::LDAP::Constant.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Net::LDAP::Constant,
+Net::LDAP::Control, Net::LDAP::Entry, Net::LDAP::Filter,
+Net::LDAP::Message, Net::LDAP::Reference, Net::LDAP::Search,
+Net::LDAP::RFC</p>
+
+<p style="margin-left:11%; margin-top: 1em">The homepage
+for the perl-ldap modules can be found at
+http://ldap.perl.org/.</p>
+
+<h2>ACKNOWLEDGEMENTS
+<a name="ACKNOWLEDGEMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This document
+is based on a document originally written by Russell Fulton
+&lt;r.fulton@auckland.ac.nz&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Chris Ridd
+&lt;chris.ridd@isode.com&gt; for the many hours spent
+testing and contribution of the ldap* command line
+utilities.</p>
+
+<h2>MAILING LIST
+<a name="MAILING LIST"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A discussion
+mailing list is hosted by the Perl Foundation at
+&lt;perl&minus;ldap@perl.org&gt; No subscription is
+necessary!</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">We hope you do
+not find any, but if you do please report them to the
+mailing list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you have a
+patch, please send it as an attachment to the mailing
+list.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Graham Barr
+&lt;gbarr@pobox.com&gt;</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (c)
+1997&minus;2004 Graham Barr. All rights reserved. This
+program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.</p>
+<hr>
+</body>
+</html>

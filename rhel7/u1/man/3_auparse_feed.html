@@ -1,0 +1,209 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:23:41 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>AUPARSE_FEED</title>
+
+</head>
+<body>
+
+<h1 align="center">AUPARSE_FEED</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#RETURN VALUE">RETURN VALUE</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">auparse_feed
+&minus; feed data into parser</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;auparse.h&gt;</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">int
+auparse_feed(auparse_state_t *au, const char *data, size_t
+data_len);</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><i>au</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>The audit parse state</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><i>data</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>a buffer of data to feed into the parser, it is
+<i>data_len</i> bytes long. The data is copied in the
+parser, upon return the caller may free or reuse the data
+buffer.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;"><i>data_len</i></p>
+
+<p style="margin-left:22%;">number of bytes in
+<i>data</i></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>auparse_feed</i>
+supplies new data for the parser to consume.
+<i>auparse_init()</i> must have been called with a source
+type of AUSOURCE_FEED and a NULL pointer.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The parser
+consumes as much data as it can invoking a user supplied
+callback specified with <i>auparse_add_callback</i> with a
+cb_event_type of <i>AUPARSE_CB_EVENT_READY</i> each time the
+parser recognizes a complete event in the data stream. Data
+not fully parsed will persist and be prepended to the next
+feed data. After all data has been feed to the parser
+<i>auparse_flush_feed</i> should be called to signal the end
+of input data and flush any pending parse data through the
+parsing system.</p>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">void <br>
+auparse_callback(auparse_state_t *au, auparse_cb_event_t
+cb_event_type, <br>
+void *user_data) <br>
+{ <br>
+int *event_cnt = (int *)user_data;</p>
+
+<p style="margin-left:11%; margin-top: 1em">if
+(cb_event_type == AUPARSE_CB_EVENT_READY) { <br>
+if (auparse_first_record(au) &lt;= 0) return; <br>
+printf(&quot;event: %d\n&quot;, *event_cnt); <br>
+printf(&quot;records:%d\n&quot;,
+auparse_get_num_records(au)); <br>
+do { <br>
+printf(&quot;fields:%d\n&quot;, auparse_get_num_fields(au));
+<br>
+printf(&quot;type=%d &quot;, auparse_get_type(au)); <br>
+const au_event_t *e = auparse_get_timestamp(au); <br>
+if (e == NULL) return; <br>
+printf(&quot;event time: %u.%u:%lu\n&quot;, <br>
+(unsigned)e&minus;&gt;sec, e&minus;&gt;milli,
+e&minus;&gt;serial); <br>
+auparse_first_field(au); <br>
+do { <br>
+printf(&quot;%s=%s (%s)\n&quot;, auparse_get_field_name(au),
+<br>
+auparse_get_field_str(au), <br>
+auparse_interpret_field(au)); <br>
+} while (auparse_next_field(au) &gt; 0); <br>
+printf(&quot;\n&quot;);</p>
+
+<p style="margin-left:11%; margin-top: 1em">}
+while(auparse_next_record(au) &gt; 0); <br>
+(*event_cnt)++; <br>
+} <br>
+}</p>
+
+<p style="margin-left:11%; margin-top: 1em">main(int argc,
+char **argv) <br>
+{ <br>
+char *filename = argv[1]; <br>
+FILE *fp; <br>
+char buf[256]; <br>
+size_t len; <br>
+int *event_cnt = malloc(sizeof(int));</p>
+
+<p style="margin-left:11%; margin-top: 1em">au =
+auparse_init(AUSOURCE_FEED, 0);</p>
+
+<p style="margin-left:11%; margin-top: 1em">*event_cnt = 1;
+<br>
+auparse_add_callback(au, auparse_callback, event_cnt,
+free);</p>
+
+<p style="margin-left:11%; margin-top: 1em">if ((fp =
+fopen(filename, &quot;r&quot;)) == NULL) { <br>
+fprintf(stderr, &quot;could not open &rsquo;%s&rsquo;,
+%s\n&quot;, filename, strerror(errno)); <br>
+return 1; <br>
+}</p>
+
+<p style="margin-left:11%; margin-top: 1em">while ((len =
+fread(buf, 1, sizeof(buf), fp))) { <br>
+auparse_feed(au, buf, len); <br>
+} <br>
+auparse_flush_feed(au); <br>
+}</p>
+
+<h2>RETURN VALUE
+<a name="RETURN VALUE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+&minus;1 if an error occurs; otherwise, 0 for success.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>auparse_add_callback</b>(3),
+<b>auparse_flush_feed</b>(3),
+<b>auparse_feed_has_data</b>(3)</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">John Dennis</p>
+<hr>
+</body>
+</html>

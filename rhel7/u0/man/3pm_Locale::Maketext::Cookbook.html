@@ -1,0 +1,204 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:04:30 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Locale::Maketext::Cookbook</title>
+
+</head>
+<body>
+
+<h1 align="center">Locale::Maketext::Cookbook</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#INTRODUCTION">INTRODUCTION</a><br>
+<a href="#ONESIDED LEXICONS">ONESIDED LEXICONS</a><br>
+<a href="#DECIMAL PLACES IN NUMBER FORMATTING">DECIMAL PLACES IN NUMBER FORMATTING</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Locale::Maketext::Cookbook
+&minus; recipes for using Locale::Maketext</p>
+
+<h2>INTRODUCTION
+<a name="INTRODUCTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is a work
+in progress. Not much progress by now :&minus;)</p>
+
+<h2>ONESIDED LEXICONS
+<a name="ONESIDED LEXICONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Adapted from
+a suggestion by Dan Muey</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">It may be
+common (for example at your main lexicon) that the hash keys
+and values coincide. Like that</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    q{Hello, tell me your name}
+      =&gt; q{Hello, tell me your name}</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It would be
+nice to just write:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    q{Hello, tell me your name} =&gt; ''</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and have this
+magically inflated to the first form. Among the advantages
+of such representation, that would lead to smaller files,
+less prone to mistyping or mispasting, and handy to someone
+translating it which can simply copy the main lexicon and
+enter the translation instead of having to remove the value
+first.</p>
+
+<p style="margin-left:11%; margin-top: 1em">That can be
+achieved by overriding <tt>&quot;init&quot;</tt> in your
+class and working on the main lexicon with code like
+that:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    package My::I18N;
+    ...
+    sub init {
+        my $lh = shift; # a newborn handle
+        $lh&minus;&gt;SUPER::init();
+        inflate_lexicon(\%My::I18N::en::Lexicon);
+        return;
+    }
+    sub inflate_lexicon {
+        my $lex = shift;
+        while (my ($k, $v) = each %$lex) {
+            $v = $k if !defined $v || $v eq '';
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Here we are
+assuming <tt>&quot;My::I18N::en&quot;</tt> to own the main
+lexicon.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are some
+downsides here: the size economy will not stand at runtime
+after this <tt>&quot;init()&quot;</tt> runs. But it should
+not be that critical, since if you don&rsquo;t have space
+for that, you won&rsquo;t have space for any other language
+besides the main one as well. You could do that too with
+ties, expanding the value at lookup time which should be
+more time expensive as an option.</p>
+
+<h2>DECIMAL PLACES IN NUMBER FORMATTING
+<a name="DECIMAL PLACES IN NUMBER FORMATTING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>After
+<small>CPAN RT</small> #36136
+(https://rt.cpan.org/Ticket/Display.html?id=36136)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+documentation of Locale::Maketext advises that the standard
+bracket method <tt>&quot;numf&quot;</tt> is limited and that
+you must override that for better results. It even suggests
+the use of Number::Format.</p>
+
+<p style="margin-left:11%; margin-top: 1em">One such defect
+of standard <tt>&quot;numf&quot;</tt> is to not be able to
+use a certain decimal precision. For example,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $lh&minus;&gt;maketext('pi is [numf,_1]', 355/113);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">outputs</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    pi is 3.14159292035398</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Since pi X
+355/116 is only accurate to 6 decimal places, you would want
+to say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $lh&minus;&gt;maketext('pi is [numf,_1,6]', 355/113);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and get
+&quot;pi is 3.141592&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">One solution
+for that could use <tt>&quot;Number::Format&quot;</tt> like
+that:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    package Wuu;
+    use base qw(Locale::Maketext);
+    use Number::Format;
+    # can be overridden according to language conventions
+    sub _numf_params {
+        return (
+            &minus;thousands_sep  =&gt; '.',
+            &minus;decimal_point  =&gt; ',',
+            &minus;decimal_digits =&gt; 2,
+        );
+    }
+    # builds a Number::Format
+    sub _numf_formatter {
+        my ($lh, $scale) = @_;
+        my @params = $lh&minus;&gt;_numf_params;
+        if ($scale) { # use explicit scale rather than default
+            push @params, (&minus;decimal_digits =&gt; $scale);
+        }
+        return Number::Format&minus;&gt;new(@params);
+    }
+    sub numf {
+        my ($lh, $n, $scale) = @_;
+        # get the (cached) formatter
+        my $nf = $lh&minus;&gt;{__nf}{$scale} ||= $lh&minus;&gt;_numf_formatter($scale);
+        # format the number itself
+        return $nf&minus;&gt;format_number($n);
+    }
+    package Wuu::pt;
+    use base qw(Wuu);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and then</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $lh = Wuu&minus;&gt;get_handle('pt');
+    $lh&minus;&gt;maketext('A [numf,_1,3] km de distancia', 1550.2222);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">would return
+&quot;A 1.550,222 km de distancia&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Notice that the
+standard utility methods of
+<tt>&quot;Locale::Maketext&quot;</tt> are irremediably
+limited because they could not aim to do everything that
+could be expected from them in different languages, cultures
+and applications. So extending <tt>&quot;numf&quot;</tt>,
+<tt>&quot;quant&quot;</tt>, and <tt>&quot;sprintf&quot;</tt>
+is natural as soon as your needs exceed what the standard
+ones do.</p>
+<hr>
+</body>
+</html>

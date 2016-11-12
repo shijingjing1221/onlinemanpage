@@ -1,0 +1,1465 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:18:38 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SNMP</title>
+
+</head>
+<body>
+
+<h1 align="center">SNMP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SNMP::Session">SNMP::Session</a><br>
+<a href="#SNMP::TrapSession">SNMP::TrapSession</a><br>
+<a href="#Acceptable variable formats:">Acceptable variable formats:</a><br>
+<a href="#Acceptable callback formats">Acceptable callback formats</a><br>
+<a href="#SNMP package variables and functions">SNMP package variables and functions</a><br>
+<a href="#%SNMP::MIB">%SNMP::MIB</a><br>
+<a href="#MIB Functions">MIB Functions</a><br>
+<a href="#Exported SNMP utility functions">Exported SNMP utility functions</a><br>
+<a href="#Trouble Shooting">Trouble Shooting</a><br>
+<a href="#Acknowledgements">Acknowledgements</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#Copyright">Copyright</a><br>
+<a href="#POD ERRORS">POD ERRORS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">SNMP &minus;
+The Perl5 &rsquo;SNMP&rsquo; Extension Module for the
+Net&minus;SNMP SNMP package.</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> use SNMP;
+ ...
+ $sess = new SNMP::Session(DestHost =&gt; localhost, Community =&gt; public);
+ $val = $sess&minus;&gt;get('sysDescr.0');
+ ...
+ $vars = new SNMP::VarList([sysDescr,0], [sysContact,0], [sysLocation,0]);
+ @vals = $sess&minus;&gt;get($vars);
+ ...
+ $vb = new SNMP::Varbind();
+ do {
+    $val = $sess&minus;&gt;getnext($vb);
+    print &quot;@{$vb}\n&quot;;
+ } until ($sess&minus;&gt;{ErrorNum});
+ ...
+ $SNMP::save_descriptions = 1;
+ SNMP::initMib(); # assuming mib is not already loaded
+ print &quot;$SNMP::MIB{sysDescr}{description}\n&quot;;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note: The perl
+<small>SNMP 5.0</small> module which comes with net-snmp 5.0
+and higher is different than previous versions in a number
+of ways. Most importantly, it behaves like a proper net-snmp
+application and calls init_snmp properly, which means it
+will read configuration files and use those defaults where
+appropriate automatically parse <small>MIB</small> files,
+etc. This will likely affect your perl applications if you
+have, for instance, default values set up in your snmp.conf
+file (as the perl module will now make use of those
+defaults). The documentation, however, has sadly not been
+updated yet (aside from this note), nor is the read_config
+default usage implementation fully complete.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The basic
+operations of the <small>SNMP</small> protocol are provided
+by this module through an object oriented interface for
+modularity and ease of use. The primary class is
+SNMP::Session which encapsulates the persistent aspects of a
+connection between the management application and the
+managed agent. Internally the class is implemented as a
+blessed hash reference. This class supplies
+&rsquo;get&rsquo;, &rsquo;getnext&rsquo;, &rsquo;set&rsquo;,
+&rsquo;fget&rsquo;, and &rsquo;fgetnext&rsquo; method calls.
+The methods take a variety of input argument formats and
+support both synchronous and asynchronous operation through
+a polymorphic <small>API</small> (i.e., method behaviour
+varies dependent on args passed &minus; see below).</p>
+
+<h2>SNMP::Session
+<a name="SNMP::Session"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$sess</tt>
+= new SNMP::Session(DestHost =&gt; &rsquo;host&rsquo;,
+...)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+arguments may be passed to new as a hash.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Basic
+Options</b> <br>
+DestHost</p>
+
+<p style="margin-left:17%;">Hostname or <small>IP</small>
+address of the <small>SNMP</small> agent you want to talk
+to. Specified in Net-SNMP formatted agent addresses. These
+addresses typically look like one of the following:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  localhost
+  tcp:localhost
+  tls:localhost
+  tls:localhost:9876
+  udp6:[::1]:9876
+  unix:/some/path/to/file/socket</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Defaults to
+&rsquo;localhost&rsquo;.</p>
+
+<p style="margin-left:11%;">Version</p>
+
+<p style="margin-left:17%;"><small>SNMP</small> version to
+use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+taken from library configuration &minus; probably 3 [1, 2
+(same as 2c), 2c, 3].</p>
+
+<p style="margin-left:11%;">Timeout</p>
+
+<p style="margin-left:17%;">The number of micro-seconds to
+wait before resending a request.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;1000000&rsquo;</p>
+
+<p style="margin-left:11%;">Retries</p>
+
+<p style="margin-left:17%;">The number of times to retry a
+request.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;5&rsquo;</p>
+
+<p style="margin-left:11%;">RetryNoSuch</p>
+
+<p style="margin-left:17%;">If enabled
+<small>NOSUCH</small> errors in &rsquo;get&rsquo; pdus will
+be repaired, removing the varbind in error, and resent
+&minus; undef will be returned for all <small>NOSUCH</small>
+varbinds, when set to &rsquo;0&rsquo; this feature is
+disabled and the entire get request will fail on any
+<small>NOSUCH</small> error (applies to v1 only)</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;0&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>SNMPv3/TLS
+Options</b> <br>
+OurIdentity</p>
+
+<p style="margin-left:17%;">Our X.509 identity to use,
+which should either be a fingerprint or the filename that
+holds the certificate.</p>
+
+<p style="margin-left:11%;">TheirIdentity</p>
+
+<p style="margin-left:17%;">The remote server&rsquo;s
+identity to connect to, specified as eihter a fingerprint or
+a file name. Either this must be specified, or the hostname
+below along with a trust anchor.</p>
+
+<p style="margin-left:11%;">TheirHostname</p>
+
+<p style="margin-left:17%;">The remote server&rsquo;s
+hostname that is expected. If their certificate was signed
+by a <small>CA</small> then their hostname presented in the
+certificate must match this value or the connection fails to
+be established (to avoid man-in-the-middle attacks).</p>
+
+<p style="margin-left:11%;">TrustCert</p>
+
+<p style="margin-left:17%;">A trusted certificate to use a
+trust anchor (like a <small>CA</small> certificate) for
+verifying a remote server&rsquo;s certificate. If a
+<small>CA</small> certificate is used to validate a
+certificate then the TheirHostname parameter must also be
+specified to ensure their presente hostname in the
+certificate matches.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>SNMPv3/USM
+Options</b> <br>
+SecName</p>
+
+<p style="margin-left:17%;">The SNMPv3 security name to use
+(most for SNMPv3 with <small>USM</small> ).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;initial&rsquo;.</p>
+
+<p style="margin-left:11%;">SecLevel</p>
+
+<p style="margin-left:17%;">The SNMPv3 security level to
+use [noAuthNoPriv, authNoPriv, authPriv] (v3)</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;noAuthNoPriv&rsquo;.</p>
+
+<p style="margin-left:11%;">SecEngineId</p>
+
+<p style="margin-left:17%;">The SNMPv3 security engineID to
+use (if the snmpv3 security model needs it; for example
+<small>USM</small> ).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&lt;none&gt;, security engineID and it will be probed if not
+supplied (v3)</p>
+
+<p style="margin-left:11%;">ContextEngineId</p>
+
+<p style="margin-left:17%;">The SNMPv3 context engineID to
+use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+the &lt;none&gt; and will be set either to the SecEngineId
+value if set or discovered or will be discovered in other
+ways if using <small>TLS</small> ( <small>RFC5343</small>
+based discovery).</p>
+
+<p style="margin-left:11%;">Context</p>
+
+<p style="margin-left:17%;">The SNMPv3 context name to
+use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;&rsquo; (an empty string)</p>
+
+<p style="margin-left:11%;">AuthProto</p>
+
+<p style="margin-left:17%;">The SNMPv3/USM authentication
+protocol to use [ <small>MD5, SHA</small> ].</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo; <small>MD5</small> &rsquo;.</p>
+
+<p style="margin-left:11%;">AuthPass</p>
+
+<p style="margin-left:17%;">The SNMPv3/USM authentication
+passphrase to use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">default
+&lt;none&gt;, authentication passphrase</p>
+
+<p style="margin-left:11%;">PrivProto</p>
+
+<p style="margin-left:17%;">The SNMPv3/USM privacy protocol
+to use [ <small>DES, AES</small> ].</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo; <small>DES</small> &rsquo;.</p>
+
+<p style="margin-left:11%;">PrivPass</p>
+
+<p style="margin-left:17%;">The SNMPv3/USM privacy
+passphrase to use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">default
+&lt;none&gt;, privacy passphrase (v3)</p>
+
+<p style="margin-left:11%;">AuthMasterKey <br>
+PrivMasterKey <br>
+AuthLocalizedKey <br>
+PrivLocalizedKey</p>
+
+<p style="margin-left:17%;">Directly specified SNMPv3
+<small>USM</small> user keys (used if you want to specify
+the keys instead of deriving them from a password as
+above).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>SNMPv1 and
+SNMPv2c Options</b> <br>
+Community</p>
+
+<p style="margin-left:17%;">For SNMPv1 and SNMPv2c, the
+clear-text community name to use.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The default is
+&rsquo;public&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Other
+Configuration Options</b> <br>
+VarFormats</p>
+
+<p style="margin-left:17%;">default &rsquo;undef&rsquo;,
+used by &rsquo;fget[next]&rsquo;, holds an hash reference of
+output value formatters, (e.g., {&lt;obj&gt; =&gt;
+&lt;sub&minus;ref&gt;, ... }, &lt;obj&gt; must match the
+&lt;obj&gt; and format used in the get operation. A special
+&lt;obj&gt;, &rsquo;*&rsquo;, may be used to apply all
+&lt;obj&gt;s, the supplied sub is called to translate the
+value to a new format. The sub is called passing the Varbind
+as the arg</p>
+
+<p style="margin-left:11%;">TypeFormats</p>
+
+<p style="margin-left:17%;">default &rsquo;undef&rsquo;,
+used by &rsquo;fget[next]&rsquo;, holds an hash reference of
+output value formatters, (e.g., {&lt;type&gt; =&gt;
+&lt;sub&minus;ref&gt;, ... }, the supplied sub is called to
+translate the value to a new format, unless a VarFormat
+mathces first (e.g., <tt>$sess</tt>&minus;&gt;{TypeFormats}{
+<small>INTEGER</small> } = \&amp;<i>mapEnum()</i>; although
+this can be done more efficiently by enabling
+<tt>$SNMP::use_enums</tt> or session creation param
+&rsquo;UseEnums&rsquo;)</p>
+
+<p style="margin-left:11%;">UseLongNames</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::use_long_names at time of session creation. set to
+non-zero to have &lt;tags&gt; for &rsquo;getnext&rsquo;
+methods generated preferring longer Mib name convention
+(e.g., system.sysDescr vs just sysDescr)</p>
+
+<p style="margin-left:11%;">UseSprintValue</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::use_sprint_value at time of session creation. set to
+non-zero to have return values for &rsquo;get&rsquo; and
+&rsquo;getnext&rsquo; methods formatted with the libraries
+snprint_value function. This will result in certain data
+types being returned in non-canonical format Note: values
+returned with this option set may not be appropriate for
+&rsquo;set&rsquo; operations (see discussion of value
+formats in &lt;vars&gt; description section)</p>
+
+<p style="margin-left:11%;">UseEnums</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::use_enums at time of session creation. set to non-zero
+to have integer return values converted to enumeration
+identifiers if possible, these values will also be
+acceptable when supplied to &rsquo;set&rsquo; operations</p>
+
+<p style="margin-left:11%;">UseNumeric</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::use_numeric at time of session creation. set to
+non-zero to have &lt;tags&gt; for get methods returned as
+numeric <small>OID</small> &rsquo;s rather than
+descriptions. UseLongNames will be set so that the full
+<small>OID</small> is returned to the caller.</p>
+
+<p style="margin-left:11%;">BestGuess</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::best_guess at time of session creation. this setting
+controls how &lt;tags&gt; are parsed. setting to 0 causes a
+regular lookup. setting to 1 causes a regular expression
+match (defined as &minus;Ib in snmpcmd) and setting to 2
+causes a random access lookup (defined as &minus;IR in
+snmpcmd).</p>
+
+<p style="margin-left:11%;">NonIncreasing</p>
+
+<p style="margin-left:17%;">defaults to the value of
+SNMP::non_increasing at time of session creation. this
+setting controls if a non-increasing <small>OID</small>
+during bulkwalk will causes an error. setting to 0 causes
+the default behaviour (which may, in very badly performing
+agents, result in a never-ending loop). setting to 1 causes
+an error ( <small>OID</small> not increasing) when this
+error occur.</p>
+
+<p style="margin-left:11%;">ErrorStr</p>
+
+<p style="margin-left:17%;">read-only, holds the error
+message assoc. w/ last request</p>
+
+<p style="margin-left:11%;">ErrorNum</p>
+
+<p style="margin-left:17%;">read-only, holds the snmp_err
+or staus of last request</p>
+
+<p style="margin-left:11%;">ErrorInd</p>
+
+<p style="margin-left:17%;">read-only, holds the
+snmp_err_index when appropriate</p>
+
+<p style="margin-left:11%; margin-top: 1em">Private
+variables: <br>
+DestAddr</p>
+
+<p style="margin-left:17%;">internal field used to hold the
+translated DestHost field</p>
+
+<p style="margin-left:11%;">SessPtr</p>
+
+<p style="margin-left:17%;">internal field used to cache a
+created session structure</p>
+
+<p style="margin-left:11%;">RemotePort</p>
+
+<p style="margin-left:17%;">Obsolete. Please use the
+DestHost specifier to indicate the hostname and port
+combination instead of this paramet.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>SNMP::Session
+methods</b> <br>
+$sess&minus;&gt;update(&lt;fields&gt;)</p>
+
+<p style="margin-left:17%;">Updates the SNMP::Session
+object with the values fields passed in as a hash list
+(similar to new(&lt;fields&gt;)) <b>( <small>WARNING</small>
+! not fully implemented)</b></p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;get(&lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">do <small>SNMP GET,</small>
+multiple &lt;vars&gt; formats accepted. for syncronous
+operation &lt;vars&gt; will be updated with value(s) and
+type(s) and will also return retrieved value(s). If
+&lt;callback&gt; supplied method will operate
+asynchronously</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;fget(&lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">do <small>SNMP GET</small> like
+&rsquo;get&rsquo; and format the values according the
+handlers specified in <tt>$sess</tt>&minus;&gt;{VarFormats}
+and <tt>$sess</tt>&minus;&gt;{TypeFormats}</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;getnext(&lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">do <small>SNMP GETNEXT,</small>
+multiple &lt;vars&gt; formats accepted, returns retrieved
+value(s), &lt;vars&gt; passed as arguments are updated to
+indicate next lexicographical
+&lt;obj&gt;,&lt;iid&gt;,&lt;val&gt;, and &lt;type&gt;</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note: simple
+string &lt;vars&gt;,(e.g., &rsquo;sysDescr.0&rsquo;) form is
+not updated. If &lt;callback&gt; supplied method will
+operate asynchronously</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;fgetnext(&lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">do <small>SNMP GETNEXT</small>
+like getnext and format the values according the handlers
+specified in <tt>$sess</tt>&minus;&gt;{VarFormats} and
+<tt>$sess</tt>&minus;&gt;{TypeFormats}</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;set(&lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">do <small>SNMP SET,</small>
+multiple &lt;vars&gt; formats accepted. the value field in
+all &lt;vars&gt; formats must be in a canonical format
+(i.e., well known format) to ensure unambiguous translation
+to <small>SNMP MIB</small> data value (see discussion of
+canonical value format &lt;vars&gt; description section),
+returns snmp_errno. If &lt;callback&gt; supplied method will
+operate asynchronously</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;getbulk(&lt;non&minus;repeaters&gt;,
+&lt;max&minus;repeaters&gt;, &lt;vars&gt;)</p>
+
+<p style="margin-left:17%;">do an <small>SNMP
+GETBULK,</small> from the list of Varbinds, the single next
+lexico instance is fetched for the first n Varbinds as
+defined by &lt;non&minus;repeaters&gt;. For remaining
+Varbinds, the m lexico instances are retrieved each of the
+remaining Varbinds, where m is
+&lt;max&minus;repeaters&gt;.</p>
+
+
+<p style="margin-left:11%;">$sess&minus;&gt;bulkwalk(&lt;non&minus;repeaters&gt;,
+&lt;max&minus;repeaters&gt;, &lt;vars&gt;
+[,&lt;callback&gt;])</p>
+
+<p style="margin-left:17%;">Do a &quot;bulkwalk&quot; of
+the list of Varbinds. This is done by sending a
+<small>GETBULK</small> request (see <i>getbulk()</i> above)
+for the Varbinds. For each requested variable, the response
+is examined to see if the next lexico instance has left the
+requested sub-tree. Any further instances returned for this
+variable are ignored, and the walk for that sub-tree is
+considered complete.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If any
+sub-trees were not completed when the end of the responses
+is reached, another request is composed, consisting of the
+remaining variables. This process is repeated until all
+sub-trees have been completed, or too many packets have been
+exchanged (to avoid loops).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+<i>bulkwalk()</i> method returns an array containing an
+array of Varbinds, one for each requested variable, in the
+order of the variable requests. Upon error,
+<i>bulkwalk()</i> returns undef and sets
+<tt>$sess</tt>&minus;&gt;ErrorStr and
+<tt>$sess</tt>&minus;&gt;ErrorNum. If a callback is
+supplied, <i>bulkwalk()</i> returns the <small>SNMP</small>
+request id, and returns immediately. The callback will be
+called with the supplied argument list and the returned
+variables list.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note: Because
+the client must &quot;discover&quot; that the tree is
+complete by comparing the returned variables with those that
+were requested, there is a potential &quot;gotcha&quot; when
+using the max-repeaters value. Consider the following code
+to print a list of interfaces and byte counts:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $numInts = $sess&minus;&gt;get('ifNumber.0');
+    ($desc, $in, $out) = $sess&minus;&gt;bulkwalk(0, $numInts,
+                  [['ifDescr'], ['ifInOctets'], ['ifOutOctets']]);
+    for $i (0..($numInts &minus; 1)) {
+        printf &quot;Interface %4s: %s inOctets, %s outOctets\n&quot;,
+                  $$desc[$i]&minus;&gt;val, $$in[$i]&minus;&gt;val, $$out[$i]&minus;&gt;val;
+    }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This code will
+produce *two* requests to the agent -- the first to get the
+interface values, and the second to discover that all the
+information was in the first packet. To get around this, use
+&rsquo;$numInts + 1&rsquo; for the max_repeaters value. This
+asks the agent to include one additional (unrelated)
+variable that signals the end of the sub-tree, allowing
+<i>bulkwalk()</i> to determine that the request is
+complete.</p>
+
+<p style="margin-left:11%;">$results =
+$sess&minus;&gt;gettable(&lt; <small>TABLE OID</small> &gt;,
+&lt;OPTIONgt)</p>
+
+<p style="margin-left:17%;">This will retrieve an entire
+table of data and return a hash reference to that data. The
+returned hash reference will have indexes of the
+<small>OID</small> suffixes for the index data as the key.
+The value for each entry will be another hash containing the
+data for a given row. The keys to that hash will be the
+column names, and the values will be the data.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  #!/usr/bin/perl
+  use SNMP;
+  use Data::Dumper;
+  my $s = new SNMP::Session(DestHost =&gt; 'localhost');
+  print Dumper($s&minus;&gt;gettable('ifTable'));</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">On my machine
+produces:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $VAR1 = {
+            '6' =&gt; {
+                     'ifMtu' =&gt; '1500',
+                     'ifPhysAddress' =&gt; 'PV',
+                     # ...
+                     'ifInUnknownProtos' =&gt; '0'
+                   },
+            '4' =&gt; {
+                     'ifMtu' =&gt; '1480',
+                     'ifPhysAddress' =&gt; '',
+                     # ...
+                     'ifInUnknownProtos' =&gt; '0'
+                   },
+            # ...
+           };</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">By default, it
+will try to do as optimized retrieval as possible.
+It&rsquo;ll request multiple columns at once, and use
+<small>GETBULK</small> if possible. A few options may be
+specified by passing in an <i><small>OPTIONS</small></i>
+hash containing various parameters: <br>
+noindexes =&gt; 1</p>
+
+<p style="margin-left:23%;">Instructs the code not to parse
+the indexes and place the results in the second hash. If you
+don&rsquo;t need the index data, this will be faster.</p>
+
+<p style="margin-left:17%;">columns =&gt; [ colname1, ...
+]</p>
+
+<p style="margin-left:23%;">This specifies which columns to
+collect. By default, it will try to collect all the columns
+defined in the <small>MIB</small> table.</p>
+
+<p style="margin-left:17%;">repeat =&gt;
+<i><small>COUNT</small></i></p>
+
+<p style="margin-left:23%;">Specifies a
+<small>GETBULK</small> repeat <i><small>COUNT</small></i> .
+<small>IE,</small> it will request this many varbinds back
+per column when using the <small>GETBULK</small> operation.
+Shortening this will mean smaller packets which may help
+going through some systems. By default, this value is
+calculated and attempts to guess at what will fit all the
+results into 1000 bytes. This calculation is fairly safe,
+hopefully, but you can either raise or lower the number
+using this option if desired. In lossy networks, you want to
+make sure that the packets don&rsquo;t get fragmented and
+lowering this value is one way to help that.</p>
+
+<p style="margin-left:17%;">nogetbulk =&gt; 1</p>
+
+<p style="margin-left:23%;">Force the use of
+<small>GETNEXT</small> rather than <small>GETBULK.</small>
+(always true for SNMPv1, as it doesn&rsquo;t have
+<small>GETBULK</small> anyway). Some agents are great
+implementers of <small>GETBULK</small> and this allows you
+to force the use of <small>GETNEXT</small> operations
+instead.</p>
+
+<p style="margin-left:17%;">callback =&gt; \&amp;subroutine
+<br>
+callback =&gt; [\&amp;subroutine, optarg1, optarg2, ...]</p>
+
+<p style="margin-left:23%;">If a callback is specified,
+gettable will return quickly without returning results. When
+the results are finally retrieved the callback subroutine
+will be called (see the other sections defining callback
+behaviour and how to make use of SNMP::MainLoop which is
+required fro this to work). An additional argument of the
+normal hash result will be added to the callback subroutine
+arguments.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Note 1:
+internally, the gettable function uses it&rsquo;s own
+callbacks which are passed to getnext/getbulk as
+appropriate.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Note 2:
+callback support is only available in the
+<small>SNMP</small> module version 5.04 and above. To test
+for this in code intending to support both versions prior to
+5.04 and 5.04 and up, the following should work:</p>
+
+<pre style="margin-left:23%; margin-top: 1em">  if ($response = $sess&minus;&gt;gettable('ifTable', callback =&gt; \&amp;my_sub)) {
+      # got a response, gettable doesn't support callback
+      my_sub($response);
+      $no_mainloop = 1;
+  }</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">Deciding on
+whether to use SNMP::MainLoop is left as an exercise to the
+reader since it depends on whether your code uses other
+callbacks as well.</p>
+
+<h2>SNMP::TrapSession
+<a name="SNMP::TrapSession"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$sess</tt>
+= new SNMP::Session(DestHost =&gt; &rsquo;host&rsquo;,
+...)</p>
+
+<p style="margin-left:11%; margin-top: 1em">supports all
+applicable fields from SNMP::Session (see above)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>SNMP::TrapSession
+methods</b> <br>
+$sess&minus;&gt;trap(enterprise, agent, generic, specific,
+uptime, &lt;vars&gt;)</p>
+
+<pre style="margin-left:17%;">    $sess&minus;&gt;trap(enterprise=&gt;'.1.3.6.1.4.1.2021', # or 'ucdavis' [default]
+                agent =&gt; '127.0.0.1', # or 'localhost',[dflt 1st intf on host]
+                generic =&gt; specific,  # can be omitted if 'specific' supplied
+                specific =&gt; 5,        # can be omitted if 'generic' supplied
+                uptime =&gt; 1234,       # dflt to localhost uptime (0 on win32)
+                [[ifIndex, 1, 1],[sysLocation, 0, &quot;here&quot;]]); # optional vars
+                                                             # always last</pre>
+
+
+<p style="margin-left:11%;">trap(oid, uptime, &lt;vars&gt;)
+&minus; v2 format</p>
+
+<pre style="margin-left:17%;">    $sess&minus;&gt;trap(oid =&gt; 'snmpRisingAlarm',
+                uptime =&gt; 1234,
+                [[ifIndex, 1, 1],[sysLocation, 0, &quot;here&quot;]]); # optional vars
+                                                             # always last</pre>
+
+
+<h2>Acceptable variable formats:
+<a name="Acceptable variable formats:"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;vars&gt;
+may be one of the following forms: <br>
+SNMP::VarList</p>
+
+<p style="margin-left:17%;">represents an array of
+<small>MIB</small> objects to get or set, implemented as a
+blessed reference to an array of SNMP::Varbinds, (e.g.,
+[&lt;varbind1&gt;, &lt;varbind2&gt;, ...])</p>
+
+<p style="margin-left:11%;">SNMP::Varbind</p>
+
+<p style="margin-left:17%;">represents a single
+<small>MIB</small> object to get or set, implemented as a
+blessed reference to a 4 element array; [&lt;obj&gt;,
+&lt;iid&gt;, &lt;val&gt;, &lt;type&gt;]. <br>
+&lt;obj&gt;</p>
+
+<p style="margin-left:23%;">one of the following forms:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="3%">
+
+
+<p>1)</p></td>
+<td width="3%"></td>
+<td width="71%">
+
+
+<p>leaf identifier (e.g., &rsquo;sysDescr&rsquo;) assumed
+to be unique for practical purposes</p></td></tr>
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="3%">
+
+
+<p>2)</p></td>
+<td width="3%"></td>
+<td width="71%">
+
+
+<p>fully qualified identifier (e.g.,
+&rsquo;.iso.org.dod.internet.mgmt.mib&minus;2.system.sysDescr&rsquo;)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="23%"></td>
+<td width="3%">
+
+
+<p>3)</p></td>
+<td width="3%"></td>
+<td width="71%">
+
+
+<p>fully qualified, dotted-decimal, numeric
+<small>OID</small> (e.g.,
+&rsquo;.1.3.6.1.2.1.1.1&rsquo;)</p> </td></tr>
+</table>
+
+<p style="margin-left:17%;">&lt;iid&gt;</p>
+
+<p style="margin-left:23%;">the dotted-decimal, instance
+identifier. for scalar <small>MIB</small> objects use
+&rsquo;0&rsquo;</p>
+
+<p style="margin-left:17%;">&lt;val&gt;</p>
+
+<p style="margin-left:23%;">the <small>SNMP</small> data
+value retrieved from or being set to the agents
+<small>MIB.</small> for (f)get(next) operations &lt;val&gt;
+may have a variety of formats as determined by session and
+package settings. However for set operations the &lt;val&gt;
+format must be canonical to ensure unambiguous translation.
+The canonical forms are as follows: <small><br>
+OBJECTID</small></p>
+
+<p style="margin-left:29%;">dotted-decimal (e.g.,
+.1.3.6.1.2.1.1.1)</p>
+
+<p style="margin-left:23%;"><small>OCTETSTR</small></p>
+
+<p style="margin-left:29%;">perl scalar containing
+octets</p>
+
+<p style="margin-left:23%;"><small>INTEGER</small></p>
+
+<p style="margin-left:29%;">decimal signed integer (or
+enum)</p>
+
+<p style="margin-left:23%;"><small>NETADDR</small></p>
+
+<p style="margin-left:29%;">dotted-decimal</p>
+
+<p style="margin-left:23%;"><small>IPADDR</small></p>
+
+<p style="margin-left:29%;">dotted-decimal</p>
+
+<p style="margin-left:23%;"><small>COUNTER</small></p>
+
+<p style="margin-left:29%;">decimal unsigned integer</p>
+
+<p style="margin-left:23%;"><small>COUNTER64</small></p>
+
+<p style="margin-left:29%;">decimal unsigned integer</p>
+
+<p style="margin-left:23%;"><small>GAUGE</small></p>
+
+<p style="margin-left:29%;">decimal unsigned integer</p>
+
+<p style="margin-left:23%;"><small>UINTEGER</small></p>
+
+<p style="margin-left:29%;">decimal unsigned integer</p>
+
+<p style="margin-left:23%;"><small>TICKS</small></p>
+
+<p style="margin-left:29%;">decimal unsigned integer</p>
+
+<p style="margin-left:23%;"><small>OPAQUE</small></p>
+
+<p style="margin-left:29%;">perl scalar containing
+octets</p>
+
+<p style="margin-left:23%;"><small>NULL</small></p>
+
+<p style="margin-left:29%;">perl scalar containing
+nothing</p>
+
+<p style="margin-left:17%;">&lt;type&gt;</p>
+
+<p style="margin-left:23%;"><small>SNMP</small> data type
+(see list above), this field is populated by
+&rsquo;get&rsquo; and &rsquo;getnext&rsquo; operations. In
+some cases the programmer needs to populate this field when
+passing to a &rsquo;set&rsquo; operation. this field need
+not be supplied when the attribute indicated by &lt;tag&gt;
+is already described by loaded Mib modules. for
+&rsquo;set&rsquo;s, if a numeric <small>OID</small> is used
+and the object is not currently in the loaded Mib, the
+&lt;type&gt; field must be supplied</p>
+
+<p style="margin-left:11%;">simple string</p>
+
+<p style="margin-left:17%;">light weight form of
+&lt;var&gt; used to &rsquo;set&rsquo; or &rsquo;get&rsquo; a
+single attribute without constructing an SNMP::Varbind.
+stored in a perl scalar, has the form
+&rsquo;&lt;tag&gt;.&lt;iid&gt;&rsquo;, (e.g.,
+&rsquo;sysDescr.0&rsquo;). for &rsquo;set&rsquo; operations
+the value is passed as a second arg. Note: This argument
+form is not updated in get[next] operations as are the other
+forms.</p>
+
+<h2>Acceptable callback formats
+<a name="Acceptable callback formats"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;callback&gt;
+may be one of the following forms: <br>
+without arguments</p>
+
+<p style="margin-left:17%;">\&amp;subname <br>
+sub { ... }</p>
+
+<p style="margin-left:11%;">or with arguments</p>
+
+<p style="margin-left:17%;">[ \&amp;subname, $arg1, ... ]
+<br>
+[ sub { ... }, $arg1, ... ] <br>
+[ &quot;method&quot;, $obj, $arg1, ... ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">callback will
+be called when response is received or timeout occurs. the
+last argument passed to callback will be a SNMP::VarList
+reference. In case of timeout the last argument will be
+undef. <br>
+&amp;SNMP::MainLoop([&lt;timeout&gt;,
+[&lt;callback&gt;]])</p>
+
+<p style="margin-left:17%;">to be used with async
+SNMP::Session calls. MainLoop must be called after initial
+async calls so return packets from the agent will not be
+processed. If no args supplied this function enters an
+infinite loop so program must be exited in a callback or
+externally interrupted. If &lt;timeout(sic)</p>
+
+<p style="margin-left:11%;">&amp;<i>SNMP::finish()</i></p>
+
+<p style="margin-left:17%;">This function, when called from
+an <i>SNMP::MainLoop()</i> callback function, will cause the
+current <i>SNMP::MainLoop()</i> to return after the callback
+is completed. <i>finish()</i> can be used to terminate an
+otherwise-infinite MainLoop. A new <i>MainLoop()</i>
+instance can then be started to handle further requests.</p>
+
+<h2>SNMP package variables and functions
+<a name="SNMP package variables and functions"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">$SNMP::VERSION</p>
+
+<p style="margin-left:17%;">the current version specifier
+(e.g., 3.1.0)</p>
+
+<p style="margin-left:11%;">$SNMP::auto_init_mib</p>
+
+<p style="margin-left:17%;">default &rsquo;1&rsquo;, set to
+0 to disable automatic reading of the <small>MIB</small>
+upon session creation. set to non-zero to call initMib at
+session creation which will result in <small>MIB</small>
+loading according to Net-SNMP env. variables (see man
+mib_api)</p>
+
+<p style="margin-left:11%;">$SNMP::verbose</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;,
+controls warning/info output of <small>SNMP</small> module,
+0 =&gt; no output, 1 =&gt; enables warning/info output from
+<small>SNMP</small> module itself (is also controlled by
+SNMP::debugging &minus; see below)</p>
+
+<p style="margin-left:11%;">$SNMP::use_long_names</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;, set to
+non-zero to enable the use of longer Mib identifiers. see
+translateObj. will also influence the formatting of
+&lt;tag&gt; in varbinds returned from &rsquo;getnext&rsquo;
+operations. Can be set on a per session basis
+(UseLongNames)</p>
+
+<p style="margin-left:11%;">$SNMP::use_sprint_value</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;, set to
+non-zero to enable formatting of response values using the
+snmp libraries snprint_value function. can also be set on a
+per session basis (see UseSprintValue) Note: returned values
+may not be suitable for &rsquo;set&rsquo; operations</p>
+
+<p style="margin-left:11%;">$SNMP::use_enums</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;,set
+non-zero to return values as enums and allow sets using
+enums where appropriate. integer data will still be accepted
+for set operations. can also be set on a per session basis
+(see UseEnums)</p>
+
+<p style="margin-left:11%;">$SNMP::use_numeric</p>
+
+<p style="margin-left:17%;">default to &rsquo;0&rsquo;,set
+to non-zero to have &lt;tags&gt; for &rsquo;get&rsquo;
+methods returned as numeric <small>OID</small> &rsquo;s
+rather than descriptions. UseLongNames will be set so that
+the entire <small>OID</small> will be returned. Set on a
+per-session basis (see UseNumeric).</p>
+
+<p style="margin-left:11%;">$SNMP::best_guess</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;. This
+setting controls how &lt;tags&gt; are parsed. Setting to 0
+causes a regular lookup. Setting to 1 causes a regular
+expression match (defined as &minus;Ib in snmpcmd) and
+setting to 2 causes a random access lookup (defined as
+&minus;IR in snmpcmd). Can also be set on a per session
+basis (see BestGuess)</p>
+
+<p style="margin-left:11%;">$SNMP::save_descriptions</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;,set
+non-zero to have mib parser save attribute descriptions.
+must be set prior to mib initialization</p>
+
+<p style="margin-left:11%;">$SNMP::debugging</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;,
+controls debugging output level within <small>SNMP</small>
+module and libsnmp</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="3%">
+
+
+<p>1.</p></td>
+<td width="3%"></td>
+<td width="57%">
+
+
+<p>enables &rsquo;SNMP::verbose&rsquo; (see above)</p></td>
+<td width="20%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="57%">
+
+
+<p>level 1 plus <i>snmp_set_do_debugging</i>(1)</p></td>
+<td width="20%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="17%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="3%"></td>
+<td width="57%">
+
+
+<p>level 2 plus <i>snmp_set_dump_packet</i>(1)</p></td>
+<td width="20%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;">$SNMP::dump_packet</p>
+
+<p style="margin-left:17%;">default &rsquo;0&rsquo;, set
+[non&minus;]zero to independently set
+<i>snmp_set_dump_packet()</i></p>
+
+
+<p style="margin-left:11%;"><i>SNMP::register_debug_tokens()</i></p>
+
+<p style="margin-left:17%;">Allows to register one or more
+debug tokens, just like the &minus;D option of snmpd. Each
+debug token enables a group of debug statements. An example:
+SNMP::register_debug_tokens(&quot;tdomain,netsnmp_unix&quot;);</p>
+
+<h2>%SNMP::MIB
+<a name="%SNMP::MIB"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">a tied hash to
+access parsed <small>MIB</small> information. After the
+<small>MIB</small> has been loaded this hash allows access
+to to the parsed in <small>MIB</small> meta&minus;data(the
+structure of the <small>MIB</small> (i.e., schema)). The
+hash returns blessed references to
+<small>SNMP::MIB::NODE</small> objects which represent a
+single <small>MIB</small> attribute. The nodes can be
+fetched with multiple &rsquo;key&rsquo; formats &minus; the
+leaf name (e.g.,sysDescr) or fully/partially qualified name
+(e.g., system.sysDescr) or fully qualified numeric
+<small>OID.</small> The returned node object supports the
+following fields: <br>
+objectID</p>
+
+<p style="margin-left:17%;">dotted decimal fully qualified
+<small>OID</small></p>
+
+<p style="margin-left:11%;">label</p>
+
+<p style="margin-left:17%;">leaf textual identifier (e.g.,
+&rsquo;sysDescr&rsquo;)</p>
+
+<p style="margin-left:11%;">subID</p>
+
+<p style="margin-left:17%;">leaf numeric <small>OID</small>
+component of objectID (e.g., &rsquo;1&rsquo;)</p>
+
+<p style="margin-left:11%;">moduleID</p>
+
+<p style="margin-left:17%;">textual identifier for module
+(e.g., &rsquo; <small>RFC1213&minus;MIB</small> &rsquo;)</p>
+
+<p style="margin-left:11%;">parent</p>
+
+<p style="margin-left:17%;">parent node</p>
+
+<p style="margin-left:11%;">children</p>
+
+<p style="margin-left:17%;">array reference of children
+nodes</p>
+
+<p style="margin-left:11%;">nextNode</p>
+
+<p style="margin-left:17%;">next lexico node <b>(
+<small>BUG</small> !does not return in lexico order)</b></p>
+
+<p style="margin-left:11%;">type</p>
+
+<p style="margin-left:17%;">returns application type (see
+getType for values)</p>
+
+<p style="margin-left:11%;">access</p>
+
+<p style="margin-left:17%;">returns <small>ACCESS</small>
+(ReadOnly, ReadWrite, WriteOnly, NoAccess, Notify,
+Create)</p>
+
+<p style="margin-left:11%;">status</p>
+
+<p style="margin-left:17%;">returns <small>STATUS</small>
+(Mandatory, Optional, Obsolete, Deprecated)</p>
+
+<p style="margin-left:11%;">syntax</p>
+
+<p style="margin-left:17%;">returns
+&rsquo;textualConvention&rsquo; if defined else
+&rsquo;type&rsquo;</p>
+
+<p style="margin-left:11%;">textualConvention</p>
+
+<p style="margin-left:17%;">returns TEXTUAL-CONVENTION</p>
+
+<p style="margin-left:11%;">TCDescription</p>
+
+<p style="margin-left:17%;">returns the
+TEXTUAL-CONVENTION&rsquo;s <small>DESCRIPTION</small>
+field.</p>
+
+<p style="margin-left:11%;">units</p>
+
+<p style="margin-left:17%;">returns
+<small>UNITS</small></p>
+
+<p style="margin-left:11%;">hint</p>
+
+<p style="margin-left:17%;">returns <small>HINT</small></p>
+
+<p style="margin-left:11%;">enums</p>
+
+<p style="margin-left:17%;">returns hash ref {tag =&gt;
+num, ...}</p>
+
+<p style="margin-left:11%;">ranges</p>
+
+<p style="margin-left:17%;">returns array ref of hash ref
+[{low =&gt; num, high =&gt; num}, ...]</p>
+
+<p style="margin-left:11%;">description</p>
+
+<p style="margin-left:17%;">returns
+<small>DESCRIPTION</small> ($SNMP::save_descriptions must be
+set prior to <small>MIB</small> initialization/parsing)</p>
+
+<p style="margin-left:11%;">reference</p>
+
+<p style="margin-left:17%;">returns the
+<small>REFERENCE</small> clause</p>
+
+<p style="margin-left:11%;">indexes</p>
+
+<p style="margin-left:17%;">returns the objects in the
+<small>INDEX</small> clause</p>
+
+<p style="margin-left:11%;">implied</p>
+
+<p style="margin-left:17%;">returns true if the last object
+in the <small>INDEX</small> is <small>IMPLIED</small></p>
+
+<h2>MIB Functions
+<a name="MIB Functions"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&amp;SNMP::setMib(&lt;file&gt;)</p>
+
+<p style="margin-left:17%;">allows dynamic parsing of the
+mib and explicit specification of mib file independent of
+environment variables. called with no args acts like
+initMib, loading MIBs indicated by environment variables
+(see Net-SNMP mib_api docs). passing non-zero second arg
+forces previous mib to be freed and replaced <b>(Note:
+second arg not working since freeing previous Mib is more
+involved than before)</b>.</p>
+
+
+<p style="margin-left:11%;">&amp;<i>SNMP::initMib()</i></p>
+
+<p style="margin-left:17%;">calls library init_mib function
+if Mib not already loaded &minus; does nothing if Mib
+already loaded. will parse directories and load modules
+according to environment variables described in Net-SNMP
+documentations. (see man mib_api, <small>MIBDIRS, MIBS,
+MIBFILE</small> (S), etc.)</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::addMibDirs(&lt;dir&gt;,...)</p>
+
+<p style="margin-left:17%;">calls library add_mibdir for
+each directory supplied. will cause directory(s) to be added
+to internal list and made available for searching in
+subsequent loadModules calls</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::addMibFiles(&lt;file&gt;,...)</p>
+
+<p style="margin-left:17%;">calls library read_mib
+function. The file(s) supplied will be read and all Mib
+module definitions contained therein will be added to
+internal mib tree structure</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::loadModules(&lt;mod&gt;,...)</p>
+
+<p style="margin-left:17%;">calls library read_module
+function. The module(s) supplied will be searched for in the
+current mibdirs and and added to internal mib tree
+structure. Passing special &lt;mod&gt;, &rsquo;
+<small>ALL</small> &rsquo;, will cause all known modules to
+be loaded.</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::unloadModules(&lt;mod&gt;,...)</p>
+
+<p style="margin-left:17%;"><b>*Not Implemented*</b></p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::translateObj(&lt;var&gt;[,arg,[arg]])</p>
+
+<p style="margin-left:17%;">will convert a text obj tag to
+an <small>OID</small> and vice-versa. Any iid suffix is
+retained numerically. Default behaviour when converting a
+numeric <small>OID</small> to text form is to return leaf
+identifier only (e.g.,&rsquo;sysDescr&rsquo;) but when
+<tt>$SNMP::use_long_names</tt> is non-zero or a non-zero
+second arg is supplied it will return a longer textual
+identifier. An optional third argument of non-zero will
+cause the module name to be prepended to the text name (e.g.
+&rsquo;SNMPv2&minus;MIB::sysDescr&rsquo;). When converting a
+text obj, the <tt>$SNMP::best_guess</tt> option is used. If
+no Mib is loaded when called and
+<tt>$SNMP::auto_init_mib</tt> is enabled then the Mib will
+be loaded. Will return &rsquo;undef&rsquo; upon failure.</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::getType(&lt;var&gt;)</p>
+
+<p style="margin-left:17%;">return <small>SNMP</small> data
+type for given textual identifier <small>OBJECTID, OCTETSTR,
+INTEGER, NETADDR, IPADDR, COUNTER GAUGE, TIMETICKS,
+OPAQUE,</small> or undef</p>
+
+
+<p style="margin-left:11%;">&amp;SNMP::mapEnum(&lt;var&gt;)</p>
+
+<p style="margin-left:17%;">converts integer value to
+enumertion tag defined in Mib or converts tag to integer
+depending on input. the function will return the
+corresponding integer value *or* tag for a given
+<small>MIB</small> attribute and value. The function will
+sense which direction to perform the conversion. Various arg
+formats are supported <br>
+$val = SNMP::mapEnum($varbind);</p>
+
+<p style="margin-left:23%;">where <tt>$varbind</tt> is
+SNMP::Varbind or equiv. note: <tt>$varbind</tt> will be
+updated</p>
+
+<p style="margin-left:17%;">$val =
+SNMP::mapEnum(&rsquo;ipForwarding&rsquo;,
+&rsquo;forwarding&rsquo;); <br>
+$val = SNMP::mapEnum(&rsquo;ipForwarding&rsquo;, 1);</p>
+
+<h2>Exported SNMP utility functions
+<a name="Exported SNMP utility functions"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note: utility
+functions do not support async operation yet. <br>
+&amp;<i>snmp_get()</i></p>
+
+<p style="margin-left:17%;">takes args of
+SNMP::Session::new followed by those of
+SNMP::Session::get</p>
+
+<p style="margin-left:11%;">&amp;<i>snmp_getnext()</i></p>
+
+<p style="margin-left:17%;">takes args of
+SNMP::Session::new followed by those of
+SNMP::Session::getnext</p>
+
+<p style="margin-left:11%;">&amp;<i>snmp_set()</i></p>
+
+<p style="margin-left:17%;">takes args of
+SNMP::Session::new followed by those of
+SNMP::Session::set</p>
+
+<p style="margin-left:11%;">&amp;<i>snmp_trap()</i></p>
+
+<p style="margin-left:17%;">takes args of
+SNMP::TrapSession::new followed by those of
+SNMP::TrapSession::trap</p>
+
+<h2>Trouble Shooting
+<a name="Trouble Shooting"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If problems
+occur there are number areas to look at to narrow down the
+possibilities.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The first step
+should be to test the Net-SNMP installation independently
+from the Perl5 <small>SNMP</small> interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Try running the
+apps from the Net-SNMP distribution.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Make sure your
+agent (snmpd) is running and properly configured with
+read-write access for the community you are using.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Ensure that
+your MIBs are installed and enviroment variables are set
+appropriately (see man mib_api)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Be sure to
+remove old net-snmp installations and ensure headers and
+libraries from old <small>CMU</small> installations are not
+being used by mistake.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the problem
+occurs during compilation/linking check that the snmp
+library being linked is actually the Net-SNMP library (there
+have been name conflicts with existing snmp libs).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Also check that
+the header files are correct and up to date.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Sometimes
+compiling the Net-SNMP library with
+&rsquo;position&minus;independent&minus;code&rsquo; enabled
+is required ( <small>HPUX</small> specifically).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you cannot
+resolve the problem you can post to comp.lang.perl.modules
+or
+net&minus;snmp&minus;users@net&minus;snmp&minus;users@lists.sourceforge.net</p>
+
+<p style="margin-left:11%; margin-top: 1em">please give
+sufficient information to analyze the problem (
+<small>OS</small> type, versions for
+OS/Perl/Net&minus;SNMP/compiler, complete error output,
+etc.)</p>
+
+<h2>Acknowledgements
+<a name="Acknowledgements"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Many thanks to
+all those who supplied patches, suggestions and
+feedback.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> Joe Marzot (the original author)
+ Wes Hardaker and the net&minus;snmp&minus;coders
+ Dave Perkins
+ Marcel Wiget
+ David Blackburn
+ John Stofell
+ Gary Hayward
+ Claire Harrison
+ Achim Bohnet
+ Doug Kingston
+ Jacques Vidrine
+ Carl Jacobsen
+ Wayne Marquette
+ Scott Schumate
+ Michael Slifcak
+ Srivathsan Srinivasagopalan
+ Bill Fenner
+ Jef Peeraer
+ Daniel Hagerty
+ Karl &quot;Rat&quot; Schilke and Electric Lightwave, Inc.
+ Perl5 Porters
+ Alex Burger</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Apologies to
+any/all who&rsquo;s patch/feature/request was not mentioned
+or included &minus; most likely it was lost when paying work
+intruded on my fun. Please try again if you do not see a
+desired feature. This may actually turn out to be a decent
+package with such excellent help and the fact that I have
+more time to work on it than in the past.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">bugs, comments,
+questions to
+net&minus;snmp&minus;users@lists.sourceforge.net</p>
+
+<h2>Copyright
+<a name="Copyright"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">     Copyright (c) 1995&minus;2000 G. S. Marzot. All rights reserved.
+     This program is free software; you can redistribute it and/or
+     modify it under the same terms as Perl itself.
+     Copyright (c) 2001&minus;2002 Networks Associates Technology, Inc.  All
+     Rights Reserved.  This program is free software; you can
+     redistribute it and/or modify it under the same terms as Perl
+     itself.</pre>
+
+
+<h2>POD ERRORS
+<a name="POD ERRORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Hey! <b>The
+above document had some coding errors, which are explained
+below:</b> <br>
+Around line 1722:</p>
+
+<p style="margin-left:17%;">&rsquo;=item&rsquo; outside of
+any &rsquo;=over&rsquo;</p>
+
+<p style="margin-left:11%;">Around line 1728:</p>
+
+<p style="margin-left:17%;">You forgot a
+&rsquo;=back&rsquo; before &rsquo;=head2&rsquo;</p>
+<hr>
+</body>
+</html>

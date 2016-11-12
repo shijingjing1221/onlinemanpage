@@ -1,0 +1,253 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:34:41 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>DBLINK</title>
+
+</head>
+<body>
+
+<h1 align="center">DBLINK</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#RETURN VALUE">RETURN VALUE</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dblink &minus;
+executes a query in a remote database</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">dblink(text
+connname, text sql [, bool fail_on_error]) returns setof
+record <br>
+dblink(text connstr, text sql [, bool fail_on_error])
+returns setof record <br>
+dblink(text sql [, bool fail_on_error]) returns setof
+record</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>dblink</b>
+executes a query (usually a <b>SELECT</b>, but it can be any
+SQL statement that returns rows) in a remote database.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When two text
+arguments are given, the first one is first looked up as a
+persistent connection's name; if found, the command is
+executed on that connection. If not found, the first
+argument is treated as a connection info string as for
+<b>dblink_connect</b>, and the indicated connection is made
+just for the duration of this command.</p>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>conname</i></p>
+
+<p style="margin-left:17%;">Name of the connection to use;
+omit this parameter to use the unnamed connection.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>connstr</i></p>
+
+<p style="margin-left:17%;">A connection info string, as
+previously described for <b>dblink_connect</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>sql</i></p>
+
+<p style="margin-left:17%;">The SQL query that you wish to
+execute in the remote database, for example select * from
+foo.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>fail_on_error</i></p>
+
+<p style="margin-left:17%;">If true (the default when
+omitted) then an error thrown on the remote side of the
+connection causes an error to also be thrown locally. If
+false, the remote error is locally reported as a NOTICE, and
+the function returns no rows.</p>
+
+<h2>RETURN VALUE
+<a name="RETURN VALUE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The function
+returns the row(s) produced by the query. Since
+<b>dblink</b> can be used with any query, it is declared to
+return record, rather than specifying any particular set of
+columns. This means that you must specify the expected set
+of columns in the calling query &mdash; otherwise PostgreSQL
+would not know what to expect. Here is an example:</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * <br>
+FROM dblink('dbname=mydb', 'select proname, prosrc from
+pg_proc') <br>
+AS t1(proname name, prosrc text) <br>
+WHERE proname LIKE 'bytea%';</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+&ldquo;alias&rdquo; part of the FROM clause must specify the
+column names and types that the function will return.
+(Specifying column names in an alias is actually standard
+SQL syntax, but specifying column types is a PostgreSQL
+extension.) This allows the system to understand what *
+should expand to, and what proname in the WHERE clause
+refers to, in advance of trying to execute the function. At
+run time, an error will be thrown if the actual query result
+from the remote database does not have the same number of
+columns shown in the FROM clause. The column names need not
+match, however, and <b>dblink</b> does not insist on exact
+type matches either. It will succeed so long as the returned
+data strings are valid input for the column type declared in
+the FROM clause.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A convenient
+way to use <b>dblink</b> with predetermined queries is to
+create a view. This allows the column type information to be
+buried in the view, instead of having to spell it out in
+every query. For example,</p>
+
+<p style="margin-left:17%; margin-top: 1em">CREATE VIEW
+myremote_pg_proc AS <br>
+SELECT * <br>
+FROM dblink('dbname=postgres', 'select proname, prosrc from
+pg_proc') <br>
+AS t1(proname name, prosrc text);</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+myremote_pg_proc WHERE proname LIKE 'bytea%';</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+dblink('dbname=postgres', 'select proname, prosrc from
+pg_proc') <br>
+AS t1(proname name, prosrc text) WHERE proname LIKE
+'bytea%'; <br>
+proname | prosrc <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+byteacat | byteacat <br>
+byteaeq | byteaeq <br>
+bytealt | bytealt <br>
+byteale | byteale <br>
+byteagt | byteagt <br>
+byteage | byteage <br>
+byteane | byteane <br>
+byteacmp | byteacmp <br>
+bytealike | bytealike <br>
+byteanlike | byteanlike <br>
+byteain | byteain <br>
+byteaout | byteaout <br>
+(12 rows)</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT
+dblink_connect('dbname=postgres'); <br>
+dblink_connect <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+OK <br>
+(1 row)</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+dblink('select proname, prosrc from pg_proc') <br>
+AS t1(proname name, prosrc text) WHERE proname LIKE
+'bytea%'; <br>
+proname | prosrc <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+byteacat | byteacat <br>
+byteaeq | byteaeq <br>
+bytealt | bytealt <br>
+byteale | byteale <br>
+byteagt | byteagt <br>
+byteage | byteage <br>
+byteane | byteane <br>
+byteacmp | byteacmp <br>
+bytealike | bytealike <br>
+byteanlike | byteanlike <br>
+byteain | byteain <br>
+byteaout | byteaout <br>
+(12 rows)</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT
+dblink_connect('myconn', 'dbname=regression'); <br>
+dblink_connect <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+OK <br>
+(1 row)</p>
+
+<p style="margin-left:17%; margin-top: 1em">SELECT * FROM
+dblink('myconn', 'select proname, prosrc from pg_proc') <br>
+AS t1(proname name, prosrc text) WHERE proname LIKE
+'bytea%'; <br>
+proname | prosrc <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+bytearecv | bytearecv <br>
+byteasend | byteasend <br>
+byteale | byteale <br>
+byteagt | byteagt <br>
+byteage | byteage <br>
+byteane | byteane <br>
+byteacmp | byteacmp <br>
+bytealike | bytealike <br>
+byteanlike | byteanlike <br>
+byteacat | byteacat <br>
+byteaeq | byteaeq <br>
+bytealt | bytealt <br>
+byteain | byteain <br>
+byteaout | byteaout <br>
+(14 rows)</p>
+<hr>
+</body>
+</html>

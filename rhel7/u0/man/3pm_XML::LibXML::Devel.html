@@ -1,0 +1,243 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:43:31 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>XML::LibXML::Devel</title>
+
+</head>
+<body>
+
+<h1 align="center">XML::LibXML::Devel</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#FUNCTIONS">FUNCTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::LibXML::Devel
+&minus; makes functions from LibXML.xs available</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  /**********************************************
+   * C functions you want to access
+   */
+  xmlNode *return_node();
+  void receive_node(xmlNode *);
+  ###############################################
+  # XS Code
+  void *
+    xs_return_node
+    CODE:
+        RETVAL = return_node();
+    OUTPUT:
+        RETVAL
+  void
+    xs_receive_node
+        void *n
+    CODE:
+        receive_node(n);
+  ###############################################
+  # Perl code
+  use XML::LibXML::Devel;
+  sub return_node
+  {
+    my $raw_node = xs_return_node();
+    my $node = XML::LibXML::Devel::node_to_perl($raw_node);
+    XML::LibXML::Devel::refcnt_inc($raw_node);
+    return $node;
+  }
+  sub receive_node
+  {
+    my ($node) = @_;
+    my $raw_node = XML::LibXML::Devel::node_from_perl($node);
+    xs_receive_node($raw_node);
+    XML::LibXML::Devel::refcnt_inc($raw_node);
+  }</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;XML::LibXML::Devel&quot;</tt>
+makes functions from LibXML.xs available that are needed to
+wrap libxml2 nodes in and out of XML::LibXML::Nodes. This
+gives cleaner dependencies than using LibXML.so
+directly.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To
+<small>XS</small> a library that uses libxml2 nodes the
+first step is to do this so that xmlNodePtr is passed as
+void *. These raw nodes are then turned into libxml nodes by
+using this <tt>&quot;Devel&quot;</tt> functions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Be aware that
+this module is currently rather experimental. The function
+names may change if I <small>XS</small> more functions and
+introduce a reasonable naming convention.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Be also aware
+that this module is a great tool to cause segfaults and
+introduce memory leaks. It does however provide a partial
+cure by making <tt>&quot;xmlMemUsed&quot;</tt> available as
+<tt>&quot;mem_used&quot;</tt>.</p>
+
+<h2>FUNCTIONS
+<a name="FUNCTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>NODE
+MANAGEMENT</small></b> <br>
+node_to_perl</p>
+
+<pre style="margin-left:12%;">  node_to_perl($raw_node);</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">Returns a
+LibXML::Node object. This has a proxy node with a reference
+counter and an owner attached. The raw node will be deleted
+as soon as the reference counter reaches zero. If the C
+library is keeping a pointer to the raw node, you need to
+call refcnt_inc immediately. You also need to replace
+xmlFreeNode by a call to refcnt_dec.</p>
+
+<p style="margin-left:11%;">node_to_perl</p>
+
+<pre style="margin-left:12%;">  node_from_perl($node);</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">Returns a raw
+node. This is a void * pointer and you can do nothing but
+passing it to functions that treat it as an xmlNodePtr. The
+raw node will be freed as soon as its reference counter
+reaches zero. If the C library is keeping a pointer to the
+raw node, you need to call refcnt_inc immediately. You also
+need to replace xmlFreeNode by a call to refcnt_dec.</p>
+
+<p style="margin-left:11%;">refcnt_inc</p>
+
+<pre style="margin-left:12%;">  refcnt_inc($raw_node);</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">Increments the
+raw nodes reference counter. The raw node must already be
+known to perl to have a reference counter.</p>
+
+<p style="margin-left:11%;">refcnt_dec</p>
+
+<pre style="margin-left:12%;">  refcnt_dec($raw_node);</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">Decrements the
+raw nodes reference counter and returns the value it had
+before. if the counter becomes zero or less, this method
+will free the proxy node holding the reference counter. If
+the node is part of a subtree, refcnt_dec will fix the
+reference counts and delete the subtree if it is not
+required any more.</p>
+
+<p style="margin-left:11%;">refcnt</p>
+<pre style="margin-left:12%;">  refcnt($raw_node);</pre>
+
+<p style="margin-left:12%; margin-top: 1em">Returns the
+value of the reference counter.</p>
+
+<p style="margin-left:11%;">fix_owner</p>
+
+<pre style="margin-left:12%;">  fix_owner($raw_node, $raw_parent);</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">This functions
+fixes the reference counts for an entire subtree. it is very
+important to fix an entire subtree after node operations
+where the documents or the owner node may get changed. this
+method is aware about nodes that already belong to a certain
+owner node.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>MEMORY
+DEBUGGING</small></b> <br>
+$ENV{ <small>DEBUG_MEMORY</small> }</p>
+
+<pre style="margin-left:12%;">  BEGIN {$ENV{DEBUG_MEMORY} = 1;};
+  use XML::LibXML;</pre>
+
+
+<p style="margin-left:12%; margin-top: 1em">This turns on
+libxml2 memory debugging. It must be set before XML::LibXML
+is loaded.</p>
+
+<p style="margin-left:11%;">mem_used</p>
+<pre style="margin-left:12%;">  mem_used();</pre>
+
+<p style="margin-left:12%; margin-top: 1em">Returns the
+number of bytes currently allocated.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>EXPORT</small></b>
+<br>
+None by default.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This was
+created to support the needs of Apache2::ModXml2. So this
+can serve as an example.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Joachim Zobel
+&lt;jz&minus;2011@heute&minus;morgen.de&gt;</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2011 by Joachim Zobel</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself, either Perl version
+5.10.1 or, at your option, any later version of Perl 5 you
+may have available.</p>
+<hr>
+</body>
+</html>

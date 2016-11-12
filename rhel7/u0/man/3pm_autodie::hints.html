@@ -1,0 +1,519 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:31:26 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>autodie::hints</title>
+
+</head>
+<body>
+
+<h1 align="center">autodie::hints</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Manually setting hints from within your program">Manually setting hints from within your program</a><br>
+<a href="#Adding hints to your module">Adding hints to your module</a><br>
+<a href="#Insisting on hints">Insisting on hints</a><br>
+<a href="#Diagnostics">Diagnostics</a><br>
+<a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">autodie::hints
+&minus; Provide hints about user subroutines to autodie</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    package Your::Module;
+    our %DOES = ( 'autodie::hints::provider' =&gt; 1 );
+    sub AUTODIE_HINTS {
+        return {
+            foo =&gt; { scalar =&gt; HINTS, list =&gt; SOME_HINTS },
+            bar =&gt; { scalar =&gt; HINTS, list =&gt; MORE_HINTS },
+        }
+    }
+    # Later, in your main program...
+    use Your::Module qw(foo bar);
+    use autodie      qw(:default foo bar);
+    foo();         # succeeds or dies based on scalar hints
+    # Alternatively, hints can be set on subroutines we've
+    # imported.
+    use autodie::hints;
+    use Some::Module qw(think_positive);
+    BEGIN {
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;think_positive,
+            {
+                fail =&gt; sub { $_[0] &lt;= 0 }
+            }
+        )
+    }
+    use autodie qw(think_positive);
+    think_positive(...);    # Returns positive or dies.</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Introduction</b>
+<br>
+The autodie pragma is very smart when it comes to working
+with Perl&rsquo;s built-in functions. The behaviour for
+these functions are fixed, and <tt>&quot;autodie&quot;</tt>
+knows exactly how they try to signal failure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">But what about
+user-defined subroutines from modules? If you use
+<tt>&quot;autodie&quot;</tt> on a user-defined subroutine
+then it assumes the following behaviour to demonstrate
+failure:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="75%">
+
+
+<p>A false value, in scalar context</p></td>
+<td width="8%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="75%">
+
+
+<p>An empty list, in list context</p></td>
+<td width="8%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="75%">
+
+
+<p>A list containing a single undef, in list context</p></td>
+<td width="8%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">All other
+return values (including the list of the single zero, and
+the list containing a single empty string) are considered
+successful. However, real-world code isn&rsquo;t always that
+easy. Perhaps the code you&rsquo;re working with returns a
+string containing the word &quot; <small>FAIL&quot;</small>
+upon failure, or a two element list containing
+<tt>&quot;(undef, &quot;human error
+message&quot;)&quot;</tt>. To make autodie work with these
+sorts of subroutines, we have the <i>hinting
+interface</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The hinting
+interface allows <i>hints</i> to be provided to
+<tt>&quot;autodie&quot;</tt> on how it should detect failure
+from user-defined subroutines. While these <i>can</i> be
+provided by the end-user of <tt>&quot;autodie&quot;</tt>,
+they are ideally written into the module itself, or into a
+helper module or sub-class of <tt>&quot;autodie&quot;</tt>
+itself.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>What are
+hints?</b> <br>
+A <i>hint</i> is a subroutine or value that is checked
+against the return value of an autodying subroutine. If the
+match returns true, <tt>&quot;autodie&quot;</tt> considers
+the subroutine to have failed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the hint
+provided is a subroutine, then <tt>&quot;autodie&quot;</tt>
+will pass the complete return value to that subroutine. If
+the hint is any other value, then
+<tt>&quot;autodie&quot;</tt> will smart-match against the
+value provided. In Perl 5.8.x there is no smart-match
+operator, and as such only subroutine hints are supported in
+these versions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Hints can be
+provided for both scalar and list contexts. Note that an
+autodying subroutine will never see a void context, as
+<tt>&quot;autodie&quot;</tt> always needs to capture the
+return value for examination. Autodying subroutines called
+in void context act as if they&rsquo;re called in a scalar
+context, but their return value is discarded after it has
+been checked.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Example
+hints</b> <br>
+Hints may consist of scalars, array references, regular
+expressions and subroutine references. You can specify
+different hints for how failure should be identified in
+scalar and list contexts.</p>
+
+<p style="margin-left:11%; margin-top: 1em">These examples
+apply for use in the <tt>&quot;AUTODIE_HINTS&quot;</tt>
+subroutine and when calling
+<tt>&quot;autodie::hints&minus;&quot;</tt><i>set_hints_for()</i>&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The most common
+context-specific hints are:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        # Scalar failures always return undef:
+            {  scalar =&gt; undef  }
+        # Scalar failures return any false value [default expectation]:
+            {  scalar =&gt; sub { ! $_[0] }  }
+        # Scalar failures always return zero explicitly:
+            {  scalar =&gt; '0'  }
+        # List failures always return an empty list:
+            {  list =&gt; []  }
+        # List failures return () or (undef) [default expectation]:
+            {  list =&gt; sub { ! @_ || @_ == 1 &amp;&amp; !defined $_[0] }  }
+        # List failures return () or a single false value:
+            {  list =&gt; sub { ! @_ || @_ == 1 &amp;&amp; !$_[0] }  }
+        # List failures return (undef, &quot;some string&quot;)
+            {  list =&gt; sub { @_ == 2 &amp;&amp; !defined $_[0] }  }
+        # Unsuccessful foo() returns 'FAIL' or '_FAIL' in scalar context,
+        #                    returns (&minus;1) in list context...
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;foo,
+            {
+                scalar =&gt; qr/^ _? FAIL $/xms,
+                list   =&gt; [&minus;1],
+            }
+        );
+        # Unsuccessful foo() returns 0 in all contexts...
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;foo,
+            {
+                scalar =&gt; 0,
+                list   =&gt; [0],
+            }
+        );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This &quot;in
+all contexts&quot; construction is very common, and can be
+abbreviated, using the &rsquo;fail&rsquo; key. This sets
+both the <tt>&quot;scalar&quot;</tt> and
+<tt>&quot;list&quot;</tt> hints to the same value:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        # Unsuccessful foo() returns 0 in all contexts...
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;foo,
+            {
+                fail =&gt; sub { @_ == 1 and defined $_[0] and $_[0] == 0 }
+            }
+        );
+        # Unsuccessful think_positive() returns negative number on failure...
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;think_positive,
+            {
+                fail =&gt; sub { $_[0] &lt; 0 }
+            }
+        );
+        # Unsuccessful my_system() returns non&minus;zero on failure...
+        autodie::hints&minus;&gt;set_hints_for(
+            \&amp;my_system,
+            {
+                fail =&gt; sub { $_[0] != 0 }
+            }
+        );</pre>
+
+
+<h2>Manually setting hints from within your program
+
+<a name="Manually setting hints from within your program"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you are
+using a module which returns something special on failure,
+then you can manually create hints for each of the desired
+subroutines. Once the hints are specified, they are
+available for all files and modules loaded thereafter, thus
+you can move this work into a module and it will still
+work.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        use Some::Module qw(foo bar);
+        use autodie::hints;
+        autodie::hints&minus;&gt;set_hints_for(
+                \&amp;foo,
+                {
+                        scalar =&gt; SCALAR_HINT,
+                        list   =&gt; LIST_HINT,
+                }
+        );
+        autodie::hints&minus;&gt;set_hints_for(
+                \&amp;bar,
+                { fail =&gt; SOME_HINT, }
+        );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It is possible
+to pass either a subroutine reference (recommended) or a
+fully qualified subroutine name as the first argument. This
+means you can set hints on modules that <i>might</i> get
+loaded:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        use autodie::hints;
+        autodie::hints&minus;&gt;set_hints_for(
+                'Some::Module:bar', { fail =&gt; SCALAR_HINT, }
+        );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This technique
+is most useful when you have a project that uses a lot of
+third-party modules. You can define all your possible hints
+in one-place. This can even be in a sub-class of autodie.
+For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        package my::autodie;
+        use parent qw(autodie);
+        use autodie::hints;
+        autodie::hints&minus;&gt;set_hints_for(...);
+        1;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can now
+<tt>&quot;use my::autodie&quot;</tt>, which will work just
+like the standard <tt>&quot;autodie&quot;</tt>, but is now
+aware of any hints that you&rsquo;ve set.</p>
+
+<h2>Adding hints to your module
+<a name="Adding hints to your module"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;autodie&quot;</tt>
+provides a passive interface to allow you to declare hints
+for your module. These hints will be found and used by
+<tt>&quot;autodie&quot;</tt> if it is loaded, but otherwise
+have no effect (or dependencies) without autodie. To set
+these, your module needs to declare that it <i>does</i> the
+<tt>&quot;autodie::hints::provider&quot;</tt> role. This can
+be done by writing your own <tt>&quot;DOES&quot;</tt>
+method, using a system such as
+<tt>&quot;Class::DOES&quot;</tt> to handle the heavy-lifting
+for you, or declaring a <tt>%DOES</tt> package variable with
+a <tt>&quot;autodie::hints::provider&quot;</tt> key and a
+corresponding true value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+checking for a <tt>%DOES</tt> hash is an
+<tt>&quot;autodie&quot;</tt>&minus;only short-cut. Other
+modules do not use this mechanism for checking roles,
+although you can use the <tt>&quot;Class::DOES&quot;</tt>
+module from the <small>CPAN</small> to allow it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition,
+you must define a <tt>&quot;AUTODIE_HINTS&quot;</tt>
+subroutine that returns a hash-reference containing the
+hints for your subroutines:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        package Your::Module;
+        # We can use the Class::DOES from the CPAN to declare adherence
+        # to a role.
+        use Class::DOES 'autodie::hints::provider' =&gt; 1;
+        # Alternatively, we can declare the role in %DOES.  Note that
+        # this is an autodie specific optimisation, although Class::DOES
+        # can be used to promote this to a true role declaration.
+        our %DOES = ( 'autodie::hints::provider' =&gt; 1 );
+        # Finally, we must define the hints themselves.
+        sub AUTODIE_HINTS {
+            return {
+                foo =&gt; { scalar =&gt; HINTS, list =&gt; SOME_HINTS },
+                bar =&gt; { scalar =&gt; HINTS, list =&gt; MORE_HINTS },
+                baz =&gt; { fail =&gt; HINTS },
+            }
+        }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This allows
+your code to set hints without relying on
+<tt>&quot;autodie&quot;</tt> and
+<tt>&quot;autodie::hints&quot;</tt> being loaded, or even
+installed. In this way your code can do the right thing when
+<tt>&quot;autodie&quot;</tt> is installed, but does not need
+to depend upon it to function.</p>
+
+<h2>Insisting on hints
+<a name="Insisting on hints"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When a
+user-defined subroutine is wrapped by
+<tt>&quot;autodie&quot;</tt>, it will use hints if they are
+available, and otherwise reverts to the <i>default
+behaviour</i> described in the introduction of this
+document. This can be problematic if we expect a hint to
+exist, but (for whatever reason) it has not been loaded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">We can ask
+autodie to <i>insist</i> that a hint be used by prefixing an
+exclamation mark to the start of the subroutine name. A lone
+exclamation mark indicates that <i>all</i> subroutines after
+it must have hints declared.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        # foo() and bar() must have their hints defined
+        use autodie qw( !foo !bar baz );
+        # Everything must have hints (recommended).
+        use autodie qw( ! foo bar baz );
+        # bar() and baz() must have their hints defined
+        use autodie qw( foo ! bar baz );
+        # Enable autodie for all of Perl's supported built&minus;ins,
+        # as well as for foo(), bar() and baz().  Everything must
+        # have hints.
+        use autodie qw( ! :all foo bar baz );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If hints are
+not available for the specified subroutines, this will cause
+a compile-time error. Insisting on hints for Perl&rsquo;s
+built-in functions (eg, <tt>&quot;open&quot;</tt> and
+<tt>&quot;close&quot;</tt>) is always successful.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Insisting on
+hints is <i>strongly</i> recommended.</p>
+
+<h2>Diagnostics
+<a name="Diagnostics"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Attempts to
+set_hints_for unidentifiable subroutine</p>
+
+<p style="margin-left:17%;">You&rsquo;ve called
+<tt>&quot;autodie::hints&minus;&gt;set_hints_for()&quot;</tt>
+using a subroutine reference, but that reference could not
+be resolved back to a subroutine name. It may be an
+anonymous subroutine (which can&rsquo;t be made autodying),
+or may lack a name for other reasons.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If you receive
+this error with a subroutine that has a real name, then you
+may have found a bug in autodie. See &quot;
+<small>BUGS&quot;</small> in autodie for how to report
+this.</p>
+
+<p style="margin-left:11%;">fail hints cannot be provided
+with either scalar or list hints for %s</p>
+
+<p style="margin-left:17%;">When defining hints, you can
+either supply both <tt>&quot;list&quot;</tt> and
+<tt>&quot;scalar&quot;</tt> keywords, <i>or</i> you can
+provide a single <tt>&quot;fail&quot;</tt> keyword. You
+can&rsquo;t mix and match them.</p>
+
+<p style="margin-left:11%;">%s hint missing for %s</p>
+
+<p style="margin-left:17%;">You&rsquo;ve provided either a
+<tt>&quot;scalar&quot;</tt> hint without supplying a
+<tt>&quot;list&quot;</tt> hint, or vice-versa. You
+<i>must</i> supply both <tt>&quot;scalar&quot;</tt> and
+<tt>&quot;list&quot;</tt> hints, <i>or</i> a single
+<tt>&quot;fail&quot;</tt> hint.</p>
+
+<h2>ACKNOWLEDGEMENTS
+<a name="ACKNOWLEDGEMENTS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Dr Damian Conway for suggesting
+the hinting interface and providing the example usage.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Jacinta Richardson for translating much of my ideas into
+this documentation.</p></td></tr>
+</table>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright 2009,
+Paul Fenwick &lt;pjf@perltraining.com.au&gt;</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module is
+free software. You may distribute it under the same terms as
+Perl itself.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">autodie,
+Class::DOES</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:09:57 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Package::Stash</title>
+
+</head>
+<body>
+
+<h1 align="center">Package::Stash</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#BUGS / CAVEATS">BUGS / CAVEATS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#SUPPORT">SUPPORT</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Package::Stash
+&minus; routines for manipulating stashes</p>
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">version
+0.34</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  my $stash = Package::Stash&minus;&gt;new('Foo');
+  $stash&minus;&gt;add_symbol('%foo', {bar =&gt; 1});
+  # $Foo::foo{bar} == 1
+  $stash&minus;&gt;has_symbol('$foo') # false
+  my $namespace = $stash&minus;&gt;namespace;
+  *{ $namespace&minus;&gt;{foo} }{HASH} # {bar =&gt; 1}</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Manipulating
+stashes (Perl&rsquo;s symbol tables) is occasionally
+necessary, but incredibly messy, and easy to get wrong. This
+module hides all of that behind a simple
+<small>API.</small></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>NOTE:</small>
+Most methods in this class require a variable specification
+that includes a sigil. If this sigil is absent, it is
+assumed to represent the <small>IO</small> slot.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Due to
+limitations in the typeglob <small>API</small> available to
+perl code, and to typeglob manipulation in perl being quite
+slow, this module provides two implementations &minus; one
+in pure perl, and one using <small>XS.</small> The
+<small>XS</small> implementation is to be preferred for most
+usages; the pure perl one is provided for cases where
+<small>XS</small> modules are not a possibility. The current
+implementation in use can be set by setting
+<tt>$ENV{PACKAGE_STASH_IMPLEMENTATION}</tt> or
+<tt>$Package::Stash::IMPLEMENTATION</tt> before loading
+Package::Stash (with the environment variable taking
+precedence), otherwise, it will use the <small>XS</small>
+implementation if possible, falling back to the pure perl
+one.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>new
+$package_name</b> <br>
+Creates a new <tt>&quot;Package::Stash&quot;</tt> object,
+for the package given as the only argument.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>name</b>
+<br>
+Returns the name of the package that this object
+represents.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>namespace</b>
+<br>
+Returns the raw stash itself.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>add_symbol
+$variable $value %opts</b> <br>
+Adds a new package symbol, for the symbol given as
+<tt>$variable</tt>, and optionally gives it an initial value
+of <tt>$value</tt>. <tt>$variable</tt> should be the name of
+variable including the sigil, so</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  Package::Stash&minus;&gt;new('Foo')&minus;&gt;add_symbol('%foo')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will create
+<tt>%Foo::foo</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Valid options
+(all optional) are <tt>&quot;filename&quot;</tt>,
+<tt>&quot;first_line_num&quot;</tt>, and
+<tt>&quot;last_line_num&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$opts{filename}</tt>,
+<tt>$opts{first_line_num}</tt>, and
+<tt>$opts{last_line_num}</tt> can be used to indicate where
+the symbol should be regarded as having been defined.
+Currently these values are only used if the symbol is a
+subroutine (&rsquo;<tt>&quot;&amp;&quot;</tt>&rsquo; sigil)
+and only if <tt>&quot;$^P &amp; 0x10&quot;</tt> is true, in
+which case the special <tt>%DB::sub</tt> hash is updated to
+record the values of <tt>&quot;filename&quot;</tt>,
+<tt>&quot;first_line_num&quot;</tt>, and
+<tt>&quot;last_line_num&quot;</tt> for the subroutine. If
+these are not passed, their values are inferred (as much as
+possible) from <tt>&quot;caller&quot;</tt> information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is
+especially useful for debuggers and profilers, which use
+<tt>%DB::sub</tt> to determine where the source code for a
+subroutine can be found. See
+&lt;http://perldoc.perl.org/perldebguts.html#Debugger&minus;Internals&gt;
+for more information about <tt>%DB::sub</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>remove_glob
+$name</b> <br>
+Removes all package variables with the given name,
+regardless of sigil.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>has_symbol
+$variable</b> <br>
+Returns whether or not the given package variable (including
+sigil) exists.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_symbol
+$variable</b> <br>
+Returns the value of the given package variable (including
+sigil).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_or_add_symbol
+$variable</b> <br>
+Like <tt>&quot;get_symbol&quot;</tt>, except that it will
+return an empty hashref or arrayref if the variable
+doesn&rsquo;t exist.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>remove_symbol
+$variable</b> <br>
+Removes the package variable described by <tt>$variable</tt>
+(which includes the sigil); other variables with the same
+name but different sigils will be untouched.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>list_all_symbols
+$type_filter</b> <br>
+Returns a list of package variable names in the package,
+without sigils. If a <tt>&quot;type_filter&quot;</tt> is
+passed, it is used to select package variables of a given
+type, where valid types are the slots of a typeglob (&rsquo;
+<small>SCALAR</small> &rsquo;, &rsquo; <small>CODE</small>
+&rsquo;, &rsquo; <small>HASH</small> &rsquo;, etc). Note
+that if the package contained any <tt>&quot;BEGIN&quot;</tt>
+blocks, perl will leave an empty typeglob in the
+<tt>&quot;BEGIN&quot;</tt> slot, so this will show up if no
+filter is used (and similarly for <tt>&quot;INIT&quot;</tt>,
+<tt>&quot;END&quot;</tt>, etc).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>get_all_symbols
+$type_filter</b> <br>
+Returns a hashref, keyed by the variable names in the
+package. If <tt>$type_filter</tt> is passed, the hash will
+contain every variable of that type in the package as
+values, otherwise, it will contain the typeglobs
+corresponding to the variable names (basically, a clone of
+the stash).</p>
+
+<h2>BUGS / CAVEATS
+<a name="BUGS / CAVEATS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Prior to perl 5.10, scalar slots
+are only considered to exist if they are defined</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">This is due to
+a shortcoming within perl itself. See &quot;Making
+References&quot; in perlref point 7 for more
+information.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><small>GLOB</small> and
+<small>FORMAT</small> variables are not (yet) accessible
+through this module.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Also, see the <small>BUGS</small> section for the
+specific backends (Package::Stash::XS and
+Package::Stash::PP)</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Please report
+any bugs through <small>RT:</small> email
+<tt>&quot;bug&minus;package&minus;stash at
+rt.cpan.org&quot;</tt>, or browse to
+&lt;http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Package&minus;Stash&gt;.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="29%">
+
+
+<p style="margin-top: 1em">Class::MOP::Package</p></td>
+<td width="54%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">This module is
+a factoring out of code that used to live here</p>
+
+<h2>SUPPORT
+<a name="SUPPORT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can find
+this documentation for this module with the perldoc
+command.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    perldoc Package::Stash</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+look for information at:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="58%">
+
+
+<p style="margin-top: 1em">AnnoCPAN: Annotated
+<small>CPAN</small> documentation</p></td>
+<td width="25%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em">&lt;http://annocpan.org/dist/Package&minus;Stash&gt;</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="18%">
+
+
+<p style="margin-top: 1em"><small>CPAN</small> Ratings</p></td>
+<td width="65%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em">&lt;http://cpanratings.perl.org/d/Package&minus;Stash&gt;</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="40%">
+
+
+<p style="margin-top: 1em"><small>RT: CPAN</small> &rsquo;s
+request tracker</p></td>
+<td width="43%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em">&lt;http://rt.cpan.org/NoAuth/Bugs.html?Dist=Package&minus;Stash&gt;</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="17%">
+
+
+<p style="margin-top: 1em">Search <small>CPAN</small></p></td>
+<td width="66%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em">&lt;http://search.cpan.org/dist/Package&minus;Stash&gt;</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Jesse Luehrs
+&lt;doy at tozt dot net&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Based on code
+from Class::MOP::Package, by Stevan Little and the Moose
+Cabal.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Jesse Luehrs
+&lt;doy at tozt dot net&gt;</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This software
+is copyright (c) 2013 by Jesse Luehrs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is free
+software; you can redistribute it and/or modify it under the
+same terms as the Perl 5 programming language system
+itself.</p>
+<hr>
+</body>
+</html>

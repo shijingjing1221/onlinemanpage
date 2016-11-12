@@ -1,0 +1,979 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:26:42 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SLAPO-RWM</title>
+
+</head>
+<body>
+
+<h1 align="center">SLAPO-RWM</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#MAPPING">MAPPING</a><br>
+<a href="#SUFFIX MASSAGING">SUFFIX MASSAGING</a><br>
+<a href="#REWRITING">REWRITING</a><br>
+<a href="#Passes">Passes</a><br>
+<a href="#Pattern Matching Flags">Pattern Matching Flags</a><br>
+<a href="#Action Flags">Action Flags</a><br>
+<a href="#Pattern Matching">Pattern Matching</a><br>
+<a href="#Substitution Pattern Syntax">Substitution Pattern Syntax</a><br>
+<a href="#Rewrite Context">Rewrite Context</a><br>
+<a href="#Basic Configuration Syntax">Basic Configuration Syntax</a><br>
+<a href="#Additional Configuration Syntax">Additional Configuration Syntax</a><br>
+<a href="#MAPS">MAPS</a><br>
+<a href="#REWRITE CONFIGURATION EXAMPLES">REWRITE CONFIGURATION EXAMPLES</a><br>
+<a href="#MAPPING EXAMPLES">MAPPING EXAMPLES</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">slapo&minus;rwm
+&minus; rewrite/remap overlay to slapd</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">/etc/openldap/slapd.conf</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The <b>rwm</b>
+overlay to <b>slapd</b>(8) performs basic DN/data rewrite
+and objectClass/attributeType mapping. Its usage is mostly
+intended to provide virtual views of existing data either
+remotely, in conjunction with the proxy backend described in
+<b>slapd&minus;ldap</b>(5), or locally, in conjunction with
+the relay backend described in
+<b>slapd&minus;relay</b>(5).</p>
+
+<p style="margin-left:11%; margin-top: 1em">This overlay is
+experimental.</p>
+
+<h2>MAPPING
+<a name="MAPPING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An important
+feature of the <b>rwm</b> overlay is the capability to map
+objectClasses and attributeTypes from the local set (or a
+subset of it) to a foreign set, and vice versa. This is
+accomplished by means of the <b>rwm&minus;map</b> directive.
+<b><br>
+rwm&minus;map {attribute | objectclass} [&lt;local name&gt;
+| *] {&lt;foreign name&gt; | <br>
+*}</b></p>
+
+<p style="margin-left:22%;">Map attributeTypes and
+objectClasses from the foreign server to different values on
+the local slapd. The reason is that some attributes might
+not be part of the local slapd&rsquo;s schema, some
+attribute names might be different but serve the same
+purpose, etc. If local or foreign name is &lsquo;*&rsquo;,
+the name is preserved. If local name is omitted, the foreign
+name is removed. Unmapped names are preserved if both local
+and foreign name are &lsquo;*&rsquo;, and removed if local
+name is omitted and foreign name is &lsquo;*&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The local
+<i>objectClasses</i> and <i>attributeTypes</i> must be
+defined in the local schema; the foreign ones do not have
+to, but users are encouraged to explicitly define the remote
+attributeTypes and the objectClasses they intend to map. All
+in all, when remapping a remote server via back-ldap
+(<b>slapd&minus;ldap</b>(5)) or back-meta
+(<b>slapd&minus;meta</b>(5)) their definition can be easily
+obtained by querying the <i>subschemaSubentry</i> of the
+remote server; the problem should not exist when remapping a
+local database. Note, however, that the decision whether to
+rewrite or not attributeTypes with <i>distinguishedName
+syntax</i>, requires the knowledge of the attributeType
+syntax. See the REWRITING section for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that when
+mapping DN-valued attributes from local to remote, first the
+DN is rewritten, and then the attributeType is mapped; while
+mapping from remote to local, first the attributeType is
+mapped, and then the DN is rewritten. As such, it is
+important that the local attributeType is appropriately
+defined as using the distinguishedName syntax. Also, note
+that there are DN-related syntaxes (i.e. compound types with
+a portion that is DN-valued), like nameAndOptionalUID, whose
+values are currently not rewritten.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the foreign
+type of an attribute mapping is not defined on the local
+server, it might be desirable to have the attribute values
+normalized after the mapping process. Not normalizing the
+values can lead to wrong results, when the <b>rwm</b>
+overlay is used together with e.g. the <b>pcache</b>
+overlay. This normalization can be enabled by means of the
+<b>rwm&minus;normalize&minus;mapped&minus;attrs</b>
+directive. <b><br>
+rwm&minus;normalize&minus;mapped&minus;attrs
+{yes|no}</b></p>
+
+<p style="margin-left:22%;">Set this to &quot;yes&quot;, if
+the <b>rwm</b> overlay should try to normalize the values of
+attributes that are mapped from an attribute type that is
+unknown to the local server. The default value of this
+setting is &quot;no&quot;.</p>
+
+<p style="margin-left:11%;"><b>rwm-drop-unrequested-attrs
+{yes|no}</b></p>
+
+<p style="margin-left:22%;">Set this to &quot;yes&quot;, if
+the <b>rwm</b> overlay should drop attributes that are not
+explicitly requested by a search operation. When this is set
+to &quot;no&quot;, the <b>rwm</b> overlay will leave all
+attributes in place, so that subsequent modules can further
+manipulate them. In any case, unrequested attributes will be
+omitted from search results by the frontend, when the search
+entry response package is encoded. The default value of this
+setting is &quot;yes&quot;.</p>
+
+<h2>SUFFIX MASSAGING
+<a name="SUFFIX MASSAGING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A basic feature
+of the <b>rwm</b> overlay is the capability to perform
+suffix massaging between a virtual and a real naming context
+by means of the <b>rwm&minus;suffixmassage</b> directive.
+This, in conjunction with proxy backends,
+<b>slapd&minus;ldap</b>(5) and <b>slapd&minus;meta</b>(5),
+or with the relay backend, <b>slapd&minus;relay</b>(5),
+allows to create virtual views of databases. A
+distinguishing feature of this overlay is that, when
+instantiated before any database, it can modify the DN of
+requests <i>before</i> database selection. For this reason,
+rules that rewrite the empty DN (&quot;&quot;) or the
+subschemaSubentry DN (usually &quot;cn=subschema&quot;),
+would prevent clients from reading the root DSE or the
+DSA&rsquo;s schema. <b><br>
+rwm&minus;suffixmassage [&lt;virtual naming context&gt;]
+&lt;real naming context&gt;</b></p>
+
+<p style="margin-left:22%;">Shortcut to implement naming
+context rewriting; the trailing part of the DN is rewritten
+from the virtual to the real naming context in the bindDN,
+searchDN, searchFilterAttrDN, compareDN, compareAttrDN,
+addDN, addAttrDN, modifyDN, modifyAttrDN, modrDN,
+newSuperiorDN, deleteDN, exopPasswdDN, and from the real to
+the virtual naming context in the searchEntryDN,
+searchAttrDN and matchedDN rewrite contexts. By default no
+rewriting occurs for the searchFilter and for the
+referralAttrDN and referralDN rewrite contexts. If no
+<i>&lt;virtual naming context&gt;</i> is given, the first
+suffix of the database is used; this requires the
+<b>rwm&minus;suffixmassage</b> directive be defined
+<i>after</i> the database <b>suffix</b> directive. The
+<b>rwm&minus;suffixmassage</b> directive automatically sets
+the <b>rwm&minus;rewriteEngine</b> to <b>ON</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+REWRITING section for details.</p>
+
+<h2>REWRITING
+<a name="REWRITING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A string is
+rewritten according to a set of rules, called a
+&lsquo;rewrite context&rsquo;. The rules are based on POSIX
+(&rsquo;&rsquo;extended&rsquo;&rsquo;) regular expressions
+with substring matching; basic variable substitution and map
+resolution of substrings is allowed by specific mechanisms
+detailed in the following. The behavior of pattern
+matching/substitution can be altered by a set of flags.</p>
+
+<p style="margin-left:22%; margin-top: 1em">&lt;rewrite
+context&gt; ::= &lt;rewrite rule&gt; [...] <br>
+&lt;rewrite rule&gt; ::= &lt;pattern&gt; &lt;action&gt;
+[&lt;flags&gt;]</p>
+
+<p style="margin-left:11%; margin-top: 1em">The underlying
+concept is to build a lightweight rewrite module for the
+slapd server (initially dedicated to the LDAP backend):</p>
+
+<h2>Passes
+<a name="Passes"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An incoming
+string is matched against a set of <i>rewriteRules</i>.
+Rules are made of a <i>regex match pattern</i>, a
+<i>substitution pattern</i> and a set of actions, described
+by a set of <i>optional flags</i>. In case of match, string
+rewriting is performed according to the substitution pattern
+that allows to refer to substrings matched in the incoming
+string. The actions, if any, are finally performed. Each
+rule is executed recursively, unless altered by specific
+action flags; see &quot;Action Flags&quot; for details. A
+default limit on the recursion level is set, and can be
+altered by the <b>rwm&minus;rewriteMaxPasses</b> directive,
+as detailed in the &quot;Additional Configuration
+Syntax&quot; section. The substitution pattern allows map
+resolution of substrings. A map is a generic object that
+maps a substitution pattern to a value. The flags are
+divided in &quot;Pattern Matching Flags&quot; and
+&quot;Action Flags&quot;; the former alter the regex match
+pattern behavior, while the latter alter the actions that
+are taken after substitution.</p>
+
+<h2>Pattern Matching Flags
+<a name="Pattern Matching Flags"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p style="margin-top: 1em"><b>&lsquo;C&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">honors case in matching (default
+is case insensitive)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;R&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>use POSIX &rsquo;&rsquo;basic&rsquo;&rsquo; regular
+expressions (default is
+&rsquo;&rsquo;extended&rsquo;&rsquo;)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;M{n}&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>allow no more than <b>n</b> recursive passes for a
+specific rule; does not alter the max total count of passes,
+so it can only enforce a stricter limit for a specific
+rule.</p> </td></tr>
+</table>
+
+<h2>Action Flags
+<a name="Action Flags"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p style="margin-top: 1em"><b>&lsquo;:&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">apply the rule once only
+(default is recursive)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;@&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>stop applying rules in case of match; the current rule
+is still applied recursively; combine with &lsquo;:&rsquo;
+to apply the current rule only once and then stop.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;#&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>stop current operation if the rule matches, and issue an
+&lsquo;unwilling to perform&rsquo; error.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;G{n}&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>jump <b>n</b> rules back and forth (watch for loops!).
+Note that &lsquo;G{1}&rsquo; is implicit in every rule.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;I&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>ignores errors in rule; this means, in case of error,
+e.g. issued by a map, the error is treated as a missed
+match. The &lsquo;unwilling to perform&rsquo; is not
+overridden.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>&lsquo;U{n}&rsquo;</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>uses <b>n</b> as return code if the rule matches; the
+flag does not alter the recursive behavior of the rule, so,
+to have it performed only once, it must be used in
+combination with &lsquo;:&rsquo;, e.g.
+<b>&lsquo;:U{32}&rsquo;</b> returns the value
+&lsquo;32&rsquo; (indicating noSuchObject) after exactly one
+execution of the rule, if the pattern matches. As a
+consequence, its behavior is equivalent to &lsquo;@&rsquo;,
+with the return code set to <b>n</b>; or, in other words,
+&lsquo;@&rsquo; is equivalent to &lsquo;U{0}&rsquo;.
+Positive errors are allowed, indicating the related LDAP
+error codes as specified in
+<i>draft-ietf-ldapbis-protocol</i>.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The ordering of
+the flags can be significant. For instance:
+&lsquo;IG{2}&rsquo; means ignore errors and jump two lines
+ahead both in case of match and in case of error, while
+&lsquo;G{2}I&rsquo; means ignore errors, but jump two lines
+ahead only in case of match.</p>
+
+<p style="margin-left:11%; margin-top: 1em">More flags
+(mainly Action Flags) will be added as needed.</p>
+
+<h2>Pattern Matching
+<a name="Pattern Matching"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">See
+<b>regex</b>(7) and/or <b>re_format</b>(7).</p>
+
+<h2>Substitution Pattern Syntax
+<a name="Substitution Pattern Syntax"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Everything
+starting with &lsquo;$&rsquo; requires substitution;</p>
+
+<p style="margin-left:11%; margin-top: 1em">the only
+obvious exception is &lsquo;$$&rsquo;, which is turned into
+a single &lsquo;$&rsquo;;</p>
+
+<p style="margin-left:11%; margin-top: 1em">the basic
+substitution is &lsquo;$&lt;d&gt;&rsquo;, where
+&lsquo;&lt;d&gt;&rsquo; is a digit; 0 means the whole
+string, while 1-9 is a submatch, as discussed in
+<b>regex</b>(7) and/or <b>re_format</b>(7).</p>
+
+<p style="margin-left:11%; margin-top: 1em">a
+&lsquo;$&rsquo; followed by a &lsquo;{&rsquo; invokes an
+advanced substitution. The pattern is:</p>
+
+
+<p style="margin-left:22%; margin-top: 1em">&lsquo;$&rsquo;
+&lsquo;{&rsquo; [ &lt;operator&gt; ] &lt;name&gt;
+&lsquo;(&rsquo; &lt;substitution&gt; &lsquo;)&rsquo;
+&lsquo;}&rsquo;</p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+&lt;name&gt; must be a legal name for the map, i.e.</p>
+
+<p style="margin-left:22%; margin-top: 1em">&lt;name&gt;
+::= [a-z][a-z0-9]* (case insensitive) <br>
+&lt;operator&gt; ::= &lsquo;&gt;&rsquo; &lsquo;|&rsquo;
+&lsquo;&amp;&rsquo; &lsquo;&amp;&amp;&rsquo; &lsquo;*&rsquo;
+&lsquo;**&rsquo; &lsquo;$&rsquo;</p>
+
+<p style="margin-left:11%; margin-top: 1em">and
+&lt;substitution&gt; must be a legal substitution pattern,
+with no limits on the nesting level.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The operators
+are:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>&gt;</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">sub-context invocation;
+&lt;name&gt; must be a legal, already defined rewrite
+context name</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>|</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>external command invocation; &lt;name&gt; must refer to
+a legal, already defined command name (NOT IMPLEMENTED
+YET)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>&amp;</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>variable assignment; &lt;name&gt; defines a variable in
+the running operation structure which can be dereferenced
+later; operator <b>&amp;</b> assigns a variable in the
+rewrite context scope; operator <b>&amp;&amp;</b> assigns a
+variable that scopes the entire session, e.g. its value can
+be dereferenced later by other rewrite contexts</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>*</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>variable dereferencing; &lt;name&gt; must refer to a
+variable that is defined and assigned for the running
+operation; operator <b>*</b> dereferences a variable scoping
+the rewrite context; operator <b>**</b> dereferences a
+variable scoping the whole session, e.g. the value is passed
+across rewrite contexts</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>$</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>parameter dereferencing; &lt;name&gt; must refer to an
+existing parameter; the idea is to make some run-time
+parameters set by the system available to the rewrite
+engine, as the client host name, the bind DN if any,
+constant parameters initialized at config time, and so on;
+no parameter is currently set by either
+<b>back&minus;ldap</b> or <b>back&minus;meta</b>, but
+constant parameters can be defined in the configuration file
+by using the <b>rewriteParam</b> directive.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Substitution
+escaping has been delegated to the &lsquo;$&rsquo; symbol,
+which is used instead of &lsquo;\&rsquo; in string
+substitution patterns because &lsquo;\&rsquo; is already
+escaped by slapd&rsquo;s low level parsing routines; as a
+consequence, regex escaping requires two &lsquo;\&rsquo;
+symbols, e.g. &lsquo;<b>.*\.foo\.bar</b>&rsquo; must be
+written as &lsquo;<b>.*\\.foo\\.bar</b>&rsquo;.</p>
+
+<h2>Rewrite Context
+<a name="Rewrite Context"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A rewrite
+context is a set of rules which are applied in sequence. The
+basic idea is to have an application initialize a rewrite
+engine (think of Apache&rsquo;s mod_rewrite ...) with a set
+of rewrite contexts; when string rewriting is required, one
+invokes the appropriate rewrite context with the input
+string and obtains the newly rewritten one if no errors
+occur.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each basic
+server operation is associated to a rewrite context; they
+are divided in two main groups: client &minus;&gt; server
+and server &minus;&gt; client rewriting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">client
+&minus;&gt; server:</p>
+
+<p style="margin-left:22%; margin-top: 1em">(default) if
+defined and no specific context <br>
+is available <br>
+bindDN bind <br>
+searchDN search <br>
+searchFilter search <br>
+searchFilterAttrDN search <br>
+compareDN compare <br>
+compareAttrDN compare AVA <br>
+addDN add <br>
+addAttrDN add AVA (DN portion of &quot;ref&quot; excluded)
+<br>
+modifyDN modify <br>
+modifyAttrDN modify AVA (DN portion of &quot;ref&quot;
+excluded) <br>
+referralAttrDN add/modify DN portion of referrals <br>
+(default to none) <br>
+renameDN modrdn (the old DN) <br>
+newSuperiorDN modrdn (the new parent DN, if any) <br>
+newRDN modrdn (the new relative DN) <br>
+deleteDN delete <br>
+exopPasswdDN password modify extended operation DN</p>
+
+<p style="margin-left:11%; margin-top: 1em">server
+&minus;&gt; client:</p>
+
+<p style="margin-left:22%; margin-top: 1em">searchEntryDN
+search (only if defined; no default; <br>
+acts on DN of search entries) <br>
+searchAttrDN search AVA (only if defined; defaults <br>
+to searchEntryDN; acts on DN-syntax <br>
+attributes of search results) <br>
+matchedDN all ops (only if applicable; defaults <br>
+to searchEntryDN) <br>
+referralDN all ops (only if applicable; defaults <br>
+to none)</p>
+
+<h2>Basic Configuration Syntax
+<a name="Basic Configuration Syntax"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">All
+rewrite/remap directives start with the prefix
+<b>rwm&minus;</b>; for backwards compatibility with the
+historical <b>slapd&minus;ldap</b>(5) and
+<b>slapd&minus;meta</b>(5) builtin rewrite/remap
+capabilities, the prefix may be omitted, but this practice
+is strongly discouraged. <b><br>
+rwm&minus;rewriteEngine { on | off }</b></p>
+
+<p style="margin-left:22%;">If &lsquo;on&rsquo;, the
+requested rewriting is performed; if &lsquo;off&rsquo;, no
+rewriting takes place (an easy way to stop rewriting without
+altering too much the configuration file).</p>
+
+<p style="margin-left:11%;"><b>rwm&minus;rewriteContext
+&lt;context name&gt; [ alias &lt;aliased context name&gt;
+]</b></p>
+
+<p style="margin-left:22%;">&lt;Context name&gt; is the
+name that identifies the context, i.e. the name used by the
+application to refer to the set of rules it contains. It is
+used also to reference sub contexts in string rewriting. A
+context may alias another one. In this case the alias
+context contains no rule, and any reference to it will
+result in accessing the aliased one.</p>
+
+<p style="margin-left:11%;"><b>rwm&minus;rewriteRule
+&lt;regex match pattern&gt; &lt;substitution pattern&gt; [
+&lt;flags&gt; <br>
+]</b></p>
+
+<p style="margin-left:22%;">Determines how a string can be
+rewritten if a pattern is matched. Examples are reported
+below.</p>
+
+<h2>Additional Configuration Syntax
+<a name="Additional Configuration Syntax"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>rwm&minus;rewriteMap
+&lt;map type&gt; &lt;map name&gt; [ &lt;map attrs&gt;
+]</b></p>
+
+<p style="margin-left:22%;">Allows to define a map that
+transforms substring rewriting into something else. The map
+is referenced inside the substitution pattern of a rule.</p>
+
+<p style="margin-left:11%;"><b>rwm&minus;rewriteParam
+&lt;param name&gt; &lt;param value&gt;</b></p>
+
+<p style="margin-left:22%;">Sets a value with global scope,
+that can be dereferenced by the command
+&lsquo;${$paramName}&rsquo;.</p>
+
+<p style="margin-left:11%;"><b>rwm&minus;rewriteMaxPasses
+&lt;number of passes&gt; [&lt;number of passes per
+rule&gt;]</b></p>
+
+<p style="margin-left:22%;">Sets the maximum number of
+total rewriting passes that can be performed in a single
+rewrite operation (to avoid loops). A safe default is set to
+100; note that reaching this limit is still treated as a
+success; recursive invocation of rules is simply
+interrupted. The count applies to the rewriting operation as
+a whole, not to any single rule; an optional per-rule limit
+can be set. This limit is overridden by setting specific
+per-rule limits with the &lsquo;M{n}&rsquo; flag.</p>
+
+<h2>MAPS
+<a name="MAPS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Currently, few
+maps are builtin but additional map types may be registered
+at runtime.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Supported maps
+are: <b><br>
+LDAP &lt;URI&gt; [bindwhen=&lt;when&gt;]
+[version=&lt;version&gt;] [binddn=&lt;DN&gt;] <br>
+[credentials=&lt;cred&gt;]</b></p>
+
+<p style="margin-left:22%;">The <b>LDAP</b> map expands a
+value by performing a simple LDAP search. Its configuration
+is based on a mandatory URI, whose <b>attrs</b> portion must
+contain exactly one attribute (use <b>entryDN</b> to fetch
+the DN of an entry). If a multi-valued attribute is used,
+only the first value is considered.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The parameter
+<b>bindwhen</b> determines when the connection is
+established. It can take the values <b>now</b>,
+<b>later</b>, and <b>everytime</b>, respectively indicating
+that the connection should be created at startup, when
+required, or any time it is used. In the former two cases,
+the connection is cached, while in the latter a fresh new
+one is used all times. This is the default.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The parameters
+<b>binddn</b> and <b>credentials</b> represent the DN and
+the password that is used to perform an authenticated simple
+bind before performing the search operation; if not given,
+an anonymous connection is used.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The parameter
+<b>version</b> can be 2 or 3 to indicate the protocol
+version that must be used. The default is 3.</p>
+
+<p style="margin-left:11%;"><b>slapd &lt;URI&gt;</b></p>
+
+<p style="margin-left:22%;">The <b>slapd</b> map expands a
+value by performing an internal LDAP search. Its
+configuration is based on a mandatory URI, which must begin
+with <b>ldap:///</b> (i.e., it must be an LDAP URI and it
+must not specify a host). As with the LDAP map, the
+<b>attrs</b> portion must contain exactly one attribute, and
+if a multi-valued attribute is used, only the first value is
+considered.</p>
+
+<h2>REWRITE CONFIGURATION EXAMPLES
+<a name="REWRITE CONFIGURATION EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"># set to
+&lsquo;off&rsquo; to disable rewriting <br>
+rwm&minus;rewriteEngine on</p>
+
+<p style="margin-left:11%; margin-top: 1em"># the rules the
+&quot;suffixmassage&quot; directive implies <br>
+rwm&minus;rewriteEngine on <br>
+# all dataflow from client to server referring to DNs <br>
+rwm&minus;rewriteContext default <br>
+rwm&minus;rewriteRule
+&quot;(.+,)?&lt;virtualnamingcontext&gt;$&quot;
+&quot;$1&lt;realnamingcontext&gt;&quot; &quot;:&quot; <br>
+# empty filter rule <br>
+rwm&minus;rewriteContext searchFilter <br>
+# all dataflow from server to client <br>
+rwm&minus;rewriteContext searchEntryDN <br>
+rwm&minus;rewriteRule
+&quot;(.+,)?&lt;realnamingcontext&gt;$&quot;
+&quot;$1&lt;virtualnamingcontext&gt;&quot; &quot;:&quot;
+<br>
+rwm&minus;rewriteContext searchAttrDN alias searchEntryDN
+<br>
+rwm&minus;rewriteContext matchedDN alias searchEntryDN <br>
+# misc empty rules <br>
+rwm&minus;rewriteContext referralAttrDN <br>
+rwm&minus;rewriteContext referralDN</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Everything
+defined here goes into the &lsquo;default&rsquo; context.
+<br>
+# This rule changes the naming context of anything sent <br>
+# to &lsquo;dc=home,dc=net&rsquo; to &lsquo;dc=OpenLDAP,
+dc=org&rsquo;</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">rwm&minus;rewriteRule
+&quot;(.+,)?dc=home,[ ]?dc=net$&quot; <br>
+&quot;$1dc=OpenLDAP, dc=org&quot; &quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># since a
+pretty/normalized DN does not include spaces <br>
+# after rdn separators, e.g. &lsquo;,&rsquo;, this rule
+suffices:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">rwm&minus;rewriteRule
+&quot;(.+,)?dc=home,dc=net$&quot; <br>
+&quot;$1dc=OpenLDAP,dc=org&quot; &quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Start a new
+context (ends input of the previous one). <br>
+# This rule adds blanks between DN parts if not present.
+<br>
+rwm&minus;rewriteContext addBlanks <br>
+rwm&minus;rewriteRule &quot;(.*),([^ ].*)&quot; &quot;$1,
+$2&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># This one eats
+blanks <br>
+rwm&minus;rewriteContext eatBlanks <br>
+rwm&minus;rewriteRule &quot;(.*), (.*)&quot;
+&quot;$1,$2&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Here control
+goes back to the default rewrite <br>
+# context; rules are appended to the existing ones. <br>
+# anything that gets here is piped into rule
+&lsquo;addBlanks&rsquo; <br>
+rwm&minus;rewriteContext default <br>
+rwm&minus;rewriteRule &quot;.*&quot;
+&quot;${&gt;addBlanks($0)}&quot; &quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Rewrite the
+search base according to &lsquo;default&rsquo; rules. <br>
+rwm&minus;rewriteContext searchDN alias default</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Search
+results with OpenLDAP DN are rewritten back with <br>
+# &lsquo;dc=home,dc=net&rsquo; naming context, with spaces
+eaten. <br>
+rwm&minus;rewriteContext searchEntryDN <br>
+rwm&minus;rewriteRule &quot;(.*[^ ],)?[ ]?dc=OpenLDAP,[
+]?dc=org$&quot; <br>
+&quot;${&gt;eatBlanks($1)}dc=home,dc=net&quot;
+&quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Bind with
+email instead of full DN: we first need <br>
+# an ldap map that turns attributes into a DN (the <br>
+# argument used when invoking the map is appended to <br>
+# the URI and acts as the filter portion) <br>
+rwm&minus;rewriteMap ldap attr2dn
+&quot;ldap://host/dc=my,dc=org?dn?sub&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># Then we need
+to detect DN made up of a single email, <br>
+# e.g. &lsquo;mail=someone@example.com&rsquo;; note that the
+rule <br>
+# in case of match stops rewriting; in case of error, <br>
+# it is ignored. In case we are mapping virtual <br>
+# to real naming contexts, we also need to rewrite <br>
+# regular DNs, because the definition of a bindDN <br>
+# rewrite context overrides the default definition. <br>
+rwm&minus;rewriteContext bindDN <br>
+rwm&minus;rewriteRule &quot;^mail=[^,]+@[^,]+$&quot;
+&quot;${attr2dn($0)}&quot; &quot;:@I&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># This is a
+rather sophisticated example. It massages a <br>
+# search filter in case who performs the search has <br>
+# administrative privileges. First we need to keep <br>
+# track of the bind DN of the incoming request, which is
+<br>
+# stored in a variable called &lsquo;binddn&rsquo; with
+session scope, <br>
+# and left in place to allow regular binding: <br>
+rwm&minus;rewriteContext bindDN <br>
+rwm&minus;rewriteRule &quot;.+&quot;
+&quot;${&amp;&amp;binddn($0)}$0&quot; &quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># A search
+filter containing &lsquo;uid=&rsquo; is rewritten only <br>
+# if an appropriate DN is bound. <br>
+# To do this, in the first rule the bound DN is <br>
+# dereferenced, while the filter is decomposed in a <br>
+# prefix, in the value of the &lsquo;uid=&lt;arg&gt;&rsquo;
+AVA, and <br>
+# in a suffix. A tag &lsquo;&lt;&gt;&rsquo; is appended to
+the DN. <br>
+# If the DN refers to an entry in the &lsquo;ou=admin&rsquo;
+subtree, <br>
+# the filter is rewritten OR-ing the
+&lsquo;uid=&lt;arg&gt;&rsquo; with <br>
+# &lsquo;cn=&lt;arg&gt;&rsquo;; otherwise it is left as is.
+This could be <br>
+# useful, for instance, to allow apache&rsquo;s
+auth_ldap-1.4 <br>
+# module to authenticate users with both &lsquo;uid&rsquo;
+and <br>
+# &lsquo;cn&rsquo;, but only if the request comes from a
+possible <br>
+# &lsquo;cn=Web auth,ou=admin,dc=home,dc=net&rsquo; user.
+<br>
+rwm&minus;rewriteContext searchFilter <br>
+rwm&minus;rewriteRule
+&quot;(.*\\()uid=([a&minus;z0&minus;9_]+)(\\).*)&quot; <br>
+
+&quot;${**binddn}&lt;&gt;${&amp;prefix($1)}${&amp;arg($2)}${&amp;suffix($3)}&quot;
+<br>
+&quot;:I&quot; <br>
+rwm&minus;rewriteRule
+&quot;^[^,]+,ou=admin,dc=home,dc=net$&quot; <br>
+&quot;${*prefix}|(uid=${*arg})(cn=${*arg})${*suffix}&quot;
+&quot;:@I&quot; <br>
+rwm&minus;rewriteRule &quot;.*&lt;&gt;$&quot;
+&quot;${*prefix}uid=${*arg}${*suffix}&quot;
+&quot;:&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"># This example
+shows how to strip unwanted DN-valued <br>
+# attribute values from a search result; the first rule <br>
+# matches DN values below
+&quot;ou=People,dc=example,dc=com&quot;; <br>
+# in case of match the rewriting exits successfully. <br>
+# The second rule matches everything else and causes <br>
+# the value to be rejected. <br>
+rwm&minus;rewriteContext searchEntryDN <br>
+rwm&minus;rewriteRule
+&quot;.+,ou=People,dc=example,dc=com$&quot; &quot;$0&quot;
+&quot;:@&quot; <br>
+rwm&minus;rewriteRule &quot;.*&quot; &quot;&quot;
+&quot;#&quot;</p>
+
+<h2>MAPPING EXAMPLES
+<a name="MAPPING EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+directives map the object class &lsquo;groupOfNames&rsquo;
+to the object class &lsquo;groupOfUniqueNames&rsquo; and the
+attribute type &lsquo;member&rsquo; to the attribute type
+&lsquo;uniqueMember&rsquo;:</p>
+
+<p style="margin-left:22%; margin-top: 1em">map objectclass
+groupOfNames groupOfUniqueNames <br>
+map attribute uniqueMember member</p>
+
+<p style="margin-left:11%; margin-top: 1em">This presents a
+limited attribute set from the foreign server:</p>
+
+<p style="margin-left:22%; margin-top: 1em">map attribute
+cn * <br>
+map attribute sn * <br>
+map attribute manager * <br>
+map attribute description * <br>
+map attribute *</p>
+
+<p style="margin-left:11%; margin-top: 1em">These lines map
+cn, sn, manager, and description to themselves, and any
+other attribute gets &quot;removed&quot; from the object
+before it is sent to the client (or sent up to the LDAP
+server). This is obviously a simplistic example, but you get
+the point.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">/etc/openldap/slapd.conf</p>
+
+<p style="margin-left:22%;">default slapd configuration
+file</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>slapd.conf</b>(5),
+<b>slapd&minus;config</b>(5), <b>slapd&minus;ldap</b>(5),
+<b>slapd&minus;meta</b>(5), <b>slapd&minus;relay</b>(5),
+<b>slapd</b>(8), <b>regex</b>(7), <b>re_format</b>(7).</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Pierangelo
+Masarati; based on back-ldap rewrite/remap features by
+Howard Chu, Pierangelo Masarati.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:17:08 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>REINDEX</title>
+
+</head>
+<body>
+
+<h1 align="center">REINDEX</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">REINDEX &minus;
+rebuild indexes</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">REINDEX { INDEX
+| TABLE | DATABASE | SYSTEM } <i>name</i> [ FORCE ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>REINDEX</b>
+rebuilds an index using the data stored in the index's
+table, replacing the old copy of the index. There are
+several scenarios in which to use <b>REINDEX</b>:</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; An index
+has become corrupted, and no longer contains valid data.
+Although in theory this should never happen, in practice
+indexes can become corrupted due to software bugs or
+hardware failures. <b>REINDEX</b> provides a recovery
+method.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; An index
+has become &ldquo;bloated&rdquo;, that it is contains many
+empty or nearly&minus;empty pages. This can occur with
+B&minus;tree indexes in PostgreSQL under certain uncommon
+access patterns. <b>REINDEX</b> provides a way to reduce the
+space consumption of the index by writing a new version of
+the index without the dead pages. See Section 23.2,
+&ldquo;Routine Reindexing&rdquo;, in the documentation for
+more information.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; You have
+altered a storage parameter (such as fillfactor) for an
+index, and wish to ensure that the change has taken full
+effect.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; An index
+build with the CONCURRENTLY option failed, leaving an
+&ldquo;invalid&rdquo; index. Such indexes are useless but it
+can be convenient to use <b>REINDEX</b> to rebuild them.
+Note that <b>REINDEX</b> will not perform a concurrent
+build. To build the index without interfering with
+production you should drop the index and reissue the
+<b>CREATE INDEX CONCURRENTLY</b> command.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">INDEX</p>
+
+<p style="margin-left:17%;">Recreate the specified
+index.</p>
+
+<p style="margin-left:11%; margin-top: 1em">TABLE</p>
+
+<p style="margin-left:17%;">Recreate all indexes of the
+specified table. If the table has a secondary
+&ldquo;TOAST&rdquo; table, that is reindexed as well.</p>
+
+<p style="margin-left:11%; margin-top: 1em">DATABASE</p>
+
+<p style="margin-left:17%;">Recreate all indexes within the
+current database. Indexes on shared system catalogs are also
+processed. This form of <b>REINDEX</b> cannot be executed
+inside a transaction block.</p>
+
+<p style="margin-left:11%; margin-top: 1em">SYSTEM</p>
+
+<p style="margin-left:17%;">Recreate all indexes on system
+catalogs within the current database. Indexes on shared
+system catalogs are included. Indexes on user tables are not
+processed. This form of <b>REINDEX</b> cannot be executed
+inside a transaction block.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>name</i></p>
+
+<p style="margin-left:17%;">The name of the specific index,
+table, or database to be reindexed. Index and table names
+can be schema&minus;qualified. Presently, <b>REINDEX
+DATABASE</b> and <b>REINDEX SYSTEM</b> can only reindex the
+current database, so their parameter must match the current
+database's name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">FORCE</p>
+
+<p style="margin-left:17%;">This is an obsolete option; it
+is ignored if specified.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you suspect
+corruption of an index on a user table, you can simply
+rebuild that index, or all indexes on the table, using
+<b>REINDEX INDEX</b> or <b>REINDEX TABLE</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Things are more
+difficult if you need to recover from corruption of an index
+on a system table. In this case it's important for the
+system to not have used any of the suspect indexes itself.
+(Indeed, in this sort of scenario you might find that server
+processes are crashing immediately at start&minus;up, due to
+reliance on the corrupted indexes.) To recover safely, the
+server must be started with the <b>&minus;P</b> option,
+which prevents it from using indexes for system catalog
+lookups.</p>
+
+<p style="margin-left:11%; margin-top: 1em">One way to do
+this is to shut down the server and start a
+single&minus;user PostgreSQL server with the <b>&minus;P</b>
+option included on its command line. Then, <b>REINDEX
+DATABASE</b>, <b>REINDEX SYSTEM</b>, <b>REINDEX TABLE</b>,
+or <b>REINDEX INDEX</b> can be issued, depending on how much
+you want to reconstruct. If in doubt, use <b>REINDEX
+SYSTEM</b> to select reconstruction of all system indexes in
+the database. Then quit the single&minus;user server session
+and restart the regular server. See the <b>postgres</b>(1)
+reference page for more information about how to interact
+with the single&minus;user server interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Alternatively,
+a regular server session can be started with <b>&minus;P</b>
+included in its command line options. The method for doing
+this varies across clients, but in all libpq&minus;based
+clients, it is possible to set the <b>PGOPTIONS</b>
+environment variable to &minus;P before starting the client.
+Note that while this method does not require locking out
+other clients, it might still be wise to prevent other users
+from connecting to the damaged database until repairs have
+been completed.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>REINDEX</b>
+is similar to a drop and recreate of the index in that the
+index contents are rebuilt from scratch. However, the
+locking considerations are rather different. <b>REINDEX</b>
+locks out writes but not reads of the index's parent table.
+It also takes an exclusive lock on the specific index being
+processed, which will block reads that attempt to use that
+index. In contrast, <b>DROP INDEX</b> momentarily takes
+exclusive lock on the parent table, blocking both writes and
+reads. The subsequent <b>CREATE INDEX</b> locks out writes
+but not reads; since the index is not there, no read will
+attempt to use it, meaning that there will be no blocking
+but reads might be forced into expensive sequential
+scans.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Reindexing a
+single index or table requires being the owner of that index
+or table. Reindexing a database requires being the owner of
+the database (note that the owner can therefore rebuild
+indexes of tables owned by other users). Of course,
+superusers can always reindex anything.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Prior to
+PostgreSQL 8.1, <b>REINDEX DATABASE</b> processed only
+system indexes, not all indexes as one would expect from the
+name. This has been changed to reduce the surprise factor.
+The old behavior is available as <b>REINDEX SYSTEM</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Prior to
+PostgreSQL 7.4, <b>REINDEX TABLE</b> did not automatically
+process TOAST tables, and so those had to be reindexed by
+separate commands. This is still possible, but
+redundant.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Rebuild a
+single index:</p>
+
+<p style="margin-left:17%; margin-top: 1em">REINDEX INDEX
+my_index;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Rebuild all the
+indexes on the table my_table:</p>
+
+<p style="margin-left:17%; margin-top: 1em">REINDEX TABLE
+my_table;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Rebuild all
+indexes in a particular database, without trusting the
+system indexes to be valid already:</p>
+
+<p style="margin-left:17%; margin-top: 1em">$ <b>export
+PGOPTIONS=&quot;&minus;P&quot;</b> <br>
+$ <b>psql broken_db</b> <br>
+... <br>
+broken_db=&gt; REINDEX DATABASE broken_db; <br>
+broken_db=&gt; \q</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+<b>REINDEX</b> command in the SQL standard.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:03:46 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Mail::DKIM::Signer</title>
+
+</head>
+<body>
+
+<h1 align="center">Mail::DKIM::Signer</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONSTRUCTOR">CONSTRUCTOR</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#SIGNER POLICIES">SIGNER POLICIES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::DKIM::Signer
+&minus; generates a DKIM signature for a message</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use Mail::DKIM::Signer;
+  use Mail::DKIM::TextWrap;  #recommended
+  # create a signer object
+  my $dkim = Mail::DKIM::Signer&minus;&gt;new(
+                  Algorithm =&gt; &quot;rsa&minus;sha1&quot;,
+                  Method =&gt; &quot;relaxed&quot;,
+                  Domain =&gt; &quot;example.org&quot;,
+                  Selector =&gt; &quot;selector1&quot;,
+                  KeyFile =&gt; &quot;private.key&quot;,
+             );
+  # read an email from a file handle
+  $dkim&minus;&gt;load(*STDIN);
+  # or read an email and pass it into the signer, one line at a time
+  while (&lt;STDIN&gt;)
+  {
+      # remove local line terminators
+      chomp;
+      s/\015$//;
+      # use SMTP line terminators
+      $dkim&minus;&gt;PRINT(&quot;$_\015\012&quot;);
+  }
+  $dkim&minus;&gt;CLOSE;
+  # what is the signature result?
+  my $signature = $dkim&minus;&gt;signature;
+  print $signature&minus;&gt;as_string;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This class is
+the part of Mail::DKIM responsible for generating signatures
+for a given message. You create an object of this class,
+specifying the parameters of the signature you wish to
+create, or specifying a callback function so that the
+signature parameters can be determined later. Next, you feed
+it the entire message using &quot; <i><small>PRINT</small>
+()</i>&quot;, completing with &quot; <i><small>CLOSE</small>
+()</i>&quot;. Finally, use the
+&quot;<i>signatures()</i>&quot; method to access the
+generated signatures.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Pretty
+Signatures</b> <br>
+Mail::DKIM includes a signature-wrapping module (which
+inserts linebreaks into the generated signature so that it
+looks nicer in the resulting message. To enable this module,
+simply call</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use Mail::DKIM::TextWrap;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">in your program
+before generating the signature.</p>
+
+<h2>CONSTRUCTOR
+<a name="CONSTRUCTOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>new()</i>
+<br>
+Construct an object-oriented signer.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  # create a signer using the default policy
+  my $dkim = Mail::DKIM::Signer&minus;&gt;new(
+                  Algorithm =&gt; &quot;rsa&minus;sha1&quot;,
+                  Method =&gt; &quot;relaxed&quot;,
+                  Domain =&gt; &quot;example.org&quot;,
+                  Selector =&gt; &quot;selector1&quot;,
+                  KeyFile =&gt; &quot;private.key&quot;,
+             );
+  # create a signer using a custom policy
+  my $dkim = Mail::DKIM::Signer&minus;&gt;new(
+                  Policy =&gt; $policyfn,
+             );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;default policy&quot; is to create a
+<small>DKIM</small> signature using the specified
+parameters, but only if the message&rsquo;s sender matches
+the domain. The following parameters can be passed to this
+<i>new()</i> method to influence the resulting signature:
+Algorithm, Method, Domain, Selector, KeyFile, Identity,
+Timestamp.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you want
+different behavior, you can provide a &quot;signer
+policy&quot; instead. A signer policy is a subroutine or
+class that determines signature parameters after the
+message&rsquo;s headers have been parsed. See the section
+&quot; <small>SIGNER POLICIES&quot;</small> below for more
+information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See
+Mail::DKIM::SignerPolicy for more information about policy
+objects.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition to
+the parameters demonstrated above, the following are
+recognized:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>Key</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>rather than using <tt>&quot;KeyFile&quot;</tt>, use
+<tt>&quot;Key&quot;</tt> to use an already-loaded
+Mail::DKIM::PrivateKey object.</p></td></tr>
+</table>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><small>PRINT</small>
+()</i> <br>
+Feed part of the message to the signer.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;PRINT(&quot;a line of the message\015\012&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Feeds content
+of the message being signed into the signer. The
+<small>API</small> is designed this way so that the entire
+message does <small>NOT</small> need to be read into memory
+at once.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Please note
+that although the <i><small>PRINT</small> ()</i> method
+expects you to use SMTP-style line termination characters,
+you should <small>NOT</small> use the SMTP-style
+dot-stuffing technique described in <small>RFC 2821</small>
+section 4.5.2. Nor should you use a &lt; <small>CR</small>
+&gt;&lt; <small>LF</small> &gt;.&lt; <small>CR</small>
+&gt;&lt; <small>LF</small> &gt; sequence to terminate the
+message.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><small>CLOSE</small>
+()</i> <br>
+Call this when finished feeding in the message.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;CLOSE;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+finishes the canonicalization process, computes a hash, and
+generates a signature.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>add_signature()</i>
+<br>
+Used by signer policy to create a new signature.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;add_signature(new Mail::DKIM::Signature(...));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Signer policies
+can use this method to specify complete parameters for the
+signature to add, including what type of signature. For more
+information, see Mail::DKIM::SignerPolicy.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>algorithm()</i>
+<br>
+Get or set the selected algorithm.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $alg = $dkim&minus;&gt;algorithm;
+  $dkim&minus;&gt;algorithm(&quot;rsa&minus;sha1&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>domain()</i>
+<br>
+Get or set the selected domain.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $alg = $dkim&minus;&gt;domain;
+  $dkim&minus;&gt;domain(&quot;example.org&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>load()</i>
+<br>
+Load the entire message from a file handle.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dkim&minus;&gt;load($file_handle);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Reads a
+complete message from the designated file handle, feeding it
+into the signer. The message must use &lt;
+<small>CRLF</small> &gt; line terminators (same as the
+<small>SMTP</small> protocol).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>headers()</i>
+<br>
+Determine which headers to put in signature.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $headers = $dkim&minus;&gt;headers;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is a
+string containing the names of the header fields that will
+be signed, separated by colons.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>key()</i>
+<br>
+Get or set the private key object.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $key = $dkim&minus;&gt;key;
+  $dkim&minus;&gt;key(Mail::DKIM::PrivateKey&minus;&gt;load(File =&gt; &quot;private.key&quot;));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The key object
+can be any object that implements the <i>sign_digest()</i>
+method. (Providing your own object can be useful if your
+actual keys are stored out-of-process.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use this
+method to specify a private key, do not use
+&quot;<i>key_file()</i>&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>key_file()</i>
+<br>
+Get or set the filename containing the private key.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $filename = $dkim&minus;&gt;key_file;
+  $dkim&minus;&gt;key_file(&quot;private.key&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you use this
+method to specify a private key file, do not use
+&quot;<i>key()</i>&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>method()</i>
+<br>
+Get or set the selected canonicalization method.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $alg = $dkim&minus;&gt;method;
+  $dkim&minus;&gt;method(&quot;relaxed&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>message_originator()</i>
+<br>
+Access the &quot;From&quot; header.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $address = $dkim&minus;&gt;message_originator;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+&quot;originator address&quot; found in the message, as a
+Mail::Address object. This is typically the (first) name and
+email address found in the From: header. If there is no
+From: header, then an empty Mail::Address object is
+returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To get just the
+email address part, do:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $email = $dkim&minus;&gt;message_originator&minus;&gt;address;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See also
+&quot;<i>message_sender()</i>&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>message_sender()</i>
+<br>
+Access the &quot;From&quot; or &quot;Sender&quot;
+header.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $address = $dkim&minus;&gt;message_sender;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+&quot;sender&quot; found in the message, as a Mail::Address
+object. This is typically the (first) name and email address
+found in the Sender: header. If there is no Sender: header,
+it is the first name and email address in the From: header.
+If neither header is present, then an empty Mail::Address
+object is returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To get just the
+email address part, do:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $email = $dkim&minus;&gt;message_sender&minus;&gt;address;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;sender&quot; is the mailbox of the agent responsible
+for the actual transmission of the message. For example, if
+a secretary were to send a message for another person, the
+&quot;sender&quot; would be the secretary and the
+&quot;originator&quot; would be the actual author.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>selector()</i>
+<br>
+Get or set the current key selector.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $alg = $dkim&minus;&gt;selector;
+  $dkim&minus;&gt;selector(&quot;alpha&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>signature()</i>
+<br>
+Access the generated signature object.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $signature = $dkim&minus;&gt;signature;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+generated signature. The signature is an object of type
+Mail::DKIM::Signature. If multiple signatures were
+generated, this method returns the last one.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The signature
+(as text) should be <b>prepended</b> to the message to make
+the resulting message. At the very least, it should precede
+any headers that were signed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>signatures()</i>
+<br>
+Access list of generated signature objects.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @signatures = $dkim&minus;&gt;signatures;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns all
+generated signatures, as a list.</p>
+
+<h2>SIGNER POLICIES
+<a name="SIGNER POLICIES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>new()</i> constructor takes an optional Policy argument.
+This can be a Perl object or class with an <i>apply()</i>
+method, or just a simple subroutine reference. The
+method/subroutine will be called with the signer object as
+an argument. The policy is responsible for checking the
+message and specifying signature parameters. The policy must
+return a nonzero value to create the signature, otherwise no
+signature will be created. E.g.,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $policyfn = sub {
+      my $dkim = shift;
+      # specify signature parameters
+      $dkim&minus;&gt;algorithm(&quot;rsa&minus;sha1&quot;);
+      $dkim&minus;&gt;method(&quot;relaxed&quot;);
+      $dkim&minus;&gt;domain(&quot;example.org&quot;);
+      $dkim&minus;&gt;selector(&quot;mx1&quot;);
+      # return true value to create the signature
+      return 1;
+  };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Or the policy
+object can actually create the signature, using the
+add_signature method within the policy object. If you add a
+signature, you do not need to return a nonzero value. This
+mechanism can be utilized to create multiple signatures, or
+to create the older DomainKey-style signatures.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $policyfn = sub {
+      my $dkim = shift;
+      $dkim&minus;&gt;add_signature(
+              new Mail::DKIM::Signature(
+                      Algorithm =&gt; &quot;rsa&minus;sha1&quot;,
+                      Method =&gt; &quot;relaxed&quot;,
+                      Headers =&gt; $dkim&minus;&gt;headers,
+                      Domain =&gt; &quot;example.org&quot;,
+                      Selector =&gt; &quot;mx1&quot;,
+              ));
+      $dkim&minus;&gt;add_signature(
+              new Mail::DKIM::DkSignature(
+                      Algorithm =&gt; &quot;rsa&minus;sha1&quot;,
+                      Method =&gt; &quot;nofws&quot;,
+                      Headers =&gt; $dkim&minus;&gt;headers,
+                      Domain =&gt; &quot;example.org&quot;,
+                      Selector =&gt; &quot;mx1&quot;,
+              ));
+      return;
+  };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If no policy is
+specified, the default policy is used. The default policy
+signs every message using the domain, algorithm, method, and
+selector specified in the <i>new()</i> constructor.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mail::DKIM::SignerPolicy</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Jason Long,
+&lt;jlong@messiah.edu&gt;</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2006&minus;2007 by Messiah College</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself, either Perl version
+5.8.6 or, at your option, any later version of Perl 5 you
+may have available.</p>
+<hr>
+</body>
+</html>

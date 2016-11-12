@@ -1,0 +1,525 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:34:41 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>DBIx::Simple::Examples</title>
+
+</head>
+<body>
+
+<h1 align="center">DBIx::Simple::Examples</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#EXAMPLES WITH SQL::Interp">EXAMPLES WITH SQL::Interp</a><br>
+<a href="#EXAMPLES WITH SQL::Abstract">EXAMPLES WITH SQL::Abstract</a><br>
+<a href="#EXAMPLES WITH DBIx::XHTML_Table">EXAMPLES WITH DBIx::XHTML_Table</a><br>
+<a href="#EXAMPLES WITH Text::Table">EXAMPLES WITH Text::Table</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">DBIx::Simple::Examples
+&minus; Examples of how to use DBIx::Simple</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">DBIx::Simple
+provides a simplified interface to <small>DBI,</small>
+Perl&rsquo;s powerful database module.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>General</b></p>
+
+
+<pre style="margin-left:11%;">    #!/usr/bin/perl &minus;w
+    use strict;
+    use DBIx::Simple;
+    # Instant database with DBD::SQLite
+    my $db = DBIx::Simple&minus;&gt;connect('dbi:SQLite:dbname=file.dat')
+        or die DBIx::Simple&minus;&gt;error;
+    # Connecting to a MySQL database
+    my $db = DBIx::Simple&minus;&gt;connect(
+        'DBI:mysql:database=test',     # DBI source specification
+        'test', 'test',                # Username and password
+        { RaiseError =&gt; 1 }            # Additional options
+    );
+    # Using an existing database handle
+    my $db = DBIx::Simple&minus;&gt;connect($dbh);
+    # Abstracted example: $db&minus;&gt;query($query, @variables)&minus;&gt;what_you_want;
+    $db&minus;&gt;commit or die $db&minus;&gt;error;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Simple
+Queries</b></p>
+
+<pre style="margin-left:11%;">    $db&minus;&gt;query('DELETE FROM foo WHERE id = ?', $id) or die $db&minus;&gt;error;
+    for (1..100) {
+        $db&minus;&gt;query(
+            'INSERT INTO randomvalues VALUES (?, ?)',
+            int rand(10),
+            int rand(10)
+        ) or die $db&minus;&gt;error;
+    }
+    $db&minus;&gt;query(
+        'INSERT INTO sometable VALUES (??)',
+        $first, $second, $third, $fourth, $fifth, $sixth
+    );
+    # (??) is expanded to (?, ?, ?, ?, ?, ?) automatically</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Single row
+queries</b></p>
+
+<pre style="margin-left:11%;">    my ($two)          = $db&minus;&gt;query('SELECT 1 + 1')&minus;&gt;list;
+    my ($three, $four) = $db&minus;&gt;query('SELECT 3, 2 + 2')&minus;&gt;list;
+    my ($name, $email) = $db&minus;&gt;query(
+        'SELECT name, email FROM people WHERE email = ? LIMIT 1',
+        $mail
+    )&minus;&gt;list;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Or, more
+efficiently:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $db&minus;&gt;query('SELECT 1 + 1')&minus;&gt;into(my $two);
+    $db&minus;&gt;query('SELECT 3, 2 + 2')&minus;&gt;into(my ($three, $four));
+    $db&minus;&gt;query(
+        'SELECT name, email FROM people WHERE email = ? LIMIT 1',
+        $mail
+    )&minus;&gt;into(my ($name, $email));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Fetching all
+rows in one go</b> <i><br>
+One big flattened list (primarily for single column
+queries)</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my @names = $db&minus;&gt;query('SELECT name FROM people WHERE id &gt; 5')&minus;&gt;flat;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Rows as
+array references</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    for my $row ($db&minus;&gt;query('SELECT name, email FROM people')&minus;&gt;arrays) {
+        print &quot;Name: $row&minus;&gt;[0], Email: $row&minus;&gt;[1]\n&quot;;
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Rows as hash
+references</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    for my $row ($db&minus;&gt;query('SELECT name, email FROM people')&minus;&gt;hashes) {
+        print &quot;Name: $row&minus;&gt;{name}, Email: $row&minus;&gt;{email}\n&quot;;
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Fetching one
+row at a time</b> <i><br>
+Rows into separate variables</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    {
+        my $result = $db&minus;&gt;query('SELECT name, email FROM people');
+        $result&minus;&gt;bind(my ($name, $email));
+        while ($result&minus;&gt;fetch) {
+            print &quot;Name: $name, Email: $email\n&quot;;
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    {
+        my $result = $db&minus;&gt;query('SELECT name, email FROM people');
+        while ($result&minus;&gt;into(my ($name, $email))) {
+            print &quot;Name: $name, Email: $email\n&quot;;
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Rows as
+lists</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    {
+        my $result = $db&minus;&gt;query('SELECT name, email FROM people');
+        while (my @row = $result&minus;&gt;list) {
+            print &quot;Name: $row[0], Email: $row[1]\n&quot;;
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Rows as
+array references</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    {
+        my $result = $db&minus;&gt;query('SELECT name, email FROM people');
+        while (my $row = $result&minus;&gt;array) {
+            print &quot;Name: $row&minus;&gt;[0], Email: $row&minus;&gt;[1]\n&quot;;
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Rows as hash
+references</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    {
+        my $result = $db&minus;&gt;query('SELECT name, email FROM people');
+        while (my $row = $result&minus;&gt;hash) {
+            print &quot;Name: $row&minus;&gt;{name}, Email: $row&minus;&gt;{email}\n&quot;;
+        }
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Building
+maps (also fetching all rows in one go)</b> <i><br>
+A hash of hashes</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $customers =
+        $db
+        &minus;&gt; query('SELECT id, name, location FROM people')
+        &minus;&gt; map_hashes('id');
+    # $customers = { $id =&gt; { name =&gt; $name, location =&gt; $location } }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>A hash of
+arrays</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $customers =
+        $db
+        &minus;&gt; query('SELECT id, name, location FROM people')
+        &minus;&gt; map_arrays(0);
+    # $customers = { $id =&gt; [ $name, $location ] }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>A hash of
+values (two-column queries)</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $names =
+        $db
+        &minus;&gt; query('SELECT id, name FROM people')
+        &minus;&gt; map;
+    # $names = { $id =&gt; $name }</pre>
+
+
+<h2>EXAMPLES WITH SQL::Interp
+<a name="EXAMPLES WITH SQL::Interp"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you have
+SQL::Interp installed, you can use the semi-abstracting
+method <tt>&quot;iquery&quot;</tt>. This works just like
+<tt>&quot;query&quot;</tt>, but with parts of the query
+interleaved with the bind arguments, passed as
+references.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should read
+SQL::Interp. These examples are not enough to fully
+understand all the possibilities.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+examples are based on the documentation of SQL::Interp.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $result = $db&minus;&gt;iquery('INSERT INTO table', \%item);
+    my $result = $db&minus;&gt;iquery('UPDATE table SET', \%item, 'WHERE y &lt;&gt; ', \2);
+    my $result = $db&minus;&gt;iquery('DELETE FROM table WHERE y = ', \2);
+    # These two select syntax produce the same result
+    my $result = $db&minus;&gt;iquery('SELECT * FROM table WHERE x = ', \$s, 'AND y IN', \@v);
+    my $result = $db&minus;&gt;iquery('SELECT * FROM table WHERE', {x =&gt; $s, y =&gt; \@v});
+    for ($result&minus;&gt;hashes) { ... }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Use a syntax
+highlighting editor for good visual distinction.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you need the
+helper functions <tt>&quot;sql&quot;</tt> and
+<tt>&quot;sql_type&quot;</tt>, you can import them with
+<tt>&quot;use SQL::Interp;&quot;</tt></p>
+
+<h2>EXAMPLES WITH SQL::Abstract
+<a name="EXAMPLES WITH SQL::Abstract"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you have
+SQL::Abstract installed, you can use the abstracting methods
+<tt>&quot;select&quot;</tt>, <tt>&quot;insert&quot;</tt>,
+<tt>&quot;update&quot;</tt>, <tt>&quot;delete&quot;</tt>.
+These work like <tt>&quot;query&quot;</tt>, but instead of a
+query and bind arguments, use abstracted arguments.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should read
+SQL::Abstract. These examples are not enough to fully
+understand all the possibilities.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+SQL::Abstract object is available (writable) through the
+<tt>&quot;abstract&quot;</tt> property.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+examples are based on the documentation of
+SQL::Abstract.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Overview</b>
+<br>
+If you don&rsquo;t like the defaults, just assign a new
+object:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $db&minus;&gt;abstract = SQL::Abstract&minus;&gt;new(
+        case    =&gt; 'lower',
+        cmp     =&gt; 'like',
+        logic   =&gt; 'and',
+        convert =&gt; 'upper'
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you
+don&rsquo;t assign any object, one will be created
+automatically using the default options. The SQL::Abstract
+module is loaded on demand.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $result = $db&minus;&gt;select($table, \@fields, \%where, \@order);
+    my $result = $db&minus;&gt;insert($table, \%fieldvals || \@values);
+    my $result = $db&minus;&gt;update($table, \%fieldvals, \%where);
+    my $result = $db&minus;&gt;delete($table, \%where);
+    for ($result&minus;&gt;hashes) { ... }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Complete
+examples</b> <i><br>
+select</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my @tickets = $db&minus;&gt;select(
+        'tickets', '*', {
+            requestor =&gt; 'inna',
+            worker    =&gt; ['nwiger', 'rcwe', 'sfz'],
+            status    =&gt; { '!=', 'completed' }
+        }
+    )&minus;&gt;hashes;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>insert</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">If you already
+have your data as a hash, inserting becomes much easier:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $db&minus;&gt;insert('people', \%data);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Instead of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $db&minus;&gt;query(
+        q[
+            INSERT
+            INTO people (name, phone, address, ...)
+            VALUES (??)
+        ],
+        @data{'name', 'phone', 'address', ... }
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>update,
+delete</i></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $db&minus;&gt;update(
+        'tickets', {
+            worker    =&gt; 'juerd',
+            status    =&gt; 'completed'
+        },
+        { id =&gt; $id }
+    )
+    $db&minus;&gt;delete('tickets', { id =&gt; $id });</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>where</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;where&quot;</tt> method is not wrapped directly,
+because it doesn&rsquo;t generate a query and thus
+doesn&rsquo;t really have anything to do with the database
+module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">But using the
+<tt>&quot;abstract&quot;</tt> property, you can still easily
+access it:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $where = $db&minus;&gt;abstract&minus;&gt;where({ foo =&gt; $foo });</pre>
+
+
+<h2>EXAMPLES WITH DBIx::XHTML_Table
+<a name="EXAMPLES WITH DBIx::XHTML_Table"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you have
+DBIx::XHTML_Table installed, you can use the result methods
+<tt>&quot;xto&quot;</tt> and <tt>&quot;html&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should read
+DBIx::XHTML_Table. These examples are not enough to fully
+understand what is going on. When reading that
+documentation, note that you don&rsquo;t have to pass hash
+references to DBIx::Simple&rsquo;s methods. It is supported,
+though.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">DBIx::XHTML_Table
+is loaded on demand.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Overview</b>
+<br>
+To print a simple table, all you have to do is:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    print $db&minus;&gt;query('SELECT * FROM foo')&minus;&gt;html;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Of course,
+anything that produces a result object can be used. The same
+thing using the abstraction method
+<tt>&quot;select&quot;</tt> would be:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    print $db&minus;&gt;select('foo', '*')&minus;&gt;html;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A
+DBIx::XHTML_Table object can be generated with the
+<tt>&quot;xto&quot;</tt> (<b>X</b> <small>HTML_</small>
+<b>T</b>able <b>O</b>bject) method:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $table = $db&minus;&gt;query($query)&minus;&gt;xto;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Passing
+attributes</b> <br>
+DBIx::Simple sends the attributes you pass to
+<tt>&quot;html&quot;</tt> both to the constructor and the
+output method. This allows you to specify both
+<small>HTML</small> attributes (like
+<tt>&quot;bgcolor&quot;</tt>) and options for XHTML_Table
+(like <tt>&quot;no_ucfirst&quot;</tt> and
+<tt>&quot;no_indent&quot;</tt>) all at once:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    print $result&minus;&gt;html(
+        tr         =&gt; { bgcolor =&gt; [ qw/silver white/ ] },
+        no_ucfirst =&gt; 1
+    );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Using an
+XHTML_Table object</b> <br>
+Not everything can be controlled by passing attributes. For
+full flexibility, the XHTML_Table object can be used
+directly:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $table = $db&minus;&gt;query($query)&minus;&gt;xto(
+        tr =&gt; { bgcolor =&gt; [ qw/silver white/ ] }
+    );
+    $table&minus;&gt;set_group('client', 1);
+    $table&minus;&gt;calc_totals('credit', '%.2f');
+    print $table&minus;&gt;output({ no_ucfirst =&gt; 1 });  # note the {}!</pre>
+
+
+<h2>EXAMPLES WITH Text::Table
+<a name="EXAMPLES WITH Text::Table"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;$result&minus;&gt;text(&quot;neat&quot;)&quot;</p>
+
+<p style="margin-left:23%;">Neither neat nor pretty, but
+useful for debugging. Uses <small>DBI</small> &rsquo;s
+<tt>&quot;neat_list&quot;</tt> method. Doesn&rsquo;t display
+column names.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">    '1', 'Camel', 'mammal'
+    '2', 'Llama', 'mammal'
+    '3', 'Owl', 'bird'
+    '4', 'Juerd', undef</pre>
+
+
+
+<p style="margin-left:11%;">&quot;$result&minus;&gt;text(&quot;table&quot;)&quot;</p>
+
+<p style="margin-left:23%;">Displays a simple table using
+<small>ASCII</small> lines.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">    id | animal |  type
+    &minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+     1 |  Camel | mammal
+     2 |  Llama | mammal
+     3 |  Owl   | bird
+     4 |  Juerd |</pre>
+
+
+
+<p style="margin-left:11%;">&quot;$result&minus;&gt;text(&quot;box&quot;)&quot;</p>
+
+<p style="margin-left:23%;">Displays a simple table using
+<small>ASCII</small> lines, with an outside border.</p>
+
+<pre style="margin-left:23%; margin-top: 1em">    +&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+    | id | animal |  type  |
+    +&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+    |  1 |  Camel | mammal |
+    |  2 |  Llama | mammal |
+    |  3 |  Owl   | bird   |
+    |  4 |  Juerd |        |
+    +&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For
+<tt>&quot;table&quot;</tt> and <tt>&quot;box&quot;</tt>, you
+need Anno Siegel&rsquo;s Text::Table module installed.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Juerd Waalboer
+&lt;juerd@cpan.org&gt; &lt;http://juerd.nl/&gt;</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">DBIx::Simple,
+SQL::Abstract</p>
+<hr>
+</body>
+</html>

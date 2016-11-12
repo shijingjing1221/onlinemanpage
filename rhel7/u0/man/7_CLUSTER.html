@@ -1,0 +1,227 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:27:21 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CLUSTER</title>
+
+</head>
+<body>
+
+<h1 align="center">CLUSTER</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CLUSTER &minus;
+cluster a table according to an index</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CLUSTER
+[VERBOSE] <i>table_name</i> [ USING <i>index_name</i> ] <br>
+CLUSTER [VERBOSE]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>CLUSTER</b>
+instructs PostgreSQL to cluster the table specified by
+<i>table_name</i> based on the index specified by
+<i>index_name</i>. The index must already have been defined
+on <i>table_name</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When a table is
+clustered, it is physically reordered based on the index
+information. Clustering is a one&minus;time operation: when
+the table is subsequently updated, the changes are not
+clustered. That is, no attempt is made to store new or
+updated rows according to their index order. (If one wishes,
+one can periodically recluster by issuing the command again.
+Also, setting the table's FILLFACTOR storage parameter to
+less than 100% can aid in preserving cluster ordering during
+updates, since updated rows are kept on the same page if
+enough space is available there.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">When a table is
+clustered, PostgreSQL remembers which index it was clustered
+by. The form <b>CLUSTER</b> <i>table_name</i> reclusters the
+table using the same index as before. You can also use the
+CLUSTER or SET WITHOUT CLUSTER forms of ALTER TABLE
+(<b>ALTER_TABLE</b>(7)) to set the index to be used for
+future cluster operations, or to clear any previous
+setting.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>CLUSTER</b>
+without any parameter reclusters all the
+previously&minus;clustered tables in the current database
+that the calling user owns, or all such tables if called by
+a superuser. This form of <b>CLUSTER</b> cannot be executed
+inside a transaction block.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When a table is
+being clustered, an ACCESS EXCLUSIVE lock is acquired on it.
+This prevents any other database operations (both reads and
+writes) from operating on the table until the <b>CLUSTER</b>
+is finished.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>table_name</i></p>
+
+<p style="margin-left:17%;">The name (possibly
+schema&minus;qualified) of a table.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>index_name</i></p>
+
+<p style="margin-left:17%;">The name of an index.</p>
+
+<p style="margin-left:11%; margin-top: 1em">VERBOSE</p>
+
+<p style="margin-left:17%;">Prints a progress report as
+each table is clustered.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">In cases where
+you are accessing single rows randomly within a table, the
+actual order of the data in the table is unimportant.
+However, if you tend to access some data more than others,
+and there is an index that groups them together, you will
+benefit from using <b>CLUSTER</b>. If you are requesting a
+range of indexed values from a table, or a single indexed
+value that has multiple rows that match, <b>CLUSTER</b> will
+help because once the index identifies the table page for
+the first row that matches, all other rows that match are
+probably already on the same table page, and so you save
+disk accesses and speed up the query.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>CLUSTER</b>
+can re&minus;sort the table using either an index scan on
+the specified index, or (if the index is a b&minus;tree) a
+sequential scan followed by sorting. It will attempt to
+choose the method that will be faster, based on planner cost
+parameters and available statistical information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When an index
+scan is used, a temporary copy of the table is created that
+contains the table data in the index order. Temporary copies
+of each index on the table are created as well. Therefore,
+you need free space on disk at least equal to the sum of the
+table size and the index sizes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When a
+sequential scan and sort is used, a temporary sort file is
+also created, so that the peak temporary space requirement
+is as much as double the table size, plus the index sizes.
+This method is often faster than the index scan method, but
+if the disk space requirement is intolerable, you can
+disable this choice by temporarily setting enable_sort to
+off.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is advisable
+to set maintenance_work_mem to a reasonably large value (but
+not more than the amount of RAM you can dedicate to the
+<b>CLUSTER</b> operation) before clustering.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Because the
+planner records statistics about the ordering of tables, it
+is advisable to run <b>ANALYZE</b>(7) on the newly clustered
+table. Otherwise, the planner might make poor choices of
+query plans.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Because
+<b>CLUSTER</b> remembers which indexes are clustered, one
+can cluster the tables one wants clustered manually the
+first time, then set up a periodic maintenance script that
+executes <b>CLUSTER</b> without any parameters, so that the
+desired tables are periodically reclustered.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Cluster the
+table employees on the basis of its index employees_ind:</p>
+
+<p style="margin-left:17%; margin-top: 1em">CLUSTER
+employees USING employees_ind;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Cluster the
+employees table using the same index that was used
+before:</p>
+
+<p style="margin-left:17%; margin-top: 1em">CLUSTER
+employees;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Cluster all
+tables in the database that have previously been
+clustered:</p>
+
+<p style="margin-left:17%; margin-top: 1em">CLUSTER;</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is no
+<b>CLUSTER</b> statement in the SQL standard.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The syntax</p>
+
+<p style="margin-left:17%; margin-top: 1em">CLUSTER
+<i>index_name</i> ON <i>table_name</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">is also
+supported for compatibility with pre&minus;8.3 PostgreSQL
+versions.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>clusterdb</b>(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:07:17 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>LDIF</title>
+
+</head>
+<body>
+
+<h1 align="center">LDIF</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#REQUIRES">REQUIRES</a><br>
+<a href="#INSTALLATION">INSTALLATION</a><br>
+<a href="#EXPORTS">EXPORTS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mozilla::LDAP::LDIF
+&minus; read or write LDIF (LDAP Data Interchange
+Format)</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> use Mozilla::LDAP::LDIF
+    qw(set_Entry get_LDIF put_LDIF unpack_LDIF pack_LDIF
+       sort_attributes references enlist_values delist_values
+       read_v1 read_v0 read_file_URL_or_name);
+ $ldif = Mozilla::LDAP::LDIF&minus;&gt;new(*FILEHANDLE, \&amp;read_reference, $comments);
+ @record = get $ldif;
+ @records = get $ldif ($maximum_number);
+ $entry = set_Entry (\entry, \@record);
+ $entry = readOneEntry $ldif;
+ @entries = readEntries $ldif ($maximum_number);
+ $ldif = Mozilla::LDAP::LDIF&minus;&gt;new(*FILEHANDLE, $options);
+ $success = put $ldif (@record);
+ $success = put $ldif (\@record, \object ...);
+ $success = writeOneEntry $ldif (\entry);
+ $success = writeEntries  $ldif (\entry, \entry ...);
+ @record = get_LDIF (*FILEHANDLE, $eof, \&amp;read_reference, $comments);
+ @record = get_LDIF; # *STDIN
+ $success = put_LDIF (*FILEHANDLE, $options, @record);
+ $success = put_LDIF (*FILEHANDLE, $options, \@record, \object ...);
+ @record = unpack_LDIF ($string, \&amp;read_reference, $comments);
+ $string = pack_LDIF ($options, @record);
+ $string = pack_LDIF ($options, \@record, \object ...);
+ @record = enlist_values (@record);
+ @record = delist_values (@record);
+ @record = sort_attributes (@record);
+ $DN  = LDIF_get_DN (@record); # alias get_DN
+ @DNS = LDIF_get_DN (\@record, \object ...); # alias get_DN
+ $offset = next_attribute (\@record, $offset, @options);
+ @references = references (@record);
+ @references = references (\@record, \object ...);
+ $success = read_v1 (\$url);  # alias read_file_URL
+ $success = read_v0 (\$name); # alias read_file_name
+ $success = read_file_URL_or_name (\$url_or_name);</pre>
+
+
+<h2>REQUIRES
+<a name="REQUIRES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">MIME::Base64,
+Exporter, Carp</p>
+
+<h2>INSTALLATION
+<a name="INSTALLATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Put the
+<small>LDIF</small> .pm file into a subdirectory named
+Mozilla/LDAP, in one of the directories named in
+<tt>@INC</tt>. site_perl is a good choice.</p>
+
+<h2>EXPORTS
+<a name="EXPORTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Nothing (unless
+you request it).</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>LDIF</small>
+version 1 is defined by
+<i>&lt;draft&minus;good&minus;ldap&minus;ldif&minus;03&gt;</i>.
+An <small>LDIF</small> record like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    DN: cn=Foo Bar, o=ITU
+    cn: Foo Bar
+    Sn: Bar
+    objectClass: person
+    objectClass: organizatio
+     nalPerson
+    jpegPhoto:&lt; file:foobar.jpg
+    # comment</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">corresponds (in
+this module) to a Perl array like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    (DN =&gt; &quot;cn=Foo Bar, o=ITU&quot;,
+     cn =&gt; &quot;Foo Bar&quot;,
+     Sn =&gt; &quot;Bar&quot;,
+     objectClass =&gt; [ &quot;person&quot;, &quot;organizationalPerson&quot; ],
+     jpegPhoto =&gt; \&quot;file:foobar.jpg&quot;,
+     '# comment', undef
+    )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">URLs or file
+names are read by a separate function. This module provides
+functions to read a file name ( <small>LDIF</small> version
+0) or a file <small>URL</small> that names a local file
+(minimal <small>LDIF</small> version 1), or either. You can
+supply a similar function to read other forms of
+<small>URL.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Most output and
+utility methods in this module accept a parameter list that
+is either an <small>LDIF</small> array (the first item is a
+string, usually &quot;dn&quot;), or a list of references,
+with each reference pointing to either an
+<small>LDIF</small> array or an object from which this
+module can get <small>LDIF</small> arrays by calling the
+object&rsquo;s <b>getLDIFrecords</b> method. This module
+calls <tt>$object</tt>&minus;&gt;<i>getLDIFrecords()</i>,
+expecting it to return a list of references to
+<small>LDIF</small> arrays. getLDIFrecords may return
+references to the object&rsquo;s own data, although it
+should not return references to anything that will be
+modified as a side-effect of another call to
+<i>getLDIFrecords()</i>, on any object.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Input <br>
+new</b> Mozilla::LDAP::LDIF (*FILEHANDLE,
+\&amp;read_reference, $comments)</p>
+
+<p style="margin-left:17%;">Create and return an object to
+read <small>LDIF</small> from the given file. If *FILEHANDLE
+is not defined, return an object to read from *STDIN.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+\&amp;read_reference is defined, call it when reading each
+reference to another data source, with ${$_[$[]} equal to
+the reference. The function should copy the referent (for
+example, the contents of the named file) into
+<tt>$_</tt>[$[].</p>
+
+<p style="margin-left:17%; margin-top: 1em">Ignore
+<small>LDIF</small> comment lines, unless <tt>$comments</tt>
+eq &quot;comments&quot;.</p>
+
+<p style="margin-left:11%;"><b>get</b> $ldif</p>
+
+<p style="margin-left:17%;">Read an <small>LDIF</small>
+record from the given file. Combine continuation lines and
+base64&minus;decode attribute values. Return an array of
+strings, representing the record. Return a false value if
+end of file is encountered before an <small>LDIF</small>
+record.</p>
+
+<p style="margin-left:11%;"><b>get</b> $ldif
+($maximum_number)</p>
+
+<p style="margin-left:17%;">Read <small>LDIF</small>
+records from the given file, until end of file is
+encountered or the given <tt>$maximum_number</tt> of records
+are read. If <tt>$maximum_number</tt> is undef (or
+negative), read until end of file. Return an array of
+references to arrays, each representing one record. Return a
+false value if end of file is encountered before an
+<small>LDIF</small> record, or <tt>$maximum_number</tt> is
+zero.</p>
+
+<p style="margin-left:11%;"><b>readOneEntry</b> $ldif
+<b><br>
+readEntries</b> $ldif ($maximum_number)</p>
+
+<p style="margin-left:17%;">Read Mozilla::LDAP::Entry
+objects from the given file, and return references to them.
+Call Mozilla::LDAP::Conn&minus;&gt;<i>newEntry()</i> to
+create each returned object. Return a false value if end of
+file is encountered before an <small>LDIF</small> record, or
+<tt>$maximum_number</tt> is zero. <b>readOneEntry</b>
+returns a reference to a single object. <b>readEntries</b>
+returns an array of references to as many as
+<tt>$maximum_number</tt> objects. See <b>get</b> (above) for
+more information.</p>
+
+<p style="margin-left:11%;"><b>set_Entry</b> (\entry,
+\@record)</p>
+
+<p style="margin-left:17%;">Set the <small>DN</small> and
+attributes of the given Mozilla::LDAP::Entry object from the
+given <small>LDIF</small> record. Return a reference to the
+entry.</p>
+
+<p style="margin-left:11%;"><b>get_LDIF</b> (*FILEHANDLE,
+$eof, \&amp;read_reference, $comments)</p>
+
+<p style="margin-left:17%;">Read an <small>LDIF</small>
+record from the given file. Return an array of strings,
+representing the record. Return a false value if end of file
+is encountered before an <small>LDIF</small> record.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If *FILEHANDLE
+is not defined, read from *STDIN.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+<tt>$eof</tt> is passed, set it true if the end of the given
+file was encountered; otherwise set it false. This function
+may set <tt>$eof</tt> false and also return a record (if the
+record was terminated by the end of file).</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+\&amp;read_reference is defined, call it when reading each
+reference to another data source, with ${$_[$[]} equal to
+the reference. The function should copy the referent (for
+example, the contents of the named file) into
+<tt>$_</tt>[$[].</p>
+
+<p style="margin-left:17%; margin-top: 1em">Ignore
+<small>LDIF</small> comment lines, unless <tt>$comments</tt>
+eq &quot;comments&quot;.</p>
+
+<p style="margin-left:11%;"><b>unpack_LDIF</b> ($string,
+\&amp;read_reference, $comments)</p>
+
+<p style="margin-left:17%;">Read one <small>LDIF</small>
+record from the given string. Return an array of strings,
+representing the record. Return a false value if the given
+string doesn&rsquo;t contain an <small>LDIF</small>
+record.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+\&amp;read_reference is defined, call it when reading each
+reference to another data source, with ${$_[$[]} equal to
+the reference. The function should copy the referent (for
+example, the contents of the named file) into
+<tt>$_</tt>[$[].</p>
+
+<p style="margin-left:17%; margin-top: 1em">Ignore
+<small>LDIF</small> comment lines, unless <tt>$comments</tt>
+eq &quot;comments&quot;.</p>
+
+<p style="margin-left:11%;"><b>read_v1</b> (\$url) <b><br>
+read_file_URL</b> (\$url)</p>
+
+<p style="margin-left:17%;">Change the parameter, from a
+reference to a <small>URL</small> (string) to a string
+containing a copy of the contents of the file named by that
+<small>URL,</small> and return true. Return false if the
+<small>URL</small> doesn&rsquo;t name a local file, or the
+file can&rsquo;t be read.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This implements
+<small>LDIF</small> version 1, although it doesn&rsquo;t
+support URLs that refer to anything but a local file (e.g.
+<small>HTTP</small> or <small>FTP</small> URLs).</p>
+
+<p style="margin-left:11%;"><b>read_v0</b> (\$name) <b><br>
+read_file_name</b> (\$name)</p>
+
+<p style="margin-left:17%;">Change the parameter, from a
+reference to a file name to a string containing a copy of
+the contents of that file, and return true. Return false if
+the file can&rsquo;t be read.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This implements
+<small>LDIF</small> version 0.</p>
+
+<p style="margin-left:11%;"><b>read_file_URL_or_name</b>
+(\$url_or_name)</p>
+
+<p style="margin-left:17%;">Change the parameter, from a
+reference to a <small>URL</small> or file name, to a string
+containing a copy of the contents of the file it names, and
+return true. Return false if the file can&rsquo;t be
+read.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Output</b>
+<br>
+Mozilla::LDAP::LDIF&minus;&gt;<b>new</b>(*FILEHANDLE,
+$options)</p>
+
+<p style="margin-left:17%;">Create and return an object
+used to write <small>LDIF</small> to the given file.
+<tt>$options</tt> are described below.</p>
+
+<p style="margin-left:11%;"><b>put</b> $ldif (@record)
+<b><br>
+put</b> $ldif (\@record, \object ...) <b><br>
+put_LDIF</b> (*FILEHANDLE, $options, @record) <b><br>
+put_LDIF</b> (*FILEHANDLE, $options, \@record, \object
+...)</p>
+
+<p style="margin-left:17%;">Write <small>LDIF</small>
+records to the given file. <tt>$options</tt> are described
+below.</p>
+
+<p style="margin-left:11%;"><b>writeOneEntry</b> $ldif
+(\entry) <b><br>
+writeEntries</b> $ldif (\entry, \entry ...)</p>
+
+<p style="margin-left:17%;">Write Mozilla::LDAP::Entry
+objects to the given file.</p>
+
+<p style="margin-left:11%;"><b>pack_LDIF</b> ($options,
+@record) <b><br>
+pack_LDIF</b> ($options, \@record, \object ...)</p>
+
+<p style="margin-left:17%;">Return an <small>LDIF</small>
+string, representing the given records.</p>
+
+<p style="margin-left:11%;"><b>$options</b></p>
+
+<p style="margin-left:17%;">The options parameter (above)
+may be either <tt>&quot;undef&quot;</tt>, indicating all
+default options, or a number, which is equivalent to
+<tt>&quot;[max_line =&gt;&quot;</tt>
+<i>number</i><tt>&quot;]&quot;</tt>, or a reference to an
+array that contains a list of options, composed from: <br>
+&quot;max_line =&gt;&quot; <i>number</i></p>
+
+<p style="margin-left:23%;">If <i>number</i> &gt; 1, break
+output into continuation lines, so no line is longer than
+<i>number</i> bytes (not counting the end-of-line
+marker).</p>
+
+<p style="margin-left:23%; margin-top: 1em">Default: 0
+(output is not broken into continuation lines).</p>
+
+<p style="margin-left:17%;">&quot;encode =&gt;&quot;
+<i>pattern</i></p>
+
+<p style="margin-left:23%;">Base64 encode output values
+that match <i>pattern</i>. Warning: As a rule, your
+<i>pattern</i> should match any value that contains an
+output line separator (see the <small>SEP</small> option,
+below). If any such value is not Base64 encoded, it will be
+output in a form that does not represent the separator bytes
+in <small>LDIF</small> form. That is, if the output is
+parsed as <small>LDIF,</small> the resulting value will be
+like the original value, except the separator bytes will be
+removed.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Default:
+<tt>&quot;^[:&lt; ]|[^ &minus;\x7E]&quot;</tt></p>
+
+<p style="margin-left:23%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:23%; margin-top: 1em">    pack_LDIF ([encode=&gt;&quot;^ |[^ &minus;\xFD]&quot;], @record)</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">returns a
+string in which <small>UTF&minus;8</small> strings are not
+encoded (unless they begin with a space or contain control
+characters) and lines are not continued. Such a string may
+be easier to view or edit than standard <small>LDIF,</small>
+although it&rsquo;s more prone to be garbled when sent in
+email or processed by software designed for
+<small>ASCII.</small> It can be parsed without loss of
+information (by unpack_LDIF).</p>
+
+<p style="margin-left:17%;">&quot;sep =&gt;&quot;
+<i>string</i></p>
+
+<p style="margin-left:23%;">Output <i>string</i> at the end
+of each line.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Default:
+<tt>&quot;\n&quot;</tt> (the usual line separator, for
+output text).</p>
+
+<p style="margin-left:11%;"><b>output_separator</b> ()</p>
+
+<p style="margin-left:17%;">Return the standard
+<small>LDIF</small> line separator most similar to
+&quot;\n&quot;. The output option <tt>&quot;[sep =&gt;
+output_separator()]&quot;</tt> is recommended, <b>if</b> you
+want to produce standard <small>LDIF</small> output.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Utilities
+<br>
+sort_attributes</b> (@record) <b><br>
+sort_attributes</b> (\@record, \object ...)</p>
+
+<p style="margin-left:17%;">Return a record equivalent to
+each parameter, except with the attributes sorted, primarily
+by attribute name (ignoring case) and secondarily by
+attribute value (using &amp;cmp). If the parameter list is a
+single record, return a single record; otherwise return a
+list of references to records.</p>
+
+<p style="margin-left:11%;"><b>enlist_values</b> (@record)
+<b><br>
+enlist_values</b> (\@record, \object ...)</p>
+
+<p style="margin-left:17%;">Return a record equivalent to
+the parameter, except with values of the same attribute type
+combined into a nested array. For example,</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    enlist_values (givenName =&gt; &quot;Joe&quot;, givenname =&gt; &quot;Joey&quot;, GivenName =&gt; &quot;Joseph&quot;)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">returns</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    (givenName =&gt; [&quot;Joe&quot;, &quot;Joey&quot;, &quot;Joseph&quot;])</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">If the
+parameter list is a single record, return a single record;
+otherwise return a list of references to records.</p>
+
+<p style="margin-left:11%;"><b>delist_values</b> (@record)
+<b><br>
+delist_values</b> (\@record, \object ...)</p>
+
+<p style="margin-left:17%;">Return a record equivalent to
+the parameter, except with all values contained directly
+(not in a nested array). For example,</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    delist_values (givenName =&gt; [&quot;Joe&quot;, &quot;Joey&quot;, &quot;Joseph&quot;])</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">returns</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    (givenName =&gt; &quot;Joe&quot;, givenName =&gt; &quot;Joey&quot;, givenName =&gt; &quot;Joseph&quot;)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">If the
+parameter list is a single record, return a single record;
+otherwise return a list of references to records.</p>
+
+<p style="margin-left:11%;"><b>references</b> (@record)
+<b><br>
+references</b> (\@record, \object ...)</p>
+
+<p style="margin-left:17%;">In list context, return a list
+of references to each of the references to external data
+sources, in the given records. In scalar context, return the
+length of that list; that is, the total number of references
+to external data sources.</p>
+
+<p style="margin-left:11%;">LDIF_get_DN (@record) <br>
+get_DN (@record)</p>
+
+<p style="margin-left:17%;">Return the <small>DN</small> of
+the given record. Return undef if the first attribute of the
+record isn&rsquo;t a <small>DN.</small></p>
+
+<p style="margin-left:11%;">LDIF_get_DN (\@record, \object
+...) <br>
+get_DN (\@record, \object ...)</p>
+
+<p style="margin-left:17%;">Return the <small>DN</small> of
+each of the given records, as an array with one element for
+each parameter. If a given record&rsquo;s first attribute
+isn&rsquo;t a <small>DN,</small> the corresponding element
+of the returned array is undef.</p>
+
+<p style="margin-left:11%;">next_attribute (\@record,
+$offset, @options)</p>
+
+<p style="margin-left:17%;">Return the offset of an
+attribute type in the given record. Search forward, starting
+at <tt>$offset</tt> + 1, or 0 if <tt>$offset</tt> is not
+defined. Return undef if no attribute is found. The
+<tt>@options</tt> list is composed of zero or more of the
+following: <br>
+&quot;name =&gt; &quot;<i>expression</i> <br>
+&quot;type =&gt; &quot;<i>expression</i></p>
+
+<p style="margin-left:23%;">Don&rsquo;t return an offset
+unless the given <i>expression</i> evaluates to
+<small>TRUE,</small> with <tt>$_</tt> aliased to the
+attribute type name.</p>
+
+<p style="margin-left:17%;">&quot;value =&gt;
+&quot;<i>expression</i></p>
+
+<p style="margin-left:23%;">Don&rsquo;t return an offset
+unless the given <i>expression</i> evaluates to
+<small>TRUE,</small> with <tt>$_</tt> aliased to one of the
+attribute values.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In either case,
+the <i>expression</i> may be a string, which is simply
+evaluated (using <b>eval</b>), or a reference to a
+subroutine, which is called with <tt>$_</tt> as its only
+parameter. The value returned by <b>eval</b> or the
+subroutine is taken as the result of evaluation.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If no options
+are given, the offset of the next attribute is returned.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Option
+expressions can modify the record, since they are passed an
+alias to an element of the record. An option can selectively
+prevent the evaluation of subsequent options: options are
+evaluated in the order they appear in the <tt>@options</tt>
+list, and if an option evaluates to <small>FALSE,</small>
+subsequent options are not evaluated.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">$0 can&rsquo;t
+open %s: $!</p>
+
+<p style="margin-left:17%;">(W)
+Mozilla::LDAP::LDIF::read_file_* failed to open a file,
+probably named in an <small>LDIF</small> attrval-spec.</p>
+
+<p style="margin-left:11%;">$0 non-LDIF line: %s</p>
+
+<p style="margin-left:17%;">(D) The input contains a line
+that can&rsquo;t be parsed as <small>LDIF.</small> It is
+carried along in place of an attribute name, with an
+undefined value. For example,
+<b>unpack_LDIF</b>(&quot;abc&quot;) outputs this warning,
+and returns (&quot;abc&quot;, undef).</p>
+
+<p style="margin-left:11%;">Can&rsquo;t use
+MIME::Base64</p>
+
+<p style="margin-left:17%;">(F) The MIME::Base64 module
+isn&rsquo;t installed. To rectify this, get a copy of
+MIME::Base64 from
+http://www.perl.com/CPAN/modules/by&minus;module/MIME/ and
+install it. If you have trouble, try simply putting
+Base64.pm in a subdirectory named <small>MIME,</small> in
+one of the directories named in <tt>@INC</tt> (site_perl is
+a good choice). You&rsquo;ll get a correct, but relatively
+slow implementation.</p>
+
+<p style="margin-left:11%;">Useless use of %s in scalar or
+void context</p>
+
+<p style="margin-left:17%;">(W) The function returns
+multiple records, of which all but the last will be ignored
+by the caller. Time and space were wasted to create them. It
+would probably be better to call the function in list
+context, or to pass it only a single record.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use Mozilla::LDAP::LDIF qw(read_file_URL_or_name);
+    $in  = Mozilla::LDAP::LDIF&minus;&gt;new(*STDIN, \&amp;read_file_URL_or_name);
+    $out = Mozilla::LDAP::LDIF&minus;&gt;new(*STDOUT, 78);
+    @records = get $in (undef); # read to end of file (^D)
+    put $out (@records);
+    use Mozilla::LDAP::Conn();
+    $conn = Mozilla::LDAP::Conn&minus;&gt;new(...);
+    while ($entry = readOneEntry $in) {
+        add $conn ($entry);
+    }
+    use Mozilla::LDAP::LDIF qw(get_LDIF put_LDIF
+        references read_v1 next_attribute sort_attributes);
+    while (@record = get_LDIF (*STDIN, $eof)) {
+        # Resolve all the file URLs:
+        foreach my $r (references (@record)) {
+            read_v1 ($$r);
+        }
+        # Capitalize all the attribute names:
+        for ($r = undef; defined ($r = next_attribute (\@record, $r)); ) {
+            $record[$r] = ucfirst $record[$r];
+        }
+        # Capitalize all the title values:
+        next_attribute (\@record, undef,
+                        type =&gt; '&quot;title&quot; eq lc $_',
+                        value =&gt; '$_ = ucfirst; 0');
+        # Sort the attributes and output the record, 78 characters per line:
+        put_LDIF (*STDOUT, 78, sort_attributes (@record));
+        last if $eof;
+    }</pre>
+
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Output Line
+Separator</p>
+
+<p style="margin-left:17%;">Output lines are separated by
+&quot;\n&quot;, by default. Although this works well in many
+cases, it is not standard <small>LDIF</small> unless
+&quot;\n&quot; is &quot;\012&quot; or &quot;\015\012&quot;.
+It is not, on some platforms (Macintosh, for example). To
+get standard output, use the output option <tt>&quot;[sep
+=&gt;
+Mozilla::LDAP::LDIF::output_separator()]&quot;</tt>.</p>
+
+<p style="margin-left:11%;">Input Line Separator</p>
+
+<p style="margin-left:17%;">This package may fail to read
+standard <small>LDIF</small> correctly, if the input record
+separator is not <small>LF.</small> To avoid this bug, set
+$/ = &quot;\012&quot;. Other values of $/ work less well:
+<small>CR</small> ($/ eq &quot;\015&quot;) handles input
+separated by <small>CR</small> or <small>CR LF,</small> but
+not <small>LF</small> alone; and <small>CR LF</small> ($/ eq
+&quot;\015\012&quot;) handles input separated by <small>CR
+LF,</small> but not <small>LF</small> alone.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This bug arises
+when handling standard <small>LDIF</small> received
+&rsquo;raw&rsquo; via the Internet (via <small>HTTP,</small>
+for example). There&rsquo;s no problem with an input file
+that has been converted (as generic text) from standard
+Internet line separators to $/ (that is, the usual line
+separator for the local platform).</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">John Kristian
+&lt;kristian@netscape.com&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Thanks to Leif
+Hedstrom, from whose code I took ideas; and to the users who
+took the trouble to correct my mistakes. But I accept all
+blame.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Mozilla::LDAP::Entry,
+Mozilla::LDAP::Conn, and of course Perl.</p>
+<hr>
+</body>
+</html>

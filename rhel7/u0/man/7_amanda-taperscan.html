@@ -1,0 +1,225 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:30:17 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>AMANDA&minus;TAPERSCAN</title>
+
+</head>
+<body>
+
+<h1 align="center">AMANDA&minus;TAPERSCAN</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#DEFINING A TAPERSCAN">DEFINING A TAPERSCAN</a><br>
+<a href="#TAPERSCAN ALGORITHMS">TAPERSCAN ALGORITHMS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">amanda-taperscan
+&minus; Amanda Taperscan Algorithms</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Amanda uses a
+<i>taperscan algorithm</i> to select volumes on which to
+store dumps. Historically Amanda has provided only one,
+fairly complex taperscan algorithm, but this algorithm did
+not suit the needs of all users. Now Amanda offers a wide
+array of algorithms to suit varied needs. Adding new
+algorithms is not difficult.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The taperscan
+algorithm is specified with the <b>taperscan</b> parameter,
+which has a default value of <b>traditional</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Taperscan
+algorithms are implemented as perl packages with the prefix
+Amanda::Taper::Scan::. See the perl documentation for
+Amanda::Taper::Scan for more information.</p>
+
+<h2>DEFINING A TAPERSCAN
+<a name="DEFINING A TAPERSCAN"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">An taperscan is
+defined in <b>amanda.conf</b>(5) as follows:</p>
+
+<p style="margin-left:11%; margin-top: 1em">define
+taperscan $taperscan_name { <br>
+comment &quot;$comment&quot; <br>
+plugin &quot;$pluginname&quot; <br>
+property &quot;$PROPERTY_NAME&quot;
+&quot;$PROPERTY_VALUE&quot; <br>
+... <br>
+} <br>
+and then referenced in the global section as</p>
+
+<p style="margin-left:11%; margin-top: 1em">taperscan
+&quot;$taperscan_name&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Taperscan
+properties, like Amanda configuration parameters, are
+insensitive to case, and &minus; (dash) and _ (underscore)
+may be used interchangeably.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+individual plugin documentation below for properties
+applicable to each plugin.</p>
+
+<h2>TAPERSCAN ALGORITHMS
+<a name="TAPERSCAN ALGORITHMS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">In general,
+these algorithms will only select reusable volumes. These
+are volumes which are listed in the <b>tapelist</b>(5) with
+the <i>reuse</i> flag, and which are not among the
+<i>tapecycle&minus;1</i> most recent volumes in the list.
+Put another way, reusable volumes do not contain data that
+must be retained. Note that if fewer than
+<i>tapecycle&minus;1</i> volumes have been written then
+there are no reusable volumes. Newly labeled volumes
+(volumes that have been labeled with <b>amlabel</b> but
+never used) are considered reusable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Many of these
+algorithms look for the oldest reusable volume. In most
+cases, this is the best volume to overwrite, as the data it
+contains is older than that on any other volume. If there
+are no reusable volumes, then there is no oldest reusable
+volume.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>traditional</b>
+<br>
+This algorithm duplicates Amanda's historical behavior, and
+it operates in two stages.</p>
+
+<p style="margin-left:11%; margin-top: 1em">First, if there
+is an oldest reusable volume and if the changer supports
+&quot;fast&quot; searches, then the algorithm uses the
+changer to search for that volume. Newly labeled volumes are
+not considered when calculating the oldest reusable volume.
+Consequently, this taperscan algorithm prefers volumes which
+have been used before to newly&minus;labeled volumes when a
+fast&minus;searchable changer is in use.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Second, if
+there is no oldest reusable volume, or if that volume is not
+available in the changer, then the algorithm begins a
+sequential scan of the changer, starting at the current
+slot. It selects the first suitable volume it finds: a
+reusable volume (perhaps newly&minus;labeled) or, if
+<b>autolabel</b> includes <b>empty</b>, a blank volume. Even
+across multiple invocations (when <i>runtapes &gt; 1</i>),
+it will not return the same slot twice.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Note</big></b>
+<br>
+This algorithm shows an undue preference for volumes already
+containing data, by omitting newly&minus;labeled volumes
+from its first stage. Historically, many Amanda changer
+scripts were not fast&minus;searchable (including
+<i>chg&minus;multi</i>, <i>chg&minus;disk</i> and, if
+<i>havereader=0</i>, <i>chg&minus;zd&minus;mtx</i>), and
+thus skipped the first stage, allowing new volumes to find
+their way into the tape cycle. New changers are almost all
+fast&minus;searchable, so both stages of the algorithm are
+used and new tapes may be unexpectedly excluded. If this
+causes an undesirable change in behavior, consider one of
+the other taperscan algorithms..sp .5v</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><big>oldest</big></b>
+<big><br>
+This algorithm works with the Changer API (see
+<b>amanda-changers</b>(7)), using the inventory returned by
+the changer to locate the oldest acceptable volume
+available. Note that this will not work with changers that
+do not support inventory (old changers). The algorithms
+scans unknown slots only if no known usable volume is found
+in the inventory.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>An
+acceptable volume is a reusable volume, a new labeled volume
+or an unlabeled volume that can be labeled according to
+<b>autolabel</b>. Note that changers do not always know the
+contents of every slot &minus; for example, a tape with an
+unknown barcode will not be considered usable.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>Use
+<b>amtape CONF inventory</b> to see the changer's inventory,
+and use <b>amtape CONF update</b> to update it.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b>lexical</b>
+<br>
+This algorithm also works with the Changer API, using the
+inventory to determine the acceptable volumes; it then uses
+the volume which follows the last&minus;used volume in
+lexical order. For volume labels containing leading zeros,
+e.g., CORP&minus;010, this algorithm will run through the
+volumes in the natural order.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>It scans
+unknown slots only if no usable volume is found in the
+inventory.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>See
+<b>oldest</b>, above, for a definition of acceptable
+volumes.</big></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b>amanda</b>(8),
+<b>amanda.conf</b>(5), <b>tapelist</b>(5),
+<b>amanda-changers</b>(7),
+<b>amanda-interactivity</b>(7)</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>The Amanda
+Wiki: : http://wiki.zmanda.com/</big></p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b>Dustin
+J. Mitchell</b> &lt;dustin@zmanda.com&gt;</big></p>
+
+<p style="margin-left:17%;"><big>Zmanda, Inc.
+(http://www.zmanda.com)</big></p>
+<hr>
+</body>
+</html>

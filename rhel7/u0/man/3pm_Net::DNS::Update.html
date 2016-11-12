@@ -1,0 +1,246 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:08:27 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Net::DNS::Update</title>
+
+</head>
+<body>
+
+<h1 align="center">Net::DNS::Update</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Net::DNS::Update
+&minus; Create a DNS update packet</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use Net::DNS::Update;
+    $update = Net::DNS::Update&minus;&gt;new;
+    $update = Net::DNS::Update&minus;&gt;new('example.com', 'IN');
+    $update&minus;&gt;push(prerequisite =&gt; nxrrset('foo.example.com. A'));
+    $update&minus;&gt;push(update =&gt; rr_add('foo.example.com. 86400 A 192.168.1.2'));</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;Net::DNS::Update&quot;</tt>
+is a subclass of <tt>&quot;Net::DNS::Packet&quot;</tt>, to
+be used for making <small>DNS</small> dynamic updates.
+Programmers should refer to <small>RFC 2136</small> for the
+semantics of dynamic updates.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>new</b></p>
+
+<pre style="margin-left:11%;">    $update = Net::DNS::Update&minus;&gt;new;
+    $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update = Net::DNS::Update&minus;&gt;new('example.com', 'HS');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+<tt>&quot;Net::DNS::Update&quot;</tt> object used to perform
+a <small>DNS</small> dynamic update operation. Specifically,
+it creates a packet with the header opcode set to
+<small>UPDATE</small> and zone qtype to <small>SOA</small>
+(per <small>RFC 2136, 2.3</small> ).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Programs must
+use the <tt>&quot;push&quot;</tt> method to add RRs to the
+prerequisite, update, and additional sections before
+performing the update.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Arguments are
+the zone name and the class. If the zone is omitted, the
+default domain will be taken from the resolver
+configuration. If the class is omitted, it defaults to
+<small>IN.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Future versions
+of <tt>&quot;Net::DNS&quot;</tt> may provide a simpler
+interface for making dynamic updates.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The first
+example below shows a complete program; subsequent examples
+show only the creation of the update packet.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Add a new
+host</b></p>
+
+<pre style="margin-left:11%;">    #!/usr/bin/perl &minus;w
+    use strict;
+    use Net::DNS;
+    # Create the update packet.
+    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    # Prerequisite is that no A records exist for the name.
+    $update&minus;&gt;push(prerequisite =&gt; nxrrset('foo.example.com. A'));
+    # Add two A records for the name.
+    $update&minus;&gt;push(update =&gt; rr_add('foo.example.com. 86400 A 192.168.1.2'));
+    $update&minus;&gt;push(update =&gt; rr_add('foo.example.com. 86400 A 172.16.3.4'));
+    # Send the update to the zone's primary master.
+    my $res = Net::DNS::Resolver&minus;&gt;new;
+    $res&minus;&gt;nameservers('primary&minus;master.example.com');
+    my $reply = $res&minus;&gt;send($update);
+    # Did it work?
+    if ($reply) {
+        my $rcode = $reply&minus;&gt;header&minus;&gt;rcode;
+        print 'Update ', $rcode eq 'NOERROR' ? &quot;succeeded\n&quot; : &quot;failed: $rcode\n&quot;;
+    } else {
+        print 'Update failed: ', $res&minus;&gt;errorstring, &quot;\n&quot;;
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Add an
+<small>MX</small> record for a name that already
+exists</b></p>
+
+<pre style="margin-left:11%;">    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(prerequisite =&gt; yxdomain('example.com'));
+    $update&minus;&gt;push(update       =&gt; rr_add('example.com MX 10 mailhost.example.com'));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Add a
+<small>TXT</small> record for a name that doesn&rsquo;t
+exist</b></p>
+
+<pre style="margin-left:11%;">    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(prerequisite =&gt; nxdomain('info.example.com'));
+    $update&minus;&gt;push(update       =&gt; rr_add('info.example.com TXT &quot;yabba dabba doo&quot;'));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Delete all A
+records for a name</b></p>
+
+<pre style="margin-left:11%;">    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(prerequisite =&gt; yxrrset('foo.example.com A'));
+    $update&minus;&gt;push(update       =&gt; rr_del('foo.example.com A'));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Delete all
+RRs for a name</b></p>
+
+<pre style="margin-left:11%;">    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(prerequisite =&gt; yxdomain('byebye.example.com'));
+    $update&minus;&gt;push(update       =&gt; rr_del('byebye.example.com'));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Perform a
+signed update</b></p>
+
+<pre style="margin-left:11%;">    my $key_name = 'tsig&minus;key';
+    my $key_data = 'awwLOtRfpGE+rRKF2+DEiw==';
+    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(update =&gt; rr_add('foo.example.com A 10.1.2.3'));
+    $update&minus;&gt;push(update =&gt; rr_add('bar.example.com A 10.4.5.6'));
+    $update&minus;&gt;sign_tsig($key_name, $key_data);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Another way
+to perform a signed update</b></p>
+
+<pre style="margin-left:11%;">    my $key_name = 'tsig&minus;key';
+    my $key_data = 'awwLOtRfpGE+rRKF2+DEiw==';
+    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(update     =&gt; rr_add('foo.example.com A 10.1.2.3'));
+    $update&minus;&gt;push(update     =&gt; rr_add('bar.example.com A 10.4.5.6'));
+    $update&minus;&gt;push(additional =&gt; Net::DNS::RR&minus;&gt;new(&quot;$key_name TSIG $key_data&quot;));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Perform a
+signed update with a customized <small>TSIG</small>
+record</b></p>
+
+<pre style="margin-left:11%;">    my $key_name = 'tsig&minus;key';
+    my $key_data = 'awwLOtRfpGE+rRKF2+DEiw==';
+    my $tsig = Net::DNS::RR&minus;&gt;new(&quot;$key_name TSIG $key_data&quot;);
+    $tsig&minus;&gt;fudge(60);
+    my $update = Net::DNS::Update&minus;&gt;new('example.com');
+    $update&minus;&gt;push(update     =&gt; rr_add('foo.example.com A 10.1.2.3'));
+    $update&minus;&gt;push(update     =&gt; rr_add('bar.example.com A 10.4.5.6'));
+    $update&minus;&gt;push(additional =&gt; $tsig);</pre>
+
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>WARNING:</small>
+This code is still under development. Please use with
+caution on production nameservers.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright
+(c)1997&minus;2002 Michael Fuhr.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Portions
+Copyright (c)2002&minus;2004 Chris Reinhardt.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All rights
+reserved.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This program is
+free software; you may redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">perl, Net::DNS,
+Net::DNS::Resolver, Net::DNS::Header, Net::DNS::Packet,
+Net::DNS::Question, Net::DNS::RR, <small>RFC 2136, RFC
+2845</small></p>
+<hr>
+</body>
+</html>

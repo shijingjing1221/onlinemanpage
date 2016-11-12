@@ -1,0 +1,259 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:20:24 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>SET TRANSACTION</title>
+
+</head>
+<body>
+
+<h1 align="center">SET TRANSACTION</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">SET_TRANSACTION
+&minus; set the characteristics of the current
+transaction</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">SET TRANSACTION
+<i>transaction_mode</i> [, ...] <br>
+SET TRANSACTION SNAPSHOT <i>snapshot_id</i> <br>
+SET SESSION CHARACTERISTICS AS TRANSACTION
+<i>transaction_mode</i> [, ...]</p>
+
+<p style="margin-left:11%; margin-top: 1em">where
+<i>transaction_mode</i> is one of:</p>
+
+<p style="margin-left:11%; margin-top: 1em">ISOLATION LEVEL
+{ SERIALIZABLE | REPEATABLE READ | READ COMMITTED | READ
+UNCOMMITTED } <br>
+READ WRITE | READ ONLY <br>
+[ NOT ] DEFERRABLE</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The <b>SET
+TRANSACTION</b> command sets the characteristics of the
+current transaction. It has no effect on any subsequent
+transactions. <b>SET SESSION CHARACTERISTICS</b> sets the
+default transaction characteristics for subsequent
+transactions of a session. These defaults can be overridden
+by <b>SET TRANSACTION</b> for an individual transaction.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The available
+transaction characteristics are the transaction isolation
+level, the transaction access mode (read/write or
+read&minus;only), and the deferrable mode. In addition, a
+snapshot can be selected, though only for the current
+transaction, not as a session default.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The isolation
+level of a transaction determines what data the transaction
+can see when other transactions are running
+concurrently:</p>
+
+<p style="margin-left:11%; margin-top: 1em">READ
+COMMITTED</p>
+
+<p style="margin-left:17%;">A statement can only see rows
+committed before it began. This is the default.</p>
+
+<p style="margin-left:11%; margin-top: 1em">REPEATABLE
+READ</p>
+
+<p style="margin-left:17%;">All statements of the current
+transaction can only see rows committed before the first
+query or data&minus;modification statement was executed in
+this transaction.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">SERIALIZABLE</p>
+
+<p style="margin-left:17%;">All statements of the current
+transaction can only see rows committed before the first
+query or data&minus;modification statement was executed in
+this transaction. If a pattern of reads and writes among
+concurrent serializable transactions would create a
+situation which could not have occurred for any serial
+(one&minus;at&minus;a&minus;time) execution of those
+transactions, one of them will be rolled back with a
+serialization_failure error.</p>
+
+<p style="margin-left:11%;">The SQL standard defines one
+additional level, READ UNCOMMITTED. In PostgreSQL READ
+UNCOMMITTED is treated as READ COMMITTED.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The transaction
+isolation level cannot be changed after the first query or
+data&minus;modification statement (<b>SELECT</b>,
+<b>INSERT</b>, <b>DELETE</b>, <b>UPDATE</b>, <b>FETCH</b>,
+or <b>COPY</b>) of a transaction has been executed. See
+Chapter 13, Concurrency Control, in the documentation for
+more information about transaction isolation and concurrency
+control.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The transaction
+access mode determines whether the transaction is read/write
+or read&minus;only. Read/write is the default. When a
+transaction is read&minus;only, the following SQL commands
+are disallowed: INSERT, UPDATE, DELETE, and COPY FROM if the
+table they would write to is not a temporary table; all
+CREATE, ALTER, and DROP commands; COMMENT, GRANT, REVOKE,
+TRUNCATE; and EXPLAIN ANALYZE and EXECUTE if the command
+they would execute is among those listed. This is a
+high&minus;level notion of read&minus;only that does not
+prevent all writes to disk.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The DEFERRABLE
+transaction property has no effect unless the transaction is
+also SERIALIZABLE and READ ONLY. When all three of these
+properties are selected for a transaction, the transaction
+may block when first acquiring its snapshot, after which it
+is able to run without the normal overhead of a SERIALIZABLE
+transaction and without any risk of contributing to or being
+canceled by a serialization failure. This mode is well
+suited for long&minus;running reports or backups.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The SET
+TRANSACTION SNAPSHOT command allows a new transaction to run
+with the same snapshot as an existing transaction. The
+pre&minus;existing transaction must have exported its
+snapshot with the pg_export_snapshot function (see Section
+9.26.5, &ldquo;Snapshot Synchronization Functions&rdquo;, in
+the documentation). That function returns a snapshot
+identifier, which must be given to SET TRANSACTION SNAPSHOT
+to specify which snapshot is to be imported. The identifier
+must be written as a string literal in this command, for
+example '000003A1&minus;1'. SET TRANSACTION SNAPSHOT can
+only be executed at the start of a transaction, before the
+first query or data&minus;modification statement
+(<b>SELECT</b>, <b>INSERT</b>, <b>DELETE</b>, <b>UPDATE</b>,
+<b>FETCH</b>, or <b>COPY</b>) of the transaction.
+Furthermore, the transaction must already be set to
+SERIALIZABLE or REPEATABLE READ isolation level (otherwise,
+the snapshot would be discarded immediately, since READ
+COMMITTED mode takes a new snapshot for each command). If
+the importing transaction uses SERIALIZABLE isolation level,
+then the transaction that exported the snapshot must also
+use that isolation level. Also, a non&minus;read&minus;only
+serializable transaction cannot import a snapshot from a
+read&minus;only transaction.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If <b>SET
+TRANSACTION</b> is executed without a prior <b>START
+TRANSACTION</b> or <b>BEGIN</b>, it will appear to have no
+effect, since the transaction will immediately end.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is possible
+to dispense with <b>SET TRANSACTION</b> by instead
+specifying the desired <i>transaction_modes</i> in
+<b>BEGIN</b> or <b>START TRANSACTION</b>. But that option is
+not available for <b>SET TRANSACTION SNAPSHOT</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The session
+default transaction modes can also be set by setting the
+configuration parameters default_transaction_isolation,
+default_transaction_read_only, and
+default_transaction_deferrable. (In fact <b>SET SESSION
+CHARACTERISTICS</b> is just a verbose equivalent for setting
+these variables with <b>SET</b>.) This means the defaults
+can be set in the configuration file, via <b>ALTER
+DATABASE</b>, etc. Consult Chapter 18, Server Configuration,
+in the documentation for more information.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To begin a new
+transaction with the same snapshot as an already existing
+transaction, first export the snapshot from the existing
+transaction. That will return the snapshot identifier, for
+example:</p>
+
+<p style="margin-left:17%; margin-top: 1em">BEGIN
+TRANSACTION ISOLATION LEVEL REPEATABLE READ; <br>
+SELECT pg_export_snapshot(); <br>
+pg_export_snapshot <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+000003A1&minus;1 <br>
+(1 row)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Then give the
+snapshot identifier in a <b>SET TRANSACTION SNAPSHOT</b>
+command at the beginning of the newly opened
+transaction:</p>
+
+<p style="margin-left:17%; margin-top: 1em">BEGIN
+TRANSACTION ISOLATION LEVEL REPEATABLE READ; <br>
+SET TRANSACTION SNAPSHOT '000003A1&minus;1';</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These commands
+are defined in the SQL standard, except for the DEFERRABLE
+transaction mode and the <b>SET TRANSACTION SNAPSHOT</b>
+form, which are PostgreSQL extensions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">SERIALIZABLE is
+the default transaction isolation level in the standard. In
+PostgreSQL the default is ordinarily READ COMMITTED, but you
+can change it as mentioned above.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the SQL
+standard, there is one other transaction characteristic that
+can be set with these commands: the size of the diagnostics
+area. This concept is specific to embedded SQL, and
+therefore is not implemented in the PostgreSQL server.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The SQL
+standard requires commas between successive
+<i>transaction_modes</i>, but for historical reasons
+PostgreSQL allows the commas to be omitted.</p>
+<hr>
+</body>
+</html>

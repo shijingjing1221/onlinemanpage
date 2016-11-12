@@ -1,0 +1,163 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:41:08 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>VFS_RENAME</title>
+
+</head>
+<body>
+
+<h1 align="center">VFS_RENAME</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PROBLEMS">PROBLEMS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">vfs_rename
+&minus; rename a filesystem object</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="89%">
+
+
+<p style="margin-top: 1em"><b>int
+vfs_rename(struct&nbsp;inode&nbsp;*&nbsp;</b><i>old_dir</i><b>,
+struct&nbsp;dentry&nbsp;*&nbsp;</b><i>old_dentry</i><b>,
+struct&nbsp;inode&nbsp;*&nbsp;</b><i>new_dir</i><b>,
+struct&nbsp;dentry&nbsp;*&nbsp;</b><i>new_dentry</i><b>,
+struct&nbsp;inode&nbsp;**&nbsp;</b><i>delegated_inode</i><b>,
+unsigned&nbsp;int&nbsp;</b><i>flags</i><b>);</b></p> </td></tr>
+</table>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>old_dir</i></b></p>
+
+<p style="margin-left:17%;">parent of source</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>old_dentry</i></p>
+
+<p style="margin-left:17%;">source</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>new_dir</i></p>
+
+<p style="margin-left:17%;">parent of destination</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>new_dentry</i></p>
+
+<p style="margin-left:17%;">destination</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>delegated_inode</i></p>
+
+<p style="margin-left:17%;">returns an inode needing a
+delegation break</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>flags</i></p>
+
+<p style="margin-left:17%;">rename flags</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The caller must
+hold multiple mutexes&minus;&minus;see
+<b>lock_rename</b>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If vfs_rename
+discovers a delegation in need of breaking at either the
+source or destination, it will return &minus;EWOULDBLOCK and
+return a reference to the inode in delegated_inode. The
+caller should then break the delegation and retry. Because
+breaking a delegation may take a long time, the caller
+should drop all locks before doing so.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Alternatively,
+a caller may pass NULL for delegated_inode. This may be
+appropriate for callers that expect the underlying
+filesystem not to be NFS exported.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The worst of
+all namespace operations &minus; renaming directory.
+&ldquo;Perverted&rdquo; doesn't even start to describe it.
+Somebody in UCB had a heck of a trip...</p>
+
+<h2>PROBLEMS
+<a name="PROBLEMS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">a) we can get
+into loop creation. b) race potential &minus; two innocent
+renames can create a loop together. That's where 4.4 screws
+up. Current fix: serialization on
+sb&minus;&gt;s_vfs_rename_mutex. We might be more accurate,
+but that's another story. c) we have to lock _four_ objects
+&minus; parents and victim (if it exists), and source (if it
+is not a directory). And that &minus; after we got
+&minus;&gt;i_mutex on parents (until then we don't know
+whether the target exists). Solution: try to be smart with
+locking order for inodes. We rely on the fact that tree
+topology may change only under &minus;&gt;s_vfs_rename_mutex
+_and_ that parent of the object we move will be locked. Thus
+we can rank directories by the tree (ancestors first) and
+rank all non&minus;directories after them. That works since
+everybody except rename does &ldquo;lock parent, lookup,
+lock child&rdquo; and rename is under
+&minus;&gt;s_vfs_rename_mutex. HOWEVER, it relies on the
+assumption that any object with &minus;&gt;<b>lookup</b> has
+no more than 1 dentry. If &ldquo;hybrid&rdquo; objects will
+ever appear, we'd better make sure that there's no link(2)
+for them. d) conversion from fhandle to dentry may come in
+the wrong moment &minus; when we are removing the target.
+Solution: we will have to grab &minus;&gt;i_mutex in the
+fhandle_to_dentry code. [FIXME &minus; current nfsfh.c
+relies on &minus;&gt;i_mutex on parents, which works but
+leads to some truly excessive locking].</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+<hr>
+</body>
+</html>

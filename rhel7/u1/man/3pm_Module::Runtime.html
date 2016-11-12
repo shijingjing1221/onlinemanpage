@@ -1,0 +1,424 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:05:47 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Module::Runtime</title>
+
+</head>
+<body>
+
+<h1 align="center">Module::Runtime</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#REGULAR EXPRESSIONS">REGULAR EXPRESSIONS</a><br>
+<a href="#FUNCTIONS">FUNCTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Module::Runtime
+&minus; runtime module handling</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">        use Module::Runtime qw(
+                $module_name_rx is_module_name check_module_name
+                module_notional_filename require_module
+        );
+        if($module_name =~ /\A$module_name_rx\z/o) { ...
+        if(is_module_name($module_name)) { ...
+        check_module_name($module_name);
+        $notional_filename = module_notional_filename($module_name);
+        require_module($module_name);
+        use Module::Runtime qw(use_module use_package_optimistically);
+        $bi = use_module(&quot;Math::BigInt&quot;, 1.31)&minus;&gt;new(&quot;1_234&quot;);
+        $widget = use_package_optimistically(&quot;Local::Widget&quot;)&minus;&gt;new;
+        use Module::Runtime qw(
+                $top_module_spec_rx $sub_module_spec_rx
+                is_module_spec check_module_spec
+                compose_module_name
+        );
+        if($spec =~ /\A$top_module_spec_rx\z/o) { ...
+        if($spec =~ /\A$sub_module_spec_rx\z/o) { ...
+        if(is_module_spec(&quot;Standard::Prefix&quot;, $spec)) { ...
+        check_module_spec(&quot;Standard::Prefix&quot;, $spec);
+        $module_name =
+                compose_module_name(&quot;Standard::Prefix&quot;, $spec);</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The functions
+exported by this module deal with runtime handling of Perl
+modules, which are normally handled at compile time. This
+module avoids using any other modules, so that it can be
+used in low-level infrastructure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The parts of
+this module that work with module names apply the same
+syntax that is used for barewords in Perl source. In
+principle this syntax can vary between versions of Perl, and
+this module applies the syntax of the Perl on which it is
+running. In practice the usable syntax hasn&rsquo;t changed
+yet, but there&rsquo;s a good chance of it changing in Perl
+5.18.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The functions
+of this module whose purpose is to load modules include
+workarounds for three old Perl core bugs regarding
+<tt>&quot;require&quot;</tt>. These workarounds are applied
+on any Perl version where the bugs exist, except for a case
+where one of the bugs cannot be adequately worked around in
+pure Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Module name
+syntax</b> <br>
+The usable module name syntax has not changed from Perl
+5.000 up to Perl 5.15.7. The syntax is composed entirely of
+<small>ASCII</small> characters. From Perl 5.6 onwards there
+has been some attempt to allow the use of non-ASCII Unicode
+characters in Perl source, but it was fundamentally broken
+(like the entirety of Perl 5.6&rsquo;s Unicode handling) and
+remained pretty much entirely unusable until it got some
+attention in the Perl 5.15 series. Although Unicode is now
+consistently accepted by the parser in some places, it
+remains broken for module names. Furthermore, there has not
+yet been any work on how to map Unicode module names into
+filenames, so in that respect also Unicode module names are
+unusable. This may finally be addressed in the Perl 5.17
+series.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The module name
+syntax is, precisely: the string must consist of one or more
+segments separated by <tt>&quot;::&quot;</tt>; each segment
+must consist of one or more identifier characters (
+<small>ASCII</small> alphanumerics plus &quot;_&quot;); the
+first character of the string must not be a digit. Thus
+&quot;<tt>&quot;IO::File&quot;</tt>&quot;,
+&quot;<tt>&quot;warnings&quot;</tt>&quot;, and
+&quot;<tt>&quot;foo::123::x_0&quot;</tt>&quot; are all valid
+module names, whereas &quot;<tt>&quot;IO::&quot;</tt>&quot;
+and &quot;<tt>&quot;1foo::bar&quot;</tt>&quot; are not.
+<tt>&quot;'&quot;</tt> separators are not permitted by this
+module, though they remain usable in Perl source, being
+translated to <tt>&quot;::&quot;</tt> in the parser.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Core bugs
+worked around</b> <br>
+The first bug worked around is core bug [perl #68590], which
+causes lexical state in one file to leak into another that
+is <tt>&quot;require&quot;</tt>d/<tt>&quot;use&quot;</tt>d
+from it. This bug is present from Perl 5.6 up to Perl 5.10,
+and is fixed in Perl 5.11.0. From Perl 5.9.4 up to Perl
+5.10.0 no satisfactory workaround is possible in pure Perl.
+The workaround means that modules loaded via this module
+don&rsquo;t suffer this pollution of their lexical state.
+Modules loaded in other ways, or via this module on the Perl
+versions where the pure Perl workaround is impossible,
+remain vulnerable. The module Lexical::SealRequireHints
+provides a complete workaround for this bug.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The second bug
+worked around causes some kinds of failure in module
+loading, principally compilation errors in the loaded
+module, to be recorded in <tt>%INC</tt> as if they were
+successful, so later attempts to load the same module
+immediately indicate success. This bug is present up to Perl
+5.8.9, and is fixed in Perl 5.9.0. The workaround means that
+a compilation error in a module loaded via this module
+won&rsquo;t be cached as a success. Modules loaded in other
+ways remain liable to produce bogus <tt>%INC</tt> entries,
+and if a bogus entry exists then it will mislead this module
+if it is used to re-attempt loading.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The third bug
+worked around causes the wrong context to be seen at file
+scope of a loaded module, if <tt>&quot;require&quot;</tt> is
+invoked in a location that inherits context from a higher
+scope. This bug is present up to Perl 5.11.2, and is fixed
+in Perl 5.11.3. The workaround means that a module loaded
+via this module will always see the correct context. Modules
+loaded in other ways remain vulnerable.</p>
+
+<h2>REGULAR EXPRESSIONS
+<a name="REGULAR EXPRESSIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These regular
+expressions do not include any anchors, so to check whether
+an entire string matches a syntax item you must supply the
+anchors yourself. <br>
+$module_name_rx</p>
+
+<p style="margin-left:17%;">Matches a valid Perl module
+name in bareword syntax.</p>
+
+<p style="margin-left:11%;">$top_module_spec_rx</p>
+
+<p style="margin-left:17%;">Matches a module specification
+for use with &quot;compose_module_name&quot;, where no
+prefix is being used.</p>
+
+<p style="margin-left:11%;">$sub_module_spec_rx</p>
+
+<p style="margin-left:17%;">Matches a module specification
+for use with &quot;compose_module_name&quot;, where a prefix
+is being used.</p>
+
+<h2>FUNCTIONS
+<a name="FUNCTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Basic module
+handling</b> <br>
+is_module_name( <small>ARG</small> )</p>
+
+<p style="margin-left:17%;">Returns a truth value
+indicating whether <i><small>ARG</small></i> is a plain
+string satisfying Perl module name syntax as described for
+&quot;$module_name_rx&quot;.</p>
+
+<p style="margin-left:11%;">is_valid_module_name(
+<small>ARG</small> )</p>
+
+<p style="margin-left:17%;">Deprecated alias for
+&quot;is_module_name&quot;.</p>
+
+<p style="margin-left:11%;">check_module_name(
+<small>ARG</small> )</p>
+
+<p style="margin-left:17%;">Check whether
+<i><small>ARG</small></i> is a plain string satisfying Perl
+module name syntax as described for
+&quot;$module_name_rx&quot;. Return normally if it is, or
+<tt>&quot;die&quot;</tt> if it is not.</p>
+
+<p style="margin-left:11%;">module_notional_filename(
+<small>NAME</small> )</p>
+
+<p style="margin-left:17%;">Generates a notional relative
+filename for a module, which is used in some Perl core
+interfaces. The <i><small>NAME</small></i> is a string,
+which should be a valid module name (one or more
+<tt>&quot;::&quot;</tt>&minus;separated segments). If it is
+not a valid name, the function
+<tt>&quot;die&quot;</tt>s.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The notional
+filename for the named module is generated and returned.
+This filename is always in Unix style, with
+<tt>&quot;/&quot;</tt> directory separators and a
+<tt>&quot;.pm&quot;</tt> suffix. This kind of filename can
+be used as an argument to <tt>&quot;require&quot;</tt>, and
+is the key that appears in <tt>%INC</tt> to identify a
+module, regardless of actual local filename syntax.</p>
+
+<p style="margin-left:11%;">require_module(
+<small>NAME</small> )</p>
+
+<p style="margin-left:17%;">This is essentially the
+bareword form of <tt>&quot;require&quot;</tt>, in runtime
+form. The <i><small>NAME</small></i> is a string, which
+should be a valid module name (one or more
+<tt>&quot;::&quot;</tt>&minus;separated segments). If it is
+not a valid name, the function
+<tt>&quot;die&quot;</tt>s.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The module
+specified by <i><small>NAME</small></i> is loaded, if it
+hasn&rsquo;t been already, in the manner of the bareword
+form of <tt>&quot;require&quot;</tt>. That means that a
+search through <tt>@INC</tt> is performed, and a
+byte-compiled form of the module will be used if
+available.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The return
+value is as for <tt>&quot;require&quot;</tt>. That is, it is
+the value returned by the module itself if the module is
+loaded anew, or <tt>1</tt> if the module was already
+loaded.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Structured
+module use</b> <br>
+use_module(NAME[, <small>VERSION</small> ])</p>
+
+<p style="margin-left:17%;">This is essentially
+<tt>&quot;use&quot;</tt> in runtime form, but without the
+importing feature (which is fundamentally a compile-time
+thing). The <i><small>NAME</small></i> is handled just like
+in <tt>&quot;require_module&quot;</tt> above: it must be a
+module name, and the named module is loaded as if by the
+bareword form of <tt>&quot;require&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If a
+<i><small>VERSION</small></i> is specified, the
+<tt>&quot;VERSION&quot;</tt> method of the loaded module is
+called with the specified <i><small>VERSION</small></i> as
+an argument. This normally serves to ensure that the version
+loaded is at least the version required. This is the same
+functionality provided by the <i><small>VERSION</small></i>
+parameter of <tt>&quot;use&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">On success, the
+name of the module is returned. This is unlike
+&quot;require_module&quot;, and is done so that the entire
+call to &quot;use_module&quot; can be used as a class name
+to call a constructor, as in the example in the
+synopsis.</p>
+
+
+<p style="margin-left:11%;">use_package_optimistically(NAME[,
+<small>VERSION</small> ])</p>
+
+<p style="margin-left:17%;">This is an analogue of
+&quot;use_module&quot; for the situation where there is
+uncertainty as to whether a package/class is defined in its
+own module or by some other means. It attempts to arrange
+for the named package to be available, either by loading a
+module or by doing nothing and hoping.</p>
+
+<p style="margin-left:17%; margin-top: 1em">An attempt is
+made to load the named module (as if by the bareword form of
+<tt>&quot;require&quot;</tt>). If the module cannot be found
+then it is assumed that the package was actually already
+loaded by other means, and no error is signalled.
+That&rsquo;s the optimistic bit.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This is mostly
+the same operation that is performed by the base pragma to
+ensure that the specified base classes are available. The
+behaviour of base was simplified in version 2.18, and this
+function changed to match.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If a
+<i><small>VERSION</small></i> is specified, the
+<tt>&quot;VERSION&quot;</tt> method of the loaded package is
+called with the specified <i><small>VERSION</small></i> as
+an argument. This normally serves to ensure that the version
+loaded is at least the version required. On success, the
+name of the package is returned. These aspects of the
+function work just like &quot;use_module&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Module name
+composition</b> <br>
+is_module_spec( <small>PREFIX, SPEC</small> )</p>
+
+<p style="margin-left:17%;">Returns a truth value
+indicating whether <i><small>SPEC</small></i> is valid input
+for &quot;compose_module_name&quot;. See below for what that
+entails. Whether a <i><small>PREFIX</small></i> is supplied
+affects the validity of <i><small>SPEC</small></i> , but the
+exact value of the prefix is unimportant, so this function
+treats <i><small>PREFIX</small></i> as a truth value.</p>
+
+<p style="margin-left:11%;">is_valid_module_spec(
+<small>PREFIX, SPEC</small> )</p>
+
+<p style="margin-left:17%;">Deprecated alias for
+&quot;is_module_spec&quot;.</p>
+
+<p style="margin-left:11%;">check_module_spec(
+<small>PREFIX, SPEC</small> )</p>
+
+<p style="margin-left:17%;">Check whether
+<i><small>SPEC</small></i> is valid input for
+&quot;compose_module_name&quot;. Return normally if it is,
+or <tt>&quot;die&quot;</tt> if it is not.</p>
+
+<p style="margin-left:11%;">compose_module_name(
+<small>PREFIX, SPEC</small> )</p>
+
+<p style="margin-left:17%;">This function is intended to
+make it more convenient for a user to specify a Perl module
+name at runtime. Users have greater need for abbreviations
+and context-sensitivity than programmers, and Perl module
+names get a little unwieldy. <i><small>SPEC</small></i> is
+what the user specifies, and this function translates it
+into a module name in standard form, which it returns.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><i><small>SPEC</small></i>
+has syntax approximately that of a standard module name: it
+should consist of one or more name segments, each of which
+consists of one or more identifier characters. However,
+<tt>&quot;/&quot;</tt> is permitted as a separator, in
+addition to the standard <tt>&quot;::&quot;</tt>. The two
+separators are entirely interchangeable.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Additionally,
+if <i><small>PREFIX</small></i> is not
+<tt>&quot;undef&quot;</tt> then it must be a module name in
+standard form, and it is prefixed to the user-specified
+name. The user can inhibit the prefix addition by starting
+<i><small>SPEC</small></i> with a separator (either
+<tt>&quot;/&quot;</tt> or <tt>&quot;::&quot;</tt>).</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Lexical::SealRequireHints,
+base, &quot;require&quot; in perlfunc, &quot;use&quot; in
+perlfunc</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Andrew Main
+(Zefram) &lt;zefram@fysh.org&gt;</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2004, 2006, 2007, 2009, 2010, 2011, 2012 Andrew Main
+(Zefram) &lt;zefram@fysh.org&gt;</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+<hr>
+</body>
+</html>

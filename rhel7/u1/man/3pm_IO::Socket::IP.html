@@ -1,0 +1,719 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:18:13 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>IO::Socket::IP</title>
+
+</head>
+<body>
+
+<h1 align="center">IO::Socket::IP</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#REPLACING &quot;IO::Socket&quot; DEFAULT BEHAVIOUR">REPLACING &quot;IO::Socket&quot; DEFAULT BEHAVIOUR</a><br>
+<a href="#CONSTRUCTORS">CONSTRUCTORS</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#NON-BLOCKING">NON-BLOCKING</a><br>
+<a href="#&quot;PeerHost&quot; AND &quot;LocalHost&quot; PARSING">&quot;PeerHost&quot; AND &quot;LocalHost&quot; PARSING</a><br>
+<a href="#&quot;IO::Socket::INET&quot; INCOMPATIBILITES">&quot;IO::Socket::INET&quot; INCOMPATIBILITES</a><br>
+<a href="#TODO">TODO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;IO::Socket::IP&quot;
+&minus; A drop&minus;in replacement for
+&quot;IO::Socket::INET&quot; supporting both IPv4 and
+IPv6</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em"> use IO::Socket::IP;
+ my $sock = IO::Socket::IP&minus;&gt;new(
+    PeerHost =&gt; &quot;www.google.com&quot;,
+    PeerPort =&gt; &quot;http&quot;,
+    Type     =&gt; SOCK_STREAM,
+ ) or die &quot;Cannot construct socket &minus; $@&quot;;
+ my $familyname = ( $sock&minus;&gt;sockdomain == PF_INET6 ) ? &quot;IPv6&quot; :
+                  ( $sock&minus;&gt;sockdomain == PF_INET  ) ? &quot;IPv4&quot; :
+                                                      &quot;unknown&quot;;
+ printf &quot;Connected to google via %s\n&quot;, $familyname;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+provides a protocol-independent way to use IPv4 and IPv6
+sockets, as a drop-in replacement for IO::Socket::INET. Most
+constructor arguments and methods are provided in a
+backward-compatible way. For a list of known differences,
+see the <tt>&quot;IO::Socket::INET&quot;</tt>
+<small>INCOMPATIBILITES</small> section below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It uses the
+<tt>getaddrinfo(3)</tt> function to convert hostnames and
+service names or port numbers into sets of possible
+addresses to connect to or listen on. This allows it to work
+for IPv6 where the system supports it, while still falling
+back to IPv4&minus;only on systems which don&rsquo;t.</p>
+
+<h2>REPLACING &quot;IO::Socket&quot; DEFAULT BEHAVIOUR
+<a name="REPLACING &quot;IO::Socket&quot; DEFAULT BEHAVIOUR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">By placing
+<tt>&quot;&minus;register&quot;</tt> in the import list,
+<tt>&quot;IO::Socket&quot;</tt> uses
+<tt>&quot;IO::Socket::IP&quot;</tt> rather than
+<tt>&quot;IO::Socket::INET&quot;</tt> as the class that
+handles <tt>&quot;PF_INET&quot;</tt>.
+<tt>&quot;IO::Socket&quot;</tt> will also use
+<tt>&quot;IO::Socket::IP&quot;</tt> rather than
+<tt>&quot;IO::Socket::INET6&quot;</tt> to handle
+<tt>&quot;PF_INET6&quot;</tt>, provided that the
+<tt>&quot;AF_INET6&quot;</tt> constant is available.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Changing
+<tt>&quot;IO::Socket&quot;</tt>&rsquo;s default behaviour
+means that calling the <tt>&quot;IO::Socket&quot;</tt>
+constructor with either <tt>&quot;PF_INET&quot;</tt> or
+<tt>&quot;PF_INET6&quot;</tt> as the
+<tt>&quot;Domain&quot;</tt> parameter will yield an
+<tt>&quot;IO::Socket::IP&quot;</tt> object.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> use IO::Socket::IP &minus;register;
+ my $sock = IO::Socket&minus;&gt;new(
+    Domain    =&gt; PF_INET6,
+    LocalHost =&gt; &quot;::1&quot;,
+    Listen    =&gt; 1,
+ ) or die &quot;Cannot create socket &minus; $@\n&quot;;
+ print &quot;Created a socket of type &quot; . ref($sock) . &quot;\n&quot;;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<tt>&quot;&minus;register&quot;</tt> is a global setting
+that applies to the entire program; it cannot be applied
+only for certain callers, removed, or limited by lexical
+scope.</p>
+
+<h2>CONSTRUCTORS
+<a name="CONSTRUCTORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$sock =
+IO::Socket::IP&minus;&gt;new( %args )</b> <br>
+Creates a new <tt>&quot;IO::Socket::IP&quot;</tt> object,
+containing a newly created socket handle according to the
+named arguments passed. The recognised arguments are: <br>
+PeerHost =&gt; <small>STRING</small> <br>
+PeerService =&gt; <small>STRING</small></p>
+
+<p style="margin-left:23%;">Hostname and service name for
+the peer to <tt>&quot;connect()&quot;</tt> to. The service
+name may be given as a port number, as a decimal string.</p>
+
+<p style="margin-left:11%;">PeerAddr =&gt;
+<small>STRING</small> <br>
+PeerPort =&gt; <small>STRING</small></p>
+
+<p style="margin-left:23%;">For symmetry with the accessor
+methods and compatibility with
+<tt>&quot;IO::Socket::INET&quot;</tt>, these are accepted as
+synonyms for <tt>&quot;PeerHost&quot;</tt> and
+<tt>&quot;PeerService&quot;</tt> respectively.</p>
+
+<p style="margin-left:11%;">PeerAddrInfo =&gt;
+<small>ARRAY</small></p>
+
+<p style="margin-left:23%;">Alternate form of specifying
+the peer to <tt>&quot;connect()&quot;</tt> to. This should
+be an array of the form returned by
+<tt>&quot;Socket::getaddrinfo&quot;</tt>.</p>
+
+<p style="margin-left:23%; margin-top: 1em">This parameter
+takes precedence over the <tt>&quot;Peer*&quot;</tt>,
+<tt>&quot;Family&quot;</tt>, <tt>&quot;Type&quot;</tt> and
+<tt>&quot;Proto&quot;</tt> arguments.</p>
+
+<p style="margin-left:11%;">LocalHost =&gt;
+<small>STRING</small> <br>
+LocalService =&gt; <small>STRING</small></p>
+
+<p style="margin-left:23%;">Hostname and service name for
+the local address to <tt>&quot;bind()&quot;</tt> to.</p>
+
+<p style="margin-left:11%;">LocalAddr =&gt;
+<small>STRING</small> <br>
+LocalPort =&gt; <small>STRING</small></p>
+
+<p style="margin-left:23%;">For symmetry with the accessor
+methods and compatibility with
+<tt>&quot;IO::Socket::INET&quot;</tt>, these are accepted as
+synonyms for <tt>&quot;LocalHost&quot;</tt> and
+<tt>&quot;LocalService&quot;</tt> respectively.</p>
+
+<p style="margin-left:11%;">LocalAddrInfo =&gt;
+<small>ARRAY</small></p>
+
+<p style="margin-left:23%;">Alternate form of specifying
+the local address to <tt>&quot;bind()&quot;</tt> to. This
+should be an array of the form returned by
+<tt>&quot;Socket::getaddrinfo&quot;</tt>.</p>
+
+<p style="margin-left:23%; margin-top: 1em">This parameter
+takes precedence over the <tt>&quot;Local*&quot;</tt>,
+<tt>&quot;Family&quot;</tt>, <tt>&quot;Type&quot;</tt> and
+<tt>&quot;Proto&quot;</tt> arguments.</p>
+
+<p style="margin-left:11%;">Family =&gt;
+<small>INT</small></p>
+
+<p style="margin-left:23%;">The address family to pass to
+<tt>&quot;getaddrinfo&quot;</tt> (e.g.
+<tt>&quot;AF_INET&quot;</tt>,
+<tt>&quot;AF_INET6&quot;</tt>). Normally this will be left
+undefined, and <tt>&quot;getaddrinfo&quot;</tt> will search
+using any address family supported by the system.</p>
+
+<p style="margin-left:11%;">Type =&gt;
+<small>INT</small></p>
+
+<p style="margin-left:23%;">The socket type to pass to
+<tt>&quot;getaddrinfo&quot;</tt> (e.g.
+<tt>&quot;SOCK_STREAM&quot;</tt>,
+<tt>&quot;SOCK_DGRAM&quot;</tt>). Normally defined by the
+caller; if left undefined <tt>&quot;getaddrinfo&quot;</tt>
+may attempt to infer the type from the service name.</p>
+
+<p style="margin-left:11%;">Proto =&gt;
+<small>STRING</small> or <small>INT</small></p>
+
+<p style="margin-left:23%;">The <small>IP</small> protocol
+to use for the socket (e.g. <tt>'tcp'</tt>,
+<tt>&quot;IPPROTO_TCP&quot;</tt>,
+<tt>'udp'</tt>,<tt>&quot;IPPROTO_UDP&quot;</tt>). Normally
+this will be left undefined, and either
+<tt>&quot;getaddrinfo&quot;</tt> or the kernel will choose
+an appropriate value. May be given either in string name or
+numeric form.</p>
+
+<p style="margin-left:11%;">GetAddrInfoFlags =&gt;
+<small>INT</small></p>
+
+<p style="margin-left:23%;">More flags to pass to the
+<tt>&quot;getaddrinfo()&quot;</tt> function. If not
+supplied, a default of <tt>&quot;AI_ADDRCONFIG&quot;</tt>
+will be used.</p>
+
+<p style="margin-left:23%; margin-top: 1em">These flags
+will be combined with <tt>&quot;AI_PASSIVE&quot;</tt> if the
+<tt>&quot;Listen&quot;</tt> argument is given. For more
+information see the documentation about
+<tt>&quot;getaddrinfo()&quot;</tt> in the Socket module.</p>
+
+<p style="margin-left:11%;">Listen =&gt;
+<small>INT</small></p>
+
+<p style="margin-left:23%;">If defined, puts the socket
+into listening mode where new connections can be accepted
+using the <tt>&quot;accept&quot;</tt> method. The value
+given is used as the <tt>listen(2)</tt> queue size.</p>
+
+<p style="margin-left:11%;">ReuseAddr =&gt;
+<small>BOOL</small></p>
+
+<p style="margin-left:23%;">If true, set the
+<tt>&quot;SO_REUSEADDR&quot;</tt> sockopt</p>
+
+<p style="margin-left:11%;">ReusePort =&gt;
+<small>BOOL</small></p>
+
+<p style="margin-left:23%;">If true, set the
+<tt>&quot;SO_REUSEPORT&quot;</tt> sockopt (not all OSes
+implement this sockopt)</p>
+
+<p style="margin-left:11%;">Broadcast =&gt;
+<small>BOOL</small></p>
+
+<p style="margin-left:23%;">If true, set the
+<tt>&quot;SO_BROADCAST&quot;</tt> sockopt</p>
+
+<p style="margin-left:11%;">V6Only =&gt;
+<small>BOOL</small></p>
+
+<p style="margin-left:23%;">If defined, set the
+<tt>&quot;IPV6_V6ONLY&quot;</tt> sockopt when creating
+<tt>&quot;PF_INET6&quot;</tt> sockets to the given value. If
+true, a listening-mode socket will only listen on the
+<tt>&quot;AF_INET6&quot;</tt> addresses; if false it will
+also accept connections from <tt>&quot;AF_INET&quot;</tt>
+addresses.</p>
+
+<p style="margin-left:23%; margin-top: 1em">If not defined,
+the socket option will not be changed, and default value set
+by the operating system will apply. For repeatable behaviour
+across platforms it is recommended this value always be
+defined for listening-mode sockets.</p>
+
+<p style="margin-left:23%; margin-top: 1em">Note that not
+all platforms support disabling this option. Some, at least
+OpenBSD and MirBSD, will fail with
+<tt>&quot;EINVAL&quot;</tt> if you attempt to disable it. To
+determine whether it is possible to disable, you may use the
+class method</p>
+
+<pre style="margin-left:23%; margin-top: 1em"> if( IO::Socket::IP&minus;&gt;CAN_DISABLE_V6ONLY ) {
+    ...
+ }
+ else {
+    ...
+ }</pre>
+
+
+<p style="margin-left:23%; margin-top: 1em">If your
+platform does not support disabling this option but you
+still want to listen for both <tt>&quot;AF_INET&quot;</tt>
+and <tt>&quot;AF_INET6&quot;</tt> connections you will have
+to create two listening sockets, one bound to each
+protocol.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="11%">
+
+
+<p>Timeout</p></td>
+<td width="1%"></td>
+<td width="77%">
+
+
+<p>This <tt>&quot;IO::Socket::INET&quot;</tt>&minus;style
+argument is not currently supported. See the
+<tt>&quot;IO::Socket::INET&quot;</tt>
+<small>INCOMPATIBILITES</small> section below.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">MultiHomed</p>
+
+<p style="margin-left:23%;">This
+<tt>&quot;IO::Socket::INET&quot;</tt>&minus;style argument
+is ignored, except if it is defined but false. See the
+<tt>&quot;IO::Socket::INET&quot;</tt>
+<small>INCOMPATIBILITES</small> section below.</p>
+
+<p style="margin-left:23%; margin-top: 1em">However, the
+behaviour it enables is always performed by
+<tt>&quot;IO::Socket::IP&quot;</tt>.</p>
+
+<p style="margin-left:11%;">Blocking =&gt;
+<small>BOOL</small></p>
+
+<p style="margin-left:23%;">If defined but false, the
+socket will be set to non-blocking mode. Otherwise it will
+default to blocking mode. See the NON-BLOCKING section below
+for more detail.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If neither
+<tt>&quot;Type&quot;</tt> nor <tt>&quot;Proto&quot;</tt>
+hints are provided, a default of
+<tt>&quot;SOCK_STREAM&quot;</tt> and
+<tt>&quot;IPPROTO_TCP&quot;</tt> respectively will be set,
+to maintain compatibility with
+<tt>&quot;IO::Socket::INET&quot;</tt>. Other named arguments
+that are not recognised are ignored.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+constructor fails, it will set <tt>$@</tt> to an appropriate
+error message; this may be from <tt>$!</tt> or it may be
+some other string; not every failure necessarily has an
+associated <tt>&quot;errno&quot;</tt> value.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$sock =
+IO::Socket::IP&minus;&gt;new( $peeraddr )</b> <br>
+As a special case, if the constructor is passed a single
+argument (as opposed to an even-sized list of key/value
+pairs), it is taken to be the value of the
+<tt>&quot;PeerAddr&quot;</tt> parameter. This is parsed in
+the same way, according to the behaviour given in the
+<tt>&quot;PeerHost&quot;</tt> <small>AND</small>
+<tt>&quot;LocalHost&quot;</tt> <small>PARSING</small>
+section below.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">As well as the
+following methods, this class inherits all the methods in
+IO::Socket and IO::Handle.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>( $host,
+$service ) = $sock&minus;&gt;sockhost_service( $numeric
+)</b> <br>
+Returns the hostname and service name of the local address
+(that is, the socket address given by the
+<tt>&quot;sockname&quot;</tt> method).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>$numeric</tt> is true, these will be given in numeric
+form rather than being resolved into names.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+four convenience wrappers may be used to obtain one of the
+two values returned here. If both host and service names are
+required, this method is preferable to the following
+wrappers, because it will call <tt>getnameinfo(3)</tt> only
+once.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$addr =
+$sock&minus;&gt;sockhost</b> <br>
+Return the numeric form of the local address as a textual
+representation</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$port =
+$sock&minus;&gt;sockport</b> <br>
+Return the numeric form of the local port number</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$host =
+$sock&minus;&gt;sockhostname</b> <br>
+Return the resolved name of the local address</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$service =
+$sock&minus;&gt;sockservice</b> <br>
+Return the resolved name of the local port number</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$addr =
+$sock&minus;&gt;sockaddr</b> <br>
+Return the local address as a binary octet string</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>( $host,
+$service ) = $sock&minus;&gt;peerhost_service( $numeric
+)</b> <br>
+Returns the hostname and service name of the peer address
+(that is, the socket address given by the
+<tt>&quot;peername&quot;</tt> method), similar to the
+<tt>&quot;sockhost_service&quot;</tt> method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+four convenience wrappers may be used to obtain one of the
+two values returned here. If both host and service names are
+required, this method is preferable to the following
+wrappers, because it will call <tt>getnameinfo(3)</tt> only
+once.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$addr =
+$sock&minus;&gt;peerhost</b> <br>
+Return the numeric form of the peer address as a textual
+representation</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$port =
+$sock&minus;&gt;peerport</b> <br>
+Return the numeric form of the peer port number</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$host =
+$sock&minus;&gt;peerhostname</b> <br>
+Return the resolved name of the peer address</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$service =
+$sock&minus;&gt;peerservice</b> <br>
+Return the resolved name of the peer port number</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$addr =
+$peer&minus;&gt;peeraddr</b> <br>
+Return the peer address as a binary octet string</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$inet =
+$sock&minus;&gt;as_inet</b> <br>
+Returns a new IO::Socket::INET instance wrapping the same
+filehandle. This may be useful in cases where it is
+required, for backward-compatibility, to have a real object
+of <tt>&quot;IO::Socket::INET&quot;</tt> type instead of
+<tt>&quot;IO::Socket::IP&quot;</tt>. The new object will
+wrap the same underlying socket filehandle as the original,
+so care should be taken not to continue to use both objects
+concurrently. Ideally the original <tt>$sock</tt> should be
+discarded after this method is called.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+checks that the socket domain is
+<tt>&quot;PF_INET&quot;</tt> and will throw an exception if
+it isn&rsquo;t.</p>
+
+<h2>NON-BLOCKING
+<a name="NON-BLOCKING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+constructor is passed a defined but false value for the
+<tt>&quot;Blocking&quot;</tt> argument then the socket is
+put into non-blocking mode. When in non-blocking mode, the
+socket will not be set up by the time the constructor
+returns, because the underlying <tt>connect(2)</tt> syscall
+would otherwise have to block.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+non-blocking behaviour is an extension of the
+<tt>&quot;IO::Socket::INET&quot;</tt> <small>API,</small>
+unique to <tt>&quot;IO::Socket::IP&quot;</tt>, because the
+former does not support multi-homed non-blocking
+connect.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using
+non-blocking mode, the caller must repeatedly check for
+writeability on the filehandle (for instance using
+<tt>&quot;select&quot;</tt> or
+<tt>&quot;IO::Poll&quot;</tt>). Each time the filehandle is
+ready to write, the <tt>&quot;connect&quot;</tt> method must
+be called, with no arguments. Note that some operating
+systems, most notably <tt>&quot;MSWin32&quot;</tt> do not
+report a <tt>&quot;connect()&quot;</tt> failure using
+write-ready; so you must also <tt>&quot;select()&quot;</tt>
+for exceptional status.</p>
+
+<p style="margin-left:11%; margin-top: 1em">While
+<tt>&quot;connect&quot;</tt> returns false, the value of
+<tt>$!</tt> indicates whether it should be tried again (by
+being set to the value <tt>&quot;EINPROGRESS&quot;</tt>, or
+<tt>&quot;EWOULDBLOCK&quot;</tt> on MSWin32), or whether a
+permanent error has occurred (e.g.
+<tt>&quot;ECONNREFUSED&quot;</tt>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once the socket
+has been connected to the peer, <tt>&quot;connect&quot;</tt>
+will return true and the socket will now be ready to
+use.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that calls
+to the platform&rsquo;s underlying <tt>getaddrinfo(3)</tt>
+function may block. If <tt>&quot;IO::Socket::IP&quot;</tt>
+has to perform this lookup, the constructor will block even
+when in non-blocking mode.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To avoid this
+blocking behaviour, the caller should pass in the result of
+such a lookup using the <tt>&quot;PeerAddrInfo&quot;</tt> or
+<tt>&quot;LocalAddrInfo&quot;</tt> arguments. This can be
+achieved by using Net::LibAsyncNS, or the
+<tt>getaddrinfo(3)</tt> function can be called in a child
+process.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> use IO::Socket::IP;
+ use Errno qw( EINPROGRESS EWOULDBLOCK );
+ my @peeraddrinfo = ... # Caller must obtain the getaddinfo result here
+ my $socket = IO::Socket::IP&minus;&gt;new(
+    PeerAddrInfo =&gt; \@peeraddrinfo,
+    Blocking     =&gt; 0,
+ ) or die &quot;Cannot construct socket &minus; $@&quot;;
+ while( !$socket&minus;&gt;connect and ( $! == EINPROGRESS || $! == EWOULDBLOCK ) ) {
+    my $wvec = '';
+    vec( $wvec, fileno $socket, 1 ) = 1;
+    my $evec = '';
+    vec( $evec, fileno $socket, 1 ) = 1;
+    select( undef, $wvec, $evec, undef ) or die &quot;Cannot select &minus; $!&quot;;
+ }
+ die &quot;Cannot connect &minus; $!&quot; if $!;
+ ...</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The example
+above uses <tt>&quot;select()&quot;</tt>, but any similar
+mechanism should work analogously.
+<tt>&quot;IO::Socket::IP&quot;</tt> takes care when creating
+new socket filehandles to preserve the actual file
+descriptor number, so such techniques as
+<tt>&quot;poll&quot;</tt> or <tt>&quot;epoll&quot;</tt>
+should be transparent to its reallocation of a different
+socket underneath, perhaps in order to switch protocol
+family between <tt>&quot;PF_INET&quot;</tt> and
+<tt>&quot;PF_INET6&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For another
+example using <tt>&quot;IO::Poll&quot;</tt> and
+<tt>&quot;Net::LibAsyncNS&quot;</tt>, see the
+<i>examples/nonblocking_libasyncns.pl</i> file in the module
+distribution.</p>
+
+<h2>&quot;PeerHost&quot; AND &quot;LocalHost&quot; PARSING
+<a name="&quot;PeerHost&quot; AND &quot;LocalHost&quot; PARSING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To support the
+<tt>&quot;IO::Socket::INET&quot;</tt> <small>API,</small>
+the host and port information may be passed in a single
+string rather than as two separate arguments.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If either
+<tt>&quot;LocalHost&quot;</tt> or
+<tt>&quot;PeerHost&quot;</tt> (or their
+<tt>&quot;...Addr&quot;</tt> synonyms) have any of the
+following special forms, and
+<tt>&quot;LocalService&quot;</tt> or
+<tt>&quot;PeerService&quot;</tt> (or their
+<tt>&quot;...Port&quot;</tt> synonyms) are absent, special
+parsing is applied.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The value of
+the <tt>&quot;...Host&quot;</tt> argument will be split to
+give both the hostname and port (or service name):</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> hostname.example.org:http    # Host name
+ 192.0.2.1:80                 # IPv4 address
+ [2001:db8::1]:80             # IPv6 address</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In each case,
+the port or service name (e.g. <tt>80</tt>) is passed as the
+<tt>&quot;LocalService&quot;</tt> or
+<tt>&quot;PeerService&quot;</tt> argument.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Either of
+<tt>&quot;LocalService&quot;</tt> or
+<tt>&quot;PeerService&quot;</tt> (or their
+<tt>&quot;...Port&quot;</tt> synonyms) can be either a
+service name, a decimal number, or a string containing both
+a service name and number, in a form such as</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> http(80)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In this case,
+the name (<tt>&quot;http&quot;</tt>) will be tried first,
+but if the resolver does not understand it then the port
+number (<tt>80</tt>) will be used instead.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>( $host,
+$port ) = IO::Socket::IP&minus;&gt;split_addr( $addr )</b>
+<br>
+Utility method that provides the parsing functionality
+described above. Returns a 2&minus;element list, containing
+either the split hostname and port description if it could
+be parsed, or the given address and
+<tt>&quot;undef&quot;</tt> if it was not recognised.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> IO::Socket::IP&minus;&gt;split_addr( &quot;hostname:http&quot; )
+                              # ( &quot;hostname&quot;,  &quot;http&quot; )
+ IO::Socket::IP&minus;&gt;split_addr( &quot;192.0.2.1:80&quot; )
+                              # ( &quot;192.0.2.1&quot;, &quot;80&quot;   )
+ IO::Socket::IP&minus;&gt;split_addr( &quot;[2001:db8::1]:80&quot; )
+                              # ( &quot;2001:db8::1&quot;, &quot;80&quot; )
+ IO::Socket::IP&minus;&gt;split_addr( &quot;something.else&quot; )
+                              # ( &quot;something.else&quot;, undef )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$addr =
+IO::Socket::IP&minus;&gt;join_addr( $host, $port )</b> <br>
+Utility method that performs the reverse of
+<tt>&quot;split_addr&quot;</tt>, returning a string formed
+by joining the specified host address and port number. The
+host address will be wrapped in <tt>&quot;[]&quot;</tt>
+brackets if required (because it is a raw IPv6 numeric
+address).</p>
+
+<p style="margin-left:11%; margin-top: 1em">This can be
+especially useful when combined with the
+<tt>&quot;sockhost_service&quot;</tt> or
+<tt>&quot;peerhost_service&quot;</tt> methods.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> say &quot;Connected to &quot;, IO::Socket::IP&minus;&gt;join_addr( $sock&minus;&gt;peerhost_service );</pre>
+
+
+<h2>&quot;IO::Socket::INET&quot; INCOMPATIBILITES
+
+<a name="&quot;IO::Socket::INET&quot; INCOMPATIBILITES"></a>
+</h2>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">The <tt>&quot;Timeout&quot;</tt>
+constructor argument is currently not recognised.</p></td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">The behaviour
+enabled by <tt>&quot;MultiHomed&quot;</tt> is in fact
+implemented by <tt>&quot;IO::Socket::IP&quot;</tt> as it is
+required to correctly support searching for a useable
+address from the results of the <tt>getaddrinfo(3)</tt>
+call. The constructor will ignore the value of this
+argument, except if it is defined but false. An exception is
+thrown in this case, because that would request it disable
+the <tt>getaddrinfo(3)</tt> search behaviour in the first
+place.</p>
+
+<h2>TODO
+<a name="TODO"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Investigate whether
+<tt>&quot;POSIX::dup2&quot;</tt> upsets <small>BSD</small>
+&rsquo;s <tt>&quot;kqueue&quot;</tt> watchers, and if so,
+consider what possible workarounds might be applied.</p></td></tr>
+</table>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Paul Evans
+&lt;leonerd@leonerd.org.uk&gt;</p>
+<hr>
+</body>
+</html>

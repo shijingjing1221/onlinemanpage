@@ -1,0 +1,3864 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:41:11 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Pg</title>
+
+</head>
+<body>
+
+<h1 align="center">Pg</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#MODULE DOCUMENTATION">MODULE DOCUMENTATION</a><br>
+<a href="#THE DBI CLASS">THE DBI CLASS</a><br>
+<a href="#ATTRIBUTES COMMON TO ALL HANDLES">ATTRIBUTES COMMON TO ALL HANDLES</a><br>
+<a href="#DBI DATABASE HANDLE OBJECTS">DBI DATABASE HANDLE OBJECTS</a><br>
+<a href="#DBI STATEMENT HANDLE OBJECTS">DBI STATEMENT HANDLE OBJECTS</a><br>
+<a href="#FURTHER INFORMATION">FURTHER INFORMATION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#DEVELOPMENT">DEVELOPMENT</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg &minus;
+PostgreSQL database driver for the DBI module</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBI;
+  $dbh = DBI&minus;&gt;connect(&quot;dbi:Pg:dbname=$dbname&quot;, '', '', {AutoCommit =&gt; 0});
+  # The AutoCommit attribute should always be explicitly set
+  # For some advanced uses you may need PostgreSQL type values:
+  use DBD::Pg qw(:pg_types);
+  # For asynchronous calls, import the async constants:
+  use DBD::Pg qw(:async);
+  $dbh&minus;&gt;do('INSERT INTO mytable(a) VALUES (1)');
+  $sth = $dbh&minus;&gt;prepare('INSERT INTO mytable(a) VALUES (?)');
+  $sth&minus;&gt;execute();</pre>
+
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This documents
+version 2.19.3 of the DBD::Pg module</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg is a
+Perl module that works with the <small>DBI</small> module to
+provide access to PostgreSQL databases.</p>
+
+<h2>MODULE DOCUMENTATION
+<a name="MODULE DOCUMENTATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+documentation describes driver specific behavior and
+restrictions. It is not supposed to be used as the only
+reference for the user. In any case consult the
+<b><small>DBI</small></b> documentation first!</p>
+
+<h2>THE DBI CLASS
+<a name="THE DBI CLASS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>DBI</small>
+Class Methods</b> <b><i><br>
+connect</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+creates a database handle by connecting to a database, and
+is the <small>DBI</small> equivalent of the &quot;new&quot;
+method. To connect to a Postgres database with a minimum of
+parameters, use the following syntax:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect(&quot;dbi:Pg:dbname=$dbname&quot;, '', '', {AutoCommit =&gt; 0});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This connects
+to the database named in the <tt>$dbname</tt> variable on
+the default port (usually 5432) without any user
+authentication.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+connect statement shows almost all possible parameters:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect(&quot;dbi:Pg:dbname=$dbname;host=$host;port=$port;options=$options&quot;,
+                      $username,
+                      $password,
+                      {AutoCommit =&gt; 0, RaiseError =&gt; 1, PrintError =&gt; 0}
+                     );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If a parameter
+is not given, the <i>connect()</i> method will first look
+for specific environment variables, and then fall back to
+hard-coded defaults:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  parameter    environment variable    hard coded default
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+  host         PGHOST                  local domain socket
+  hostaddr     PGHOSTADDR              local domain socket
+  port         PGPORT                  5432
+  dbname*      PGDATABASE              current userid
+  username     PGUSER                  current userid
+  password     PGPASSWORD              (none)
+  options      PGOPTIONS               (none)
+  service      PGSERVICE               (none)
+  sslmode      PGSSLMODE               (none)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">* May also use
+the aliases <tt>&quot;db&quot;</tt> or
+<tt>&quot;database&quot;</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em">If the username
+and password values passed via
+<tt>&quot;connect()&quot;</tt> are undefined (as opposed to
+merely being empty strings), <small>DBI</small> will use the
+environment variables <i><small>DBI_USER</small></i> and
+<i><small>DBI_PASS</small></i> if they exist.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+connect by using a service connection file, which is named
+<i>pg_service.conf</i>. The location of this file can be
+controlled by setting the <i><small>PGSYSCONFDIR</small></i>
+environment variable. To use one of the named services
+within the file, set the name by using either the
+<i>service</i> parameter or the environment variable
+<i><small>PGSERVICE</small></i> . Note that when connecting
+this way, only the minimum parameters should be used. For
+example, to connect to a service named &quot;zephyr&quot;,
+you could use:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect(&quot;dbi:Pg:service=zephyr&quot;, '', '');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You could also
+set <tt>$ENV{PGSERVICE}</tt> to &quot;zephyr&quot; and
+connect like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect(&quot;dbi:Pg:&quot;, '', '');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The format of
+the <i>pg_service.conf</i> file is simply a bracketed
+service name, followed by one parameter per line in the
+format name=value. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  [zephyr]
+  dbname=winds
+  user=wisp
+  password=W$2Hc00YSgP
+  port=6543</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">There are four
+valid arguments to the <i>sslmode</i> parameter, which
+controls whether to use <small>SSL</small> to connect to the
+database:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="60%">
+
+
+<p>disable: <small>SSL</small> connections are never
+used</p> </td>
+<td width="23%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="60%">
+
+
+<p>allow: try non-SSL, then <small>SSL</small></p></td>
+<td width="23%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="60%">
+
+
+<p>prefer: try <small>SSL,</small> then non-SSL</p></td>
+<td width="23%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="60%">
+
+
+<p>require: connect only with <small>SSL</small></p></td>
+<td width="23%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+connect using sockets in a specific directory. This may be
+needed if the server you are connecting to has a different
+default socket directory from the one used to compile
+DBD::Pg. Use the complete path to the socket directory as
+the name of the host, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect('dbi:Pg:dbname=foo;host=/var/tmp/socket',
+    $username,
+    $password,
+    {AutoCommit =&gt; 0, RaiseError =&gt; 1});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The attribute
+hash can also contain a key named
+<tt>&quot;dbd_verbose&quot;</tt>, which simply calls
+<tt>&quot;$dbh&minus;&gt;trace('DBD')&quot;</tt> after the
+handle is created. This attribute is not recommended, as it
+is clearer to simply explicitly call
+<tt>&quot;trace&quot;</tt> explicitly in your script.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>connect_cached</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect_cached(&quot;dbi:Pg:dbname=$dbname&quot;, $username, $password, \%options);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>data_sources</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @data_sources = DBI&minus;&gt;data_sources('Pg');
+  @data_sources = $dbh&minus;&gt;data_sources();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a list
+of available databases. Unless the environment variable
+<tt>&quot;DBI_DSN&quot;</tt> is set, a connection will be
+attempted to the database <tt>&quot;template1&quot;</tt>.
+The normal connection environment variables also apply, such
+as <tt>&quot;PGHOST&quot;</tt>, <tt>&quot;PGPORT&quot;</tt>,
+<tt>&quot;DBI_USER&quot;</tt>,
+<tt>&quot;DBI_PASS&quot;</tt>, and
+<tt>&quot;PGSERVICE&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+pass in options to add to the connection string For example,
+to specify an alternate port and host:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  @data_sources = DBI&minus;&gt;data_sources('Pg', 'port=5824;host=example.com');
+  or:
+  @data_sources = $dbh&minus;&gt;data_sources('port=5824;host=example.com');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Methods
+Common To All Handles</b> <br>
+For all of the methods below, <b>$h</b> can be either a
+database handle (<b>$dbh</b>) or a statement handle
+(<b>$sth</b>). Note that <i>$dbh</i> and <i>$sth</i> can be
+replaced with any variable name you choose: these are just
+the names most often used. Another common variable used in
+this documentation is $<i>rv</i>, which stands for
+&quot;return value&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>err</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $h&minus;&gt;err;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+error code from the last method called. For the connect
+method it returns <tt>&quot;PQstatus&quot;</tt>, which is a
+number used by <i>libpq</i> (the Postgres connection
+library). A value of 0 indicates no error (
+<small>CONNECTION_OK</small> ), while any other number
+indicates a failed connection. The only other number
+commonly seen is 1 ( <small>CONNECTION_BAD</small> ). See
+the libpq documentation for the complete list of return
+codes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In all other
+non-connect methods <tt>&quot;$h&minus;&gt;err&quot;</tt>
+returns the <tt>&quot;PQresultStatus&quot;</tt> of the
+current handle. This is a number used by libpq and is one
+of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  0  Empty query string
+  1  A command that returns no data successfully completed.
+  2  A command that returns data sucessfully completed.
+  3  A COPY OUT command is still in progress.
+  4  A COPY IN command is still in progress.
+  5  A bad response was received from the backend.
+  6  A nonfatal error occurred (a notice or warning message)
+  7  A fatal error was returned: the last query failed.</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>errstr</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $str = $h&minus;&gt;errstr;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+last error that was reported by Postgres. This message is
+affected by the &quot;pg_errorlevel&quot; setting.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>state</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $str = $h&minus;&gt;state;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+five-character &quot; <small>SQLSTATE&quot;</small> code.
+Success is indicated by a <tt>00000</tt> code, which gets
+mapped to an empty string by <small>DBI. A</small> code of
+<tt>&quot;S8006&quot;</tt> indicates a connection failure,
+usually because the connection to the Postgres server has
+been lost.</p>
+
+<p style="margin-left:11%; margin-top: 1em">While this
+method can be called as either
+<tt>&quot;$sth&minus;&gt;state&quot;</tt> or
+<tt>&quot;$dbh&minus;&gt;state&quot;</tt>, it is usually
+clearer to always use
+<tt>&quot;$dbh&minus;&gt;state&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The list of
+codes used by PostgreSQL can be found at:
+&lt;http://www.postgresql.org/docs/current/static/errcodes&minus;appendix.html&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that these
+codes are part of the <small>SQL</small> standard and only a
+small number of them will be used by PostgreSQL.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Common
+codes:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  00000 Successful completion
+  25P01 No active SQL transaction
+  25P02 In failed SQL transaction
+  S8006 Connection failure</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>trace</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;trace($trace_settings);
+  $h&minus;&gt;trace($trace_settings, $trace_filename);
+  $trace_settings = $h&minus;&gt;trace;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Changes the
+trace settings on a database or statement handle. The
+optional second argument specifies a file to write the trace
+information to. If no filename is given, the information is
+written to <i><small>STDERR</small></i> . Note that tracing
+can be set globally as well by setting
+<tt>&quot;DBI&minus;&gt;trace&quot;</tt>, or by using the
+environment variable <i><small>DBI_TRACE</small></i> .</p>
+
+<p style="margin-left:11%; margin-top: 1em">The value is
+either a numeric level or a named flag. For the flags that
+DBD::Pg uses, see parse_trace_flag.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>trace_msg</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;trace_msg($message_text);
+  $h&minus;&gt;trace_msg($message_text, $min_level);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Writes a
+message to the current trace output (as set by the
+&quot;trace&quot; method). If a second argument is given,
+the message is only written if the current tracing level is
+equal to or greater than the <tt>$min_level</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>parse_trace_flag</i></b>
+<i>and</i> <b><i>parse_trace_flags</i></b></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;trace($h&minus;&gt;parse_trace_flags('SQL|pglibpq'));
+  $h&minus;&gt;trace($h&minus;&gt;parse_trace_flags('1|pgstart'));
+  ## Simpler:
+  $h&minus;&gt;trace('SQL|pglibpq');
+  $h&minus;&gt;trace('1|pgstart');
+  my $value = DBD::Pg&minus;&gt;parse_trace_flag('pglibpq');
+  DBI&minus;&gt;trace($value);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+parse_trace_flags method is used to convert one or more
+named flags to a number which can passed to the
+&quot;trace&quot; method. DBD::Pg currently supports the
+DBI-specific flag, <tt>&quot;SQL&quot;</tt>, as well as the
+ones listed below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Flags can be
+combined by using the parse_trace_flags method, which simply
+calls <tt>&quot;parse_trace_flag&quot;</tt> on each item and
+combines them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Sometimes you
+may wish to turn the tracing on before you connect to the
+database. The second example above shows a way of doing
+this: the call to
+<tt>&quot;DBD::Pg&minus;&gt;parse_trace_flags&quot;</tt>
+provides a number than can be fed to
+<tt>&quot;DBI&minus;&gt;trace&quot;</tt> before you create a
+database handle.</p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+supports the following trace flags:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p style="margin-top: 1em"><small>SQL</small></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Outputs all <small>SQL</small>
+statements. Note that the output provided will not
+necessarily be in a form suitable to passing directly to
+Postgres, as server-side prepared statements are used
+extensively by DBD::Pg. For maximum portability of output
+(but with a potential performance hit), use with
+<tt>&quot;$dbh&minus;&gt;{pg_server_prepare} =
+0&quot;</tt>.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><small>DBD</small></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Turns on all non-DBI flags, in other words, only the
+ones that are specific to DBD::Pg (all those below which
+start with the letters &rsquo;pg&rsquo;).</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">pglibpq</p>
+
+<p style="margin-left:17%;">Outputs the name of each libpq
+function (without arguments) immediately before running it.
+This is a good way to trace the flow of your program at a
+low level. This information is also output if the trace
+level is set to 4 or greater.</p>
+
+<p style="margin-left:11%;">pgstart</p>
+
+<p style="margin-left:17%;">Outputs the name of each
+internal DBD::Pg function, and other information such as the
+function arguments or important global variables, as each
+function starts. This information is also output if the
+trace level is set to 4 or greater.</p>
+
+<p style="margin-left:11%;">pgend</p>
+
+<p style="margin-left:17%;">Outputs a simple message at the
+very end of each internal DBD::Pg function. This is also
+output if the trace level is set to 4 or greater.</p>
+
+<p style="margin-left:11%;">pgprefix</p>
+
+<p style="margin-left:17%;">Forces each line of trace
+output to begin with the string <b>&quot;dbdpg: &quot;</b>.
+This helps to differentiate it from the normal
+<small>DBI</small> trace output.</p>
+
+<p style="margin-left:11%;">pglogin</p>
+
+<p style="margin-left:17%;">Outputs a message showing the
+connection string right before a new database connection is
+attempted, a message when the connection was successful, and
+a message right after the database has been disconnected.
+Also output if trace level is 5 or greater.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>func</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg uses
+the <tt>&quot;func&quot;</tt> method to support a variety of
+functions. Note that the name of the function comes
+<i>last</i>, after the arguments. <br>
+table_attributes</p>
+
+<pre style="margin-left:17%;">  $attrs = $dbh&minus;&gt;func($table, 'table_attributes');</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Use of the
+tables_attributes function is no longer recommended.
+Instead, you can use the more portable
+<tt>&quot;column_info&quot;</tt> and
+<tt>&quot;primary_key&quot;</tt> methods to access the same
+information.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+table_attributes method returns, for the given table
+argument, a reference to an array of hashes, each of which
+contains the following keys:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  NAME        attribute name
+  TYPE        attribute type
+  SIZE        attribute size (&minus;1 for variable size)
+  NULLABLE    flag nullable
+  DEFAULT     default value
+  CONSTRAINT  constraint
+  PRIMARY_KEY flag is_primary_key
+  REMARKS     attribute description</pre>
+
+
+<p style="margin-left:11%;">pg_lo_creat</p>
+
+<pre style="margin-left:17%;">  $lobjId = $dbh&minus;&gt;pg_lo_creat($mode);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Creates a new
+large object and returns the object-id. <tt>$mode</tt> is a
+bitmask describing read and write access to the new object.
+This setting is ignored since Postgres version 8.1. For
+backwards compatibility, however, you should set a valid
+mode anyway (see &quot;pg_lo_open&quot; for a list of valid
+modes).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Upon failure it
+returns <tt>&quot;undef&quot;</tt>. This function cannot be
+used if AutoCommit is enabled.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The old way of
+calling large objects functions is deprecated:
+<tt>$dbh</tt>&minus;&gt;func(.., &rsquo;lo_);</p>
+
+<p style="margin-left:11%;">lo_open</p>
+
+<pre style="margin-left:17%;">  $lobj_fd = $dbh&minus;&gt;pg_lo_open($lobjId, $mode);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Opens an
+existing large object and returns an object-descriptor for
+use in subsequent <tt>&quot;lo_*&quot;</tt> calls.
+<tt>$mode</tt> is a bitmask describing read and write access
+to the opened object. It may be one of:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $dbh&minus;&gt;{pg_INV_READ}
+  $dbh&minus;&gt;{pg_INV_WRITE}
+  $dbh&minus;&gt;{pg_INV_READ} | $dbh&minus;&gt;{pg_INV_WRITE}</pre>
+
+
+
+<p style="margin-left:17%; margin-top: 1em">&quot;pg_INV_WRITE&quot;
+and <tt>&quot;pg_INV_WRITE | pg_INV_READ&quot;</tt> modes
+are identical; in both modes, the large object can be read
+from or written to. Reading from the object will provide the
+object as written in other committed transactions, along
+with any writes performed by the current transaction.
+Objects opened with <tt>&quot;pg_INV_READ&quot;</tt> cannot
+be written to. Reading from this object will provide the
+stored data at the time of the transaction snapshot which
+was active when <tt>&quot;lo_write&quot;</tt> was
+called.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns
+<tt>&quot;undef&quot;</tt> upon failure. Note that 0 is a
+perfectly correct (and common) object descriptor! This
+function cannot be used if AutoCommit is enabled.</p>
+
+<p style="margin-left:11%;">lo_write</p>
+
+<pre style="margin-left:17%;">  $nbytes = $dbh&minus;&gt;pg_lo_write($lobj_fd, $buffer, $len);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Writes
+<tt>$len</tt> bytes of c&lt;$buffer&gt; into the large
+object <tt>$lobj_fd</tt>. Returns the number of bytes
+written and <tt>&quot;undef&quot;</tt> upon failure. This
+function cannot be used if AutoCommit is enabled.</p>
+
+<p style="margin-left:11%;">lo_read</p>
+
+<pre style="margin-left:17%;">  $nbytes = $dbh&minus;&gt;pg_lo_read($lobj_fd, $buffer, $len);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Reads
+<tt>$len</tt> bytes into c&lt;$buffer&gt; from large object
+<tt>$lobj_fd</tt>. Returns the number of bytes read and
+<tt>&quot;undef&quot;</tt> upon failure. This function
+cannot be used if AutoCommit is enabled.</p>
+
+<p style="margin-left:11%;">lo_lseek</p>
+
+<pre style="margin-left:17%;">  $loc = $dbh&minus;&gt;pg_lo_lseek($lobj_fd, $offset, $whence);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Changes the
+current read or write location on the large object
+<tt>$obj_id</tt>. Currently <tt>$whence</tt> can only be 0
+(which is L_SET). Returns the current location and
+<tt>&quot;undef&quot;</tt> upon failure. This function
+cannot be used if AutoCommit is enabled.</p>
+
+<p style="margin-left:11%;">lo_tell</p>
+
+<pre style="margin-left:17%;">  $loc = $dbh&minus;&gt;pg_lo_tell($lobj_fd);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Returns the
+current read or write location on the large object
+<tt>$lobj_fd</tt> and <tt>&quot;undef&quot;</tt> upon
+failure. This function cannot be used if AutoCommit is
+enabled.</p>
+
+<p style="margin-left:11%;">lo_close</p>
+
+<pre style="margin-left:17%;">  $lobj_fd = $dbh&minus;&gt;pg_lo_close($lobj_fd);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Closes an
+existing large object. Returns true upon success and false
+upon failure. This function cannot be used if AutoCommit is
+enabled.</p>
+
+<p style="margin-left:11%;">lo_unlink</p>
+
+<pre style="margin-left:17%;">  $ret = $dbh&minus;&gt;pg_lo_unlink($lobjId);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Deletes an
+existing large object. Returns true upon success and false
+upon failure. This function cannot be used if AutoCommit is
+enabled.</p>
+
+<p style="margin-left:11%;">lo_import</p>
+
+<pre style="margin-left:17%;">  $lobjId = $dbh&minus;&gt;pg_lo_import($filename);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Imports a Unix
+file as a large object and returns the object id of the new
+object or <tt>&quot;undef&quot;</tt> upon failure.</p>
+
+<p style="margin-left:11%;">lo_import_with_oid</p>
+
+<pre style="margin-left:17%;">  $lobjId = $dbh&minus;&gt;pg_lo_import($filename, $OID);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Same as
+lo_import, but attempts to use the supplied
+<small>OID</small> as the large object number. If this
+number is 0, it falls back to the behavior of lo_import
+(which assigns the next available <small>OID</small> ).</p>
+
+<p style="margin-left:17%; margin-top: 1em">This is only
+available when DBD::Pg is compiled against a Postgres server
+version 8.4 or later.</p>
+
+<p style="margin-left:11%;">lo_export</p>
+
+<pre style="margin-left:17%;">  $ret = $dbh&minus;&gt;pg_lo_export($lobjId, $filename);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Exports a large
+object into a Unix file. Returns false upon failure, true
+otherwise.</p>
+
+<p style="margin-left:11%;">getfd</p>
+
+<pre style="margin-left:17%;">  $fd = $dbh&minus;&gt;func('getfd');</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Deprecated, use
+<tt>$dbh</tt>&minus;&gt;{pg_socket} instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>private_attribute_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $hashref = $dbh&minus;&gt;private_attribute_info();
+  $hashref = $sth&minus;&gt;private_attribute_info();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a hash
+of all private attributes used by DBD::Pg, for either a
+database or a statement handle. Currently, all the hash
+values are undef.</p>
+
+<h2>ATTRIBUTES COMMON TO ALL HANDLES
+<a name="ATTRIBUTES COMMON TO ALL HANDLES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>InactiveDestroy</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">If set to true,
+then the &quot;disconnect&quot; method will not be
+automatically called when the database handle goes out of
+scope. This is required if you are forking, and even then
+you must tread carefully and ensure that either the parent
+or the child (but not both!) handles all database calls from
+that point forwards, so that messages from the Postgres
+backend are only handled by one of the processes. If you
+don&rsquo;t set things up properly, you will see messages
+such as &quot;<i>server closed the connection
+unexpectedly</i>&quot;, and &quot;<i>message type 0x32
+arrived from server while idle</i>&quot;. The best solution
+is to either have the child process reconnect to the
+database with a fresh database handle, or to rewrite your
+application not to use use forking. See the section on
+&quot;Asynchronous Queries&quot; for a way to have your
+script continue to work while the database is processing a
+request.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>RaiseError</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Forces errors
+to always raise an exception. Although it defaults to off,
+it is recommended that this be turned on, as the alternative
+is to check the return value of every method (prepare,
+execute, fetch, etc.) manually, which is easy to forget to
+do.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>PrintError</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Forces database
+errors to also generate warnings, which can then be filtered
+with methods such as locally redefining
+<i>$SIG{__WARN__}</i> or using modules such as
+<tt>&quot;CGI::Carp&quot;</tt>. This attribute is on by
+default.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ShowErrorStatement</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Appends
+information about the current statement to error messages.
+If placeholder information is available, adds that as well.
+Defaults to false.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Warn</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Enables
+warnings. This is on by default, and should only be turned
+off in a local block for a short a time only when absolutely
+needed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Executed</i></b>
+<i>(boolean, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Indicates if a
+handle has been executed. For database handles, this value
+is true after the &quot;do&quot; method has been called, or
+when one of the child statement handles has issued an
+&quot;execute&quot;. Issuing a &quot;commit&quot; or
+&quot;rollback&quot; always resets the attribute to false
+for database handles. For statement handles, any call to
+&quot;execute&quot; or its variants will flip the value to
+true for the lifetime of the statement handle.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>TraceLevel</i></b>
+<i>(integer, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Sets the trace
+level, similar to the &quot;trace&quot; method. See the
+sections on &quot;trace&quot; and
+&quot;parse_trace_flag&quot; for more details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Active</i></b>
+<i>(boolean, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Indicates if a
+handle is active or not. For database handles, this
+indicates if the database has been disconnected or not. For
+statement handles, it indicates if all the data has been
+fetched yet or not. Use of this attribute is not
+encouraged.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Kids</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+number of child processes created for each handle type. For
+a driver handle, indicates the number of database handles
+created. For a database handle, indicates the number of
+statement handles created. For statement handles, it always
+returns zero, because statement handles do not create
+kids.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ActiveKids</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Same as
+<tt>&quot;Kids&quot;</tt>, but only returns those that are
+active.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>CachedKids</i></b>
+<i>(hash ref)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+hashref of handles. If called on a database handle, returns
+all statement handles created by use of the
+<tt>&quot;prepare_cached&quot;</tt> method. If called on a
+driver handle, returns all database handles created by the
+&quot;connect_cached&quot; method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ChildHandles</i></b>
+<i>(array ref)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>PrintWarn</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>HandleError</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>HandleSetErr</i></b>
+<i>(code ref, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ErrCount</i></b>
+<i>(unsigned integer)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>FetchHashKeyName</i></b>
+<i>(string, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ChopBlanks</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+DBD::Pg as proposed by <small>DBI.</small> This method is
+similar to the <small>SQL</small> function
+<tt>&quot;RTRIM&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Taint</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>TaintIn</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>TaintOut</i></b>
+<i>(boolean, inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Profile</i></b>
+<i>(inherited)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Type</i></b>
+<i>(scalar)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+<tt>&quot;dr&quot;</tt> for a driver handle,
+<tt>&quot;db&quot;</tt> for a database handle, and
+<tt>&quot;st&quot;</tt> for a statement handle. Should be
+rarely needed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>LongReadLen</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>LongTruncOk</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>CompatMode</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+<h2>DBI DATABASE HANDLE OBJECTS
+<a name="DBI DATABASE HANDLE OBJECTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Database
+Handle Methods</b> <b><i><br>
+selectall_arrayref</i></b></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $ary_ref = $dbh&minus;&gt;selectall_arrayref($sql);
+  $ary_ref = $dbh&minus;&gt;selectall_arrayref($sql, \%attr);
+  $ary_ref = $dbh&minus;&gt;selectall_arrayref($sql, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to an array containing the rows returned by
+preparing and executing the <small>SQL</small> string. See
+the <small>DBI</small> documentation for full details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>selectall_hashref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $hash_ref = $dbh&minus;&gt;selectall_hashref($sql, $key_field);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to a hash containing the rows returned by
+preparing and executing the <small>SQL</small> string. See
+the <small>DBI</small> documentation for full details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>selectcol_arrayref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $ary_ref = $dbh&minus;&gt;selectcol_arrayref($sql, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to an array containing the first column from each
+rows returned by preparing and executing the
+<small>SQL</small> string. It is possible to specify exactly
+which columns to return. See the <small>DBI</small>
+documentation for full details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>prepare</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;prepare($statement, \%attr);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>WARNING:</small>
+DBD::Pg now (as of version 1.40) uses true prepared
+statements by sending them to the backend to be prepared by
+the Postgres server. Statements that were legal before may
+no longer work. See below for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The prepare
+method prepares a statement for later execution. PostgreSQL
+supports prepared statements, which enables DBD::Pg to only
+send the query once, and simply send the arguments for every
+subsequent call to &quot;execute&quot;. DBD::Pg can use
+these server-side prepared statements, or it can just send
+the entire query to the server each time. The best way is
+automatically chosen for each query. This will be sufficient
+for most users: keep reading for a more detailed explanation
+and some optional flags.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Queries that do
+not begin with the word &quot; <small>SELECT&quot;,
+&quot;INSERT&quot;, &quot;UPDATE&quot;,</small> or &quot;
+<small>DELETE&quot;</small> are never sent as server-side
+prepared statements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Deciding
+whether or not to use prepared statements depends on many
+factors, but you can force them to be used or not used by
+using the &quot;pg_server_prepare&quot; attribute when
+calling &quot;prepare&quot;. Setting this to &quot;0&quot;
+means to never use prepared statements. Setting
+&quot;pg_server_prepare&quot; to &quot;1&quot; means that
+prepared statements should be used whenever possible. This
+is the default when connected to Postgres servers version
+8.0 or higher. Servers that are version 7.4 get a special
+default value of &quot;2&quot;, because server-side
+statements were only partially supported in that version. In
+this case, it only uses server-side prepares if all
+parameters are specifically bound.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;pg_server_prepare&quot; attribute can also be set at
+connection time like so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh = DBI&minus;&gt;connect($DBNAME, $DBUSER, $DBPASS,
+                      { AutoCommit =&gt; 0,
+                        RaiseError =&gt; 1,
+                        pg_server_prepare =&gt; 0,
+                      });</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or you may set
+it after your database handle is created:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{pg_server_prepare} = 1;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To enable it
+for just one particular statement:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;prepare(&quot;SELECT id FROM mytable WHERE val = ?&quot;,
+                       { pg_server_prepare =&gt; 1 });</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can even
+toggle between the two as you go:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;{pg_server_prepare} = 1;
+  $sth&minus;&gt;execute(22);
+  $sth&minus;&gt;{pg_server_prepare} = 0;
+  $sth&minus;&gt;execute(44);
+  $sth&minus;&gt;{pg_server_prepare} = 1;
+  $sth&minus;&gt;execute(66);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In the above
+example, the first execute will use the previously prepared
+statement. The second execute will not, but will build the
+query into a single string and send it to the server. The
+third one will act like the first and only send the
+arguments. Even if you toggle back and forth, a statement is
+only prepared once.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using prepared
+statements is in theory quite a bit faster: not only does
+the PostgreSQL backend only have to prepare the query only
+once, but DBD::Pg no longer has to worry about quoting each
+value before sending it to the server.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, there
+are some drawbacks. The server cannot always choose the
+ideal parse plan because it will not know the arguments
+before hand. But for most situations in which you will be
+executing similar data many times, the default plan will
+probably work out well. Programs such as PgBouncer which
+cache connections at a low level should not use prepared
+statements via DBD::Pg, or must take extra care in the
+application to account for the fact that prepared statements
+are not shared across database connections. Further
+discussion on this subject is beyond the scope of this
+documentation: please consult the pgsql-performance mailing
+list,
+&lt;http://archives.postgresql.org/pgsql&minus;performance/&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Only certain
+commands will be sent to a server-side prepare: currently
+these include <tt>&quot;SELECT&quot;</tt>,
+<tt>&quot;INSERT&quot;</tt>, <tt>&quot;UPDATE&quot;</tt>,
+and <tt>&quot;DELETE&quot;</tt>. DBD::Pg uses a simple
+naming scheme for the prepared statements themselves:
+<b>dbdpg_XY_Z</b>, where <b>Y</b> is the current
+<small>PID,</small> <b>X</b> is either &rsquo;p&rsquo; or
+&rsquo;n&rsquo; (depending on if the <small>PID</small> is a
+positive or negative number), and <b>Z</b> is a number that
+starts at 1 and increases each time a new statement is
+prepared. This number is tracked at the database handle
+level, so multiple statement handles will not collide.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You cannot send
+more than one command at a time in the same prepare command
+(by separating them with semi-colons) when using server-side
+prepares.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The actual
+<tt>&quot;PREPARE&quot;</tt> is usually not performed until
+the first execute is called, due to the fact that
+information on the data types (provided by
+&quot;bind_param&quot;) may be provided after the prepare
+but before the execute.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A server-side
+prepare may happen before the first &quot;execute&quot;, but
+only if the server can handle the server-side prepare, and
+the statement contains no placeholders. It will also be
+prepared if the &quot;pg_prepare_now&quot; attribute is
+passed in and set to a true value. Similarly, the
+&quot;pg_prepare_now&quot; attribute can be set to 0 to
+ensure that the statement is <b>not</b> prepared
+immediately, although the cases in which you would want this
+are very rare. Finally, you can set the default behavior of
+all prepare statements by setting the
+&quot;pg_prepare_now&quot; attribute on the database
+handle:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{pg_prepare_now} = 1;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+two examples will be prepared right away:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;prepare(&quot;SELECT 123&quot;); ## no placeholders
+  $sth&minus;&gt;prepare(&quot;SELECT 123, ?&quot;, {pg_prepare_now =&gt; 1});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+two examples will <small>NOT</small> be prepared right
+away:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;prepare(&quot;SELECT 123, ?&quot;); ## has a placeholder
+  $sth&minus;&gt;prepare(&quot;SELECT 123&quot;, {pg_prepare_now =&gt; 0});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">There are times
+when you may want to prepare a statement yourself. To do
+this, simply send the <tt>&quot;PREPARE&quot;</tt> statement
+directly to the server (e.g. with the &quot;do&quot;
+method). Create a statement handle and set the prepared name
+via the &quot;pg_prepare_name&quot; attribute. The statement
+handle can be created with a dummy statement, as it will not
+be executed. However, it should have the same number of
+placeholders as your prepared statement. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do('PREPARE mystat AS SELECT COUNT(*) FROM pg_class WHERE reltuples &lt; ?');
+  $sth = $dbh&minus;&gt;prepare('SELECT ?');
+  $sth&minus;&gt;bind_param(1, 1, SQL_INTEGER);
+  $sth&minus;&gt;{pg_prepare_name} = 'mystat';
+  $sth&minus;&gt;execute(123);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above will
+run the equivalent of this query on the backend:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  EXECUTE mystat(123);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">which is the
+equivalent of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  SELECT COUNT(*) FROM pg_class WHERE reltuples &lt; 123;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can force
+DBD::Pg to send your query directly to the server by adding
+the &quot;pg_direct&quot; attribute to your prepare call.
+This is not recommended, but is added just in case you need
+it.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Placeholders</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">There are three
+types of placeholders that can be used in DBD::Pg. The first
+is the &quot;question mark&quot; type, in which each
+placeholder is represented by a single question mark
+character. This is the method recommended by the
+<small>DBI</small> specs and is the most portable. Each
+question mark is internally replaced by a &quot;dollar sign
+number&quot; in the order in which they appear in the query
+(important when using &quot;bind_param&quot;).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The method
+second type of placeholder is &quot;dollar sign
+numbers&quot;. This is the method that Postgres uses
+internally and is overall probably the best method to use if
+you do not need compatibility with other database systems.
+DBD::Pg, like PostgreSQL, allows the same number to be used
+more than once in the query. Numbers must start with
+&quot;1&quot; and increment by one value (but can appear in
+any order within the query). If the same number appears more
+than once in a query, it is treated as a single parameter
+and all instances are replaced at once. Examples:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Not legal:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages &gt; $2'; # Does not start with 1
+  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages BETWEEN $1 AND $3'; # Missing 2</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Legal:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages &gt; $1';
+  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages BETWEEN $1 AND $2';
+  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages BETWEEN $2 AND $1'; # legal but confusing
+  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages BETWEEN $1 AND $2 AND reltuples &gt; $1';
+  $SQL = 'SELECT count(*) FROM pg_class WHERE relpages &gt; $1 AND reltuples &gt; $1';</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In the final
+statement above, <small>DBI</small> thinks there is only one
+placeholder, so this statement will replace both
+placeholders:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;bind_param(1, 2045);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">While a simple
+execute with no bind_param calls requires only a single
+argument as well:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;execute(2045);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The final
+placeholder type is &quot;named parameters&quot; in the
+format &quot;:foo&quot;. While this syntax is supported by
+DBD::Pg, its use is discouraged in favor of dollar-sign
+numbers.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The different
+types of placeholders cannot be mixed within a statement,
+but you may use different ones for each statement handle you
+have. This is confusing at best, so stick to one style
+within your program.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If your queries
+use operators that contain question marks (e.g. some of the
+native Postgres geometric operators) or array slices (e.g.
+<tt>&quot;data[100:300]&quot;</tt>), you can tell DBD::Pg to
+ignore any non-dollar sign placeholders by setting the
+&quot;pg_placeholder_dollaronly&quot; attribute at either
+the database handle or the statement handle level.
+Examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{pg_placeholder_dollaronly} = 1;
+  $sth = $dbh&minus;&gt;prepare(q{SELECT * FROM mytable WHERE lseg1 ?# lseg2 AND name = $1});
+  $sth&minus;&gt;execute('segname');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Alternatively,
+you can set it at prepare time:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;prepare(q{SELECT * FROM mytable WHERE lseg1 ?&minus;| lseg2 AND name = $1},
+    {pg_placeholder_dollaronly = 1});
+  $sth&minus;&gt;execute('segname');</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>prepare_cached</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;prepare_cached($statement, \%attr);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Implemented by
+<small>DBI,</small> no driver-specific impact. This method
+is most useful when using a server that supports server-side
+prepares, and you have asked the prepare to happen
+immediately via the &quot;pg_prepare_now&quot;
+attribute.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>do</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;do($statement);
+  $rv = $dbh&minus;&gt;do($statement, \%attr);
+  $rv = $dbh&minus;&gt;do($statement, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Prepare and
+execute a single statement. Returns the number of rows
+affected if the query was successful, returns undef if an
+error occurred, and returns &minus;1 if the number of rows
+is unknown or not available. Note that this method will
+return <b>0E0</b> instead of 0 for &rsquo;no rows were
+affected&rsquo;, in order to always return a true value if
+no error occurred.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If neither
+<tt>&quot;\%attr&quot;</tt> nor <tt>@bind_values</tt> is
+given, the query will be sent directly to the server without
+the overhead of internally creating a statement handle and
+running prepare and execute, for a measurable speed
+increase.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that an
+empty statement (a string with no length) will not be passed
+to the server; if you want a simple test, use &quot;
+<small>SELECT 123&quot;</small> or the &quot;ping&quot;
+method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>last_insert_id</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;last_insert_id(undef, $schema, $table, undef);
+  $rv = $dbh&minus;&gt;last_insert_id(undef, $schema, $table, undef, {sequence =&gt; $seqname});</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Attempts to
+return the id of the last value to be inserted into a table.
+You can either provide a sequence name (preferred) or
+provide a table name with optional schema, and DBD::Pg will
+attempt to find the sequence itself. The current value of
+the sequence is returned by a call to the
+<tt>&quot;CURRVAL()&quot;</tt> PostgreSQL function. This
+will fail if the sequence has not yet been used in the
+current database connection.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you do not
+know the name of the sequence, you can provide a table name
+and DBD::Pg will attempt to return the correct value. To do
+this, there must be at least one column in the table with a
+<tt>&quot;NOT NULL&quot;</tt> constraint, that has a unique
+constraint, and which uses a sequence as a default value. If
+more than one column meets these conditions, the primary key
+will be used. This involves some looking up of things in the
+system table, so DBD::Pg will cache the sequence name for
+subsequent calls. If you need to disable this caching for
+some reason, (such as the sequence name changing), you can
+control it by adding <tt>&quot;pg_cache =&gt; 0&quot;</tt>
+to the final (hashref) argument for last_insert_id.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Please keep in
+mind that this method is far from foolproof, so make your
+script use it properly. Specifically, make sure that it is
+called immediately after the insert, and that the insert
+does not add a value to the column that is using the
+sequence as a default value. However, because we are using
+sequences, you can be sure that the value you got back has
+not been used by any other process.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Some
+examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do('CREATE SEQUENCE lii_seq START 1');
+  $dbh&minus;&gt;do(q{CREATE TABLE lii (
+    foobar INTEGER NOT NULL UNIQUE DEFAULT nextval('lii_seq'),
+    baz VARCHAR)});
+  $SQL = 'INSERT INTO lii(baz) VALUES (?)';
+  $sth = $dbh&minus;&gt;prepare($SQL);
+  for (qw(uno dos tres cuatro)) {
+    $sth&minus;&gt;execute($_);
+    my $newid = $dbh&minus;&gt;last_insert_id(undef,undef,undef,undef,{sequence=&gt;'lii_seq'});
+    print &quot;Last insert id was $newid\n&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you did not
+want to worry about the sequence name:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do('CREATE TABLE lii2 (
+    foobar SERIAL UNIQUE,
+    baz VARCHAR)');
+  $SQL = 'INSERT INTO lii2(baz) VALUES (?)';
+  $sth = $dbh&minus;&gt;prepare($SQL);
+  for (qw(uno dos tres cuatro)) {
+    $sth&minus;&gt;execute($_);
+    my $newid = $dbh&minus;&gt;last_insert_id(undef,undef,&quot;lii2&quot;,undef);
+    print &quot;Last insert id was $newid\n&quot;;
+  }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>commit</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;commit;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Issues a
+<small>COMMIT</small> to the server, indicating that the
+current transaction is finished and that all changes made
+will be visible to other processes. If AutoCommit is
+enabled, then a warning is given and no
+<small>COMMIT</small> is issued. Returns true on success,
+false on error. See also the the section on
+&quot;Transactions&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>rollback</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;rollback;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Issues a
+<small>ROLLBACK</small> to the server, which discards any
+changes made in the current transaction. If AutoCommit is
+enabled, then a warning is given and no
+<small>ROLLBACK</small> is issued. Returns true on success,
+and false on error. See also the the section on
+&quot;Transactions&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>begin_work</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+turns on transactions until the next call to
+&quot;commit&quot; or &quot;rollback&quot;, if
+&quot;AutoCommit&quot; is currently enabled. If it is not
+enabled, calling begin_work will issue an error. Note that
+the transaction will not actually begin until the first
+statement after begin_work is called. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{AutoCommit} = 1;
+  $dbh&minus;&gt;do('INSERT INTO foo VALUES (123)'); ## Changes committed immediately
+  $dbh&minus;&gt;begin_work();
+  ## Not in a transaction yet, but AutoCommit is set to 0
+  $dbh&minus;&gt;do(&quot;INSERT INTO foo VALUES (345)&quot;);
+  ## DBD::PG actually issues two statements here:
+  ## BEGIN;
+  ## INSERT INTO foo VALUES (345)
+  ## We are now in a transaction
+  $dbh&minus;&gt;commit();
+  ## AutoCommit is now set to 1 again</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>disconnect</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;disconnect;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Disconnects
+from the Postgres database. Any uncommitted changes will be
+rolled back upon disconnection. It&rsquo;s good policy to
+always explicitly call commit or rollback at some point
+before disconnecting, rather than relying on the default
+rollback behavior.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method may
+give warnings about &quot;disconnect invalidates X active
+statement handle(s)&quot;. This means that you called
+<tt>&quot;$sth&minus;&gt;execute()&quot;</tt> but did not
+finish fetching all the rows from them. To avoid seeing this
+warning, either fetch all the rows or call
+<tt>&quot;$sth&minus;&gt;finish()&quot;</tt> for each
+executed statement handle.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the script
+exits before disconnect is called (or, more precisely, if
+the database handle is no longer referenced by anything),
+then the database handle&rsquo;s <small>DESTROY</small>
+method will call the <i>rollback()</i> and
+<i>disconnect()</i> methods automatically. It is best to
+explicitly disconnect rather than rely on this behavior.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>quote</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;quote($value, $data_type);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+implements its own <tt>&quot;quote&quot;</tt> method. For
+simple string types, both backslashes and single quotes are
+doubled. You may also quote arrayrefs and receive a string
+suitable for passing into Postgres array columns.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the value
+contains backslashes, and the server is version 8.1 or
+higher, then the escaped string syntax will be used (which
+places a capital E before the first single quote). This
+syntax is always used when quoting bytea values on servers
+8.1 and higher.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;data_type&quot;</tt> argument is optional and
+should be one of the type constants exported by DBD::Pg
+(such as <small>PG_BYTEA</small> ). In addition to string,
+bytea, char, bool, and other standard types, the following
+geometric types are supported: point, line, lseg, box, path,
+polygon, and circle ( <small>PG_POINT, PG_LINE, PG_LSEG,
+PG_BOX, PG_PATH, PG_POLYGON,</small> and
+<small>PG_CIRCLE</small> respectively). To quote a
+Postgres-specific data type, you must use a
+&rsquo;hashref&rsquo; argument like so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $quotedval = $dbh&minus;&gt;quote($value, { pg_type =&gt; PG_VARCHAR });</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>NOTE:</small></b>
+The undocumented (and invalid) support for the
+<tt>&quot;SQL_BINARY&quot;</tt> data type is officially
+deprecated. Use <tt>&quot;PG_BYTEA&quot;</tt> with
+<tt>&quot;bind_param()&quot;</tt> instead:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_param($param_num, $bind_value,
+                         { pg_type =&gt; PG_BYTEA });</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>quote_identifier</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $string = $dbh&minus;&gt;quote_identifier( $name );
+  $string = $dbh&minus;&gt;quote_identifier( undef, $schema, $table);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+quoted version of the supplied string, which is commonly a
+schema, table, or column name. The three argument form will
+return the schema and the table together, separated by a
+dot. Examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  print $dbh&minus;&gt;quote_identifier('grapefruit'); ## Prints: &quot;grapefruit&quot;
+  print $dbh&minus;&gt;quote_identifier('juicy fruit'); ## Prints: &quot;juicy fruit&quot;
+  print $dbh&minus;&gt;quote_identifier(undef, 'public', 'pg_proc');
+  ## Prints: &quot;public&quot;.&quot;pg_proc&quot;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_notifies</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $ret = $dbh&minus;&gt;pg_notifies;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Looks for any
+asynchronous notifications received and returns either
+<tt>&quot;undef&quot;</tt> or a reference to a three-element
+array consisting of an event name, the <small>PID</small> of
+the backend that sent the <small>NOTIFY</small> command, and
+the optional payload string. Note that this does not check
+if the connection to the database is still valid first
+&minus; for that, use the c&lt;ping&gt; method. You may need
+to commit if not in autocommit mode &minus; new notices will
+not be picked up while in the middle of a transaction. An
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do(&quot;LISTEN abc&quot;);
+  $dbh&minus;&gt;do(&quot;LISTEN def&quot;);
+  ## Hang around until we get the message we want
+  LISTENLOOP: {
+    while (my $notify = $dbh&minus;&gt;pg_notifies) {
+      my ($name, $pid, $payload) = @$notify;
+      print qq{I received notice &quot;$name&quot; from PID $pid, payload was &quot;$payload&quot;\n};
+      ## Do something based on the notice received
+    }
+    $dbh&minus;&gt;ping() or die qq{Ping failed!};
+    $dbh&minus;&gt;commit();
+    sleep(5);
+    redo;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Payloads will
+always be an empty string unless you are connecting to a
+Postgres server version 9.0 or higher.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ping</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;ping;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+<tt>&quot;ping&quot;</tt> method is used to check the
+validity of a database handle. The value returned is either
+0, indicating that the connection is no longer valid, or a
+positive integer, indicating the following:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  Value    Meaning
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+    1      Database is idle (not in a transaction)
+    2      Database is active, there is a command in progress (usually seen after a COPY command)
+    3      Database is idle within a transaction
+    4      Database is idle, within a failed transaction</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Additional
+information on why a handle is not valid can be obtained by
+using the &quot;pg_ping&quot; method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_ping</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $dbh&minus;&gt;pg_ping;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is a
+DBD::Pg&minus;specific extension to the &quot;ping&quot;
+method. This will check the validity of a database handle in
+exactly the same way as <tt>&quot;ping&quot;</tt>, but
+instead of returning a 0 for an invalid connection, it will
+return a negative number. So in addition to returning the
+positive numbers documented for <tt>&quot;ping&quot;</tt>,
+it may also return the following:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  Value    Meaning
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+   &minus;1      There is no connection to the database at all (e.g. after disconnect)
+   &minus;2      An unknown transaction status was returned (e.g. after forking)
+   &minus;3      The handle exists, but no data was returned from a test query.</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In practice,
+you should only ever see &minus;1 and &minus;2.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>get_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $value = $dbh&minus;&gt;get_info($info_type);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supports a very
+large set (&gt; 250) of the information types, including the
+minimum recommended by <small>DBI.</small></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>table_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;table_info(undef, $schema, $table, $type);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns all
+tables and views visible to the current user. The schema and
+table arguments will do a <tt>&quot;LIKE&quot;</tt> search
+if a percent sign (<tt>&quot;%&quot;</tt>) or an underscore
+(<tt>&quot;_&quot;</tt>) is detected in the argument. The
+<tt>$type</tt> argument accepts a value of either &quot;
+<small>TABLE&quot;</small> or &quot;
+<small>VIEW&quot;</small> (using both is the default
+action). Note that a statement handle is returned, and not a
+direct list of tables. See the examples below for ways to
+handle this.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+fields are returned:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>TABLE_CAT</small></b>
+: Always <small>NULL,</small> as Postgres does not have the
+concept of catalogs.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>TABLE_SCHEM</small></b>
+: The name of the schema that the table or view is in.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>TABLE_NAME</small></b>
+: The name of the table or view.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>TABLE_TYPE</small></b>
+: The type of object returned. Will be one of &quot;
+<small>TABLE&quot;, &quot;VIEW&quot;,</small> or &quot;
+<small>SYSTEM TABLE&quot;.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>TABLE_SCHEM</small> and <small>TABLE_NAME</small>
+will be quoted via <tt>&quot;quote_ident()&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Two additional
+fields specific to DBD::Pg are returned:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_schema</b>:
+the unquoted name of the schema</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_table</b>:
+the unquoted name of the table</p>
+
+<p style="margin-left:11%; margin-top: 1em">If your
+database supports tablespaces (version 8.0 or greater), two
+additional DBD::Pg specific fields are returned:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_tablespace_name</b>:
+the name of the tablespace the table is in</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_tablespace_location</b>:
+the location of the tablespace the table is in</p>
+
+<p style="margin-left:11%; margin-top: 1em">Tables that
+have not been assigned to a particular tablespace (or views)
+will return <small>NULL</small> (<tt>&quot;undef&quot;</tt>)
+for both of the above field.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Rows are
+returned alphabetically, with all tables first, and then all
+views.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Examples of
+use:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ## Display all tables and views in the public schema:
+  $sth = $dbh&minus;&gt;table_info('', 'public', undef, undef);
+  for my $rel (@{$sth&minus;&gt;fetchall_arrayref({})}) {
+    print &quot;$rel&minus;&gt;{TABLE_TYPE} name is $rel&minus;&gt;{TABLE_NAME}\n&quot;;
+  }
+  # Display the schema of all tables named 'foo':
+  $sth = $dbh&minus;&gt;table_info('', undef, 'foo', 'TABLE');
+  for my $rel (@{$sth&minus;&gt;fetchall_arrayref({})}) {
+    print &quot;Table name is $rel&minus;&gt;{TABLE_SCHEM}.$rel&minus;&gt;{TABLE_NAME}\n&quot;;
+  }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>column_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;column_info( undef, $schema, $table, $column );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+this driver as proposed by <small>DBI</small> with the
+follow exceptions. These fields are currently always
+returned with <small>NULL</small>
+(<tt>&quot;undef&quot;</tt>) values:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   TABLE_CAT
+   BUFFER_LENGTH
+   DECIMAL_DIGITS
+   NUM_PREC_RADIX
+   SQL_DATA_TYPE
+   SQL_DATETIME_SUB
+   CHAR_OCTET_LENGTH</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Also, six
+additional non-standard fields are returned:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_type</b>:
+data type with additional info i.e. &quot;character
+varying(20)&quot;</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_constraint</b>:
+holds column constraint definition</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_schema</b>:
+the unquoted name of the schema</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_table</b>:
+the unquoted name of the table</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_column</b>:
+the unquoted name of the column</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_enum_values</b>:
+an array reference of allowed values for an enum column</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+<small>TABLE_SCHEM, TABLE_NAME,</small> and
+<small>COLUMN_NAME</small> fields all return output wrapped
+in <i>quote_ident()</i>. If you need the unquoted version,
+use the pg_ fields above.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>primary_key_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;primary_key_info( undef, $schema, $table, \%attr );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+this driver as proposed by <small>DBI.</small> There are no
+search patterns allowed, but leaving the <tt>$schema</tt>
+argument blank will cause the first table found in the
+schema search path to be used. An additional field, &quot;
+<small>DATA_TYPE&quot;,</small> is returned and shows the
+data type for each of the arguments in the &quot;
+<small>COLUMN_NAME&quot;</small> field.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+will also return tablespace information for servers that
+support tablespaces. See the &quot;table_info&quot; entry
+for more information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The five
+additional custom fields returned are:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_tablespace_name</b>:
+name of the tablespace, if any</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_tablespace_location</b>:
+location of the tablespace</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_schema</b>:
+the unquoted name of the schema</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_table</b>:
+the unquoted name of the table</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pg_column</b>:
+the unquoted name of the column</p>
+
+<p style="margin-left:11%; margin-top: 1em">In addition to
+the standard format of returning one row for each column
+found for the primary key, you can pass the
+<tt>&quot;pg_onerow&quot;</tt> attribute to force a single
+row to be used. If the primary key has multiple columns, the
+&quot; <small>KEY_SEQ&quot;,
+&quot;COLUMN_NAME&quot;,</small> and &quot;
+<small>DATA_TYPE&quot;</small> fields will return a
+comma-delimited string. If the
+<tt>&quot;pg_onerow&quot;</tt> attribute is set to
+&quot;2&quot;, the fields will be returned as an arrayref,
+which can be useful when multiple columns are involved:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;primary_key_info('', '', 'dbd_pg_test', {pg_onerow =&gt; 2});
+  if (defined $sth) {
+    my $pk = $sth&minus;&gt;fetchall_arrayref()&minus;&gt;[0];
+    print &quot;Table $pk&minus;&gt;[2] has a primary key on these columns:\n&quot;;
+    for (my $x=0; defined $pk&minus;&gt;[3][$x]; $x++) {
+      print &quot;Column: $pk&minus;&gt;[3][$x]  (data type: $pk&minus;&gt;[6][$x])\n&quot;;
+    }
+  }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>primary_key</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @key_column_names = $dbh&minus;&gt;primary_key(undef, $schema, $table);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Simple
+interface to the &quot;primary_key_info&quot; method.
+Returns a list of the column names that comprise the primary
+key of the specified table. The list is in primary key
+column sequence order. If there is no primary key then an
+empty list is returned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>foreign_key_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;foreign_key_info( $pk_catalog, $pk_schema, $pk_table,
+                                 $fk_catalog, $fk_schema, $fk_table );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+this driver as proposed by <small>DBI,</small> using the
+<small>SQL/CLI</small> variant. There are no search patterns
+allowed, but leaving the <tt>$schema</tt> argument blank
+will cause the first table found in the schema search path
+to be used. Two additional fields, &quot;
+<small>UK_DATA_TYPE&quot;</small> and &quot;
+<small>FK_DATA_TYPE&quot;,</small> are returned to show the
+data type for the unique and foreign key columns. Foreign
+keys that have no named constraint (where the referenced
+column only has an unique index) will return
+<tt>&quot;undef&quot;</tt> for the &quot;
+<small>UK_NAME&quot;</small> field.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>statistics_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth = $dbh&minus;&gt;statistics_info( undef, $schema, $table, $unique_only, $quick );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+statement handle that can be fetched from to give statistics
+information on a specific table and its indexes. The
+<tt>$table</tt> argument is mandatory. The <tt>$schema</tt>
+argument is optional but recommended. The
+<tt>$unique_only</tt> argument, if true, causes only
+information about unique indexes to be returned. The
+<tt>$quick</tt> argument is not used by DBD::Pg. For
+information on the format of the rows returned, please see
+the <small>DBI</small> documentation.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>tables</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @names = $dbh&minus;&gt;tables( undef, $schema, $table, $type, \%attr );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+this driver as proposed by <small>DBI.</small> This method
+returns all tables and/or views which are visible to the
+current user: see &quot;table_info&quot; for more
+information about the arguments. The name of the schema
+appears before the table or view name. This can be turned
+off by adding in the <tt>&quot;pg_noprefix&quot;</tt>
+attribute:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my @tables = $dbh&minus;&gt;tables( '', '', 'dbd_pg_test', '', {pg_noprefix =&gt; 1} );</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>type_info_all</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $type_info_all = $dbh&minus;&gt;type_info_all;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+this driver as proposed by <small>DBI.</small> Information
+is only provided for <small>SQL</small> datatypes and for
+frequently used datatypes. The mapping between the
+PostgreSQL typename and the <small>SQL92</small> datatype
+(if possible) has been done according to the following
+table:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+
+  | typname       | SQL92                              |
+  |&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;|
+  | bool          | BOOL                               |
+  | text          | /                                  |
+  | bpchar        | CHAR(n)                            |
+  | varchar       | VARCHAR(n)                         |
+  | int2          | SMALLINT                           |
+  | int4          | INT                                |
+  | int8          | /                                  |
+  | money         | /                                  |
+  | float4        | FLOAT(p)   p&lt;7=float4, p&lt;16=float8 |
+  | float8        | REAL                               |
+  | abstime       | /                                  |
+  | reltime       | /                                  |
+  | tinterval     | /                                  |
+  | date          | /                                  |
+  | time          | /                                  |
+  | datetime      | /                                  |
+  | timespan      | TINTERVAL                          |
+  | timestamp     | TIMESTAMP                          |
+  +&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>type_info</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @type_info = $dbh&minus;&gt;type_info($data_type);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a list
+of hash references holding information about one or more
+variants of <tt>$data_type</tt>. See the <small>DBI</small>
+documentation for more details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_server_trace</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;pg_server_trace($filehandle);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Writes
+debugging information from the PostgreSQL backend to a file.
+This is not related to the <small>DBI</small>
+&quot;trace&quot; method and you should not use this method
+unless you know what you are doing. If you do enable this,
+be aware that the file will grow very large, very quick. To
+stop logging to the file, use the
+&quot;pg_server_untrace&quot; method. The first argument
+must be a file handle, not a filename. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $pid = $dbh&minus;&gt;{pg_pid};
+  my $file = &quot;pgbackend.$pid.debug.log&quot;;
+  open(my $fh, &quot;&gt;$file&quot;) or die qq{Could not open &quot;$file&quot;: $!\n};
+  $dbh&minus;&gt;pg_server_trace($fh);
+  ## Run code you want to trace here
+  $dbh&minus;&gt;pg_server_untrace;
+  close($fh);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_server_untrace</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;pg_server_untrace;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Stop server
+logging to a previously opened file.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>selectrow_array</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @row_ary = $dbh&minus;&gt;selectrow_array($sql);
+  @row_ary = $dbh&minus;&gt;selectrow_array($sql, \%attr);
+  @row_ary = $dbh&minus;&gt;selectrow_array($sql, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+array of row information after preparing and executing the
+provided <small>SQL</small> string. The rows are returned by
+calling &quot;fetchrow_array&quot;. The string can also be a
+statement handle generated by a previous prepare. Note that
+only the first row of data is returned. If called in a
+scalar context, only the first column of the first row is
+returned. Because this is not portable, it is not
+recommended that you use this method in that way.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>selectrow_arrayref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $ary_ref = $dbh&minus;&gt;selectrow_arrayref($statement);
+  $ary_ref = $dbh&minus;&gt;selectrow_arrayref($statement, \%attr);
+  $ary_ref = $dbh&minus;&gt;selectrow_arrayref($statement, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Exactly the
+same as &quot;selectrow_array&quot;, except that it returns
+a reference to an array, by internal use of the
+&quot;fetchrow_arrayref&quot; method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>selectrow_hashref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $hash_ref = $dbh&minus;&gt;selectrow_hashref($sql);
+  $hash_ref = $dbh&minus;&gt;selectrow_hashref($sql, \%attr);
+  $hash_ref = $dbh&minus;&gt;selectrow_hashref($sql, \%attr, @bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Exactly the
+same as &quot;selectrow_array&quot;, except that it returns
+a reference to an hash, by internal use of the
+&quot;fetchrow_hashref&quot; method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>clone</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $other_dbh = $dbh&minus;&gt;clone();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Creates a copy
+of the database handle by connecting with the same
+parameters as the original handle, then trying to merge the
+attributes. See the <small>DBI</small> documentation for
+complete usage.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Database
+Handle Attributes</b> <b><i><br>
+AutoCommit</i></b> <i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+DBD::Pg as proposed by <small>DBI.</small> According to the
+classification of <small>DBI,</small> PostgreSQL is a
+database in which a transaction must be explicitly started.
+Without starting a transaction, every change to the database
+becomes immediately permanent. The default of AutoCommit is
+on, but this may change in the future, so it is highly
+recommended that you explicitly set it when calling
+&quot;connect&quot;. For details see the notes about
+&quot;Transactions&quot; elsewhere in this document.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_bool_tf</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. If true, boolean values will be returned
+as the characters &rsquo;t&rsquo; and &rsquo;f&rsquo;
+instead of &rsquo;1&rsquo; and &rsquo;0&rsquo;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ReadOnly</i></b>
+<i>(boolean)</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$dbh</tt>&minus;&gt;{ReadOnly}
+= 1;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Specifies if
+the current database connection should be in read-only mode
+or not. In this mode, changes that change the database are
+not allowed and will throw an error. Note: this method will
+<b>not</b> work if &quot;AutoCommit&quot; is true. The
+read-only effect is accomplished by sending a
+<small>SET&nbsp;TRANSACTION&nbsp;READ&nbsp;ONLY</small>
+after every begin. For more details, please see:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://www.postgresql.org/docs/current/interactive/sql&minus;set&minus;transaction.html</p>
+
+<p style="margin-left:11%; margin-top: 1em">Please not that
+this method is not foolproof: there are still ways to update
+the database. Consider this a safety net to catch
+applications that should not be issuing commands such as
+<small>INSERT, UPDATE,</small> or <small>DELETE.</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+method requires <small>DBI</small> version 1.55 or
+better.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_server_prepare</i></b>
+<i>(integer)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Indicates if DBD::Pg should attempt to
+use server-side prepared statements. The default value, 1,
+indicates that prepared statements should be used whenever
+possible. See the section on the &quot;prepare&quot; method
+for more information.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_placeholder_dollaronly</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Defaults to false. When true, question
+marks inside of statements are not treated as placeholders.
+Useful for statements that contain unquoted question marks,
+such as geometric operators.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_enable_utf8</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. If true, then the
+<tt>&quot;utf8&quot;</tt> flag will be turned on for
+returned character data (if the data is valid
+<small>UTF&minus;8</small> ). For details about the
+<tt>&quot;utf8&quot;</tt> flag, see the
+<tt>&quot;Encode&quot;</tt> module. This attribute is only
+relevant under perl 5.8 and later.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_errorlevel</i></b>
+<i>(integer)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Sets the amount of information returned
+by the server&rsquo;s error messages. Valid entries are 0,
+1, and 2. Any other number will be forced to the default
+value of 1.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A value of 0
+(&quot; <small>TERSE&quot;</small> ) will show severity,
+primary text, and position only and will usually fit on a
+single line. A value of 1 (&quot;
+<small>DEFAULT&quot;</small> ) will also show any detail,
+hint, or context fields. A value of 2 (&quot;
+<small>VERBOSE&quot;</small> ) will show all available
+information.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_lib_version</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Indicates which version of PostgreSQL
+that DBD::Pg was compiled against. In other words, which
+libraries were used. Returns a number with major, minor, and
+revision together; version 8.1.4 would be returned as
+<tt>80104</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_server_version</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Indicates which version of PostgreSQL
+that the current database handle is connected to. Returns a
+number with major, minor, and revision together; version
+8.0.1 would be <tt>80001</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Name</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+name of the current database. This is the same as the
+<small>DSN,</small> without the &quot;dbi:Pg:&quot; part.
+Before version 2.0.0, this only returned the bare database
+name (e.g. &rsquo;foo&rsquo;). From version 2.0.0 onwards,
+it returns the more correct output (e.g.
+&rsquo;dbname=foo&rsquo;)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Username</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+name of the user connected to the database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_db</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the name of the current
+database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_user</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the name of the user that
+connected to the server.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_host</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the host of the current server
+connection. Locally connected hosts will return an empty
+string.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_port</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the port of the connection to
+the server.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_socket</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the file description number of
+the connection socket to the server.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_pass</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the password used to connect to
+the server.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_options</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the command-line options passed
+to the server. May be an empty string.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_default_port</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the default port used if none is
+specifically given.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_pid</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the process id (
+<small>PID</small> ) of the backend server process handling
+the connection.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_prepare_now</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Default is off. If true, then the
+&quot;prepare&quot; method will immediately prepare
+commands, rather than waiting until the first execute.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_expand_array</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Defaults to true. If false, arrays
+returned from the server will not be changed into a Perl
+arrayref, but remain as a string.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_async_status</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the current status of an
+asynchronous command. 0 indicates no asynchronous command is
+in progress, 1 indicates that an asynchronous command has
+started and &minus;1 indicated that an asynchronous command
+has been cancelled.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_standard_conforming_strings</i></b>
+<i>(boolean, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns true if the server is currently
+using standard conforming strings. Only available if the
+target server is version 8.2 or better.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_INV_READ</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Constant to be
+used for the mode in &quot;lo_creat&quot; and
+&quot;lo_open&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_INV_WRITE</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Constant to be
+used for the mode in &quot;lo_creat&quot; and
+&quot;lo_open&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Driver</i></b>
+<i>(handle, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Holds the
+handle of the parent driver. The only recommended use for
+this is to find the name of the driver using:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{Driver}&minus;&gt;{Name}</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_protocol</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the version of the PostgreSQL
+server. If DBD::Pg is unable to figure out the version, it
+will return a &quot;0&quot;. Otherwise, a &quot;3&quot; is
+returned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>RowCacheSize</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+<h2>DBI STATEMENT HANDLE OBJECTS
+<a name="DBI STATEMENT HANDLE OBJECTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Statement
+Handle Methods</b> <b><i><br>
+bind_param</i></b></p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_param($param_num, $bind_value);
+  $rv = $sth&minus;&gt;bind_param($param_num, $bind_value, $bind_type);
+  $rv = $sth&minus;&gt;bind_param($param_num, $bind_value, \%attr);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Allows the user
+to bind a value and/or a data type to a placeholder. This is
+especially important when using server-side prepares. See
+the &quot;prepare&quot; method for more information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The value of
+<tt>$param_num</tt> is a number if using the &rsquo;?&rsquo;
+or &rsquo;$1&rsquo; style placeholders. If using
+&quot;:foo&quot; style placeholders, the complete name (e.g.
+&quot;:foo&quot;) must be given. For numeric values, you can
+either use a number or use a literal &rsquo;$1&rsquo;. See
+the examples below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>$bind_value</tt> argument is fairly self-explanatory. A
+value of <tt>&quot;undef&quot;</tt> will bind a
+<tt>&quot;NULL&quot;</tt> to the placeholder. Using
+<tt>&quot;undef&quot;</tt> is useful when you want to change
+just the type and will be overwriting the value later. (Any
+value is actually usable, but <tt>&quot;undef&quot;</tt> is
+easy and efficient).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;\%attr&quot;</tt> hash is used to indicate the
+data type of the placeholder. The default value is
+&quot;varchar&quot;. If you need something else, you must
+use one of the values provided by <small>DBI</small> or by
+DBD::Pg. To use a <small>SQL</small> value, modify your
+&quot;use <small>DBI&quot;</small> statement at the top of
+your script as follows:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBI qw(:sql_types);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This will
+import some constants into your script. You can plug those
+directly into the &quot;bind_param&quot; call. Some common
+ones that you will encounter are:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  SQL_INTEGER</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To use
+PostgreSQL data types, import the list of values like
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBD::Pg qw(:pg_types);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can then
+set the data types by setting the value of the
+<tt>&quot;pg_type&quot;</tt> key in the hash passed to
+&quot;bind_param&quot;. The current list of Postgres data
+types exported is:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> PG_ABSTIME PG_ABSTIMEARRAY PG_ACLITEM PG_ACLITEMARRAY PG_ANY PG_ANYARRAY
+ PG_ANYELEMENT PG_ANYENUM PG_ANYNONARRAY PG_BIT PG_BITARRAY PG_BOOL
+ PG_BOOLARRAY PG_BOX PG_BOXARRAY PG_BPCHAR PG_BPCHARARRAY PG_BYTEA
+ PG_BYTEAARRAY PG_CHAR PG_CHARARRAY PG_CID PG_CIDARRAY PG_CIDR
+ PG_CIDRARRAY PG_CIRCLE PG_CIRCLEARRAY PG_CSTRING PG_CSTRINGARRAY PG_DATE
+ PG_DATEARRAY PG_FDW_HANDLER PG_FLOAT4 PG_FLOAT4ARRAY PG_FLOAT8 PG_FLOAT8ARRAY
+ PG_GTSVECTOR PG_GTSVECTORARRAY PG_INET PG_INETARRAY PG_INT2 PG_INT2ARRAY
+ PG_INT2VECTOR PG_INT2VECTORARRAY PG_INT4 PG_INT4ARRAY PG_INT8 PG_INT8ARRAY
+ PG_INTERNAL PG_INTERVAL PG_INTERVALARRAY PG_LANGUAGE_HANDLER PG_LINE PG_LINEARRAY
+ PG_LSEG PG_LSEGARRAY PG_MACADDR PG_MACADDRARRAY PG_MONEY PG_MONEYARRAY
+ PG_NAME PG_NAMEARRAY PG_NUMERIC PG_NUMERICARRAY PG_OID PG_OIDARRAY
+ PG_OIDVECTOR PG_OIDVECTORARRAY PG_OPAQUE PG_PATH PG_PATHARRAY PG_PG_ATTRIBUTE
+ PG_PG_CLASS PG_PG_NODE_TREE PG_PG_PROC PG_PG_TYPE PG_POINT PG_POINTARRAY
+ PG_POLYGON PG_POLYGONARRAY PG_RECORD PG_RECORDARRAY PG_REFCURSOR PG_REFCURSORARRAY
+ PG_REGCLASS PG_REGCLASSARRAY PG_REGCONFIG PG_REGCONFIGARRAY PG_REGDICTIONARY PG_REGDICTIONARYARRAY
+ PG_REGOPER PG_REGOPERARRAY PG_REGOPERATOR PG_REGOPERATORARRAY PG_REGPROC PG_REGPROCARRAY
+ PG_REGPROCEDURE PG_REGPROCEDUREARRAY PG_REGTYPE PG_REGTYPEARRAY PG_RELTIME PG_RELTIMEARRAY
+ PG_SMGR PG_TEXT PG_TEXTARRAY PG_TID PG_TIDARRAY PG_TIME
+ PG_TIMEARRAY PG_TIMESTAMP PG_TIMESTAMPARRAY PG_TIMESTAMPTZ PG_TIMESTAMPTZARRAY PG_TIMETZ
+ PG_TIMETZARRAY PG_TINTERVAL PG_TINTERVALARRAY PG_TRIGGER PG_TSQUERY PG_TSQUERYARRAY
+ PG_TSVECTOR PG_TSVECTORARRAY PG_TXID_SNAPSHOT PG_TXID_SNAPSHOTARRAY PG_UNKNOWN PG_UUID
+ PG_UUIDARRAY PG_VARBIT PG_VARBITARRAY PG_VARCHAR PG_VARCHARARRAY PG_VOID
+ PG_XID PG_XIDARRAY PG_XML PG_XMLARRAY</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Data types are
+&quot;sticky,&quot; in that once a data type is set to a
+certain placeholder, it will remain for that placeholder,
+unless it is explicitly set to something else afterwards. If
+the statement has already been prepared, and you switch the
+data type to something else, DBD::Pg will re-prepare the
+statement for you before doing the next execute.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBI qw(:sql_types);
+  use DBD::Pg qw(:pg_types);
+  $SQL = &quot;SELECT id FROM ptable WHERE size &gt; ? AND title = ?&quot;;
+  $sth = $dbh&minus;&gt;prepare($SQL);
+  ## Both arguments below are bound to placeholders as &quot;varchar&quot;
+  $sth&minus;&gt;execute(123, &quot;Merk&quot;);
+  ## Reset the datatype for the first placeholder to an integer
+  $sth&minus;&gt;bind_param(1, undef, SQL_INTEGER);
+  ## The &quot;undef&quot; bound above is not used, since we supply params to execute
+  $sth&minus;&gt;execute(123, &quot;Merk&quot;);
+  ## Set the first placeholder's value and data type
+  $sth&minus;&gt;bind_param(1, 234, { pg_type =&gt; PG_TIMESTAMP });
+  ## Set the second placeholder's value and data type.
+  ## We don't send a third argument, so the default &quot;varchar&quot; is used
+  $sth&minus;&gt;bind_param('$2', &quot;Zool&quot;);
+  ## We realize that the wrong data type was set above, so we change it:
+  $sth&minus;&gt;bind_param('$1', 234, { pg_type =&gt; SQL_INTEGER });
+  ## We also got the wrong value, so we change that as well.
+  ## Because the data type is sticky, we don't need to change it
+  $sth&minus;&gt;bind_param(1, 567);
+  ## This executes the statement with 567 (integer) and &quot;Zool&quot; (varchar)
+  $sth&minus;&gt;execute();</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>bind_param_inout</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_param_inout($param_num, \$scalar, 0);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Experimental
+support for this feature is provided. The first argument to
+bind_param_inout should be a placeholder number. The second
+argument should be a reference to a scalar variable in your
+script. The third argument is not used and should simply be
+set to 0. Note that what this really does is assign a
+returned column to the variable, in the order in which the
+column appears. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $foo = 123;
+  $sth = $dbh&minus;&gt;prepare(&quot;SELECT 1+?::int&quot;);
+  $sth&minus;&gt;bind_param_inout(1, \$foo, 0);
+  $foo = 222;
+  $sth&minus;&gt;execute(444);
+  $sth&minus;&gt;fetch;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above will
+cause <tt>$foo</tt> to have a new value of &quot;223&quot;
+after the final fetch. Note that the variables bound in this
+manner are very sticky, and will trump any values passed in
+to execute. This is because the binding is done as late as
+possible, at the <i>execute()</i> stage, allowing the value
+to be changed between the time it was bound and the time the
+query is executed. Thus, the above execute is the same
+as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $sth&minus;&gt;execute();</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>bind_param_array</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_param_array($param_num, $array_ref_or_value)
+  $rv = $sth&minus;&gt;bind_param_array($param_num, $array_ref_or_value, $bind_type)
+  $rv = $sth&minus;&gt;bind_param_array($param_num, $array_ref_or_value, \%attr)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Binds an array
+of values to a placeholder, so that each is used in turn by
+a call to the &quot;execute_array&quot; method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>execute</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;execute(@bind_values);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Executes a
+previously prepared statement. In addition to
+<tt>&quot;UPDATE&quot;</tt>, <tt>&quot;DELETE&quot;</tt>,
+<tt>&quot;INSERT&quot;</tt> statements, for which it returns
+always the number of affected rows, the
+<tt>&quot;execute&quot;</tt> method can also be used for
+<tt>&quot;SELECT ... INTO table&quot;</tt> statements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;prepare/bind/execute&quot; process has changed
+significantly for PostgreSQL servers 7.4 and later: please
+see the <tt>&quot;prepare()&quot;</tt> and
+<tt>&quot;bind_param()&quot;</tt> entries for much more
+information.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Setting one of
+the bind_values to &quot;undef&quot; is the equivalent of
+setting the value to <small>NULL</small> in the database.
+Setting the bind_value to <tt>$DBDPG_DEFAULT</tt> is
+equivalent to sending the literal string &rsquo;
+<small>DEFAULT</small> &rsquo; to the backend. Note that
+using this option will force server-side prepares off until
+such time as PostgreSQL supports using
+<small>DEFAULT</small> in prepared statements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg also
+supports passing in arrays to execute: simply pass in an
+arrayref, and DBD::Pg will flatten it into a string suitable
+for input on the backend.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you are
+using Postgres version 8.2 or greater, you can also use any
+of the fetch methods to retrieve the values of a
+<tt>&quot;RETURNING&quot;</tt> clause after you execute an
+<tt>&quot;UPDATE&quot;</tt>, <tt>&quot;DELETE&quot;</tt>, or
+<tt>&quot;INSERT&quot;</tt>. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do(q{CREATE TABLE abc (id SERIAL, country TEXT)});
+  $SQL = q{INSERT INTO abc (country) VALUES (?) RETURNING id};
+  $sth = $dbh&minus;&gt;prepare($SQL);
+  $sth&minus;&gt;execute('France');
+  $countryid = $sth&minus;&gt;fetch()&minus;&gt;[0];
+  $sth&minus;&gt;execute('New Zealand');
+  $countryid = $sth&minus;&gt;fetch()&minus;&gt;[0];</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>execute_array</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $tuples = $sth&minus;&gt;execute_array() or die $sth&minus;&gt;errstr;
+  $tuples = $sth&minus;&gt;execute_array(\%attr) or die $sth&minus;&gt;errstr;
+  $tuples = $sth&minus;&gt;execute_array(\%attr, @bind_values) or die $sth&minus;&gt;errstr;
+  ($tuples, $rows) = $sth&minus;&gt;execute_array(\%attr) or die $sth&minus;&gt;errstr;
+  ($tuples, $rows) = $sth&minus;&gt;execute_array(\%attr, @bind_values) or die $sth&minus;&gt;errstr;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Execute a
+prepared statement once for each item in a passed-in
+hashref, or items that were previously bound via the
+&quot;bind_param_array&quot; method. See the
+<small>DBI</small> documentation for more details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>execute_for_fetch</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $tuples = $sth&minus;&gt;execute_for_fetch($fetch_tuple_sub);
+  $tuples = $sth&minus;&gt;execute_for_fetch($fetch_tuple_sub, \@tuple_status);
+  ($tuples, $rows) = $sth&minus;&gt;execute_for_fetch($fetch_tuple_sub);
+  ($tuples, $rows) = $sth&minus;&gt;execute_for_fetch($fetch_tuple_sub, \@tuple_status);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Used internally
+by the &quot;execute_array&quot; method, and rarely used
+directly. See the <small>DBI</small> documentation for more
+details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>fetchrow_arrayref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $ary_ref = $sth&minus;&gt;fetchrow_arrayref;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Fetches the
+next row of data from the statement handle, and returns a
+reference to an array holding the column values. Any columns
+that are <small>NULL</small> are returned as undef within
+the array.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If there are no
+more rows or if an error occurs, the this method return
+undef. You should check
+<tt>&quot;$sth&minus;&gt;err&quot;</tt> afterwards (or use
+the &quot;RaiseError&quot; attribute) to discover if the
+undef returned was due to an error.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+same array reference is returned for each fetch, so
+don&rsquo;t store the reference and then use it after a
+later fetch. Also, the elements of the array are also reused
+for each row, so take care if you want to take a reference
+to an element. See also &quot;bind_columns&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>fetchrow_array</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  @ary = $sth&minus;&gt;fetchrow_array;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Similar to the
+&quot;fetchrow_arrayref&quot; method, but returns a list of
+column information rather than a reference to a list. Do not
+use this in a scalar context.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>fetchrow_hashref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $hash_ref = $sth&minus;&gt;fetchrow_hashref;
+  $hash_ref = $sth&minus;&gt;fetchrow_hashref($name);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Fetches the
+next row of data and returns a hashref containing the name
+of the columns as the keys and the data itself as the
+values. Any <small>NULL</small> value is returned as as
+undef value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If there are no
+more rows or if an error occurs, the this method return
+undef. You should check
+<tt>&quot;$sth&minus;&gt;err&quot;</tt> afterwards (or use
+the &quot;RaiseError&quot; attribute) to discover if the
+undef returned was due to an error.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The optional
+<tt>$name</tt> argument should be either
+<tt>&quot;NAME&quot;</tt>, <tt>&quot;NAME_lc&quot;</tt> or
+<tt>&quot;NAME_uc&quot;</tt>, and indicates what sort of
+transformation to make to the keys in the hash.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>fetchall_arrayref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $tbl_ary_ref = $sth&minus;&gt;fetchall_arrayref();
+  $tbl_ary_ref = $sth&minus;&gt;fetchall_arrayref( $slice );
+  $tbl_ary_ref = $sth&minus;&gt;fetchall_arrayref( $slice, $max_rows );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to an array of arrays that contains all the
+remaining rows to be fetched from the statement handle. If
+there are no more rows, an empty arrayref will be returned.
+If an error occurs, the data read in so far will be
+returned. Because of this, you should always check
+<tt>&quot;$sth&minus;&gt;err&quot;</tt> after calling this
+method, unless &quot;RaiseError&quot; has been enabled.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>$slice</tt> is an array reference, fetchall_arrayref
+uses the &quot;fetchrow_arrayref&quot; method to fetch each
+row as an array ref. If the <tt>$slice</tt> array is not
+empty then it is used as a slice to select individual
+columns by perl array index number (starting at 0, unlike
+column and parameter numbers which start at 1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">With no
+parameters, or if <tt>$slice</tt> is undefined,
+fetchall_arrayref acts as if passed an empty array ref.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>$slice</tt> is a hash reference, fetchall_arrayref uses
+&quot;fetchrow_hashref&quot; to fetch each row as a hash
+reference.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+<small>DBI</small> documentation for a complete
+discussion.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>fetchall_hashref</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $hash_ref = $sth&minus;&gt;fetchall_hashref( $key_field );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+hashref containing all rows to be fetched from the statement
+handle. See the <small>DBI</small> documentation for a full
+discussion.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>finish</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;finish;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Indicates to
+<small>DBI</small> that you are finished with the statement
+handle and are not going to use it again. Only needed when
+you have not fetched all the possible rows.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>rows</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;rows;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+number of rows returned by the last query. In contrast to
+many other <small>DBD</small> modules, the number of rows is
+available immediately after calling
+<tt>&quot;$sth&minus;&gt;execute&quot;</tt>. Note that the
+&quot;execute&quot; method itself returns the number of rows
+itself, which means that this method is rarely needed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>bind_col</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_col($column_number, \$var_to_bind);
+  $rv = $sth&minus;&gt;bind_col($column_number, \$var_to_bind, \%attr );
+  $rv = $sth&minus;&gt;bind_col($column_number, \$var_to_bind, $bind_type );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Binds a Perl
+variable and/or some attributes to an output column of a
+<small>SELECT</small> statement. Column numbers count up
+from 1. You do not need to bind output columns in order to
+fetch data.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+<small>DBI</small> documentation for a discussion of the
+optional parameters <tt>&quot;\%attr&quot;</tt> and
+<tt>$bind_type</tt></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>bind_columns</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rv = $sth&minus;&gt;bind_columns(@list_of_refs_to_vars_to_bind);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Calls the
+&quot;bind_col&quot; method for each column in the
+<small>SELECT</small> statement, using the supplied
+list.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>dump_results</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $rows = $sth&minus;&gt;dump_results($maxlen, $lsep, $fsep, $fh);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Fetches all the
+rows from the statement handle, calls
+<tt>&quot;DBI::neat_list&quot;</tt> for each row, and prints
+the results to <tt>$fh</tt> (which defaults to
+<i><small>STDOUT</small></i> ). Rows are separated by
+<tt>$lsep</tt> (which defaults to a newline). Columns are
+separated by <tt>$fsep</tt> (which defaults to a comma). The
+<tt>$maxlen</tt> controls how wide the output can be, and
+defaults to 35.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method is
+designed as a handy utility for prototyping and testing
+queries. Since it uses &quot;neat_list&quot; to format and
+edit the string for reading by humans, it is not recommended
+for data transfer applications.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>blob_read</i></b></p>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  $blob = $sth&minus;&gt;blob_read($id, $offset, $len);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Supported by
+DBD::Pg. This method is implemented by <small>DBI</small>
+but not currently documented by <small>DBI,</small> so this
+method might change.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method
+seems to be heavily influenced by the current implementation
+of blobs in Oracle. Nevertheless we try to be as compatible
+as possible. Whereas Oracle suffers from the limitation that
+blobs are related to tables and every table can have only
+one blob (datatype <small>LONG</small> ), PostgreSQL handles
+its blobs independent of any table by using so-called object
+identifiers. This explains why the
+<tt>&quot;blob_read&quot;</tt> method is blessed into the
+<small>STATEMENT</small> package and not part of the
+<small>DATABASE</small> package. Here the field parameter
+has been used to handle this object identifier. The offset
+and len parameters may be set to zero, in which case the
+whole blob is fetched at once.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See also the
+PostgreSQL-specific functions concerning blobs, which are
+available via the <tt>&quot;func&quot;</tt> interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For further
+information and examples about blobs, please read the
+chapter about Large Objects in the PostgreSQL
+Programmer&rsquo;s Guide at
+&lt;http://www.postgresql.org/docs/current/static/largeobjects.html&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Statement
+Handle Attributes</b> <b><i><small><br>
+NUM_OF_FIELDS</small></i></b> <i>(integer,
+read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+number of columns returned by the current statement. A
+number will only be returned for <small>SELECT</small>
+statements, for <small>SHOW</small> statements (which always
+return <tt>1</tt>), and for <small>INSERT, UPDATE,</small>
+and <small>DELETE</small> statements which contain a
+<small>RETURNING</small> clause. This method returns undef
+if called before <tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>NUM_OF_PARAMS</small></i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+number of placeholders in the current statement.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>NAME</small></i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+arrayref of column names for the current statement. This
+method will only work for <small>SELECT</small> statements,
+for <small>SHOW</small> statements, and for <small>INSERT,
+UPDATE,</small> and <small>DELETE</small> statements which
+contain a <small>RETURNING</small> clause. This method
+returns undef if called before
+<tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>NAME_lc</i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The same as the
+<tt>&quot;NAME&quot;</tt> attribute, except that all column
+names are forced to lower case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>NAME_uc</i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The same as the
+<tt>&quot;NAME&quot;</tt> attribute, except that all column
+names are forced to upper case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>NAME_hash</i></b>
+<i>(hashref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Similar to the
+<tt>&quot;NAME&quot;</tt> attribute, but returns a hashref
+of column names instead of an arrayref. The names of the
+columns are the keys of the hash, and the values represent
+the order in which the columns are returned, starting at 0.
+This method returns undef if called before
+<tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>NAME_lc_hash</i></b>
+<i>(hashref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The same as the
+<tt>&quot;NAME_hash&quot;</tt> attribute, except that all
+column names are forced to lower case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>NAME_uc_hash</i></b>
+<i>(hashref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The same as the
+<tt>&quot;NAME_hash&quot;</tt> attribute, except that all
+column names are forced to lower case.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>TYPE</small></i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+arrayref indicating the data type for each column in the
+statement. This method returns undef if called before
+<tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>PRECISION</small></i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+arrayref of integer values for each column returned by the
+statement. The number indicates the precision for
+<tt>&quot;NUMERIC&quot;</tt> columns, the size in number of
+characters for <tt>&quot;CHAR&quot;</tt> and
+<tt>&quot;VARCHAR&quot;</tt> columns, and for all other
+types of columns it returns the number of <i>bytes</i>. This
+method returns undef if called before
+<tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>SCALE</small></i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+arrayref of integer values for each column returned by the
+statement. The number indicates the scale of the that
+column. The only type that will return a value is
+<tt>&quot;NUMERIC&quot;</tt>. This method returns undef if
+called before <tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i><small>NULLABLE</small></i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns an
+arrayref of integer values for each column returned by the
+statement. The number indicates if the column is nullable or
+not. 0 = not nullable, 1 = nullable, 2 = unknown. This
+method returns undef if called before
+<tt>&quot;execute()&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Database</i></b>
+<i>(dbh, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+database handle this statement handle was created from.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ParamValues</i></b>
+<i>(hash ref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to a hash containing the values currently bound to
+placeholders. If the &quot;named parameters&quot; type of
+placeholders are being used (such as &quot;:foo&quot;), then
+the keys of the hash will be the names of the placeholders
+(without the colon). If the &quot;dollar sign numbers&quot;
+type of placeholders are being used, the keys of the hash
+will be the numbers, without the dollar signs. If the
+&quot;question mark&quot; type is used, integer numbers will
+be returned, starting at one and increasing for every
+placeholder.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If this method
+is called before &quot;execute&quot;, the literal values
+passed in are returned. If called after &quot;execute&quot;,
+then the quoted versions of the values are returned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>ParamTypes</i></b>
+<i>(hash ref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+reference to a hash containing the type names currently
+bound to placeholders. The keys are the same as returned by
+the ParamValues method. The values are hashrefs containing a
+single key value pair, in which the key is either &rsquo;
+<small>TYPE</small> &rsquo; if the type has a generic
+<small>SQL</small> equivalent, and &rsquo;pg_type&rsquo; if
+the type can only be expressed by a Postgres type. The value
+is the internal number corresponding to the type originally
+passed in. (Placeholders that have not yet been bound will
+return undef as the value). This allows the output of
+ParamTypes to be passed back to the &quot;bind_param&quot;
+method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>Statement</i></b>
+<i>(string, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+statement string passed to the most recent
+&quot;prepare&quot; method called in this database handle,
+even if that method failed. This is especially useful where
+&quot;RaiseError&quot; is enabled and the exception handler
+checks $@ and sees that a <tt>&quot;prepare&quot;</tt>
+method call failed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_current_row</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the number of the tuple (row)
+that was most recently fetched. Returns zero before and
+after fetching is performed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_numbound</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns the number of placeholders that
+are currently bound (via bind_param).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_bound</i></b>
+<i>(hashref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns a hash of all named
+placeholders. The key is the name of the placeholder, and
+the value is a 0 or a 1, indicating if the placeholder has
+been bound yet (e.g. via bind_param)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_size</i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. It returns a reference to an array of
+integer values for each column. The integer shows the size
+of the column in bytes. Variable length columns are
+indicated by &minus;1.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_type</i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. It returns a reference to an array of
+strings for each column. The string shows the name of the
+data_type.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_segments</i></b>
+<i>(arrayref, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Returns an arrayref of the query split
+on the placeholders.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_oid_status</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. It returns the <small>OID</small> of the
+last <small>INSERT</small> command.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_cmd_status</i></b>
+<i>(integer, read-only)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. It returns the type of the last command.
+Possible types are: &quot; <small>INSERT&quot;,
+&quot;DELETE&quot;, &quot;UPDATE&quot;,
+&quot;SELECT&quot;.</small></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_direct</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Default is false. If true, the query is
+passed directly to the backend without parsing for
+placeholders.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_prepare_now</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Default is off. If true, the query will
+be immediately prepared, rather than waiting for the
+&quot;execute&quot; call.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_prepare_name</i></b>
+<i>(string)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Specifies the name of the prepared
+statement to use for this statement handle. Not normally
+needed, see the section on the &quot;prepare&quot; method
+for more information.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_server_prepare</i></b>
+<i>(integer)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Indicates if DBD::Pg should attempt to
+use server-side prepared statements for this statement
+handle. The default value, 1, indicates that prepared
+statements should be used whenever possible. See the section
+on the &quot;prepare&quot; method for more information.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_placeholder_dollaronly</i></b>
+<i>(boolean)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Defaults to off. When true, question
+marks inside of the query being prepared are not treated as
+placeholders. Useful for statements that contain unquoted
+question marks, such as geometric operators.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_async</i></b>
+<i>(integer)</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg
+specific attribute. Indicates the current behavior for
+asynchronous queries. See the section on &quot;Asynchronous
+Constants&quot; for more information.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>RowsInCache</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>RowCache</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>CursorName</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Not used by
+DBD::Pg. See the note about &quot;Cursors&quot; elsewhere in
+this document.</p>
+
+<h2>FURTHER INFORMATION
+<a name="FURTHER INFORMATION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Transactions</b>
+<br>
+Transaction behavior is controlled via the
+&quot;AutoCommit&quot; attribute. For a complete definition
+of <tt>&quot;AutoCommit&quot;</tt> please refer to the
+<small>DBI</small> documentation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">According to
+the <small>DBI</small> specification the default for
+<tt>&quot;AutoCommit&quot;</tt> is a true value. In this
+mode, any change to the database becomes valid immediately.
+Any <tt>&quot;BEGIN&quot;</tt>, <tt>&quot;COMMIT&quot;</tt>
+or <tt>&quot;ROLLBACK&quot;</tt> statements will be
+rejected. DBD::Pg implements <tt>&quot;AutoCommit&quot;</tt>
+by issuing a <tt>&quot;BEGIN&quot;</tt> statement
+immediately before executing a statement, and a
+<tt>&quot;COMMIT&quot;</tt> afterwards. Note that preparing
+a statement is not always enough to trigger the first
+<tt>&quot;BEGIN&quot;</tt>, as the actual
+<tt>&quot;PREPARE&quot;</tt> is usually postponed until the
+first call to &quot;execute&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Savepoints</b>
+<br>
+PostgreSQL version 8.0 introduced the concept of savepoints,
+which allows transactions to be rolled back to a certain
+point without affecting the rest of the transaction. DBD::Pg
+encourages using the following methods to control
+savepoints:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>&quot;pg_savepoint&quot;</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Creates a
+savepoint. This will fail unless you are inside of a
+transaction. The only argument is the name of the savepoint.
+Note that PostgreSQL <small>DOES</small> allow multiple
+savepoints with the same name to exist.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;pg_savepoint(&quot;mysavepoint&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>&quot;pg_rollback_to&quot;</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Rolls the
+database back to a named savepoint, discarding any work
+performed after that point. If more than one savepoint with
+that name exists, rolls back to the most recently created
+one.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;pg_rollback_to(&quot;mysavepoint&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>&quot;pg_release&quot;</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Releases (or
+removes) a named savepoint. If more than one savepoint with
+that name exists, it will only destroy the most recently
+created one. Note that all savepoints created after the one
+being released are also destroyed.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;pg_release(&quot;mysavepoint&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Asynchronous
+Queries</b> <br>
+It is possible to send a query to the backend and have your
+script do other work while the query is running on the
+backend. Both queries sent by the &quot;do&quot; method, and
+by the &quot;execute&quot; method can be sent
+asynchronously. ( <small>NOTE:</small> This will only work
+if DBD::Pg has been compiled against Postgres libraries of
+version 8.0 or greater) The basic usage is as follows:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBD::Pg ':async';
+  print &quot;Async do() example:\n&quot;;
+  $dbh&minus;&gt;do(&quot;SELECT long_running_query()&quot;, {pg_async =&gt; PG_ASYNC});
+  do_something_else();
+  {
+    if ($dbh&minus;&gt;pg_ready()) {
+      $res = $dbh&minus;&gt;pg_result();
+      print &quot;Result of do(): $res\n&quot;;
+    }
+    print &quot;Query is still running...\n&quot;;
+    if (cancel_request_received) {
+      $dbh&minus;&gt;pg_cancel();
+    }
+    sleep 1;
+    redo;
+  }
+  print &quot;Async prepare/execute example:\n&quot;;
+  $sth = $dbh&minus;&gt;prepare(&quot;SELECT long_running_query(1)&quot;, {pg_async =&gt; PG_ASYNC});
+  $sth&minus;&gt;execute();
+  ## Changed our mind, cancel and run again:
+  $sth = $dbh&minus;&gt;prepare(&quot;SELECT 678&quot;, {pg_async =&gt; PG_ASYNC + PG_OLDQUERY_CANCEL});
+  $sth&minus;&gt;execute();
+  do_something_else();
+  if (!$sth&minus;&gt;pg_ready) {
+    do_another_thing();
+  }
+  ## We wait until it is done, and get the result:
+  $res = $dbh&minus;&gt;pg_result();</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Asynchronous
+Constants</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">There are
+currently three asynchronous constants exported by DBD::Pg.
+You can import all of them by putting either of these at the
+top of your script:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use DBD::Pg;
+  use DBD::Pg ':async';</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may also
+use the numbers instead of the constants, but using the
+constants is recommended as it makes your script more
+readable. <small><br>
+PG_ASYNC</small></p>
+
+<p style="margin-left:17%;">This is a constant for the
+number 1. It is passed to either the &quot;do&quot; or the
+&quot;prepare&quot; method as a value to the pg_async key
+and indicates that the query should be sent
+asynchronously.</p>
+
+
+<p style="margin-left:11%;"><small>PG_OLDQUERY_CANCEL</small></p>
+
+<p style="margin-left:17%;">This is a constant for the
+number 2. When passed to either the &quot;do&quot; or the
+&quot;prepare&quot; method, it causes any currently running
+asynchronous query to be cancelled and rolled back. It has
+no effect if no asynchronous query is currently running.</p>
+
+
+<p style="margin-left:11%;"><small>PG_OLDQUERY_WAIT</small></p>
+
+<p style="margin-left:17%;">This is a constant for the
+number 4. When passed to either the &quot;do&quot; or the
+&quot;prepare&quot; method, it waits for any currently
+running asynchronous query to complete. It has no effect if
+there is no asynchronous query currently running.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Asynchronous
+Methods</i> <b><br>
+pg_cancel</b></p>
+
+<p style="margin-left:17%;">This database-level method
+attempts to cancel any currently running asynchronous query.
+It returns true if the cancel succeeded, and false
+otherwise. Note that a query that has finished before this
+method is executed will also return false.
+<b><small>WARNING</small></b> : a successful cancellation
+may leave the database in an unusable state, so you may need
+to <small>ROLLBACK</small> or <small>ROLLBACK TO</small> a
+savepoint. As of version 2.17.0 of DBD::Pg, rollbacks are
+not done automatically.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $result = $dbh&minus;&gt;pg_cancel();</pre>
+
+
+<p style="margin-left:11%;"><b>pg_ready</b></p>
+
+<p style="margin-left:17%;">This method can be called as a
+database handle method or (for convenience) as a statement
+handle method. Both simply see if a previously issued
+asynchronous query has completed yet. It returns true if the
+statement has finished, in which case you should then call
+the &quot;pg_result&quot; method. Calls to
+<tt>&quot;pg_ready()&quot;</tt> should only be used when you
+have other things to do while the query is running. If you
+simply want to wait until the query is done, do not call
+<i>pg_ready()</i> over and over, but simply call the
+<i>pg_result()</i> method.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  my $time = 0;
+  while (!$dbh&minus;&gt;pg_ready) {
+    print &quot;Query is still running. Seconds: $time\n&quot;;
+    $time++;
+    sleep 1;
+  }
+  $result = $dbh&minus;&gt;pg_result;</pre>
+
+
+<p style="margin-left:11%;"><b>pg_result</b></p>
+
+<p style="margin-left:17%;">This database handle method
+returns the results of a previously issued asynchronous
+query. If the query is still running, this method will wait
+until it has finished. The result returned is the number of
+rows: the same thing that would have been returned by the
+asynchronous &quot;do&quot; or &quot;execute&quot; if it had
+been called without an asynchronous flag.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $result = $dbh&minus;&gt;pg_result;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Asynchronous
+Examples</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Here are some
+working examples of asynchronous queries. Note that
+we&rsquo;ll use the <b>pg_sleep</b> function to emulate a
+long-running query.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use strict;
+  use warnings;
+  use Time::HiRes 'sleep';
+  use DBD::Pg ':async';
+  my $dbh = DBI&minus;&gt;connect('dbi:Pg:dbname=postgres', 'postgres', '', {AutoCommit=&gt;0,RaiseError=&gt;1});
+  ## Kick off a long running query on the first database:
+  my $sth = $dbh&minus;&gt;prepare(&quot;SELECT pg_sleep(?)&quot;, {pg_async =&gt; PG_ASYNC});
+  $sth&minus;&gt;execute(5);
+  ## While that is running, do some other things
+  print &quot;Your query is processing. Thanks for waiting\n&quot;;
+  check_on_the_kids(); ## Expensive sub, takes at least three seconds.
+  while (!$dbh&minus;&gt;pg_ready) {
+    check_on_the_kids();
+    ## If the above function returns quickly for some reason, we add a small sleep
+    sleep 0.1;
+  }
+  print &quot;The query has finished. Gathering results\n&quot;;
+  my $result = $sth&minus;&gt;pg_result;
+  print &quot;Result: $result\n&quot;;
+  my $info = $sth&minus;&gt;fetchall_arrayref();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Without
+asynchronous queries, the above script would take about 8
+seconds to run: five seconds waiting for the execute to
+finish, then three for the <i>check_on_the_kids()</i>
+function to return. With asynchronous queries, the script
+takes about 6 seconds to run, and gets in two iterations of
+check_on_the_kids in the process.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Here&rsquo;s an
+example showing the ability to cancel a long-running query.
+Imagine two slave databases in different geographic
+locations over a slow network. You need information as
+quickly as possible, so you query both at once. When you get
+an answer, you tell the other one to stop working on your
+query, as you don&rsquo;t need it anymore.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use strict;
+  use warnings;
+  use Time::HiRes 'sleep';
+  use DBD::Pg ':async';
+  my $dbhslave1 = DBI&minus;&gt;connect('dbi:Pg:dbname=postgres;host=slave1', 'postgres', '', {AutoCommit=&gt;0,RaiseError=&gt;1});
+  my $dbhslave2 = DBI&minus;&gt;connect('dbi:Pg:dbname=postgres;host=slave2', 'postgres', '', {AutoCommit=&gt;0,RaiseError=&gt;1});
+  $SQL = &quot;SELECT count(*) FROM largetable WHERE flavor='blueberry'&quot;;
+  my $sth1 = $dbhslave1&minus;&gt;prepare($SQL, {pg_async =&gt; PG_ASYNC});
+  my $sth2 = $dbhslave2&minus;&gt;prepare($SQL, {pg_async =&gt; PG_ASYNC});
+  $sth1&minus;&gt;execute();
+  $sth2&minus;&gt;execute();
+  my $winner;
+  while (!defined $winner) {
+    if ($sth1&minus;&gt;pg_ready) {
+      $winner = 1;
+    }
+    elsif ($sth2&minus;&gt;pg_ready) {
+      $winner = 2;
+    }
+    Time::HiRes::sleep 0.05;
+  }
+  my $count;
+  if ($winner == 1) {
+    $sth2&minus;&gt;pg_cancel();
+    $sth1&minus;&gt;pg_result();
+    $count = $sth1&minus;&gt;fetchall_arrayref()&minus;&gt;[0][0];
+  }
+  else {
+    $sth1&minus;&gt;pg_cancel();
+    $sth2&minus;&gt;pg_result();
+    $count = $sth2&minus;&gt;fetchall_arrayref()&minus;&gt;[0][0];
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Array
+support</b> <br>
+DBD::Pg allows arrays (as arrayrefs) to be passed in to both
+the &quot;quote&quot; and the &quot;execute&quot; methods.
+In both cases, the array is flattened into a string
+representing a Postgres array.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When fetching
+rows from a table that contains a column with an array type,
+the result will be passed back to your script as an
+arrayref.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To turn off the
+automatic parsing of returned arrays into arrayrefs, you can
+set the attribute pg_expand_array, which is true by
+default.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;{pg_expand_array} = 0;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>COPY</small>
+support</b> <br>
+DBD::Pg allows for quick (bulk) reading and storing of data
+by using the <b><small>COPY</small></b> command. The basic
+process is to use <tt>&quot;$dbh&minus;&gt;do&quot;</tt> to
+issue a <small>COPY</small> command, and then to either add
+rows using &quot;pg_putcopydata&quot;, or to read them by
+using &quot;pg_getcopydata&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The first step
+is to put the server into &quot; <small>COPY&quot;</small>
+mode. This is done by sending a complete <small>COPY</small>
+command to the server, by using the &quot;do&quot; method.
+For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do(&quot;COPY foobar FROM STDIN&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This would tell
+the server to enter a <small>COPY IN</small> mode (yes,
+that&rsquo;s confusing, but the <i>mode</i> is <small>COPY
+IN</small> because of the <i>command</i> <small>COPY
+FROM</small> ). It is now ready to receive information via
+the &quot;pg_putcopydata&quot; method. The complete syntax
+of the <small>COPY</small> command is more complex and not
+documented here: the canonical PostgreSQL documentation for
+<small>COPY</small> can be found at:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://www.postgresql.org/docs/current/static/sql&minus;copy.html</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once a
+<small>COPY</small> command has been issued, no other
+<small>SQL</small> commands are allowed until
+&quot;pg_putcopyend&quot; has been issued (for <small>COPY
+FROM</small> ), or the final &quot;pg_getcopydata&quot; has
+been called (for <small>COPY TO</small> ).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note: All other
+<small>COPY</small> methods (pg_putline, pg_getline, etc.)
+are now heavily deprecated in favor of the pg_getcopydata,
+pg_putcopydata, and pg_putcopyend methods.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_getcopydata</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Used to
+retrieve data from a table after the server has been put
+into a <small>COPY OUT</small> mode by calling &quot;
+<small>COPY</small> tablename <small>TO
+STDOUT&quot;.</small> Data is always returned one data row
+at a time. The first argument to pg_getcopydata is the
+variable into which the data will be stored (this variable
+should not be undefined, or it may throw a warning, although
+it may be a reference). The pg_gecopydata method returns a
+number greater than 1 indicating the new size of the
+variable, or a &minus;1 when the <small>COPY</small> has
+finished. Once a &minus;1 has been returned, no other action
+is necessary, as <small>COPY</small> mode will have already
+terminated. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do(&quot;COPY mytable TO STDOUT&quot;);
+  my @data;
+  my $x=0;
+  1 while $dbh&minus;&gt;pg_getcopydata($data[$x++]) &gt;= 0;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is also a
+variation of this method called <b>pg_getcopydata_async</b>,
+which, as the name suggests, returns immediately. The only
+difference from the original method is that this version may
+return a 0, indicating that the row is not ready to be
+delivered yet. When this happens, the variable has not been
+changed, and you will need to call the method again until
+you get a non-zero result. (Data is still always returned
+one data row at a time.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_putcopydata</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">Used to put
+data into a table after the server has been put into
+<small>COPY IN</small> mode by calling &quot;
+<small>COPY</small> tablename <small>FROM
+STDIN&quot;.</small> The only argument is the data you want
+inserted. Issue a <i>pg_putcopyend()</i> when you have added
+all your rows.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The default
+delimiter is a tab character, but this can be changed in the
+<small>COPY</small> statement. Returns a 1 on successful
+input. Examples:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ## Simple example:
+  $dbh&minus;&gt;do(&quot;COPY mytable FROM STDIN&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;123\tPepperoni\t3\n&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;314\tMushroom\t8\n&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;6\tAnchovies\t100\n&quot;);
+  $dbh&minus;&gt;pg_putcopyend();
+  ## This example uses explicit columns and a custom delimiter
+  $dbh&minus;&gt;do(&quot;COPY mytable(flavor, slices) FROM STDIN WITH DELIMITER '~'&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;Pepperoni~123\n&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;Mushroom~314\n&quot;);
+  $dbh&minus;&gt;pg_putcopydata(&quot;Anchovies~6\n&quot;);
+  $dbh&minus;&gt;pg_putcopyend();</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>pg_putcopyend</i></b></p>
+
+<p style="margin-left:11%; margin-top: 1em">When you are
+finished with pg_putcopydata, call pg_putcopyend to let the
+server know that you are done, and it will return to a
+normal, non-COPY state. Returns a 1 on success. This method
+will fail if called when not in <small>COPY IN</small>
+mode.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Large
+Objects</b> <br>
+DBD::Pg supports all largeobject functions provided by libpq
+via the <tt>&quot;$dbh&minus;&gt;pg_lo*&quot;</tt> methods.
+Please note that access to a large object, even read-only
+large objects, must be put into a transaction.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cursors</b>
+<br>
+Although PostgreSQL supports cursors, they have not been
+used in the current implementation. When DBD::Pg was
+created, cursors in PostgreSQL could only be used inside a
+transaction block. Because only one transaction block at a
+time is allowed, this would have implied the restriction not
+to use any nested <tt>&quot;SELECT&quot;</tt> statements.
+Therefore the &quot;execute&quot; method fetches all data at
+once into data structures located in the front-end
+application. This fact must to be considered when selecting
+large amounts of data!</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can use
+cursors in your application, but you&rsquo;ll need to do a
+little work. First you must declare your cursor. Now you can
+issue queries against the cursor, then select against your
+queries. This typically results in a double loop, like
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  # WITH HOLD is not needed if AutoCommit is off
+  $dbh&minus;&gt;do(&quot;DECLARE csr CURSOR WITH HOLD FOR $sql&quot;);
+  while (1) {
+    my $sth = $dbh&minus;&gt;prepare(&quot;fetch 1000 from csr&quot;);
+    $sth&minus;&gt;execute;
+    last if 0 == $sth&minus;&gt;rows;
+    while (my $row = $sth&minus;&gt;fetchrow_hashref) {
+      # Do something with the data.
+    }
+  }
+  $dbh&minus;&gt;do(&quot;CLOSE csr&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Datatype
+bool</b> <br>
+The current implementation of PostgreSQL returns
+&rsquo;t&rsquo; for true and &rsquo;f&rsquo; for false. From
+the Perl point of view, this is a rather unfortunate choice.
+DBD::Pg therefore translates the result for the
+<tt>&quot;BOOL&quot;</tt> data type in a Perlish manner:
+&rsquo;f&rsquo; becomes the number <tt>0</tt> and
+&rsquo;t&rsquo; becomes the number <tt>1</tt>. This way the
+application does not have to check the database-specific
+returned values for the data-type <tt>&quot;BOOL&quot;</tt>
+because Perl treats <tt>0</tt> as false and <tt>1</tt> as
+true. You may set the pg_bool_tf attribute to a true value
+to change the values back to &rsquo;t&rsquo; and
+&rsquo;f&rsquo; if you wish.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Boolean values
+can be passed to PostgreSQL as <small>TRUE,</small>
+&rsquo;t&rsquo;, &rsquo;true&rsquo;, &rsquo;y&rsquo;,
+&rsquo;yes&rsquo; or &rsquo;1&rsquo; for true and
+<small>FALSE,</small> &rsquo;f&rsquo;, &rsquo;false&rsquo;,
+&rsquo;n&rsquo;, &rsquo;no&rsquo; or &rsquo;0&rsquo; for
+false.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Schema
+support</b> <br>
+The PostgreSQL schema concept may differ from those of other
+databases. In a nutshell, a schema is a named collection of
+objects within a single database. Please refer to the
+PostgreSQL documentation for more details:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://www.postgresql.org/docs/current/static/ddl&minus;schemas.html&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">DBD::Pg does
+not provide explicit support for PostgreSQL schemas.
+However, schema functionality may be used without any
+restrictions by explicitly addressing schema objects,
+e.g.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $res = $dbh&minus;&gt;selectall_arrayref(&quot;SELECT * FROM my_schema.my_table&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or by
+manipulating the schema search path with <tt>&quot;SET
+search_path&quot;</tt>, e.g.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $dbh&minus;&gt;do(&quot;SET search_path TO my_schema, public&quot;);</pre>
+
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">To report a
+bug, or view the current list of bugs, please visit
+http://rt.cpan.org/Public/Dist/Display.html?Name=DBD&minus;Pg</p>
+
+<h2>DEVELOPMENT
+<a name="DEVELOPMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Patches can be
+submitted to rt.cpan.org. Detailed information on how to
+help out with this module can be found in the
+<small>README</small> .dev file. The latest development
+version can be obtained via: git clone
+git://bucardo.org/dbdpg.git</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>DBI</small>
+by Tim Bunce &lt;http://www.tim.bunce.name&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">The original
+DBD-Pg was by Edmund Mergl (E.Mergl@bawue.de) and Jeffrey W.
+Baker (jwbaker@acm.org). Major developers include David
+Wheeler &lt;david@justatheory.com&gt;, Jason Stewart
+&lt;jason@openinformatics.com&gt;, Bruce Momjian
+&lt;pgman@candle.pha.pa.us&gt;, and Greg Sabino Mullane
+&lt;greg@turnstep.com&gt;, with help from many others: see
+the <i>Changes</i> file for a complete list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Parts of this
+package were originally copied from <small>DBI</small> and
+DBD-Oracle.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Mailing
+List</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The current
+maintainers may be reached through the
+&rsquo;dbd&minus;pg&rsquo; mailing list:
+&lt;dbd&minus;pg@perl.org&gt;</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+1994&minus;2012, Greg Sabino Mullane</p>
+
+<p style="margin-left:11%; margin-top: 1em">This module
+(DBD::Pg) is free software; you can redistribute it and/or
+modify it under the same terms as Perl 5.10.0. For more
+details, see the full text of the licenses in the directory
+<small>LICENSES.</small></p>
+<hr>
+</body>
+</html>

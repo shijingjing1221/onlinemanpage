@@ -1,0 +1,242 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:43:43 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>XPath::XMLParser</title>
+
+</head>
+<body>
+
+<h1 align="center">XPath::XMLParser</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Node Structure">Node Structure</a><br>
+<a href="#Usage">Usage</a><br>
+<a href="#NOTICES">NOTICES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::XPath::XMLParser
+&minus; The default XML parsing class that produces a node
+tree</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    my $parser = XML::XPath::XMLParser&minus;&gt;new(
+                filename =&gt; $self&minus;&gt;get_filename,
+                xml =&gt; $self&minus;&gt;get_xml,
+                ioref =&gt; $self&minus;&gt;get_ioref,
+                parser =&gt; $self&minus;&gt;get_parser,
+            );
+    my $root_node = $parser&minus;&gt;parse;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+generates a node tree for use as the context node for XPath
+processing. It aims to be a quick parser, nothing fancy, and
+yet has to store more information than most parsers. To
+achieve this I&rsquo;ve used array refs everywhere &minus;
+no hashes. I don&rsquo;t have any performance figures for
+the speedups achieved, so I make no appologies for anyone
+not used to using arrays instead of hashes. I think they
+make good sense here where we know the attributes of each
+type of node.</p>
+
+<h2>Node Structure
+<a name="Node Structure"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">All nodes have
+the same first 2 entries in the array: node_parent and
+node_pos. The type of the node is determined using the
+<i>ref()</i> function. The node_parent always contains an
+entry for the parent of the current node &minus; except for
+the root node which has undef in there. And node_pos is the
+position of this node in the array that it is in (think:
+<tt>$node</tt> ==
+<tt>$node</tt>&minus;&gt;[node_parent]&minus;&gt;[node_children]&minus;&gt;[$node&minus;&gt;[node_pos]]
+)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Nodes are
+structured as follows:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Root
+Node</b> <br>
+The root node is just an element node with no parent.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    [
+      undef, # node_parent &minus; check for undef to identify root node
+      undef, # node_pos
+      undef, # node_prefix
+      [ ... ], # node_children (see below)
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Element
+Node</b></p>
+
+<pre style="margin-left:11%;">    [
+      $parent, # node_parent
+      &lt;position in current array&gt;, # node_pos
+      'xxx', # node_prefix &minus; namespace prefix on this element
+      [ ... ], # node_children
+      'yyy', # node_name &minus; element tag name
+      [ ... ], # node_attribs &minus; attributes on this element
+      [ ... ], # node_namespaces &minus; namespaces currently in scope
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Attribute
+Node</b></p>
+
+<pre style="margin-left:11%;">    [
+      $parent, # node_parent &minus; the element node
+      &lt;position in current array&gt;, # node_pos
+      'xxx', # node_prefix &minus; namespace prefix on this element
+      'href', # node_key &minus; attribute name
+      'ftp://ftp.com/', # node_value &minus; value in the node
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Namespace
+Nodes</b> <br>
+Each element has an associated set of namespace nodes that
+are currently in scope. Each namespace node stores a prefix
+and the expanded name (retrieved from the
+xmlns:prefix=&quot;...&quot; attribute).</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    [
+      $parent,
+      &lt;pos&gt;,
+      'a', # node_prefix &minus; the namespace as it was written as a prefix
+      'http://my.namespace.com', # node_expanded &minus; the expanded name.
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Text
+Nodes</b></p>
+
+<pre style="margin-left:11%;">    [
+      $parent,
+      &lt;pos&gt;,
+      'This is some text' # node_text &minus; the text in the node
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Comment
+Nodes</b></p>
+
+<pre style="margin-left:11%;">    [
+      $parent,
+      &lt;pos&gt;,
+      'This is a comment' # node_comment
+    ]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Processing
+Instruction Nodes</b></p>
+
+<pre style="margin-left:11%;">    [
+      $parent,
+      &lt;pos&gt;,
+      'target', # node_target
+      'data', # node_data
+    ]</pre>
+
+
+<h2>Usage
+<a name="Usage"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you feel the
+need to use this module outside of XML::XPath (for example
+you might use this module directly so that you can cache
+parsed trees), you can follow the following
+<small>API:</small></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>new</b> <br>
+The new method takes either no parameters, or any of the
+following parameters:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        filename
+        xml
+        parser
+        ioref</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This uses the
+familiar hash syntax, so an example might be:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use XML::XPath::XMLParser;
+    my $parser = XML::XPath::XMLParser&minus;&gt;new(filename =&gt; 'example.xml');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The parameters
+represent a filename, a string containing
+<small>XML,</small> an XML::Parser instance and an open
+filehandle ref respectively. You can also set or get all of
+these properties using the get_ and set_ functions that have
+the same name as the property: e.g. get_filename, set_ioref,
+etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>parse</b>
+<br>
+The parse method generally takes no parameters, however you
+are free to pass either an open filehandle reference or an
+<small>XML</small> string if you so require. The return
+value is a tree that XML::XPath can use. The parse method
+will die if there is an error in your <small>XML,</small> so
+be sure to use perl&rsquo;s exception handling mechanism
+(eval{};) if you want to avoid this.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>parsefile</b>
+<br>
+The parsefile method is identical to <i>parse()</i> except
+it expects a single parameter that is a string naming a file
+to open and parse. Again it returns a tree and also dies if
+there are <small>XML</small> errors.</p>
+
+<h2>NOTICES
+<a name="NOTICES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This file is
+distributed as part of the XML::XPath module, and is
+copyright 2000 Fastnet Software Ltd. Please see the
+documentation for the module as a whole for licencing
+information.</p>
+<hr>
+</body>
+</html>

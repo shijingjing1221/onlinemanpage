@@ -1,0 +1,501 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:34:23 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CGI::Carp</title>
+
+</head>
+<body>
+
+<h1 align="center">CGI::Carp</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#REDIRECTING ERROR MESSAGES">REDIRECTING ERROR MESSAGES</a><br>
+<a href="#MAKING PERL ERRORS APPEAR IN THE BROWSER WINDOW">MAKING PERL ERRORS APPEAR IN THE BROWSER WINDOW</a><br>
+<a href="#DOING MORE THAN PRINTING A MESSAGE IN THE EVENT OF PERL ERRORS">DOING MORE THAN PRINTING A MESSAGE IN THE EVENT OF PERL ERRORS</a><br>
+<a href="#MAKING WARNINGS APPEAR AS HTML COMMENTS">MAKING WARNINGS APPEAR AS HTML COMMENTS</a><br>
+<a href="#OVERRIDING THE NAME OF THE PROGRAM">OVERRIDING THE NAME OF THE PROGRAM</a><br>
+<a href="#CHANGE LOG">CHANGE LOG</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CGI::Carp
+&minus; CGI routines for writing to the HTTPD (or other)
+error log</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp;
+    croak &quot;We're outta here!&quot;;
+    confess &quot;It was my fault: $!&quot;;
+    carp &quot;It was your fault!&quot;;
+    warn &quot;I'm confused&quot;;
+    die  &quot;I'm dying.\n&quot;;
+    use CGI::Carp qw(cluck);
+    cluck &quot;I wouldn't do that if I were you&quot;;
+    use CGI::Carp qw(fatalsToBrowser);
+    die &quot;Fatal error messages are now sent to browser&quot;;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>CGI</small>
+scripts have a nasty habit of leaving warning messages in
+the error logs that are neither time stamped nor fully
+identified. Tracking down the script that caused the error
+is a pain. This fixes that. Replace the usual</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use Carp;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">with</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The standard
+<i>warn()</i>, die (), <i>croak()</i>, <i>confess()</i> and
+<i>carp()</i> calls will be replaced with functions that
+write time-stamped messages to the <small>HTTP</small>
+server error log.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   [Fri Nov 17 21:40:43 1995] test.pl: I'm confused at test.pl line 3.
+   [Fri Nov 17 21:40:43 1995] test.pl: Got an error message: Permission denied.
+   [Fri Nov 17 21:40:43 1995] test.pl: I'm dying.</pre>
+
+
+<h2>REDIRECTING ERROR MESSAGES
+<a name="REDIRECTING ERROR MESSAGES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">By default,
+error messages are sent to <small>STDERR.</small> Most
+<small>HTTPD</small> servers direct <small>STDERR</small> to
+the server&rsquo;s error log. Some applications may wish to
+keep private error logs, distinct from the server&rsquo;s
+error log, or they may wish to direct error messages to
+<small>STDOUT</small> so that the browser will receive
+them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;carpout()&quot;</tt> function is provided for this
+purpose. Since <i>carpout()</i> is not exported by default,
+you must import it explicitly by saying</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   use CGI::Carp qw(carpout);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>carpout()</i> function requires one argument, a reference
+to an open filehandle for writing errors. It should be
+called in a <tt>&quot;BEGIN&quot;</tt> block at the top of
+the <small>CGI</small> application so that compiler errors
+will be caught. Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   BEGIN {
+     use CGI::Carp qw(carpout);
+     open(LOG, &quot;&gt;&gt;/usr/local/cgi&minus;logs/mycgi&minus;log&quot;) or
+       die(&quot;Unable to open mycgi&minus;log: $!\n&quot;);
+     carpout(LOG);
+   }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>carpout()</i>
+does not handle file locking on the log for you at this
+point. Also, note that <i>carpout()</i> does not work with
+in-memory file handles, although a patch would be welcome to
+address that.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The real
+<small>STDERR</small> is not closed -- it is moved to
+CGI::Carp::SAVEERR. Some servers, when dealing with
+<small>CGI</small> scripts, close their connection to the
+browser when the script closes <small>STDOUT</small> and
+<small>STDERR.</small> CGI::Carp::SAVEERR is there to
+prevent this from happening prematurely.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can pass
+filehandles to <i>carpout()</i> in a variety of ways. The
+&quot;correct&quot; way according to Tom Christiansen is to
+pass a reference to a filehandle <small>GLOB:</small></p>
+
+<pre style="margin-left:11%; margin-top: 1em">    carpout(\*LOG);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This looks
+weird to mere mortals however, so the following syntaxes are
+accepted as well:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    carpout(LOG);
+    carpout(main::LOG);
+    carpout(main'LOG);
+    carpout(\LOG);
+    carpout(\'main::LOG');
+    ... and so on</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">FileHandle and
+other objects work as well.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Use of
+<i>carpout()</i> is not great for performance, so it is
+recommended for debugging purposes or for moderate-use
+applications. A future version of this module may delay
+redirecting <small>STDERR</small> until one of the CGI::Carp
+methods is called to prevent the performance hit.</p>
+
+<h2>MAKING PERL ERRORS APPEAR IN THE BROWSER WINDOW
+<a name="MAKING PERL ERRORS APPEAR IN THE BROWSER WINDOW"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you want to
+send fatal (die, confess) errors to the browser, import the
+special &quot;fatalsToBrowser&quot; subroutine:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(fatalsToBrowser);
+    die &quot;Bad error here&quot;;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Fatal errors
+will now be echoed to the browser as well as to the log.
+CGI::Carp arranges to send a minimal <small>HTTP</small>
+header to the browser so that even errors that occur in the
+early compile phase will be seen. Nonfatal errors will still
+be directed to the log file only (unless redirected with
+carpout).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+fatalsToBrowser may <b>not</b> work well with mod_perl
+version 2.0 and higher.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Changing the
+default message</b> <br>
+By default, the software error message is followed by a note
+to contact the Webmaster by e&minus;mail with the time and
+date of the error. If this message is not to your liking,
+you can change it using the <i>set_message()</i> routine.
+This is not imported by default; you should import it on the
+<i>use()</i> line:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(fatalsToBrowser set_message);
+    set_message(&quot;It's not a bug, it's a feature!&quot;);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may also
+pass in a code reference in order to create a custom error
+message. At run time, your code will be called with the text
+of the error message that caused the script to die.
+Example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(fatalsToBrowser set_message);
+    BEGIN {
+       sub handle_errors {
+          my $msg = shift;
+          print &quot;&lt;h1&gt;Oh gosh&lt;/h1&gt;&quot;;
+          print &quot;&lt;p&gt;Got an error: $msg&lt;/p&gt;&quot;;
+      }
+      set_message(\&amp;handle_errors);
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In order to
+correctly intercept compile-time errors, you should call
+<i>set_message()</i> from within a BEGIN{} block.</p>
+
+<h2>DOING MORE THAN PRINTING A MESSAGE IN THE EVENT OF PERL ERRORS
+<a name="DOING MORE THAN PRINTING A MESSAGE IN THE EVENT OF PERL ERRORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If
+fatalsToBrowser in conjunction with set_message does not
+provide you with all of the functionality you need, you can
+go one step further by specifying a function to be executed
+any time a script calls &quot;die&quot;, has a syntax error,
+or dies unexpectedly at runtime with a line like
+&quot;undef&minus;&gt;<i>explode()</i>;&quot;.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(set_die_handler);
+    BEGIN {
+       sub handle_errors {
+          my $msg = shift;
+          print &quot;content&minus;type: text/html\n\n&quot;;
+          print &quot;&lt;h1&gt;Oh gosh&lt;/h1&gt;&quot;;
+          print &quot;&lt;p&gt;Got an error: $msg&lt;/p&gt;&quot;;
+          #proceed to send an email to a system administrator,
+          #write a detailed message to the browser and/or a log,
+          #etc....
+      }
+      set_die_handler(\&amp;handle_errors);
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Notice that if
+you use <i>set_die_handler()</i>, you must handle sending
+<small>HTML</small> headers to the browser yourself if you
+are printing a message.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use
+<i>set_die_handler()</i>, you will most likely interfere
+with the behavior of fatalsToBrowser, so you must use this
+or that, not both.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using
+<i>set_die_handler()</i> sets SIG{__DIE__} (as does
+fatalsToBrowser), and there is only one SIG{__DIE__}. This
+means that if you are attempting to set SIG{__DIE__}
+yourself, you may interfere with this module&rsquo;s
+functionality, or this module may interfere with your
+module&rsquo;s functionality.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>SUPPRESSING
+PERL ERRORS APPEARING IN THE BROWSER WINDOW</small></b> <br>
+A problem sometimes encountered when using fatalsToBrowser
+is when a <tt>&quot;die()&quot;</tt> is done inside an
+<tt>&quot;eval&quot;</tt> body or expression. Even though
+the fatalsToBrower support takes precautions to avoid this,
+you still may get the error message printed to
+<small>STDOUT.</small> This may have some undesireable
+effects when the purpose of doing the eval is to determine
+which of several algorithms is to be used.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By setting
+<tt>$CGI::Carp::TO_BROWSER</tt> to 0 you can suppress
+printing the <tt>&quot;die&quot;</tt> messages but without
+all of the complexity of using
+<tt>&quot;set_die_handler&quot;</tt>. You can localize this
+effect to inside <tt>&quot;eval&quot;</tt> bodies if this is
+desireable: For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> eval {
+   local $CGI::Carp::TO_BROWSER = 0;
+   die &quot;Fatal error messages not sent browser&quot;
+ }
+ # $@ will contain error message</pre>
+
+
+<h2>MAKING WARNINGS APPEAR AS HTML COMMENTS
+<a name="MAKING WARNINGS APPEAR AS HTML COMMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">It is also
+possible to make non-fatal errors appear as
+<small>HTML</small> comments embedded in the output of your
+program. To enable this feature, export the new
+&quot;warningsToBrowser&quot; subroutine. Since sending
+warnings to the browser before the <small>HTTP</small>
+headers have been sent would cause an error, any warnings
+are stored in an internal buffer until you call the
+<i>warningsToBrowser()</i> subroutine with a true
+argument:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
+    use CGI qw(:standard);
+    print header();
+    warningsToBrowser(1);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may also
+give a false argument to <i>warningsToBrowser()</i> to
+prevent warnings from being sent to the browser while you
+are printing some content where <small>HTML</small> comments
+are not allowed:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    warningsToBrowser(0);    # disable warnings
+    print &quot;&lt;script type=\&quot;text/javascript\&quot;&gt;&lt;!&minus;&minus;\n&quot;;
+    print_some_javascript_code();
+    print &quot;//&minus;&minus;&gt;&lt;/script&gt;\n&quot;;
+    warningsToBrowser(1);    # re&minus;enable warnings</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note: In this
+respect <i>warningsToBrowser()</i> differs fundamentally
+from <i>fatalsToBrowser()</i>, which you should never call
+yourself!</p>
+
+<h2>OVERRIDING THE NAME OF THE PROGRAM
+<a name="OVERRIDING THE NAME OF THE PROGRAM"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CGI::Carp
+includes the name of the program that generated the error or
+warning in the messages written to the log and the browser
+window. Sometimes, Perl can get confused about what the
+actual name of the executed program was. In these cases, you
+can override the program name that CGI::Carp will use for
+all messages.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The quick way
+to do that is to tell CGI::Carp the name of the program in
+its use statement. You can do that by adding
+&quot;name=cgi_carp_log_name&quot; to your &quot;use&quot;
+statement. For example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(name=cgi_carp_log_name);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">. If you want
+to change the program name partway through the program, you
+can use the <tt>&quot;set_progname()&quot;</tt> function
+instead. It is not exported by default, you must import it
+explicitly by saying</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    use CGI::Carp qw(set_progname);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Once
+you&rsquo;ve done that, you can change the logged name of
+the program at any time by calling</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    set_progname(new_program_name);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can set the
+program back to the default by calling</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    set_progname(undef);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that this
+override doesn&rsquo;t happen until after the program has
+compiled, so any compile-time errors will still show up with
+the non-overridden program name</p>
+
+<h2>CHANGE LOG
+<a name="CHANGE LOG"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">3.51 Added
+<tt>$CGI::Carp::TO_BROWSER</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em">1.29 Patch from
+Peter Whaite to fix the unfixable problem of CGI::Carp <br>
+not behaving correctly in an <i>eval()</i> context.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.05
+<i>carpout()</i> added and minor corrections by Marc Hedlund
+<br>
+&lt;hedlund@best.com&gt; on 11/26/95.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.06
+<i>fatalsToBrowser()</i> no longer aborts for fatal errors
+within <i><br>
+eval()</i> statements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.08
+<i>set_message()</i> added and <i>carpout()</i> expanded to
+allow for FileHandle <br>
+objects.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.09
+<i>set_message()</i> now allows users to pass a code
+<small>REFERENCE</small> for <br>
+really custom error messages. croak and carp are now <br>
+exported by default. Thanks to Gunther Birznieks for the
+<br>
+patches.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.10 Patch from
+Chris Dean (ctdean@cogit.com) to allow <br>
+module to run correctly under mod_perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.11 Changed
+order of &amp;gt; and &amp;lt; escapes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.12 Changed
+<i>die()</i> on line 217 to CORE::die to avoid
+<b>&minus;w</b> warning.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.13 Added
+<i>cluck()</i> to make the module orthogonal with Carp. <br>
+More mod_perl related fixes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.20 Patch from
+Ilmari Karonen (perl@itz.pp.sci.fi): Added <i><br>
+warningsToBrowser()</i>. Replaced &lt; <small>CODE</small>
+&gt; tags with &lt; <small>PRE</small> &gt; in <i><br>
+fatalsToBrowser()</i> output.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.23
+<i>ineval()</i> now checks both $^S and inspects the message
+for the &quot;eval&quot; pattern <br>
+(hack alert!) in order to accommodate various combinations
+of Perl and <br>
+mod_perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.24 Patch from
+Scott Gifford (sgifford@suspectclass.com): Add support <br>
+for overriding program name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.26 Replaced
+CORE::GLOBAL::die with the evil <tt>$SIG</tt>{__DIE__}
+because the <br>
+former isn&rsquo;t working in some people&rsquo;s hands.
+There is no such thing <br>
+as reliable exception handling in Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">1.27 Replaced
+tell <small>STDOUT</small> with bytes=tell
+<small>STDOUT.</small></p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright
+1995&minus;2002, Lincoln D. Stein. All rights reserved.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Carp,
+CGI::Base, CGI::BasePlus, CGI::Request, CGI::MiniSvr,
+CGI::Form, CGI::Response.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,2612 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:58:15 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>HTML::Element</title>
+
+</head>
+<body>
+
+<h1 align="center">HTML::Element</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#HOW WE REPRESENT TREES">HOW WE REPRESENT TREES</a><br>
+<a href="#BASIC METHODS">BASIC METHODS</a><br>
+<a href="#STRUCTURE-MODIFYING METHODS">STRUCTURE-MODIFYING METHODS</a><br>
+<a href="#DUMPING METHODS">DUMPING METHODS</a><br>
+<a href="#SECONDARY STRUCTURAL METHODS">SECONDARY STRUCTURAL METHODS</a><br>
+<a href="#CLASS METHODS">CLASS METHODS</a><br>
+<a href="#SUBROUTINES">SUBROUTINES</a><br>
+<a href="#BUGS">BUGS</a><br>
+<a href="#NOTES ON SUBCLASSING">NOTES ON SUBCLASSING</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT AND LICENSE">COPYRIGHT AND LICENSE</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">HTML::Element
+&minus; Class for objects that represent HTML elements</p>
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This document
+describes version 5.03 of HTML::Element, released September
+22, 2012 as part of HTML-Tree.</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use HTML::Element;
+    $a = HTML::Element&minus;&gt;new('a', href =&gt; 'http://www.perl.com/');
+    $a&minus;&gt;push_content(&quot;The Perl Homepage&quot;);
+    $tag = $a&minus;&gt;tag;
+    print &quot;$tag starts out as:&quot;,  $a&minus;&gt;starttag, &quot;\n&quot;;
+    print &quot;$tag ends as:&quot;,  $a&minus;&gt;endtag, &quot;\n&quot;;
+    print &quot;$tag\'s href attribute is: &quot;, $a&minus;&gt;attr('href'), &quot;\n&quot;;
+    $links_r = $a&minus;&gt;extract_links();
+    print &quot;Hey, I found &quot;, scalar(@$links_r), &quot; links.\n&quot;;
+    print &quot;And that, as HTML, is: &quot;, $a&minus;&gt;as_HTML, &quot;\n&quot;;
+    $a = $a&minus;&gt;delete;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">(This class is
+part of the HTML::Tree dist.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Objects of the
+HTML::Element class can be used to represent elements of
+<small>HTML</small> document trees. These objects have
+attributes, notably attributes that designates each
+element&rsquo;s parent and content. The content is an array
+of text segments and other HTML::Element objects. A tree
+with HTML::Element objects as nodes can represent the syntax
+tree for a <small>HTML</small> document.</p>
+
+<h2>HOW WE REPRESENT TREES
+<a name="HOW WE REPRESENT TREES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Consider this
+<small>HTML</small> document:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;html lang='en&minus;US'&gt;
+    &lt;head&gt;
+      &lt;title&gt;Stuff&lt;/title&gt;
+      &lt;meta name='author' content='Jojo'&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+     &lt;h1&gt;I like potatoes!&lt;/h1&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Building a
+syntax tree out of it makes a tree-structure in memory that
+could be diagrammed as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">                     html (lang='en&minus;US')
+                      / \
+                    /     \
+                  /         \
+                head        body
+               /\               \
+             /    \               \
+           /        \               \
+         title     meta              h1
+          |       (name='author',     |
+       &quot;Stuff&quot;    content='Jojo')    &quot;I like potatoes&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is the
+traditional way to diagram a tree, with the &quot;root&quot;
+at the top, and it&rsquo;s this kind of diagram that people
+have in mind when they say, for example, that &quot;the meta
+element is under the head element instead of under the body
+element&quot;. (The same is also said with
+&quot;inside&quot; instead of &quot;under&quot; -- the use
+of &quot;inside&quot; makes more sense when you&rsquo;re
+looking at the <small>HTML</small> source.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Another way to
+represent the above tree is with indenting:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  html (attributes: lang='en&minus;US')
+    head
+      title
+        &quot;Stuff&quot;
+      meta (attributes: name='author' content='Jojo')
+    body
+      h1
+        &quot;I like potatoes&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Incidentally,
+diagramming with indenting works much better for very large
+trees, and is easier for a program to generate. The
+<tt>&quot;$tree&minus;&gt;dump&quot;</tt> method uses
+indentation just that way.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However you
+diagram the tree, it&rsquo;s stored the same in memory --
+it&rsquo;s a network of objects, each of which has
+attributes like so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  element #1:  _tag: 'html'
+               _parent: none
+               _content: [element #2, element #5]
+               lang: 'en&minus;US'
+  element #2:  _tag: 'head'
+               _parent: element #1
+               _content: [element #3, element #4]
+  element #3:  _tag: 'title'
+               _parent: element #2
+               _content: [text segment &quot;Stuff&quot;]
+  element #4   _tag: 'meta'
+               _parent: element #2
+               _content: none
+               name: author
+               content: Jojo
+  element #5   _tag: 'body'
+               _parent: element #1
+               _content: [element #6]
+  element #6   _tag: 'h1'
+               _parent: element #5
+               _content: [text segment &quot;I like potatoes&quot;]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+&quot;treeness&quot; of the tree-structure that these
+elements comprise is not an aspect of any particular object,
+but is emergent from the relatedness attributes (_parent and
+_content) of these element-objects and from how you use them
+to get from element to element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">While you could
+access the content of a tree by writing code that says
+&quot;access the &rsquo;src&rsquo; attribute of the
+root&rsquo;s <i>first</i> child&rsquo;s <i>seventh</i>
+child&rsquo;s <i>third</i> child&quot;, you&rsquo;re more
+likely to have to scan the contents of a tree, looking for
+whatever nodes, or kinds of nodes, you want to do something
+with. The most straightforward way to look over a tree is to
+&quot;traverse&quot; it; an HTML::Element method
+(<tt>&quot;$h&minus;&gt;traverse&quot;</tt>) is provided for
+this purpose; and several other HTML::Element methods are
+based on it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(For everything
+you ever wanted to know about trees, and then some, see
+Niklaus Wirth&rsquo;s <i>Algorithms + Data Structures =
+Programs</i> or Donald Knuth&rsquo;s <i>The Art of Computer
+Programming, Volume 1</i>.)</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Weak
+References</b> <small><br>
+TL</small> ;DR summary:
+<tt>&quot;use&nbsp;HTML::TreeBuilder&nbsp;5&nbsp;&minus;weak;&quot;</tt>
+and forget about the <tt>&quot;delete&quot;</tt> method
+(except for pruning a node from a tree).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Because
+HTML::Element stores a reference to the parent element,
+Perl&rsquo;s reference-count garbage collection
+doesn&rsquo;t work properly with HTML::Element trees.
+Starting with version 5.00, HTML::Element uses weak
+references (if available) to prevent that problem. Weak
+references were introduced in Perl 5.6.0, but you also need
+a version of Scalar::Util that provides the
+<tt>&quot;weaken&quot;</tt> function.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Weak references
+are enabled by default. If you want to be certain
+they&rsquo;re in use, you can say
+<tt>&quot;use&nbsp;HTML::Element&nbsp;5&nbsp;&minus;weak;&quot;</tt>.
+You must include the version number; previous versions of
+HTML::Element ignored the import list entirely.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To disable weak
+references, you can say
+<tt>&quot;use&nbsp;HTML::Element&nbsp;&minus;noweak;&quot;</tt>.
+This is a global setting. <b>This feature is deprecated</b>
+and is provided only as a quick fix for broken code. If your
+code does not work properly with weak references, you should
+fix it immediately, as weak references may become mandatory
+in a future version. Generally, all you need to do is keep a
+reference to the root of the tree until you&rsquo;re done
+working with it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Because
+HTML::TreeBuilder is a subclass of HTML::Element, you can
+also import <tt>&quot;&minus;weak&quot;</tt> or
+<tt>&quot;&minus;noweak&quot;</tt> from HTML::TreeBuilder:
+e.g.
+<tt>&quot;use&nbsp;HTML::TreeBuilder:&nbsp;5&nbsp;&minus;weak;&quot;</tt>.</p>
+
+<h2>BASIC METHODS
+<a name="BASIC METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>new</b></p>
+
+<pre style="margin-left:11%;">  $h = HTML::Element&minus;&gt;new('tag', 'attrname' =&gt; 'value', ... );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This
+constructor method returns a new HTML::Element object. The
+tag name is a required argument; it will be forced to
+lowercase. Optionally, you can specify other initial
+attributes at object creation time.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>attr</b></p>
+
+
+<pre style="margin-left:11%;">  $value = $h&minus;&gt;attr('attr');
+  $old_value = $h&minus;&gt;attr('attr', $new_value);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+(optionally sets) the value of the given attribute of
+<tt>$h</tt>. The attribute name (but not the value, if
+provided) is forced to lowercase. If trying to read the
+value of an attribute not present for this element, the
+return value is undef. If setting a new value, the old value
+of that attribute is returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If methods are
+provided for accessing an attribute (like
+<tt>&quot;$h&minus;&gt;tag&quot;</tt> for &quot;_tag&quot;,
+<tt>&quot;$h&minus;&gt;content_list&quot;</tt>, etc. below),
+use those instead of calling attr
+<tt>&quot;$h&minus;&gt;attr&quot;</tt>, whether for reading
+or setting.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+setting an attribute to <tt>&quot;undef&quot;</tt> (as
+opposed to &quot;&quot;, the empty string) actually deletes
+the attribute.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>tag</b></p>
+
+<pre style="margin-left:11%;">  $tagname = $h&minus;&gt;tag();
+  $h&minus;&gt;tag('tagname');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+(optionally sets) the tag name (also known as the generic
+identifier) for the element <tt>$h</tt>. In setting, the tag
+name is always converted to lower case.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are four
+kinds of &quot;pseudo-elements&quot; that show up as
+HTML::Element objects: <br>
+Comment pseudo-elements</p>
+
+<p style="margin-left:17%;">These are element objects with
+a <tt>&quot;$h&minus;&gt;tag&quot;</tt> value of
+&quot;~comment&quot;, and the content of the comment is
+stored in the &quot;text&quot; attribute
+(<tt>&quot;$h&minus;&gt;attr(&quot;text&quot;)&quot;</tt>).
+For example, parsing this code with HTML::TreeBuilder...</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &lt;!&minus;&minus; I like Pie.
+     Pie is good
+  &minus;&minus;&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">produces an
+HTML::Element object with these attributes:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &quot;_tag&quot;,
+  &quot;~comment&quot;,
+  &quot;text&quot;,
+  &quot; I like Pie.\n     Pie is good\n  &quot;</pre>
+
+
+<p style="margin-left:11%;">Declaration pseudo-elements</p>
+
+<p style="margin-left:17%;">Declarations (rarely
+encountered) are represented as HTML::Element objects with a
+tag name of &quot;~declaration&quot;, and content in the
+&quot;text&quot; attribute. For example, this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &lt;!DOCTYPE foo&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">produces an
+element whose attributes include:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &quot;_tag&quot;, &quot;~declaration&quot;, &quot;text&quot;, &quot;DOCTYPE foo&quot;</pre>
+
+
+<p style="margin-left:11%;">Processing instruction
+pseudo-elements</p>
+
+<p style="margin-left:17%;">PIs (rarely encountered) are
+represented as HTML::Element objects with a tag name of
+&quot;~pi&quot;, and content in the &quot;text&quot;
+attribute. For example, this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &lt;?stuff foo?&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">produces an
+element whose attributes include:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &quot;_tag&quot;, &quot;~pi&quot;, &quot;text&quot;, &quot;stuff foo?&quot;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">(assuming a
+recent version of HTML::Parser)</p>
+
+<p style="margin-left:11%;">~literal pseudo-elements</p>
+
+<p style="margin-left:17%;">These objects are not currently
+produced by HTML::TreeBuilder, but can be used to represent
+a &quot;super-literal&quot; -- i.e., a literal you want to
+be immune from escaping. (Yes, I just made that term
+up.)</p>
+
+<p style="margin-left:17%; margin-top: 1em">That is, this
+is useful if you want to insert code into a tree that you
+plan to dump out with <tt>&quot;as_HTML&quot;</tt>, where
+you want, for some reason, to suppress
+<tt>&quot;as_HTML&quot;</tt>&rsquo;s normal behavior of
+amp-quoting text segments.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example,
+this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  my $literal = HTML::Element&minus;&gt;new('~literal',
+    'text' =&gt; 'x &lt; 4 &amp; y &gt; 7'
+  );
+  my $span = HTML::Element&minus;&gt;new('span');
+  $span&minus;&gt;push_content($literal);
+  print $span&minus;&gt;as_HTML;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">prints
+this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &lt;span&gt;x &lt; 4 &amp; y &gt; 7&lt;/span&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Whereas
+this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  my $span = HTML::Element&minus;&gt;new('span');
+  $span&minus;&gt;push_content('x &lt; 4 &amp; y &gt; 7');
+    # normal text segment
+  print $span&minus;&gt;as_HTML;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">prints
+this:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &lt;span&gt;x &amp;lt; 4 &amp;amp; y &amp;gt; 7&lt;/span&gt;</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Unless
+you&rsquo;re inserting lots of pre-cooked code into existing
+trees, and dumping them out again, it&rsquo;s not likely
+that you&rsquo;ll find <tt>&quot;~literal&quot;</tt>
+pseudo-elements useful.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>parent</b></p>
+
+
+<pre style="margin-left:11%;">  $parent = $h&minus;&gt;parent();
+  $h&minus;&gt;parent($new_parent);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+(optionally sets) the parent (aka &quot;container&quot;) for
+this element. The parent should either be undef, or should
+be another element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You <b>should
+not</b> use this to directly set the parent of an element.
+Instead use any of the other methods under
+&quot;Structure-Modifying Methods&quot;, below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<tt>&quot;not($h&minus;&gt;parent)&quot;</tt> is a simple
+test for whether <tt>$h</tt> is the root of its subtree.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>content_list</b></p>
+
+
+<pre style="margin-left:11%;">  @content = $h&minus;&gt;content_list();
+  $num_children = $h&minus;&gt;content_list();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a list
+of the child nodes of this element -- i.e., what nodes
+(elements or text segments) are inside/under this element.
+(Note that this may be an empty list.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">In a scalar
+context, this returns the count of the items, as you may
+expect.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>content</b></p>
+
+
+<pre style="margin-left:11%;">  $content_array_ref = $h&minus;&gt;content(); # may return undef</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This somewhat
+deprecated method returns the content of this element; but
+unlike content_list, this returns either undef (which you
+should understand to mean no content), or a <i>reference to
+the array</i> of content items, each of which is either a
+text segment (a string, i.e., a defined non-reference scalar
+value), or an HTML::Element object. Note that even if an
+arrayref is returned, it may be a reference to an empty
+array.</p>
+
+<p style="margin-left:11%; margin-top: 1em">While older
+code should feel free to continue to use
+<tt>&quot;$h&minus;&gt;content&quot;</tt>, new code should
+use <tt>&quot;$h&minus;&gt;content_list&quot;</tt> in almost
+all conceivable cases. It is my experience that in most
+cases this leads to simpler code anyway, since it means one
+can say:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @children = $h&minus;&gt;content_list;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">instead of the
+inelegant:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    @children = @{$h&minus;&gt;content || []};</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you do use
+<tt>&quot;$h&minus;&gt;content&quot;</tt> (or
+<tt>&quot;$h&minus;&gt;content_array_ref&quot;</tt>), you
+should not use the reference returned by it (assuming it
+returned a reference, and not undef) to directly set or
+change the content of an element or text segment! Instead
+use content_refs_list or any of the other methods under
+&quot;Structure-Modifying Methods&quot;, below.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>content_array_ref</b></p>
+
+
+<pre style="margin-left:11%;">  $content_array_ref = $h&minus;&gt;content_array_ref(); # never undef</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is like
+<tt>&quot;content&quot;</tt> (with all its caveats and
+deprecations) except that it is guaranteed to return an
+array reference. That is, if the given node has no
+<tt>&quot;_content&quot;</tt> attribute, the
+<tt>&quot;content&quot;</tt> method would return that undef,
+but <tt>&quot;content_array_ref&quot;</tt> would set the
+given node&rsquo;s <tt>&quot;_content&quot;</tt> value to
+<tt>&quot;[]&quot;</tt> (a reference to a new, empty array),
+and return that.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>content_refs_list</b></p>
+
+
+<pre style="margin-left:11%;">  @content_refs = $h&minus;&gt;content_refs_list;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This returns a
+list of scalar references to each element of
+<tt>$h</tt>&rsquo;s content list. This is useful in case you
+want to in-place edit any large text segments without having
+to get a copy of the current value of that segment value,
+modify that copy, then use the
+<tt>&quot;splice_content&quot;</tt> to replace the old with
+the new. Instead, here you can in-place edit:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    foreach my $item_r ($h&minus;&gt;content_refs_list) {
+        next if ref $$item_r;
+        $$item_r =~ s/honour/honor/g;
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You
+<i>could</i> currently achieve the same affect with:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    foreach my $item (@{ $h&minus;&gt;content_array_ref }) {
+        # deprecated!
+        next if ref $item;
+        $item =~ s/honour/honor/g;
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">...except that
+using the return value of
+<tt>&quot;$h&minus;&gt;content&quot;</tt> or
+<tt>&quot;$h&minus;&gt;content_array_ref&quot;</tt> to do
+that is deprecated, and just might stop working in the
+future.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>implicit</b></p>
+
+
+<pre style="margin-left:11%;">  $is_implicit = $h&minus;&gt;implicit();
+  $h&minus;&gt;implicit($make_implicit);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+(optionally sets) the &quot;_implicit&quot; attribute. This
+attribute is a flag that&rsquo;s used for indicating that
+the element was not originally present in the source, but
+was added to the parse tree (by HTML::TreeBuilder, for
+example) in order to conform to the rules of
+<small>HTML</small> structure.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>pos</b></p>
+
+<pre style="margin-left:11%;">  $pos = $h&minus;&gt;pos();
+  $h&minus;&gt;pos($element);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns (and
+optionally sets) the &quot;_pos&quot; (for &quot;current
+<i>pos</i>ition&quot;) pointer of <tt>$h</tt>. This
+attribute is a pointer used during some parsing operations,
+whose value is whatever HTML::Element element at or under
+<tt>$h</tt> is currently &quot;open&quot;, where
+<tt>&quot;$h&minus;&gt;insert_element(NEW)&quot;</tt> will
+actually insert a new element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(This has
+nothing to do with the Perl function called
+<tt>&quot;pos&quot;</tt>, for controlling where regular
+expression matching starts.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you set
+<tt>&quot;$h&minus;&gt;pos($element)&quot;</tt>, be sure
+that <tt>$element</tt> is either <tt>$h</tt>, or an element
+under <tt>$h</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you&rsquo;ve
+been modifying the tree under <tt>$h</tt> and are no longer
+sure <tt>&quot;$h&minus;&gt;pos&quot;</tt> is valid, you can
+enforce validity with:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $h&minus;&gt;pos(undef) unless $h&minus;&gt;pos&minus;&gt;is_inside($h);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>all_attr</b></p>
+
+
+<pre style="margin-left:11%;">  %attr = $h&minus;&gt;all_attr();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns all
+this element&rsquo;s attributes and values, as key-value
+pairs. This will include any &quot;internal&quot; attributes
+(i.e., ones not present in the original element, and which
+will not be represented if/when you call
+<tt>&quot;$h&minus;&gt;as_HTML&quot;</tt>). Internal
+attributes are distinguished by the fact that the first
+character of their key (not value! key!) is an underscore
+(&quot;_&quot;).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Example output
+of <tt>&quot;$h&minus;&gt;all_attr()&quot;</tt> :
+<tt>&quot;'_parent',
+&quot;</tt><i>[object_value]</i><tt>&quot; , '_tag', 'em',
+'lang', 'en&minus;US', '_content',
+&quot;</tt><i>[array&minus;ref value]</i>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>all_attr_names</b></p>
+
+
+<pre style="margin-left:11%;">  @names = $h&minus;&gt;all_attr_names();
+  $num_attrs = $h&minus;&gt;all_attr_names();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Like
+<tt>&quot;all_attr&quot;</tt>, but only returns the names of
+the attributes. In scalar context, returns the number of
+attributes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Example output
+of <tt>&quot;$h&minus;&gt;all_attr_names()&quot;</tt> :
+<tt>&quot;'_parent', '_tag', 'lang', '_content',
+&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>all_external_attr</b></p>
+
+
+<pre style="margin-left:11%;">  %attr = $h&minus;&gt;all_external_attr();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Like
+<tt>&quot;all_attr&quot;</tt>, except that internal
+attributes are not present.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>all_external_attr_names</b></p>
+
+
+<pre style="margin-left:11%;">  @names = $h&minus;&gt;all_external_attr_names();
+  $num_attrs = $h&minus;&gt;all_external_attr_names();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Like
+<tt>&quot;all_attr_names&quot;</tt>, except that internal
+attributes&rsquo; names are not present (or counted).</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>id</b></p>
+
+<pre style="margin-left:11%;">  $id = $h&minus;&gt;id();
+  $h&minus;&gt;id($string);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+(optionally sets to <tt>$string</tt>) the &quot;id&quot;
+attribute. <tt>&quot;$h&minus;&gt;id(undef)&quot;</tt>
+deletes the &quot;id&quot; attribute.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;$h&minus;&gt;id(...)&quot;</tt>
+is basically equivalent to <tt>&quot;$h&minus;&gt;attr('id',
+...)&quot;</tt>, except that when setting the attribute,
+this method returns the new value, not the old value.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>idf</b></p>
+
+<pre style="margin-left:11%;">  $id = $h&minus;&gt;idf();
+  $h&minus;&gt;idf($string);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Just like the
+<tt>&quot;id&quot;</tt> method, except that if you call
+<tt>&quot;$h&minus;&gt;idf()&quot;</tt> and no
+&quot;id&quot; attribute is defined for this element, then
+it&rsquo;s set to a likely-to-be-unique value, and returned.
+(The &quot;f&quot; is for &quot;force&quot;.)</p>
+
+<h2>STRUCTURE-MODIFYING METHODS
+<a name="STRUCTURE-MODIFYING METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These methods
+are provided for modifying the content of trees by adding or
+changing nodes as parents or children of other nodes.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>push_content</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;push_content($element_or_text, ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Adds the
+specified items to the <i>end</i> of the content list of the
+element <tt>$h</tt>. The items of content to be added should
+each be either a text segment (a string), an HTML::Element
+object, or an arrayref. Arrayrefs are fed thru
+<tt>&quot;$h&minus;&gt;new_from_lol(that_arrayref)&quot;</tt>
+to convert them into elements, before being added to the
+content list of <tt>$h</tt>. This means you can say things
+concise things like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $body&minus;&gt;push_content(
+    ['br'],
+    ['ul',
+      map ['li', $_], qw(Peaches Apples Pears Mangos)
+    ]
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See the
+&quot;new_from_lol&quot; method&rsquo;s documentation, far
+below, for more explanation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+<tt>$h</tt> (the element itself).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+push_content method will try to consolidate adjacent text
+segments while adding to the content list. That&rsquo;s to
+say, if <tt>$h</tt>&rsquo;s
+<tt>&quot;content_list&quot;</tt> is</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ('foo bar ', $some_node, 'baz!')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and you
+call</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   $h&minus;&gt;push_content('quack?');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">then the
+resulting content list will be this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ('foo bar ', $some_node, 'baz!quack?')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and not
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ('foo bar ', $some_node, 'baz!', 'quack?')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If that latter
+is what you want, you&rsquo;ll have to override the feature
+of consolidating text by using splice_content, as in:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;splice_content(scalar($h&minus;&gt;content_list),0,'quack?');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Similarly, if
+you wanted to add &rsquo;Skronk&rsquo; to the beginning of
+the content list, calling this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   $h&minus;&gt;unshift_content('Skronk');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">then the
+resulting content list will be this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ('Skronkfoo bar ', $some_node, 'baz!')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">and not
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  ('Skronk', 'foo bar ', $some_node, 'baz!')</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">What
+you&rsquo;d to do get the latter is:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;splice_content(0,0,'Skronk');</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>unshift_content</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;unshift_content($element_or_text, ...)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Just like
+<tt>&quot;push_content&quot;</tt>, but adds to the
+<i>beginning</i> of the <tt>$h</tt> element&rsquo;s content
+list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The items of
+content to be added should each be either a text segment (a
+string), an HTML::Element object, or an arrayref (which is
+fed thru <tt>&quot;new_from_lol&quot;</tt>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+unshift_content method will try to consolidate adjacent text
+segments while adding to the content list. See above for a
+discussion of this.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+<tt>$h</tt> (the element itself).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>splice_content</b></p>
+
+
+<pre style="margin-left:11%;">  @removed = $h&minus;&gt;splice_content($offset, $length,
+                                $element_or_text, ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Detaches the
+elements from <tt>$h</tt>&rsquo;s list of content-nodes,
+starting at <tt>$offset</tt> and continuing for
+<tt>$length</tt> items, replacing them with the elements of
+the following list, if any. Returns the elements (if any)
+removed from the content-list. If <tt>$offset</tt> is
+negative, then it starts that far from the end of the array,
+just like Perl&rsquo;s normal <tt>&quot;splice&quot;</tt>
+function. If <tt>$length</tt> and the following list is
+omitted, removes everything from <tt>$offset</tt>
+onward.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The items of
+content to be added (if any) should each be either a text
+segment (a string), an arrayref (which is fed thru
+&quot;new_from_lol&quot;), or an HTML::Element object
+that&rsquo;s not already a child of <tt>$h</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>detach</b></p>
+
+
+<pre style="margin-left:11%;">  $old_parent = $h&minus;&gt;detach();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This unlinks
+<tt>$h</tt> from its parent, by setting its
+&rsquo;parent&rsquo; attribute to undef, and by removing it
+from the content list of its parent (if it had one). The
+return value is the parent that was detached from (or undef,
+if <tt>$h</tt> had no parent to start with). Note that
+neither <tt>$h</tt> nor its parent are explicitly
+destroyed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>detach_content</b></p>
+
+
+<pre style="margin-left:11%;">  @old_content = $h&minus;&gt;detach_content();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This unlinks
+all of <tt>$h</tt>&rsquo;s children from <tt>$h</tt>, and
+returns them. Note that these are not explicitly destroyed;
+for that, you can just use
+<tt>&quot;$h&minus;&gt;delete_content&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>replace_with</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;replace_with( $element_or_text, ... )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This replaces
+<tt>$h</tt> in its parent&rsquo;s content list with the
+nodes specified. The element <tt>$h</tt> (which by then may
+have no parent) is returned. This causes a fatal error if
+<tt>$h</tt> has no parent. The list of nodes to insert may
+contain <tt>$h</tt>, but at most once. Aside from that
+possible exception, the nodes to insert should not already
+be children of <tt>$h</tt>&rsquo;s parent.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Also, note that
+this method does not destroy <tt>$h</tt> if weak references
+are turned off -- use
+<tt>&quot;$h&minus;&gt;replace_with(...)&minus;&gt;delete&quot;</tt>
+if you need that.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>preinsert</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;preinsert($element_or_text...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Inserts the
+given nodes right <small>BEFORE</small> <tt>$h</tt> in
+<tt>$h</tt>&rsquo;s parent&rsquo;s content list. This causes
+a fatal error if <tt>$h</tt> has no parent. None of the
+given nodes should be <tt>$h</tt> or other children of
+<tt>$h</tt>. Returns <tt>$h</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>postinsert</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;postinsert($element_or_text...)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Inserts the
+given nodes right <small>AFTER</small> <tt>$h</tt> in
+<tt>$h</tt>&rsquo;s parent&rsquo;s content list. This causes
+a fatal error if <tt>$h</tt> has no parent. None of the
+given nodes should be <tt>$h</tt> or other children of
+<tt>$h</tt>. Returns <tt>$h</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>replace_with_content</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;replace_with_content();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This replaces
+<tt>$h</tt> in its parent&rsquo;s content list with its own
+content. The element <tt>$h</tt> (which by then has no
+parent or content of its own) is returned. This causes a
+fatal error if <tt>$h</tt> has no parent. Also, note that
+this does not destroy <tt>$h</tt> if weak references are
+turned off -- use
+<tt>&quot;$h&minus;&gt;replace_with_content&minus;&gt;delete&quot;</tt>
+if you need that.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>delete_content</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;delete_content();
+  $h&minus;&gt;destroy_content(); # alias</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Clears the
+content of <tt>$h</tt>, calling
+<tt>&quot;$h&minus;&gt;delete&quot;</tt> for each content
+element. Compare with
+<tt>&quot;$h&minus;&gt;detach_content&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns
+<tt>$h</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;destroy_content&quot;</tt>
+is an alias for this method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>delete</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;delete();
+  $h&minus;&gt;destroy(); # alias</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Detaches this
+element from its parent (if it has one) and explicitly
+destroys the element and all its descendants. The return
+value is the empty list (or <tt>&quot;undef&quot;</tt> in
+scalar context).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Before version
+5.00 of HTML::Element, you had to call
+<tt>&quot;delete&quot;</tt> when you were finished with the
+tree, or your program would leak memory. This is no longer
+necessary if weak references are enabled, see &quot;Weak
+References&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>destroy</b>
+<br>
+An alias for &quot;delete&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>destroy_content</b>
+<br>
+An alias for &quot;delete_content&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>clone</b></p>
+
+
+<pre style="margin-left:11%;">  $copy = $h&minus;&gt;clone();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a copy
+of the element (whose children are clones (recursively) of
+the original&rsquo;s children, if any).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The returned
+element is parentless. Any &rsquo;_pos&rsquo; attributes
+present in the source element/tree will be absent in the
+copy. For that and other reasons, the clone of an
+HTML::TreeBuilder object that&rsquo;s in mid-parse (i.e, the
+head of a tree that HTML::TreeBuilder is elaborating) cannot
+(currently) be used to continue the parse.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You are free to
+clone HTML::TreeBuilder trees, just as long as: 1)
+they&rsquo;re done being parsed, or 2) you don&rsquo;t
+expect to resume parsing into the clone. (You can continue
+parsing into the original; it is never affected.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>clone_list</b></p>
+
+
+<pre style="margin-left:11%;">  @copies = HTML::Element&minus;&gt;clone_list(...nodes...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a list
+consisting of a copy of each node given. Text segments are
+simply copied; elements are cloned by calling
+<tt>&quot;$it&minus;&gt;clone&quot;</tt> on each of
+them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that this
+must be called as a class method, not as an instance method.
+<tt>&quot;clone_list&quot;</tt> will croak if called as an
+instance method. You can also call it like so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    ref($h)&minus;&gt;clone_list(...nodes...)</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>normalize_content</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;normalize_content</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Normalizes the
+content of <tt>$h</tt> -- i.e., concatenates any adjacent
+text nodes. (Any undefined text segments are turned into
+empty-strings.) Note that this does not recurse into
+<tt>$h</tt>&rsquo;s descendants.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>delete_ignorable_whitespace</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;delete_ignorable_whitespace()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This traverses
+under <tt>$h</tt> and deletes any text segments that are
+ignorable whitespace. You should not use this if <tt>$h</tt>
+is under a <tt>&quot;&lt;pre&gt;&quot;</tt> element.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>insert_element</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;insert_element($element, $implicit);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Inserts (via
+push_content) a new element under the element at
+<tt>&quot;$h&minus;&gt;pos()&quot;</tt>. Then updates
+<tt>&quot;$h&minus;&gt;pos()&quot;</tt> to point to the
+inserted element, unless <tt>$element</tt> is a
+prototypically empty element like
+<tt>&quot;&lt;br&gt;&quot;</tt>,
+<tt>&quot;&lt;hr&gt;&quot;</tt>,
+<tt>&quot;&lt;img&gt;&quot;</tt>, etc. The new
+<tt>&quot;$h&minus;&gt;pos()&quot;</tt> is returned. This
+method is useful only if your particular tree task involves
+setting <tt>&quot;$h&minus;&gt;pos()&quot;</tt>.</p>
+
+<h2>DUMPING METHODS
+<a name="DUMPING METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>dump</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;dump()
+  $h&minus;&gt;dump(*FH)  ; # or *FH{IO} or $fh_obj</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Prints the
+element and all its children to <small>STDOUT</small> (or to
+a specified filehandle), in a format useful only for
+debugging. The structure of the document is shown by
+indentation (no end tags).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>as_HTML</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;as_HTML();
+  $s = $h&minus;&gt;as_HTML($entities);
+  $s = $h&minus;&gt;as_HTML($entities, $indent_char);
+  $s = $h&minus;&gt;as_HTML($entities, $indent_char, \%optional_end_tags);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing in <small>HTML</small> the element and
+its descendants. The optional argument <tt>$entities</tt>
+specifies a string of the entities to encode. For
+compatibility with previous versions, specify
+<tt>'&lt;&gt;&amp;'</tt> here. If omitted or undef,
+<i>all</i> unsafe characters are encoded as
+<small>HTML</small> entities. See HTML::Entities for
+details. If passed an empty string, no entities are
+encoded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>$indent_char</tt> is specified and defined, the
+<small>HTML</small> to be output is intented, using the
+string you specify (which you probably should set to
+&quot;\t&quot;, or some number of spaces, if you specify
+it).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<tt>&quot;\%optional_end_tags&quot;</tt> is specified and
+defined, it should be a reference to a hash that holds a
+true value for every tag name whose end tag is optional.
+Defaults to
+<tt>&quot;\%HTML::Element::optionalEndTag&quot;</tt>, which
+is an alias to <tt>%HTML::Tagset::optionalEndTag</tt>,
+which, at time of writing, contains true values for
+<tt>&quot;p, li, dt, dd&quot;</tt>. A useful value to pass
+is an empty hashref, <tt>&quot;{}&quot;</tt>, which means
+that no end-tags are optional for this dump. Otherwise,
+possibly consider copying
+<tt>%HTML::Tagset::optionalEndTag</tt> to a hash of your
+own, adding or deleting values as you like, and passing a
+reference to that hash.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>as_text</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;as_text();
+  $s = $h&minus;&gt;as_text(skip_dels =&gt; 1);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string consisting of only the text parts of the
+element&rsquo;s descendants. Any whitespace inside the
+element is included unchanged, but whitespace not in the
+tree is never added. But remember that whitespace may be
+ignored or compacted by HTML::TreeBuilder during parsing
+(depending on the value of the
+<tt>&quot;ignore_ignorable_whitespace&quot;</tt> and
+<tt>&quot;no_space_compacting&quot;</tt> attributes). Also,
+since whitespace is never added during parsing,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  HTML::TreeBuilder&minus;&gt;new_from_content(&quot;&lt;p&gt;a&lt;/p&gt;&lt;p&gt;b&lt;/p&gt;&quot;)
+                   &minus;&gt;as_text;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">returns
+<tt>&quot;ab&quot;</tt>, not <tt>&quot;a b&quot;</tt> or
+<tt>&quot;a\nb&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Text under
+<tt>&quot;&lt;script&gt;&quot;</tt> or
+<tt>&quot;&lt;style&gt;&quot;</tt> elements is never
+included in what&rsquo;s returned. If
+<tt>&quot;skip_dels&quot;</tt> is true, then text content
+under <tt>&quot;&lt;del&gt;&quot;</tt> nodes is not included
+in what&rsquo;s returned.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>as_trimmed_text</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;as_trimmed_text(...);
+  $s = $h&minus;&gt;as_trimmed_text(extra_chars =&gt; '\xA0'); # remove &amp;nbsp;
+  $s = $h&minus;&gt;as_text_trimmed(...); # alias</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is just
+like <tt>&quot;as_text(...)&quot;</tt> except that leading
+and trailing whitespace is deleted, and any internal
+whitespace is collapsed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This will not
+remove non-breaking spaces, Unicode spaces, or any other
+non-ASCII whitespace unless you supply the extra characters
+as a string argument (e.g.
+<tt>&quot;$h&minus;&gt;as_trimmed_text(extra_chars =&gt;
+'\xA0')&quot;</tt>). <tt>&quot;extra_chars&quot;</tt> may be
+any string that can appear inside a character class,
+including ranges like <tt>&quot;a&minus;z&quot;</tt>,
+<small>POSIX</small> character classes like
+<tt>&quot;[:alpha:]&quot;</tt>, and character class escapes
+like <tt>&quot;\p{Zs}&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>as_XML</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;as_XML()</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing in <small>XML</small> the element and
+its descendants.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>XML</small> is not indented.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>as_Lisp_form</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;as_Lisp_form();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing the element and its descendants as a
+Lisp form. Unsafe characters are encoded as octal
+escapes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Lisp form
+is indented, and contains external (&quot;href&quot;, etc.)
+as well as internal attributes (&quot;_tag&quot;,
+&quot;_content&quot;, &quot;_implicit&quot;, etc.), except
+for &quot;_parent&quot;, which is omitted.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Current example
+output for a given element:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  (&quot;_tag&quot; &quot;img&quot; &quot;border&quot; &quot;0&quot; &quot;src&quot; &quot;pie.png&quot; &quot;usemap&quot; &quot;#main.map&quot;)</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>format</b></p>
+
+
+<pre style="margin-left:11%;">  $s = $h&minus;&gt;format; # use HTML::FormatText
+  $s = $h&minus;&gt;format($formatter);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Formats text
+output. Defaults to HTML::FormatText.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Takes a second
+argument that is a reference to a formatter.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>starttag</b></p>
+
+
+<pre style="margin-left:11%;">  $start = $h&minus;&gt;starttag();
+  $start = $h&minus;&gt;starttag($entities);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing the complete start tag for the element.
+I.e., leading &quot;&lt;&quot;, tag name, attributes, and
+trailing &quot;&gt;&quot;. All values are surrounded with
+double-quotes, and appropriate characters are encoded. If
+<tt>$entities</tt> is omitted or undef, <i>all</i> unsafe
+characters are encoded as <small>HTML</small> entities. See
+HTML::Entities for details. If you specify some value for
+<tt>$entities</tt>, remember to include the double-quote
+character in it. (Previous versions of this module would
+basically behave as if <tt>'&amp;&quot;&gt;'</tt> were
+specified for <tt>$entities</tt>.) If <tt>$entities</tt> is
+an empty string, no entity is escaped.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>starttag_XML</b></p>
+
+
+<pre style="margin-left:11%;">  $start = $h&minus;&gt;starttag_XML();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing the complete start tag for the
+element.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>endtag</b></p>
+
+
+<pre style="margin-left:11%;">  $end = $h&minus;&gt;endtag();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing the complete end tag for this element.
+I.e., &quot;&lt;/&quot;, tag name, and &quot;&gt;&quot;.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>endtag_XML</b></p>
+
+
+<pre style="margin-left:11%;">  $end = $h&minus;&gt;endtag_XML();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+string representing the complete end tag for this element.
+I.e., &quot;&lt;/&quot;, tag name, and &quot;&gt;&quot;.</p>
+
+<h2>SECONDARY STRUCTURAL METHODS
+<a name="SECONDARY STRUCTURAL METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">These methods
+all involve some structural aspect of the tree; either they
+report some aspect of the tree&rsquo;s structure, or they
+involve traversal down the tree, or walking up the tree.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>is_inside</b></p>
+
+
+<pre style="margin-left:11%;">  $inside = $h&minus;&gt;is_inside('tag', $element, ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns true if
+the <tt>$h</tt> element is, or is contained anywhere inside
+an element that is any of the ones listed, or whose tag name
+is any of the tag names listed. You can use any mix of
+elements and tag names.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>is_empty</b></p>
+
+
+<pre style="margin-left:11%;">  $empty = $h&minus;&gt;is_empty();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns true if
+<tt>$h</tt> has no content, i.e., has no elements or text
+segments under it. In other words, this returns true if
+<tt>$h</tt> is a leaf node, <small>AKA</small> a terminal
+node. Do not confuse this sense of &quot;empty&quot; with
+another sense that it can have in
+<small>SGML/HTML/XML</small> terminology, which means that
+the element in question is of the type (like
+<small>HTML</small> &rsquo;s
+<tt>&quot;&lt;hr&gt;&quot;</tt>,
+<tt>&quot;&lt;br&gt;&quot;</tt>,
+<tt>&quot;&lt;img&gt;&quot;</tt>, etc.) that
+<i>can&rsquo;t</i> have any content.</p>
+
+<p style="margin-left:11%; margin-top: 1em">That is, a
+particular <tt>&quot;&lt;p&gt;&quot;</tt> element may happen
+to have no content, so
+<tt>$that_p_element</tt>&minus;&gt;is_empty will be true --
+even though the prototypical <tt>&quot;&lt;p&gt;&quot;</tt>
+element isn&rsquo;t &quot;empty&quot; (not in the way that
+the prototypical <tt>&quot;&lt;hr&gt;&quot;</tt> element
+is).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you think
+this might make for potentially confusing code, consider
+simply using the clearer exact equivalent:
+<tt>&quot;not($h&minus;&gt;content_list)&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pindex</b></p>
+
+
+<pre style="margin-left:11%;">  $index = $h&minus;&gt;pindex();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Return the
+index of the element in its parent&rsquo;s contents array,
+such that <tt>$h</tt> would equal</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;parent&minus;&gt;content&minus;&gt;[$h&minus;&gt;pindex]
+  # or
+  ($h&minus;&gt;parent&minus;&gt;content_list)[$h&minus;&gt;pindex]</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">assuming
+<tt>$h</tt> isn&rsquo;t root. If the element <tt>$h</tt> is
+root, then <tt>&quot;$h&minus;&gt;pindex&quot;</tt> returns
+<tt>&quot;undef&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>left</b></p>
+
+
+<pre style="margin-left:11%;">  $element = $h&minus;&gt;left();
+  @elements = $h&minus;&gt;left();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In scalar
+context: returns the node that&rsquo;s the immediate left
+sibling of <tt>$h</tt>. If <tt>$h</tt> is the leftmost (or
+only) child of its parent (or has no parent), then this
+returns undef.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In list
+context: returns all the nodes that&rsquo;re the left
+siblings of <tt>$h</tt> (starting with the leftmost). If
+<tt>$h</tt> is the leftmost (or only) child of its parent
+(or has no parent), then this returns an empty list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(See also
+<tt>&quot;$h&minus;&gt;preinsert(LIST)&quot;</tt>.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>right</b></p>
+
+
+<pre style="margin-left:11%;">  $element = $h&minus;&gt;right();
+  @elements = $h&minus;&gt;right();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In scalar
+context: returns the node that&rsquo;s the immediate right
+sibling of <tt>$h</tt>. If <tt>$h</tt> is the rightmost (or
+only) child of its parent (or has no parent), then this
+returns <tt>&quot;undef&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In list
+context: returns all the nodes that&rsquo;re the right
+siblings of <tt>$h</tt>, starting with the leftmost. If
+<tt>$h</tt> is the rightmost (or only) child of its parent
+(or has no parent), then this returns an empty list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(See also
+<tt>&quot;$h&minus;&gt;postinsert(LIST)&quot;</tt>.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>address</b></p>
+
+
+<pre style="margin-left:11%;">  $address = $h&minus;&gt;address();
+  $element_or_text = $h&minus;&gt;address($address);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The first form
+(with no parameter) returns a string representing the
+location of <tt>$h</tt> in the tree it is a member of. The
+address consists of numbers joined by a &rsquo;.&rsquo;,
+starting with &rsquo;0&rsquo;, and followed by the pindexes
+of the nodes in the tree that are ancestors of <tt>$h</tt>,
+starting from the top.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So if the way
+to get to a node starting at the root is to go to child 2 of
+the root, then child 10 of that, and then child 0 of that,
+and then you&rsquo;re there -- then that node&rsquo;s
+address is &quot;0.2.10.0&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As a bit of a
+special case, the address of the root is simply
+&quot;0&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">I forsee this
+being used mainly for debugging, but you may find your own
+uses for it.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $element_or_text = $h&minus;&gt;address($address);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This form
+returns the node (whether element or text-segment) at the
+given address in the tree that <tt>$h</tt> is a part of.
+(That is, the address is resolved starting from
+<tt>&quot;$h&minus;&gt;root&quot;</tt>.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">If there is no
+node at the given address, this returns
+<tt>&quot;undef&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can specify
+&quot;relative addressing&quot; (i.e., that indexing is
+supposed to start from <tt>$h</tt> and not from
+<tt>&quot;$h&minus;&gt;root&quot;</tt>) by having the
+address start with a period -- e.g.,
+<tt>&quot;$h&minus;&gt;address(&quot;.3.2&quot;)&quot;</tt>
+will look at child 3 of <tt>$h</tt>, and child 2 of
+that.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>depth</b></p>
+
+
+<pre style="margin-left:11%;">  $depth = $h&minus;&gt;depth();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+number expressing <tt>$h</tt>&rsquo;s depth within its tree,
+i.e., how many steps away it is from the root. If
+<tt>$h</tt> has no parent (i.e., is root), its depth is
+0.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>root</b></p>
+
+
+<pre style="margin-left:11%;">  $root = $h&minus;&gt;root();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+element that&rsquo;s the top of <tt>$h</tt>&rsquo;s tree. If
+<tt>$h</tt> is root, this just returns <tt>$h</tt>. (If you
+want to test whether <tt>$h</tt> <i>is</i> the root, instead
+of asking what its root is, just test
+<tt>&quot;not($h&minus;&gt;parent)&quot;</tt>.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lineage</b></p>
+
+
+<pre style="margin-left:11%;">  @lineage = $h&minus;&gt;lineage();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+list of <tt>$h</tt>&rsquo;s ancestors, starting with its
+parent, and then that parent&rsquo;s parent, and so on, up
+to the root. If <tt>$h</tt> is root, this returns an empty
+list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you simply
+want a count of the number of elements in
+<tt>$h</tt>&rsquo;s lineage, use
+<tt>&quot;$h&minus;&gt;depth&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>lineage_tag_names</b></p>
+
+
+<pre style="margin-left:11%;">  @names = $h&minus;&gt;lineage_tag_names();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns the
+list of the tag names of <tt>$h</tt>&rsquo;s ancestors,
+starting with its parent, and that parent&rsquo;s parent,
+and so on, up to the root. If <tt>$h</tt> is root, this
+returns an empty list. Example output: <tt>&quot;('em',
+'td', 'tr', 'table', 'body', 'html')&quot;</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em">Equivalent
+to:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  map { $_&minus;&gt;tag } $h&minus;&gt;lineage;</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>descendants</b></p>
+
+
+<pre style="margin-left:11%;">  @descendants = $h&minus;&gt;descendants();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In list
+context, returns the list of all <tt>$h</tt>&rsquo;s
+descendant elements, listed in pre-order (i.e., an element
+appears before its content-elements). Text segments
+<small>DO NOT</small> appear in the list. In scalar context,
+returns a count of all such elements.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>descendents</b>
+<br>
+This is just an alias to the
+<tt>&quot;descendants&quot;</tt> method, for people who
+can&rsquo;t spell.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>find_by_tag_name</b></p>
+
+
+<pre style="margin-left:11%;">  @elements = $h&minus;&gt;find_by_tag_name('tag', ...);
+  $first_match = $h&minus;&gt;find_by_tag_name('tag', ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In list
+context, returns a list of elements at or under <tt>$h</tt>
+that have any of the specified tag names. In scalar context,
+returns the first (in pre-order traversal of the tree) such
+element found, or undef if none.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>find</b>
+<br>
+This is just an alias to
+<tt>&quot;find_by_tag_name&quot;</tt>. (There was once going
+to be a whole find_* family of methods, but then
+<tt>&quot;look_down&quot;</tt> filled that niche, so there
+turned out not to be much reason for the verboseness of the
+name &quot;find_by_tag_name&quot;.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>find_by_attribute</b></p>
+
+
+<pre style="margin-left:11%;">  @elements = $h&minus;&gt;find_by_attribute('attribute', 'value');
+  $first_match = $h&minus;&gt;find_by_attribute('attribute', 'value');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In a list
+context, returns a list of elements at or under <tt>$h</tt>
+that have the specified attribute, and have the given value
+for that attribute. In a scalar context, returns the first
+(in pre-order traversal of the tree) such element found, or
+undef if none.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method is
+<b>deprecated</b> in favor of the more expressive
+<tt>&quot;look_down&quot;</tt> method, which new code should
+use instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>look_down</b></p>
+
+
+<pre style="margin-left:11%;">  @elements = $h&minus;&gt;look_down( ...criteria... );
+  $first_match = $h&minus;&gt;look_down( ...criteria... );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This starts at
+<tt>$h</tt> and looks thru its element descendants (in
+pre-order), looking for elements matching the criteria you
+specify. In list context, returns all elements that match
+all the given criteria; in scalar context, returns the first
+such element (or undef, if nothing matched).</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are three
+kinds of criteria you can specify: <br>
+(attr_name, attr_value)</p>
+
+<p style="margin-left:17%;">This means you&rsquo;re looking
+for an element with that value for that attribute. Example:
+<tt>&quot;alt&quot;, &quot;pix!&quot;</tt>. Consider that
+you can search on internal attribute values too:
+<tt>&quot;_tag&quot;, &quot;p&quot;</tt>.</p>
+
+<p style="margin-left:11%;">(attr_name, qr/.../)</p>
+
+<p style="margin-left:17%;">This means you&rsquo;re looking
+for an element whose value for that attribute matches the
+specified Regexp object.</p>
+
+<p style="margin-left:11%;">a coderef</p>
+
+<p style="margin-left:17%;">This means you&rsquo;re looking
+for elements where coderef&minus;&gt;(each_element) returns
+true. Example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  my @wide_pix_images = $h&minus;&gt;look_down(
+    _tag =&gt; &quot;img&quot;,
+    alt  =&gt; &quot;pix!&quot;,
+    sub { $_[0]&minus;&gt;attr('width') &gt; 350 }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<tt>&quot;(attr_name, attr_value)&quot;</tt> and
+<tt>&quot;(attr_name, qr/.../)&quot;</tt> criteria are
+almost always faster than coderef criteria, so should
+presumably be put before them in your list of criteria. That
+is, in the example above, the sub ref is called only for
+elements that have already passed the criteria of having a
+&quot;_tag&quot; attribute with value &quot;img&quot;, and
+an &quot;alt&quot; attribute with value &quot;pix!&quot;. If
+the coderef were first, it would be called on every element,
+and <i>then</i> what elements pass that criterion (i.e.,
+elements for which the coderef returned true) would be
+checked for their &quot;_tag&quot; and &quot;alt&quot;
+attributes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+comparison of string attribute-values against the string
+value in <tt>&quot;(attr_name, attr_value)&quot;</tt> is
+case-INsensitive! A criterion of <tt>&quot;('align',
+'right')&quot;</tt> <i>will</i> match an element whose
+&quot;align&quot; value is &quot;
+<small>RIGHT&quot;,</small> or &quot;right&quot; or
+&quot;rIGhT&quot;, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note also that
+<tt>&quot;look_down&quot;</tt> considers &quot;&quot;
+(empty-string) and undef to be different things, in
+attribute values. So this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;look_down(&quot;alt&quot;, &quot;&quot;)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will find
+elements <i>with</i> an &quot;alt&quot; attribute, but where
+the value for the &quot;alt&quot; attribute is &quot;&quot;.
+But this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;look_down(&quot;alt&quot;, undef)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">is the same
+as:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;look_down(sub { !defined($_[0]&minus;&gt;attr('alt')) } )</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">That is, it
+finds elements that do not have an &quot;alt&quot; attribute
+at all (or that do have an &quot;alt&quot; attribute, but
+with a value of undef -- which is not normally
+possible).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that when
+you give several criteria, this is taken to mean
+you&rsquo;re looking for elements that match <i>all</i> your
+criterion, not just <i>any</i> of them. In other words,
+there is an implicit &quot;and&quot;, not an &quot;or&quot;.
+So if you wanted to express that you wanted to find elements
+with a &quot;name&quot; attribute with the value
+&quot;foo&quot; <i>or</i> with an &quot;id&quot; attribute
+with the value &quot;baz&quot;, you&rsquo;d have to do it
+like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  @them = $h&minus;&gt;look_down(
+    sub {
+      # the lcs are to fold case
+      lc($_[0]&minus;&gt;attr('name')) eq 'foo'
+      or lc($_[0]&minus;&gt;attr('id')) eq 'baz'
+    }
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Coderef
+criteria are more expressive than <tt>&quot;(attr_name,
+attr_value)&quot;</tt> and <tt>&quot;(attr_name,
+qr/.../)&quot;</tt> criteria, and all <tt>&quot;(attr_name,
+attr_value)&quot;</tt> and <tt>&quot;(attr_name,
+qr/.../)&quot;</tt> criteria could be expressed in terms of
+coderefs. However, <tt>&quot;(attr_name,
+attr_value)&quot;</tt> and <tt>&quot;(attr_name,
+qr/.../)&quot;</tt> criteria are a convenient shorthand. (In
+fact, <tt>&quot;look_down&quot;</tt> itself is basically
+&quot;shorthand&quot; too, since anything you can do with
+<tt>&quot;look_down&quot;</tt> you could do by traversing
+the tree, either with the <tt>&quot;traverse&quot;</tt>
+method or with a routine of your own. However,
+<tt>&quot;look_down&quot;</tt> often makes for very concise
+and clear code.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>look_up</b></p>
+
+
+<pre style="margin-left:11%;">  @elements = $h&minus;&gt;look_up( ...criteria... );
+  $first_match = $h&minus;&gt;look_up( ...criteria... );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is
+identical to <tt>&quot;$h&minus;&gt;look_down&quot;</tt>,
+except that whereas
+<tt>&quot;$h&minus;&gt;look_down&quot;</tt> basically scans
+over the list:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   ($h, $h&minus;&gt;descendants)</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;$h&minus;&gt;look_up&quot;
+instead scans over the list</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   ($h, $h&minus;&gt;lineage)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">So, for
+example, this returns all ancestors of <tt>$h</tt> (possibly
+including <tt>$h</tt> itself) that are
+<tt>&quot;&lt;td&gt;&quot;</tt> elements with an
+&quot;align&quot; attribute with a value of
+&quot;right&quot; (or &quot; <small>RIGHT&quot;,</small>
+etc.):</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   $h&minus;&gt;look_up(&quot;_tag&quot;, &quot;td&quot;, &quot;align&quot;, &quot;right&quot;);</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>traverse</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;traverse(...options...)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Lengthy
+discussion of HTML::Element&rsquo;s unnecessary and
+confusing <tt>&quot;traverse&quot;</tt> method has been
+moved to a separate file: HTML::Element::traverse</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>attr_get_i</b></p>
+
+
+<pre style="margin-left:11%;">  @values = $h&minus;&gt;attr_get_i('attribute');
+  $first_value = $h&minus;&gt;attr_get_i('attribute');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In list
+context, returns a list consisting of the values of the
+given attribute for <tt>$h</tt> and for all its ancestors
+starting from <tt>$h</tt> and working its way up. Nodes with
+no such attribute are skipped. (&quot;attr_get_i&quot;
+stands for &quot;attribute get, with inheritance&quot;.) In
+scalar context, returns the first such value, or undef if
+none.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Consider a
+document consisting of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   &lt;html lang='i&minus;klingon'&gt;
+     &lt;head&gt;&lt;title&gt;Pati Pata&lt;/title&gt;&lt;/head&gt;
+     &lt;body&gt;
+       &lt;h1 lang='la'&gt;Stuff&lt;/h1&gt;
+       &lt;p lang='es&minus;MX' align='center'&gt;
+         Foo bar baz &lt;cite&gt;Quux&lt;/cite&gt;.
+       &lt;/p&gt;
+       &lt;p&gt;Hooboy.&lt;/p&gt;
+     &lt;/body&gt;
+   &lt;/html&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If <tt>$h</tt>
+is the <tt>&quot;&lt;cite&gt;&quot;</tt> element,
+<tt>&quot;$h&minus;&gt;attr_get_i(&quot;lang&quot;)&quot;</tt>
+in list context will return the list
+<tt>&quot;('es&minus;MX', 'i&minus;klingon')&quot;</tt>. In
+scalar context, it will return the value
+<tt>'es&minus;MX'</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you call
+with multiple attribute names...</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  @values = $h&minus;&gt;attr_get_i('a1', 'a2', 'a3');
+  $first_value = $h&minus;&gt;attr_get_i('a1', 'a2', 'a3');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">...in list
+context, this will return a list consisting of the values of
+these attributes which exist in <tt>$h</tt> and its
+ancestors. In scalar context, this returns the first value
+(i.e., the value of the first existing attribute from the
+first element that has any of the attributes listed). So, in
+the above example,</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $h&minus;&gt;attr_get_i('lang', 'align');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will
+return:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   ('es&minus;MX', 'center', 'i&minus;klingon') # in list context
+  or
+   'es&minus;MX' # in scalar context.</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">But note that
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> $h&minus;&gt;attr_get_i('align', 'lang');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will
+return:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   ('center', 'es&minus;MX', 'i&minus;klingon') # in list context
+  or
+   'center' # in scalar context.</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>tagname_map</b></p>
+
+
+<pre style="margin-left:11%;">  $hash_ref = $h&minus;&gt;tagname_map();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Scans across
+<tt>$h</tt> and all its descendants, and makes a hash (a
+reference to which is returned) where each entry consists of
+a key that&rsquo;s a tag name, and a value that&rsquo;s a
+reference to a list to all elements that have that tag name.
+I.e., this method returns:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   {
+     # Across $h and all descendants...
+     'a'   =&gt; [ ...list of all &lt;a&gt;   elements... ],
+     'em'  =&gt; [ ...list of all &lt;em&gt;  elements... ],
+     'img' =&gt; [ ...list of all &lt;img&gt; elements... ],
+   }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">(There are
+entries in the hash for only those tagnames that occur
+at/under <tt>$h</tt> -- so if there&rsquo;s no
+<tt>&quot;&lt;img&gt;&quot;</tt> elements, there&rsquo;ll be
+no &quot;img&quot; entry in the returned hashref.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">Example
+usage:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $map_r = $h&minus;&gt;tagname_map();
+    my @heading_tags = sort grep m/^h\d$/s, keys %$map_r;
+    if(@heading_tags) {
+      print &quot;Heading levels used: @heading_tags\n&quot;;
+    } else {
+      print &quot;No headings.\n&quot;
+    }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>extract_links</b></p>
+
+
+<pre style="margin-left:11%;">  $links_array_ref = $h&minus;&gt;extract_links();
+  $links_array_ref = $h&minus;&gt;extract_links(@wantedTypes);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns links
+found by traversing the element and all of its children and
+looking for attributes (like &quot;href&quot; in an
+<tt>&quot;&lt;a&gt;&quot;</tt> element, or &quot;src&quot;
+in an <tt>&quot;&lt;img&gt;&quot;</tt> element) whose values
+represent links. The return value is a <i>reference</i> to
+an array. Each element of the array is reference to an array
+with <i>four</i> items: the link-value, the element that has
+the attribute with that link-value, and the name of that
+attribute, and the tagname of that element. (Example:
+<tt>&quot;['http://www.suck.com/',&quot;</tt>
+<i>$elem_obj</i> <tt>&quot;, 'href', 'a']&quot;</tt>.) You
+may or may not end up using the element itself -- for some
+purposes, you may use only the link value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You might
+specify that you want to extract links from just some kinds
+of elements (instead of the default, which is to extract
+links from <i>all</i> the kinds of elements known to have
+attributes whose values represent links). For instance, if
+you want to extract links from only
+<tt>&quot;&lt;a&gt;&quot;</tt> and
+<tt>&quot;&lt;img&gt;&quot;</tt> elements, you could code it
+like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  for (@{  $e&minus;&gt;extract_links('a', 'img')  }) {
+      my($link, $element, $attr, $tag) = @$_;
+      print
+        &quot;Hey, there's a $tag that links to &quot;,
+        $link, &quot;, in its $attr attribute, at &quot;,
+        $element&minus;&gt;address(), &quot;.\n&quot;;
+  }</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>simplify_pres</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;simplify_pres();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In text bits
+under <small>PRE</small> elements that are at/under
+<tt>$h</tt>, this routine nativizes all newlines, and
+expands all tabs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">That is, if you
+read a file with lines delimited by
+<tt>&quot;\cm\cj&quot;</tt>&rsquo;s, the text under
+<small>PRE</small> areas will have
+<tt>&quot;\cm\cj&quot;</tt>&rsquo;s instead of
+<tt>&quot;\n&quot;</tt>&rsquo;s. Calling
+<tt>&quot;$h&minus;&gt;simplify_pres&quot;</tt> on such a
+tree will turn <tt>&quot;\cm\cj&quot;</tt>&rsquo;s into
+<tt>&quot;\n&quot;</tt>&rsquo;s.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Tabs are
+expanded to however many spaces it takes to get to the next
+8th column -- the usual way of expanding them.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>same_as</b></p>
+
+
+<pre style="margin-left:11%;">  $equal = $h&minus;&gt;same_as($i)</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns true if
+<tt>$h</tt> and <tt>$i</tt> are both elements representing
+the same tree of elements, each with the same tag name, with
+the same explicit attributes (i.e., not counting attributes
+whose names start with &quot;_&quot;), and with the same
+content (textual, comments, etc.).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Sameness of
+descendant elements is tested, recursively, with
+<tt>&quot;$child1&minus;&gt;same_as($child_2)&quot;</tt>,
+and sameness of text segments is tested with
+<tt>&quot;$segment1 eq $segment2&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>new_from_lol</b></p>
+
+
+<pre style="margin-left:11%;">  $h = HTML::Element&minus;&gt;new_from_lol($array_ref);
+  @elements = HTML::Element&minus;&gt;new_from_lol($array_ref, ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Resursively
+constructs a tree of nodes, based on the (non-cyclic) data
+structure represented by each <tt>$array_ref</tt>, where
+that is a reference to an array of arrays (of arrays (of
+arrays (etc.))).</p>
+
+<p style="margin-left:11%; margin-top: 1em">In each
+arrayref in that structure, different kinds of values are
+treated as follows:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="14%">
+
+
+<p>Arrayrefs</p></td>
+<td width="69%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Arrayrefs are
+considered to designate a sub-tree representing children for
+the node constructed from the current arrayref.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="12%">
+
+
+<p style="margin-top: 1em">Hashrefs</p></td>
+<td width="71%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Hashrefs are
+considered to contain attribute-value pairs to add to the
+element to be constructed from the current arrayref</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="20%">
+
+
+<p style="margin-top: 1em">Text segments</p></td>
+<td width="63%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Text segments
+at the start of any arrayref will be considered to specify
+the name of the element to be constructed from the current
+arrayref; all other text segments will be considered to
+specify text segments as children for the current
+arrayref.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="12%">
+
+
+<p style="margin-top: 1em">Elements</p></td>
+<td width="71%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Existing
+element objects are either inserted into the treelet
+constructed, or clones of them are. That is, when the
+lol-tree is being traversed and elements constructed based
+what&rsquo;s in it, if an existing element object is found,
+if it has no parent, then it is added directly to the
+treelet constructed; but if it has a parent, then
+<tt>&quot;$that_node&minus;&gt;clone&quot;</tt> is added to
+the treelet at the appropriate place.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An example will
+hopefully make this more obvious:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $h = HTML::Element&minus;&gt;new_from_lol(
+    ['html',
+      ['head',
+        [ 'title', 'I like stuff!' ],
+      ],
+      ['body',
+        {'lang', 'en&minus;JP', _implicit =&gt; 1},
+        'stuff',
+        ['p', 'um, p &lt; 4!', {'class' =&gt; 'par123'}],
+        ['div', {foo =&gt; 'bar'}, '123'],
+      ]
+    ]
+  );
+  $h&minus;&gt;dump;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Will print
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;html&gt; @0
+    &lt;head&gt; @0.0
+      &lt;title&gt; @0.0.0
+        &quot;I like stuff!&quot;
+    &lt;body lang=&quot;en&minus;JP&quot;&gt; @0.1 (IMPLICIT)
+      &quot;stuff&quot;
+      &lt;p class=&quot;par123&quot;&gt; @0.1.1
+        &quot;um, p &lt; 4!&quot;
+      &lt;div foo=&quot;bar&quot;&gt; @0.1.2
+        &quot;123&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And printing
+<tt>$h</tt>&minus;&gt;as_HTML will give something like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &lt;html&gt;&lt;head&gt;&lt;title&gt;I like stuff!&lt;/title&gt;&lt;/head&gt;
+  &lt;body lang=&quot;en&minus;JP&quot;&gt;stuff&lt;p class=&quot;par123&quot;&gt;um, p &amp;lt; 4!
+  &lt;div foo=&quot;bar&quot;&gt;123&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can even do
+fancy things with <tt>&quot;map&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $body&minus;&gt;push_content(
+    # push_content implicitly calls new_from_lol on arrayrefs...
+    ['br'],
+    ['blockquote',
+      ['h2', 'Pictures!'],
+      map ['p', $_],
+      $body2&minus;&gt;look_down(&quot;_tag&quot;, &quot;img&quot;),
+        # images, to be copied from that other tree.
+    ],
+    # and more stuff:
+    ['ul',
+      map ['li', ['a', {'href'=&gt;&quot;$_.png&quot;}, $_ ] ],
+      qw(Peaches Apples Pears Mangos)
+    ],
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In scalar
+context, you must supply exactly one arrayref. In list
+context, you can pass a list of arrayrefs, and new_from_lol
+will return a list of elements, one for each arrayref.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  @elements = HTML::Element&minus;&gt;new_from_lol(
+    ['hr'],
+    ['p', 'And there, on the door, was a hook!'],
+  );
+   # constructs two elements.</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>objectify_text</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;objectify_text();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This turns any
+text nodes under <tt>$h</tt> from mere text segments
+(strings) into real objects, pseudo-elements with a tag-name
+of &quot;~text&quot;, and the actual text content in an
+attribute called &quot;text&quot;. (For a discussion of
+pseudo-elements, see the &quot;tag&quot; method, far above.)
+This method is provided because, for some purposes, it is
+convenient or necessary to be able, for a given text node,
+to ask what element is its parent; and clearly this is not
+possible if a node is just a text string.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that these
+&quot;~text&quot; objects are not recognized as text nodes
+by methods like &quot;as_text&quot;. Presumably you will
+want to call
+<tt>&quot;$h&minus;&gt;objectify_text&quot;</tt>, perform
+whatever task that you needed that for, and then call
+<tt>&quot;$h&minus;&gt;deobjectify_text&quot;</tt> before
+calling anything like
+<tt>&quot;$h&minus;&gt;as_text&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>deobjectify_text</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;deobjectify_text();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This undoes the
+effect of <tt>&quot;$h&minus;&gt;objectify_text&quot;</tt>.
+That is, it takes any &quot;~text&quot; pseudo-elements in
+the tree at/under <tt>$h</tt>, and deletes each one,
+replacing each with the content of its &quot;text&quot;
+attribute.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that if
+<tt>$h</tt> itself is a &quot;~text&quot; pseudo-element, it
+will be destroyed -- a condition you may need to treat
+specially in your calling code (since it means you
+can&rsquo;t very well do anything with <tt>$h</tt> after
+that). So that you can detect that condition, if <tt>$h</tt>
+is itself a &quot;~text&quot; pseudo-element, then this
+method returns the value of the &quot;text&quot; attribute,
+which should be a defined value; in all other cases, it
+returns undef.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(This method
+assumes that no &quot;~text&quot; pseudo-element has any
+children.)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>number_lists</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;number_lists();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">For every
+<small>UL, OL, DIR,</small> and <small>MENU</small> element
+at/under <tt>$h</tt>, this sets a &quot;_bullet&quot;
+attribute for every child <small>LI</small> element. For
+<small>LI</small> children of an <small>OL,</small> the
+&quot;_bullet&quot; attribute&rsquo;s value will be
+something like &quot;4.&quot;, &quot;d.&quot;,
+&quot;D.&quot;, &quot; <small>IV.&quot;,</small> or
+&quot;iv.&quot;, depending on the <small>OL</small>
+element&rsquo;s &quot;type&quot; attribute.
+<small>LI</small> children of a <small>UL, DIR,</small> or
+<small>MENU</small> get their &quot;_bullet&quot; attribute
+set to &quot;*&quot;. There should be no other LIs (i.e.,
+except as children of <small>OL, UL, DIR,</small> or
+<small>MENU</small> elements), and if there are, they are
+unaffected.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>has_insane_linkage</b></p>
+
+
+<pre style="margin-left:11%;">  $h&minus;&gt;has_insane_linkage</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method is
+for testing whether this element or the elements under it
+have linkage attributes (_parent and _content) whose values
+are deeply aberrant: if there are undefs in a content list;
+if an element appears in the content lists of more than one
+element; if the _parent attribute of an element
+doesn&rsquo;t match its actual parent; or if an element
+appears as its own descendant (i.e., if there is a cyclicity
+in the tree).</p>
+
+<p style="margin-left:11%; margin-top: 1em">This returns
+empty list (or false, in scalar context) if the
+subtree&rsquo;s linkage methods are sane; otherwise it
+returns two items (or true, in scalar context): the element
+where the error occurred, and a string describing the
+error.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This method is
+provided is mainly for debugging and troubleshooting -- it
+should be <i>quite impossible</i> for any document
+constructed via HTML::TreeBuilder to parse into a non-sane
+tree (since it&rsquo;s not the content of the tree per se
+that&rsquo;s in question, but whether the tree in memory was
+properly constructed); and it <i>should</i> be impossible
+for you to produce an insane tree just thru reasonable use
+of normal documented structure-modifying methods. But if
+you&rsquo;re constructing your own trees, and your program
+is going into infinite loops as during calls to
+<i>traverse()</i> or any of the secondary structural
+methods, as part of debugging, consider calling
+<tt>&quot;has_insane_linkage&quot;</tt> on the tree.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>element_class</b></p>
+
+
+<pre style="margin-left:11%;">  $classname = $h&minus;&gt;element_class();</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+returns the class which will be used for new elements. It
+defaults to HTML::Element, but can be overridden by
+subclassing or esoteric means best left to those will will
+read the source and then not complain when those esoteric
+means change. (Just subclass.)</p>
+
+<h2>CLASS METHODS
+<a name="CLASS METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Use_Weak_Refs</b></p>
+
+
+<pre style="margin-left:11%;">  $enabled = HTML::Element&minus;&gt;Use_Weak_Refs;
+  HTML::Element&minus;&gt;Use_Weak_Refs( $enabled );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This method
+allows you to check whether weak reference support is
+enabled, and to enable or disable it. For details, see
+&quot;Weak References&quot;. <tt>$enabled</tt> is true if
+weak references are enabled.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You should not
+switch this in the middle of your program, and you probably
+shouldn&rsquo;t use it at all. Existing trees are not
+affected by this method (until you start modifying nodes in
+them).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Throws an
+exception if you attempt to enable weak references and your
+Perl or Scalar::Util does not support them.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Disabling weak
+reference support is deprecated.</p>
+
+<h2>SUBROUTINES
+<a name="SUBROUTINES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Version</b>
+<br>
+This subroutine is deprecated. Please use the standard
+<small>VERSION</small> method (e.g.
+<tt>&quot;HTML::Element&minus;&gt;VERSION&quot;</tt>)
+instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>ABORT
+OK PRUNE PRUNE_SOFTLY PRUNE_UP</small></b> <br>
+Constants for signalling back to the traverser</p>
+
+<h2>BUGS
+<a name="BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">* If you want
+to free the memory associated with a tree built of
+HTML::Element nodes, and you have disabled weak references,
+then you will have to delete it explicitly using the
+&quot;delete&quot; method. See &quot;Weak
+References&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* There&rsquo;s
+almost nothing to stop you from making a &quot;tree&quot;
+with cyclicities (loops) in it, which could, for example,
+make the traverse method go into an infinite loop. So
+don&rsquo;t make cyclicities! (If all you&rsquo;re doing is
+parsing <small>HTML</small> files, and looking at the
+resulting trees, this will never be a problem for you.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">* There&rsquo;s
+no way to represent comments or processing directives in a
+tree with HTML::Elements. Not yet, at least.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* There&rsquo;s
+(currently) nothing to stop you from using an undefined
+value as a text segment. If you&rsquo;re running under
+<tt>&quot;perl &minus;w&quot;</tt>, however, this may make
+HTML::Element&rsquo;s code produce a slew of warnings.</p>
+
+<h2>NOTES ON SUBCLASSING
+<a name="NOTES ON SUBCLASSING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You are welcome
+to derive subclasses from HTML::Element, but you should be
+aware that the code in HTML::Element makes certain
+assumptions about elements (and I&rsquo;m using
+&quot;element&quot; to mean <small>ONLY</small> an object of
+class HTML::Element, or of a subclass of HTML::Element):</p>
+
+<p style="margin-left:11%; margin-top: 1em">* The value of
+an element&rsquo;s _parent attribute must either be undef or
+otherwise false, or must be an element.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* The value of
+an element&rsquo;s _content attribute must either be undef
+or otherwise false, or a reference to an (unblessed) array.
+The array may be empty; but if it has items, they must
+<small>ALL</small> be either mere strings (text segments),
+or elements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* The value of
+an element&rsquo;s _tag attribute should, at least, be a
+string of printable characters.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Moreover, bear
+these rules in mind:</p>
+
+<p style="margin-left:11%; margin-top: 1em">* Do not break
+encapsulation on objects. That is, access their contents
+only thru <tt>$obj</tt>&minus;&gt;attr or more specific
+methods.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* You should
+think twice before completely overriding any of the methods
+that HTML::Element provides. (Overriding with a method that
+calls the superclass method is not so bad, though.)</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">HTML::Tree;
+HTML::TreeBuilder; HTML::AsSubs; HTML::Tagset; and, for the
+morbidly curious, HTML::Element::traverse.</p>
+
+<h2>ACKNOWLEDGEMENTS
+<a name="ACKNOWLEDGEMENTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Thanks to
+Mark-Jason Dominus for a <small>POD</small> suggestion.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Current
+maintainers:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="68%">
+
+
+<p style="margin-top: 1em">Christopher J. Madsen
+<tt>&quot;&lt;perl&nbsp;AT&nbsp;cjmweb.net&gt;&quot;</tt></p> </td>
+<td width="15%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="68%">
+
+
+<p>Jeff Fearn
+<tt>&quot;&lt;jfearn&nbsp;AT&nbsp;cpan.org&gt;&quot;</tt></p> </td>
+<td width="15%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Original
+HTML-Tree author:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="14%">
+
+
+<p style="margin-top: 1em">Gisle Aas</p></td>
+<td width="69%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Former
+maintainers:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p style="margin-top: 1em">Sean M. Burke</p></td>
+<td width="29%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p>Andy Lester</p></td>
+<td width="29%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p>Pete Krawczyk
+<tt>&quot;&lt;petek&nbsp;AT&nbsp;cpan.org&gt;&quot;</tt></p> </td>
+<td width="29%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">You can follow
+or contribute to HTML-Tree&rsquo;s development at
+&lt;http://github.com/madsen/HTML&minus;Tree&gt;.</p>
+
+<h2>COPYRIGHT AND LICENSE
+<a name="COPYRIGHT AND LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright
+1995&minus;1998 Gisle Aas, 1999&minus;2004 Sean M. Burke,
+2005 Andy Lester, 2006 Pete Krawczyk, 2010 Jeff Fearn, 2012
+Christopher J. Madsen.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The programs in
+this library are distributed in the hope that they will be
+useful, but without any warranty; without even the implied
+warranty of merchantability or fitness for a particular
+purpose.</p>
+<hr>
+</body>
+</html>

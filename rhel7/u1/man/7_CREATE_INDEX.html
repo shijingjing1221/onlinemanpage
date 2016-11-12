@@ -1,0 +1,593 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 00:30:27 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CREATE INDEX</title>
+
+</head>
+<body>
+
+<h1 align="center">CREATE INDEX</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CREATE_INDEX
+&minus; define a new index</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CREATE [ UNIQUE
+] INDEX [ CONCURRENTLY ] [ <i>name</i> ] ON
+<i>table_name</i> [ USING <i>method</i> ] <br>
+( { <i>column_name</i> | ( <i>expression</i> ) } [ COLLATE
+<i>collation</i> ] [ <i>opclass</i> ] [ ASC | DESC ] [ NULLS
+{ FIRST | LAST } ] [, ...] ) <br>
+[ WITH ( <i>storage_parameter</i> = <i>value</i> [, ... ] )
+] <br>
+[ TABLESPACE <i>tablespace_name</i> ] <br>
+[ WHERE <i>predicate</i> ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>CREATE
+INDEX</b> constructs an index on the specified column(s) of
+the specified table. Indexes are primarily used to enhance
+database performance (though inappropriate use can result in
+slower performance).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The key
+field(s) for the index are specified as column names, or
+alternatively as expressions written in parentheses.
+Multiple fields can be specified if the index method
+supports multicolumn indexes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An index field
+can be an expression computed from the values of one or more
+columns of the table row. This feature can be used to obtain
+fast access to data based on some transformation of the
+basic data. For example, an index computed on upper(col)
+would allow the clause WHERE upper(col) = 'JIM' to use an
+index.</p>
+
+<p style="margin-left:11%; margin-top: 1em">PostgreSQL
+provides the index methods B&minus;tree, hash, GiST,
+SP&minus;GiST, and GIN. Users can also define their own
+index methods, but that is fairly complicated.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When the WHERE
+clause is present, a partial index is created. A partial
+index is an index that contains entries for only a portion
+of a table, usually a portion that is more useful for
+indexing than the rest of the table. For example, if you
+have a table that contains both billed and unbilled orders
+where the unbilled orders take up a small fraction of the
+total table and yet that is an often used section, you can
+improve performance by creating an index on just that
+portion. Another possible application is to use WHERE with
+UNIQUE to enforce uniqueness over a subset of a table. See
+Section 11.8, &ldquo;Partial Indexes&rdquo;, in the
+documentation for more discussion.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The expression
+used in the WHERE clause can refer only to columns of the
+underlying table, but it can use all columns, not just the
+ones being indexed. Presently, subqueries and aggregate
+expressions are also forbidden in WHERE. The same
+restrictions apply to index fields that are expressions.</p>
+
+<p style="margin-left:11%; margin-top: 1em">All functions
+and operators used in an index definition must be
+&ldquo;immutable&rdquo;, that is, their results must depend
+only on their arguments and never on any outside influence
+(such as the contents of another table or the current time).
+This restriction ensures that the behavior of the index is
+well&minus;defined. To use a user&minus;defined function in
+an index expression or WHERE clause, remember to mark the
+function immutable when you create it.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">UNIQUE</p>
+
+<p style="margin-left:17%;">Causes the system to check for
+duplicate values in the table when the index is created (if
+data already exist) and each time data is added. Attempts to
+insert or update data which would result in duplicate
+entries will generate an error.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">CONCURRENTLY</p>
+
+<p style="margin-left:17%;">When this option is used,
+PostgreSQL will build the index without taking any locks
+that prevent concurrent inserts, updates, or deletes on the
+table; whereas a standard index build locks out writes (but
+not reads) on the table until it's done. There are several
+caveats to be aware of when using this option &mdash; see
+Building Indexes Concurrently.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>name</i></p>
+
+<p style="margin-left:17%;">The name of the index to be
+created. No schema name can be included here; the index is
+always created in the same schema as its parent table. If
+the name is omitted, PostgreSQL chooses a suitable name
+based on the parent table's name and the indexed column
+name(s).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>table_name</i></p>
+
+<p style="margin-left:17%;">The name (possibly
+schema&minus;qualified) of the table to be indexed.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>method</i></p>
+
+<p style="margin-left:17%;">The name of the index method to
+be used. Choices are btree, hash, gist, spgist and gin. The
+default method is btree.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>column_name</i></p>
+
+<p style="margin-left:17%;">The name of a column of the
+table.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>expression</i></p>
+
+<p style="margin-left:17%;">An expression based on one or
+more columns of the table. The expression usually must be
+written with surrounding parentheses, as shown in the
+syntax. However, the parentheses can be omitted if the
+expression has the form of a function call.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>collation</i></p>
+
+<p style="margin-left:17%;">The name of the collation to
+use for the index. By default, the index uses the collation
+declared for the column to be indexed or the result
+collation of the expression to be indexed. Indexes with
+non&minus;default collations can be useful for queries that
+involve expressions using non&minus;default collations.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>opclass</i></p>
+
+<p style="margin-left:17%;">The name of an operator class.
+See below for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">ASC</p>
+
+<p style="margin-left:17%;">Specifies ascending sort order
+(which is the default).</p>
+
+<p style="margin-left:11%; margin-top: 1em">DESC</p>
+
+<p style="margin-left:17%;">Specifies descending sort
+order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">NULLS FIRST</p>
+
+<p style="margin-left:17%;">Specifies that nulls sort
+before non&minus;nulls. This is the default when DESC is
+specified.</p>
+
+<p style="margin-left:11%; margin-top: 1em">NULLS LAST</p>
+
+<p style="margin-left:17%;">Specifies that nulls sort after
+non&minus;nulls. This is the default when DESC is not
+specified.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>storage_parameter</i></p>
+
+<p style="margin-left:17%;">The name of an
+index&minus;method&minus;specific storage parameter. See
+Index Storage Parameters for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>tablespace_name</i></p>
+
+<p style="margin-left:17%;">The tablespace in which to
+create the index. If not specified, default_tablespace is
+consulted, or temp_tablespaces for indexes on temporary
+tables.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>predicate</i></p>
+
+<p style="margin-left:17%;">The constraint expression for a
+partial index.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Index
+Storage Parameters</b> <br>
+The optional WITH clause specifies storage parameters for
+the index. Each index method has its own set of allowed
+storage parameters. The B&minus;tree, hash, GiST and
+SP&minus;GiST index methods all accept this parameter:</p>
+
+<p style="margin-left:11%; margin-top: 1em">FILLFACTOR</p>
+
+<p style="margin-left:17%;">The fillfactor for an index is
+a percentage that determines how full the index method will
+try to pack index pages. For B&minus;trees, leaf pages are
+filled to this percentage during initial index build, and
+also when extending the index at the right (adding new
+largest key values). If pages subsequently become completely
+full, they will be split, leading to gradual degradation in
+the index's efficiency. B&minus;trees use a default
+fillfactor of 90, but any integer value from 10 to 100 can
+be selected. If the table is static then fillfactor 100 is
+best to minimize the index's physical size, but for heavily
+updated tables a smaller fillfactor is better to minimize
+the need for page splits. The other index methods use
+fillfactor in different but roughly analogous ways; the
+default fillfactor varies between methods.</p>
+
+<p style="margin-left:11%; margin-top: 1em">GiST indexes
+additionally accept this parameter:</p>
+
+<p style="margin-left:11%; margin-top: 1em">BUFFERING</p>
+
+<p style="margin-left:17%;">Determines whether the
+buffering build technique described in Section 53.3.1,
+&ldquo;GiST buffering build&rdquo;, in the documentation is
+used to build the index. With OFF it is disabled, with ON it
+is enabled, and with AUTO it is initially disabled, but
+turned on on&minus;the&minus;fly once the index size reaches
+effective_cache_size. The default is AUTO.</p>
+
+<p style="margin-left:11%; margin-top: 1em">GIN indexes
+accept a different parameter:</p>
+
+<p style="margin-left:11%; margin-top: 1em">FASTUPDATE</p>
+
+<p style="margin-left:17%;">This setting controls usage of
+the fast update technique described in Section 55.3.1,
+&ldquo;GIN Fast Update Technique&rdquo;, in the
+documentation. It is a Boolean parameter: ON enables fast
+update, OFF disables it. (Alternative spellings of ON and
+OFF are allowed as described in Section 18.1, &ldquo;Setting
+Parameters&rdquo;, in the documentation.) The default is
+ON.</p>
+
+
+<p style="margin-left:23%; margin-top: 1em"><b><big>Note</big></b>
+<br>
+Turning FASTUPDATE off via <b>ALTER INDEX</b> prevents
+future insertions from going into the list of pending index
+entries, but does not in itself flush previous entries. You
+might want to <b>VACUUM</b> the table afterward to ensure
+the pending list is emptied.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><big>Building
+Indexes Concurrently</big></b> <big><br>
+Creating an index can interfere with regular operation of a
+database. Normally PostgreSQL locks the table to be indexed
+against writes and performs the entire index build with a
+single scan of the table. Other transactions can still read
+the table, but if they try to insert, update, or delete rows
+in the table they will block until the index build is
+finished. This could have a severe effect if the system is a
+live production database. Very large tables can take many
+hours to be indexed, and even for smaller tables, an index
+build can lock out writers for periods that are unacceptably
+long for a production system.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>PostgreSQL
+supports building indexes without locking out writes. This
+method is invoked by specifying the CONCURRENTLY option of
+<b>CREATE INDEX</b>. When this option is used, PostgreSQL
+must perform two scans of the table, and in addition it must
+wait for all existing transactions that could potentially
+use the index to terminate. Thus this method requires more
+total work than a standard index build and takes
+significantly longer to complete. However, since it allows
+normal operations to continue while the index is built, this
+method is useful for adding new indexes in a production
+environment. Of course, the extra CPU and I/O load imposed
+by the index creation might slow other operations.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>In a
+concurrent index build, the index is actually entered into
+the system catalogs in one transaction, then two table scans
+occur in two more transactions. Any transaction active when
+the second table scan starts can block concurrent index
+creation until it completes, even transactions that only
+reference the table after the second table scan starts.
+Concurrent index creation serially waits for each old
+transaction to complete using the method outlined in section
+Section 45.58, &ldquo;pg_locks&rdquo;, in the
+documentation.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>If a
+problem arises while scanning the table, such as a
+uniqueness violation in a unique index, the <b>CREATE
+INDEX</b> command will fail but leave behind an
+&ldquo;invalid&rdquo; index. This index will be ignored for
+querying purposes because it might be incomplete; however it
+will still consume update overhead. The psql <b>\d</b>
+command will report such an index as INVALID:</big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big>postgres=#
+\d tab <br>
+Table &quot;public.tab&quot; <br>
+Column | Type | Modifiers <br>
+
+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;+&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+<br>
+col | integer | <br>
+Indexes: <br>
+&quot;idx&quot; btree (col) INVALID</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>The
+recommended recovery method in such cases is to drop the
+index and try again to perform <b>CREATE INDEX
+CONCURRENTLY</b>. (Another possibility is to rebuild the
+index with <b>REINDEX</b>. However, since <b>REINDEX</b>
+does not support concurrent builds, this option is unlikely
+to seem attractive.)</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>Another
+caveat when building a unique index concurrently is that the
+uniqueness constraint is already being enforced against
+other transactions when the second table scan begins. This
+means that constraint violations could be reported in other
+queries prior to the index becoming available for use, or
+even in cases where the index build eventually fails. Also,
+if a failure does occur in the second scan, the
+&ldquo;invalid&rdquo; index continues to enforce its
+uniqueness constraint afterwards.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>Concurrent
+builds of expression indexes and partial indexes are
+supported. Errors occurring in the evaluation of these
+expressions could cause behavior similar to that described
+above for unique constraint violations.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>Regular
+index builds permit other regular index builds on the same
+table to occur in parallel, but only one concurrent index
+build can occur on a table at a time. In both cases, no
+other types of schema modification on the table are allowed
+meanwhile. Another difference is that a regular <b>CREATE
+INDEX</b> command can be performed within a transaction
+block, but <b>CREATE INDEX CONCURRENTLY</b>
+cannot.</big></p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>See
+Chapter 11, Indexes, in the documentation for information
+about when indexes can be used, when they are not used, and
+in which particular situations they can be useful.</big></p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><big><b><big>Caution</big></b>
+<br>
+Hash index operations are not presently WAL&minus;logged, so
+hash indexes might need to be rebuilt with <b>REINDEX</b>
+after a database crash if there were unwritten changes.
+Also, changes to hash indexes are not replicated over
+streaming or file&minus;based replication after the initial
+base backup, so they give wrong answers to queries that
+subsequently use them. For these reasons, hash index use is
+presently discouraged.</big></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>Currently,
+only the B&minus;tree, GiST and GIN index methods support
+multicolumn indexes. Up to 32 fields can be specified by
+default. (This limit can be altered when building
+PostgreSQL.) Only B&minus;tree currently supports unique
+indexes.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>An
+operator class can be specified for each column of an index.
+The operator class identifies the operators to be used by
+the index for that column. For example, a B&minus;tree index
+on four&minus;byte integers would use the int4_ops class;
+this operator class includes comparison functions for
+four&minus;byte integers. In practice the default operator
+class for the column's data type is usually sufficient. The
+main point of having operator classes is that for some data
+types, there could be more than one meaningful ordering. For
+example, we might want to sort a complex&minus;number data
+type either by absolute value or by real part. We could do
+this by defining two operator classes for the data type and
+then selecting the proper class when making an index. More
+information about operator classes is in Section 11.9,
+&ldquo;Operator Classes and Operator Families&rdquo;, in the
+documentation and in Section 35.14, &ldquo;Interfacing
+Extensions To Indexes&rdquo;, in the
+documentation.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>For index
+methods that support ordered scans (currently, only
+B&minus;tree), the optional clauses ASC, DESC, NULLS FIRST,
+and/or NULLS LAST can be specified to modify the sort
+ordering of the index. Since an ordered index can be scanned
+either forward or backward, it is not normally useful to
+create a single&minus;column DESC index &mdash; that sort
+ordering is already available with a regular index. The
+value of these options is that multicolumn indexes can be
+created that match the sort ordering requested by a
+mixed&minus;ordering query, such as SELECT ... ORDER BY x
+ASC, y DESC. The NULLS options are useful if you need to
+support &ldquo;nulls sort low&rdquo; behavior, rather than
+the default &ldquo;nulls sort high&rdquo;, in queries that
+depend on indexes to avoid sorting steps.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>For most
+index methods, the speed of creating an index is dependent
+on the setting of maintenance_work_mem. Larger values will
+reduce the time needed for index creation, so long as you
+don't make it larger than the amount of memory really
+available, which would drive the machine into swapping. For
+hash indexes, the value of effective_cache_size is also
+relevant to index creation time: PostgreSQL will use one of
+two different hash index creation methods depending on
+whether the estimated index size is more or less than
+<i>effective_cache_size</i>. For best results, make sure
+that this parameter is also set to something reflective of
+available memory, and be careful that the sum of
+<i>maintenance_work_mem</i> and <i>effective_cache_size</i>
+is less than the machine's RAM less whatever space is needed
+by other programs.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>Use DROP
+INDEX (<b>DROP_INDEX</b>(7)) to remove an index.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>Prior
+releases of PostgreSQL also had an R&minus;tree index
+method. This method has been removed because it had no
+significant advantages over the GiST method. If USING rtree
+is specified, <b>CREATE INDEX</b> will interpret it as USING
+gist, to simplify conversion of old databases to
+GiST.</big></p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+a B&minus;tree index on the column title in the table
+films:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+UNIQUE INDEX title_idx ON films (title);</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index on the expression lower(title), allowing efficient
+case&minus;insensitive searches:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX ON films ((lower(title)));</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>(In this
+example we have chosen to omit the index name, so the system
+will choose a name, typically films_lower_idx.)</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index with non&minus;default collation:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX title_idx_german ON films (title COLLATE
+&quot;de_DE&quot;);</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index with non&minus;default sort ordering of
+nulls:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX title_idx_nulls_low ON films (title NULLS
+FIRST);</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index with non&minus;default fill factor:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+UNIQUE INDEX title_idx ON films (title) WITH (fillfactor =
+70);</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+a GIN index with fast updates disabled:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX gin_idx ON documents_table USING gin (locations) WITH
+(fastupdate = off);</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index on the column code in the table films and have the
+index reside in the tablespace indexspace:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX code_idx ON films (code) TABLESPACE
+indexspace;</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+a GiST index on a point attribute so that we can efficiently
+use box operators on the result of the conversion
+function:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX pointloc <br>
+ON points USING gist (box(location,location)); <br>
+SELECT * FROM points <br>
+WHERE box(location,location) &amp;&amp;
+'(0,0),(1,1)'::box;</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>To create
+an index without locking out writes to the table:</big></p>
+
+<p style="margin-left:17%; margin-top: 1em"><big>CREATE
+INDEX CONCURRENTLY sales_quantity_index ON sales_table
+(quantity);</big></p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big><b>CREATE
+INDEX</b> is a PostgreSQL language extension. There are no
+provisions for indexes in the SQL standard.</big></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>ALTER
+INDEX (<b>ALTER_INDEX</b>(7)), DROP INDEX
+(<b>DROP_INDEX</b>(7))</big></p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,706 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:48:16 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>XCURSOR</title>
+
+</head>
+<body>
+
+<h1 align="center">XCURSOR</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#FUNCTIONAL OVERVIEW">FUNCTIONAL OVERVIEW</a><br>
+<a href="#DATATYPES">DATATYPES</a><br>
+<a href="#FUNCTIONS">FUNCTIONS</a><br>
+<a href="#ENVIRONMENT VARIABLES">ENVIRONMENT VARIABLES</a><br>
+<a href="#RESTRICTIONS">RESTRICTIONS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">XCURSOR &minus;
+Cursor management library</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;X11/Xcursor/Xcursor.h&gt;</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Xcursor</b>
+is a simple library designed to help locate and load
+cursors. Cursors can be loaded from files or memory. A
+library of common cursors exists which map to the standard X
+cursor names. Cursors can exist in several sizes and the
+library automatically picks the best size.</p>
+
+<h2>FUNCTIONAL OVERVIEW
+<a name="FUNCTIONAL OVERVIEW"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Xcursor is
+built in a couple of layers; at the bottom layer is code
+which can load cursor images from files. Above that is a
+layer which locates cursor files based on the library path
+and theme. At the top is a layer which builds cursors either
+out of an image loaded from a file or one of the standard X
+cursors. When using images loaded from files, Xcursor
+prefers to use the Render extension CreateCursor request if
+supported by the X server. Where not supported, Xcursor maps
+the cursor image to a standard X cursor and uses the core
+CreateCursor request.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>CURSOR
+FILES</b> <br>
+Xcursor defines a new format for cursors on disk. Each file
+holds one or more cursor images. Each cursor image is tagged
+with a nominal size so that the best size can be selected
+automatically. Multiple cursors of the same nominal size can
+be loaded together; applications are expected to use them as
+an animated sequence.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Cursor files
+are stored as a header containing a table of contents
+followed by a sequence of chunks. The table of contents
+indicates the type, subtype and position in the file of each
+chunk. The file header looks like:</p>
+
+<p style="margin-left:14%; margin-top: 1em"><i>magic</i>:
+CARD32 &rsquo;Xcur&rsquo; (0x58, 0x63, 0x75, 0x72) <i><br>
+header</i>: CARD32 bytes in this header <i><br>
+version</i>: CARD32 file version number <i><br>
+ntoc</i>: CARD32 number of toc entries <i><br>
+toc</i>: LISTofTOC table of contents</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each table of
+contents entry looks like:</p>
+
+<p style="margin-left:14%; margin-top: 1em"><i>type</i>:
+CARD32 entry type <i><br>
+subtype</i>: CARD32 type-specific label - size for images
+<i><br>
+position</i>: CARD32 absolute byte position of table in
+file</p>
+
+<p style="margin-left:11%; margin-top: 1em">Each chunk in
+the file has set of common header fields followed by
+additional type-specific fields:</p>
+
+<p style="margin-left:14%; margin-top: 1em"><i>header</i>:
+CARD32 bytes in chunk header (including type-specific
+fields) <i><br>
+type</i>: CARD32 must match type in TOC for this chunk
+<i><br>
+subtype</i>: CARD32 must match subtype in TOC for this chunk
+<i><br>
+version</i>: CARD32 version number for this chunk type</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are
+currently two chunk types defined for cursor files; comments
+and images. Comments look like:</p>
+
+<p style="margin-left:14%; margin-top: 1em"><i>header</i>:
+20 Comment headers are 20 bytes <i><br>
+type</i>: 0xfffe0001 Comment type is 0xfffe0001 <i><br>
+subtype</i>: { 1 (COPYRIGHT), 2 (LICENSE), 3 (OTHER) }
+<i><br>
+version</i>: 1 <i><br>
+length</i>: CARD32 byte length of UTF-8 string <i><br>
+string</i>: LISTofCARD8 UTF-8 string</p>
+
+<p style="margin-left:11%; margin-top: 1em">Images look
+like:</p>
+
+<p style="margin-left:14%; margin-top: 1em"><i>header</i>:
+36 Image headers are 36 bytes <i><br>
+type</i>: 0xfffd0002 Image type is 0xfffd0002 <i><br>
+subtype</i>: CARD32 Image subtype is the nominal size
+<i><br>
+version</i>: 1 <i><br>
+width</i>: CARD32 Must be less than or equal to 0x7fff
+<i><br>
+height</i>: CARD32 Must be less than or equal to 0x7fff
+<i><br>
+xhot</i>: CARD32 Must be less than or equal to width <i><br>
+yhot</i>: CARD32 Must be less than or equal to height
+<i><br>
+delay</i>: CARD32 Delay between animation frames in
+milliseconds <i><br>
+pixels</i>: LISTofCARD32 Packed ARGB format pixels</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>THEMES</b>
+<br>
+Xcursor (mostly) follows the freedesktop.org spec for
+theming icons. The default search path it uses is ~/.icons,
+/usr/share/icons, /usr/share/pixmaps. Within each of these
+directories, it searches for a directory using the theme
+name. Within the theme directory, it looks for cursor files
+in the &rsquo;cursors&rsquo; subdirectory. It uses the first
+cursor file found along the path.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If necessary,
+Xcursor also looks for a &quot;index.theme&quot; file in
+each theme directory to find inherited themes and searches
+along the path for those themes as well.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If no theme is
+set, or if no cursor is found for the specified theme,
+Xcursor checks the &quot;default&quot; theme.</p>
+
+<h2>DATATYPES
+<a name="DATATYPES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>XcursorImage</b></p>
+
+<p style="margin-left:22%;">holds a single cursor image in
+memory. Each pixel in the cursor is a 32-bit value
+containing ARGB with A in the high byte.</p>
+
+<p style="margin-left:22%; margin-top: 1em">typedef struct
+_XcursorImage {</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+<p>XcursorDim</p><td width="34%"></td>
+<td width="-26%"></td>
+<td width="23%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%">
+
+
+<p>size;</p></td>
+<td width="46%">
+
+
+<p>/&lowast; nominal size for matching */ <br>
+XcursorDim</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="23%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%">
+
+
+<p>width;</p></td>
+<td width="46%">
+
+
+<p>/&lowast; actual width */ <br>
+XcursorDim</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="23%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%">
+
+
+<p>height;</p></td>
+<td width="46%">
+
+
+<p>/&lowast; actual height */ <br>
+XcursorDim</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="23%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%">
+
+
+<p>xhot;</p></td>
+<td width="46%">
+
+
+<p>/&lowast; hot spot x (must be inside image) */ <br>
+XcursorDim</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="23%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%">
+
+
+<p>yhot; /&lowast; hot spot y (must be inside image) */</p></td>
+<td width="46%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;">XcursorPixel *pixels; /&lowast;
+pointer to pixels */ <br>
+} XcursorImage;</p>
+
+<p style="margin-left:11%;"><b>XcursorImages</b></p>
+
+<p style="margin-left:22%;">holds multiple XcursorImage
+structures. They&rsquo;re all freed when the XcursorImages
+is freed.</p>
+
+<p style="margin-left:22%; margin-top: 1em">typedef struct
+_XcursorImages {</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+<p>int nimage;</p><td width="34%"></td>
+<td width="-26%"></td>
+<td width="46%"></td>
+<td width="8%"></td>
+<td width="38%">
+
+
+<p>/&lowast; number of images */</p></td></tr>
+</table>
+
+<p style="margin-left:22%;">XcursorImage **images;
+/&lowast; array of XcursorImage pointers */ <br>
+} XcursorImages;</p>
+
+<p style="margin-left:11%;"><b>XcursorCursors</b></p>
+
+<p style="margin-left:22%;">Holds multiple Cursor objects.
+They&rsquo;re all freed when the XcursorCursors is freed.
+These are reference counted so that multiple XcursorAnimate
+structures can use the same XcursorCursors.</p>
+
+<p style="margin-left:22%; margin-top: 1em">typedef struct
+_XcursorCursors {</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+<p>Display *dpy;</p><td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%"></td>
+<td width="8%"></td>
+<td width="46%">
+
+
+<p>/&lowast; Display holding cursors */ <br>
+int</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%">
+
+
+<p>ref;</p></td>
+<td width="8%"></td>
+<td width="46%">
+
+
+<p>/&lowast; reference count */ <br>
+int</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%">
+
+
+<p>ncursor;</p></td>
+<td width="8%"></td>
+<td width="46%">
+
+
+<p>/&lowast; number of cursors */ <br>
+Cursor</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="8%">
+
+
+<p>*cursors;</p></td>
+<td width="8%"></td>
+<td width="46%">
+
+
+<p>/&lowast; array of cursors */</p></td></tr>
+</table>
+
+<p style="margin-left:22%;">} XcursorCursors;</p>
+
+<p style="margin-left:11%;"><b>XcursorAnimate</b></p>
+
+<p style="margin-left:22%;">References a set of cursors and
+a sequence within that set. Multiple XcursorAnimate
+structures may reference the same XcursorCursors; each holds
+a reference which is removed when the XcursorAnimate is
+freed.</p>
+
+<p style="margin-left:22%; margin-top: 1em">typedef struct
+_XcursorAnimate { <br>
+XcursorCursors *cursors; /&lowast; list of cursors to use
+*/</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+<p>int</p><td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="62%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="62%">
+
+
+<p>sequence; /&lowast; which cursor is next */</p></td></tr>
+</table>
+
+<p style="margin-left:22%;">} XcursorAnimate;</p>
+
+<p style="margin-left:11%;"><b>XcursorFile</b></p>
+
+<p style="margin-left:22%;">Xcursor provides an abstract
+API for accessing the file data. Xcursor provides a stdio
+implementation of this abstract API; applications are free
+to create additional implementations. These functions
+parallel the stdio functions in return value and expected
+argument values; the read and write functions flip the
+arguments around to match the POSIX versions.</p>
+
+<p style="margin-left:22%; margin-top: 1em">typedef struct
+_XcursorFile {</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+
+
+<p>void</p><td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="69%">
+
+
+<p>*closure; <br>
+int</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="69%">
+
+
+<p>(*read) (XcursorFile *file, unsigned char *buf, int
+len); <br>
+int</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="69%">
+
+
+<p>(*write) (XcursorFile *file, unsigned char *buf, int
+len); <br>
+int</p></td></tr>
+<tr valign="top" align="left">
+<td width="34%"></td>
+<td width="-26%"></td>
+<td width="15%"></td>
+<td width="8%"></td>
+<td width="69%">
+
+
+<p>(*seek) (XcursorFile *file, long offset, int
+whence);</p> </td></tr>
+</table>
+
+<p style="margin-left:22%;">};</p>
+
+<h2>FUNCTIONS
+<a name="FUNCTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Object
+Management</b> <br>
+XcursorImage *XcursorImageCreate (int width, int height)
+<br>
+void XcursorImageDestroy (XcursorImage *image)</p>
+
+<p style="margin-left:22%;">Allocate and free images. On
+allocation, the hotspot and the pixels are left
+uninitialized. The size is set to the maximum of width and
+height.</p>
+
+<p style="margin-left:11%;">XcursorImages
+*XcursorImagesCreate (int size) <br>
+void XcursorImagesDestroy (XcursorImages *images)</p>
+
+<p style="margin-left:22%;">Allocate and free arrays to
+hold multiple cursor images. On allocation, nimage is set to
+zero.</p>
+
+<p style="margin-left:11%;">XcursorCursors
+*XcursorCursorsCreate (Display *dpy, int size) <br>
+void XcursorCursorsDestroy (XcursorCursors *cursors)</p>
+
+<p style="margin-left:22%;">Allocate and free arrays to
+hold multiple cursors. On allocation, ncursor is set to
+zero, ref is set to one.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Reading and
+writing images.</b> <br>
+XcursorImage *XcursorXcFileLoadImage (XcursorFile *file, int
+size) <br>
+XcursorImages *XcursorXcFileLoadImages (XcursorFile *file,
+int size) <br>
+XcursorImages *XcursorXcFileLoadAllImages (XcursorFile
+*file) <br>
+XcursorBool XcursorXcFileLoad (XcursorFile *file,
+XcursorComments <br>
+**commentsp, XcursorImages **imagesp) <br>
+XcursorBool XcursorXcFileSave (XcursorFile *file, const
+XcursorComments <br>
+*comments, const XcursorImages *images)</p>
+
+<p style="margin-left:22%;">These read and write cursors
+from an XcursorFile handle. After reading, the file pointer
+will be left at some random place in the file.</p>
+
+<p style="margin-left:11%;">XcursorImage
+*XcursorFileLoadImage (FILE *file, int size) <br>
+XcursorImages *XcursorFileLoadImages (FILE *file, int size)
+<br>
+XcursorImages *XcursorFileLoadAllImages (FILE *file) <br>
+XcursorBool XcursorFileLoad (FILE *file, XcursorComments
+**commentsp, <br>
+XcursorImages **imagesp) <br>
+XcursorBool XcursorFileSaveImages (FILE *file, const
+XcursorImages <br>
+*images) <br>
+XcursorBool XcursorFileSave (FILE * file, const
+XcursorComments <br>
+*comments, const XcursorImages *images)</p>
+
+<p style="margin-left:22%;">These read and write cursors
+from a stdio FILE handle. Writing flushes before returning
+so that any errors should be detected.</p>
+
+<p style="margin-left:11%;">XcursorImage
+*XcursorFilenameLoadImage (const char *filename, int size)
+<br>
+XcursorImages *XcursorFilenameLoadImages (const char
+*filename, int <br>
+size) <br>
+XcursorImages *XcursorFilenameLoadAllImages (FILE *file)
+<br>
+XcursorBool XcursorFilenameLoad (const char *file,
+XcursorComments <br>
+**commentsp, XcursorImages **imagesp) <br>
+XcursorBool XcursorFilenameSaveImages (const char *filename,
+const <br>
+XcursorImages *images) <br>
+XcursorBool XcursorFilenameSave (const char *file, const
+<br>
+XcursorComments *comments, const XcursorImages *images)</p>
+
+<p style="margin-left:22%;">These parallel the stdio FILE
+interfaces above, but take filenames.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Reading
+library images</b> <br>
+XcursorImage *XcursorLibraryLoadImage (const char *name,
+const char <br>
+*theme, int size) <br>
+XcursorImages *XcursorLibraryLoadImages (const char *name,
+const char <br>
+*theme, int size)</p>
+
+<p style="margin-left:22%;">These search the library path,
+loading the first file found. If &rsquo;theme&rsquo; is not
+NULL, these functions first try appending -theme to name and
+then name alone.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cursor
+APIs</b> <br>
+Cursor XcursorFilenameLoadCursor (Display *dpy, const char
+*file) <br>
+XcursorCursors *XcursorFilenameLoadCursors (Display *dpy,
+const char <br>
+*file)</p>
+
+<p style="margin-left:22%;">These load cursors from the
+specified file.</p>
+
+<p style="margin-left:11%;">Cursor XcursorLibraryLoadCursor
+(Display *dpy, const char *name) <br>
+XcursorCursors *XcursorLibraryLoadCursors (Display *dpy,
+const char <br>
+*name)</p>
+
+<p style="margin-left:22%;">These load cursors using the
+specified library name. The theme comes from the
+display.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>X Cursor
+Name APIs</b> <br>
+XcursorImage *XcursorShapeLoadImage (unsigned int shape,
+const char <br>
+*theme, int size) <br>
+XcursorImages *XcursorShapeLoadImages (unsigned int shape,
+const char <br>
+*theme, int size)</p>
+
+<p style="margin-left:22%;">These map &rsquo;shape&rsquo;
+to a library name using the standard X cursor names and then
+load the images.</p>
+
+<p style="margin-left:11%;">Cursor XcursorShapeLoadCursor
+(Display *dpy, unsigned int shape) <br>
+XcursorCursors *XcursorShapeLoadCursors (Display *dpy,
+unsigned int <br>
+shape)</p>
+
+<p style="margin-left:22%;">These map &rsquo;shape&rsquo;
+to a library name and then load the cursors.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Display
+Information APIs</b> <br>
+XcursorBool XcursorSupportsARGB (Display *dpy)</p>
+
+<p style="margin-left:22%;">Returns whether the display
+supports ARGB cursors or whether cursors will be mapped to a
+core X cursor.</p>
+
+<p style="margin-left:11%;">XcursorBool
+XcursorSetDefaultSize (Display *dpy, int size)</p>
+
+<p style="margin-left:22%;">Sets the default size for
+cursors on the specified display. When loading cursors,
+those whose nominal size is closest to this size will be
+preferred.</p>
+
+<p style="margin-left:11%;">int XcursorGetDefaultSize
+(Display *dpy)</p>
+
+<p style="margin-left:22%;">Gets the default cursor
+size.</p>
+
+<p style="margin-left:11%;">XcursorBool XcursorSetTheme
+(Display *dpy, const char *theme)</p>
+
+<p style="margin-left:22%;">Sets the current theme
+name.</p>
+
+<p style="margin-left:11%;">char *XcursorGetTheme (Display
+*dpy)</p>
+
+<p style="margin-left:22%;">Gets the current theme
+name.</p>
+
+<h2>ENVIRONMENT VARIABLES
+<a name="ENVIRONMENT VARIABLES"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="18%">
+
+
+<p style="margin-top: 1em"><b>XCURSOR_PATH</b></p></td>
+<td width="5%"></td>
+<td width="66%">
+
+
+<p style="margin-top: 1em">This variable sets the list of
+paths to look for cursors in. Directories in this path are
+separated by colons (:).</p></td></tr>
+</table>
+
+<h2>RESTRICTIONS
+<a name="RESTRICTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Xcursor</b>
+will probably change radically in the future; weak attempts
+will be made to retain some level of source-file
+compatibility.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Keith
+Packard</p>
+<hr>
+</body>
+</html>

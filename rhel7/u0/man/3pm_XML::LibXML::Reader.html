@@ -1,0 +1,872 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 02:43:34 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>XML::LibXML::Reader</title>
+
+</head>
+<body>
+
+<h1 align="center">XML::LibXML::Reader</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONSTRUCTOR">CONSTRUCTOR</a><br>
+<a href="#METHODS CONTROLLING PARSING PROGRESS">METHODS CONTROLLING PARSING PROGRESS</a><br>
+<a href="#METHODS EXTRACTING INFORMATION">METHODS EXTRACTING INFORMATION</a><br>
+<a href="#METHODS EXTRACTING DOM NODES">METHODS EXTRACTING DOM NODES</a><br>
+<a href="#METHODS PROCESSING ATTRIBUTES">METHODS PROCESSING ATTRIBUTES</a><br>
+<a href="#OTHER METHODS">OTHER METHODS</a><br>
+<a href="#DESTRUCTION">DESTRUCTION</a><br>
+<a href="#NODE TYPES">NODE TYPES</a><br>
+<a href="#STATES">STATES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#ORIGINAL IMPLEMENTATION">ORIGINAL IMPLEMENTATION</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::LibXML::Reader
+&minus; XML::LibXML::Reader &minus; interface to libxml2
+pull parser</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use XML::LibXML::Reader;
+  my $reader = XML::LibXML::Reader&minus;&gt;new(location =&gt; &quot;file.xml&quot;)
+         or die &quot;cannot read file.xml\n&quot;;
+  while ($reader&minus;&gt;read) {
+    processNode($reader);
+  }
+  sub processNode {
+      my $reader = shift;
+      printf &quot;%d %d %s %d\n&quot;, ($reader&minus;&gt;depth,
+                               $reader&minus;&gt;nodeType,
+                               $reader&minus;&gt;name,
+                               $reader&minus;&gt;isEmptyElement);
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $reader = XML::LibXML::Reader&minus;&gt;new(location =&gt; &quot;file.xml&quot;)
+         or die &quot;cannot read file.xml\n&quot;;
+    $reader&minus;&gt;preservePattern('//table/tr');
+    $reader&minus;&gt;finish;
+    print $reader&minus;&gt;document&minus;&gt;toString(1);</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is a perl
+interface to libxml2&rsquo;s pull-parser implementation
+xmlTextReader
+<i>http://xmlsoft.org/html/libxml&minus;xmlreader.html</i>.
+This feature requires at least libxml2&minus;2.6.21.
+Pull-parsers (such as StAX in Java, or XmlReader in C#) use
+an iterator approach to parse <small>XML</small> documents.
+They are easier to program than event-based parser (
+<small>SAX</small> ) and much more lightweight than
+tree-based parser ( <small>DOM</small> ), which load the
+complete tree into memory.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The Reader acts
+as a cursor going forward on the document stream and
+stopping at each node in the way. At every point DOM-like
+methods of the Reader object allow to examine the current
+node (name, namespace, attributes, etc.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+user&rsquo;s code keeps control of the progress and simply
+calls the <tt>&quot;read()&quot;</tt> function repeatedly to
+progress to the next node in the document order. Other
+functions provide means for skipping complete sub-trees, or
+nodes until a specific element, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">At every time,
+only a very limited portion of the document is kept in the
+memory, which makes the <small>API</small> more
+memory-efficient than using <small>DOM.</small> However, it
+is also possible to mix Reader with <small>DOM.</small> At
+every point the user may copy the current node (optionally
+expanded into a complete sub-tree) from the processed
+document to another <small>DOM</small> tree, or to instruct
+the Reader to collect sub-document in form of a
+<small>DOM</small> tree consisting of selected nodes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Reader
+<small>API</small> also supports namespaces, xml:base,
+entity handling, and <small>DTD</small> validation. Schema
+and RelaxNG validation support will probably be added in
+some later revision of the Perl interface.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The naming of
+methods compared to libxml2 and C# XmlTextReader has been
+changed slightly to match the conventions of XML::LibXML.
+Some functions have been changed or added with respect to
+the C interface.</p>
+
+<h2>CONSTRUCTOR
+<a name="CONSTRUCTOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Depending on
+the <small>XML</small> source, the Reader object can be
+created with either of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $reader = XML::LibXML::Reader&minus;&gt;new( location =&gt; &quot;file.xml&quot;, ... );
+    my $reader = XML::LibXML::Reader&minus;&gt;new( string =&gt; $xml_string, ... );
+    my $reader = XML::LibXML::Reader&minus;&gt;new( IO =&gt; $file_handle, ... );
+    my $reader = XML::LibXML::Reader&minus;&gt;new( FD =&gt; fileno(STDIN), ... );
+    my $reader = XML::LibXML::Reader&minus;&gt;new( DOM =&gt; $dom, ... );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where ... are
+(optional) reader options described below in &quot;Reader
+options&quot; or various parser options described in
+XML::LibXML::Parser. The constructor recognizes the
+following <small>XML</small> sources:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Source
+specification</b> <br>
+location</p>
+
+<p style="margin-left:17%;">Read <small>XML</small> from a
+local file or <small>URL.</small></p>
+
+<p style="margin-left:11%;">string</p>
+
+<p style="margin-left:17%;">Read <small>XML</small> from a
+string.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><small>IO</small></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Read <small>XML</small> a Perl <small>IO</small>
+filehandle.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><small>FD</small></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Read <small>XML</small> from a file descriptor (bypasses
+Perl I/O layer, only applicable to filehandles for regular
+files or pipes). Possibly faster than <small>IO.</small></p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><small>DOM</small></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Use reader <small>API</small> to walk through a
+pre-parsed XML::LibXML::Document.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Reader
+options</b> <br>
+encoding =&gt; $encoding</p>
+
+<p style="margin-left:17%;">override document encoding.</p>
+
+<p style="margin-left:11%;">RelaxNG =&gt; $rng_schema</p>
+
+<p style="margin-left:17%;">can be used to pass either a
+XML::LibXML::RelaxNG object or a filename or
+<small>URL</small> of a RelaxNG schema to the constructor.
+The schema is then used to validate the document as it is
+processed.</p>
+
+<p style="margin-left:11%;">Schema =&gt; $xsd_schema</p>
+
+<p style="margin-left:17%;">can be used to pass either a
+XML::LibXML::Schema object or a filename or
+<small>URL</small> of a W3C <small>XSD</small> schema to the
+constructor. The schema is then used to validate the
+document as it is processed.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>...</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>the reader further supports various parser options
+described in XML::LibXML::Parser (specifically those labeled
+by /reader/).</p></td></tr>
+</table>
+
+<h2>METHODS CONTROLLING PARSING PROGRESS
+<a name="METHODS CONTROLLING PARSING PROGRESS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">read ()</p>
+
+<p style="margin-left:17%;">Moves the position to the next
+node in the stream, exposing its properties.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the node was read successfully, 0 if there is no more nodes
+to read, or &minus;1 in case of error</p>
+
+<p style="margin-left:11%;">readAttributeValue ()</p>
+
+<p style="margin-left:17%;">Parses an attribute value into
+one or more Text and EntityReference nodes.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, 0 if the reader was not positioned on an
+attribute node or all the attribute values have been read,
+or &minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">readState ()</p>
+
+<p style="margin-left:17%;">Gets the read state of the
+reader. Returns the state value, or &minus;1 in case of
+error. The module exports constants for the Reader states,
+see <small>STATES</small> below.</p>
+
+<p style="margin-left:11%;">depth ()</p>
+
+<p style="margin-left:17%;">The depth of the node in the
+tree, starts at 0 for the root node.</p>
+
+<p style="margin-left:11%;">next ()</p>
+
+<p style="margin-left:17%;">Skip to the node following the
+current one in the document order while avoiding the
+sub-tree if any. Returns 1 if the node was read
+successfully, 0 if there is no more nodes to read, or
+&minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">nextElement
+(localname?,nsURI?)</p>
+
+<p style="margin-left:17%;">Skip nodes following the
+current one in the document order until a specific element
+is reached. The element&rsquo;s name must be equal to a
+given localname if defined, and its namespace must equal to
+a given nsURI if defined. Either of the arguments can be
+undefined (or omitted, in case of the latter or both).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the element was found, 0 if there is no more nodes to read,
+or &minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">nextPatternMatch
+(compiled_pattern)</p>
+
+<p style="margin-left:17%;">Skip nodes following the
+current one in the document order until an element matching
+a given compiled pattern is reached. See
+XML::LibXML::Pattern for information on compiled patterns.
+See also the <tt>&quot;matchesPattern&quot;</tt> method.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the element was found, 0 if there is no more nodes to read,
+or &minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">skipSiblings ()</p>
+
+<p style="margin-left:17%;">Skip all nodes on the same or
+lower level until the first node on a higher level is
+reached. In particular, if the current node occurs in an
+element, the reader stops at the end tag of the parent
+element, otherwise it stops at a node immediately following
+the parent node.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+successful, 0 if end of the document is reached, or &minus;1
+in case of error.</p>
+
+<p style="margin-left:11%;">nextSibling ()</p>
+
+<p style="margin-left:17%;">It skips to the node following
+the current one in the document order while avoiding the
+sub-tree if any.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the node was read successfully, 0 if there is no more nodes
+to read, or &minus;1 in case of error</p>
+
+<p style="margin-left:11%;">nextSiblingElement
+(name?,nsURI?)</p>
+
+<p style="margin-left:17%;">Like nextElement but only
+processes sibling elements of the current node (moving
+forward using <tt>&quot;nextSibling ()&quot;</tt> rather
+than <tt>&quot;read ()&quot;</tt>, internally).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the element was found, 0 if there is no more sibling nodes,
+or &minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">finish ()</p>
+
+<p style="margin-left:17%;">Skip all remaining nodes in the
+document, reaching end of the document.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+successful, 0 in case of error.</p>
+
+<p style="margin-left:11%;">close ()</p>
+
+<p style="margin-left:17%;">This method releases any
+resources allocated by the current instance and closes any
+underlying input. It returns 0 on failure and 1 on success.
+This method is automatically called by the destructor when
+the reader is forgotten, therefore you do not have to call
+it directly.</p>
+
+<h2>METHODS EXTRACTING INFORMATION
+<a name="METHODS EXTRACTING INFORMATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">name ()</p>
+
+<p style="margin-left:17%;">Returns the qualified name of
+the current node, equal to (Prefix:)LocalName.</p>
+
+<p style="margin-left:11%;">nodeType ()</p>
+
+<p style="margin-left:17%;">Returns the type of the current
+node. See <small>NODE TYPES</small> below.</p>
+
+<p style="margin-left:11%;">localName ()</p>
+
+<p style="margin-left:17%;">Returns the local name of the
+node.</p>
+
+<p style="margin-left:11%;">prefix ()</p>
+
+<p style="margin-left:17%;">Returns the prefix of the
+namespace associated with the node.</p>
+
+<p style="margin-left:11%;">namespaceURI ()</p>
+
+<p style="margin-left:17%;">Returns the <small>URI</small>
+defining the namespace associated with the node.</p>
+
+<p style="margin-left:11%;">isEmptyElement ()</p>
+
+<p style="margin-left:17%;">Check if the current node is
+empty, this is a bit bizarre in the sense that &lt;a/&gt;
+will be considered empty while &lt;a&gt;&lt;/a&gt; will
+not.</p>
+
+<p style="margin-left:11%;">hasValue ()</p>
+
+<p style="margin-left:17%;">Returns true if the node can
+have a text value.</p>
+
+<p style="margin-left:11%;">value ()</p>
+
+<p style="margin-left:17%;">Provides the text value of the
+node if present or undef if not available.</p>
+
+<p style="margin-left:11%;">readInnerXml ()</p>
+
+<p style="margin-left:17%;">Reads the contents of the
+current node, including child nodes and markup. Returns a
+string containing the <small>XML</small> of the node&rsquo;s
+content, or undef if the current node is neither an element
+nor attribute, or has no child nodes.</p>
+
+<p style="margin-left:11%;">readOuterXml ()</p>
+
+<p style="margin-left:17%;">Reads the contents of the
+current node, including child nodes and markup.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+string containing the <small>XML</small> of the node
+including its content, or undef if the current node is
+neither an element nor attribute.</p>
+
+<p style="margin-left:11%;"><i>nodePath()</i></p>
+
+<p style="margin-left:17%;">Returns a canonical location
+path to the current element from the root node to the
+current node. Namespaced elements are matched by
+&rsquo;*&rsquo;, because there is no way to declare prefixes
+within XPath patterns. Unlike
+<tt>&quot;XML::LibXML::Node::nodePath()&quot;</tt>, this
+function does not provide sibling counts (i.e. instead of
+e.g. &rsquo;/a/b[1]&rsquo; and &rsquo;/a/b[2]&rsquo; you get
+&rsquo;/a/b&rsquo; for both matches).</p>
+
+
+<p style="margin-left:11%;">matchesPattern(compiled_pattern)</p>
+
+<p style="margin-left:17%;">Returns a true value if the
+current node matches a compiled pattern. See
+XML::LibXML::Pattern for information on compiled patterns.
+See also the <tt>&quot;nextPatternMatch&quot;</tt>
+method.</p>
+
+<h2>METHODS EXTRACTING DOM NODES
+<a name="METHODS EXTRACTING DOM NODES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">document ()</p>
+
+<p style="margin-left:17%;">Provides access to the document
+tree built by the reader. This function can be used to
+collect the preserved nodes (see
+<tt>&quot;preserveNode()&quot;</tt> and
+preservePattern).</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><small>CAUTION:</small>
+Never use this function to modify the tree unless reading of
+the whole document is completed!</p>
+
+<p style="margin-left:11%;">copyCurrentNode (deep)</p>
+
+<p style="margin-left:17%;">This function is similar a
+<small>DOM</small> function <tt>&quot;copyNode()&quot;</tt>.
+It returns a copy of the currently processed node as a
+corresponding <small>DOM</small> object. Use deep = 1 to
+obtain the full sub-tree.</p>
+
+<p style="margin-left:11%;">preserveNode ()</p>
+
+<p style="margin-left:17%;">This tells the
+<small>XML</small> Reader to preserve the current node in
+the document tree. A document tree consisting of the
+preserved nodes and their content can be obtained using the
+method <tt>&quot;document()&quot;</tt> once parsing is
+finished.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns the
+node or <small>NULL</small> in case of error.</p>
+
+<p style="margin-left:11%;">preservePattern
+(pattern,\%ns_map)</p>
+
+<p style="margin-left:17%;">This tells the
+<small>XML</small> Reader to preserve all nodes matched by
+the pattern (which is a streaming XPath subset). A document
+tree consisting of the preserved nodes and their content can
+be obtained using the method <tt>&quot;document()&quot;</tt>
+once parsing is finished.</p>
+
+<p style="margin-left:17%; margin-top: 1em">An optional
+second argument can be used to provide a <small>HASH</small>
+reference mapping prefixes used by the XPath to namespace
+URIs.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The XPath
+subset available with this function is described at</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  http://www.w3.org/TR/xmlschema&minus;1/#Selector</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and matches the
+production</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  Path ::= ('.//')? ( Step '/' )* ( Step | '@' NameTest )</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+positive number in case of success and &minus;1 in case of
+error</p>
+
+<h2>METHODS PROCESSING ATTRIBUTES
+<a name="METHODS PROCESSING ATTRIBUTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">attributeCount
+()</p>
+
+<p style="margin-left:17%;">Provides the number of
+attributes of the current node.</p>
+
+<p style="margin-left:11%;">hasAttributes ()</p>
+
+<p style="margin-left:17%;">Whether the node has
+attributes.</p>
+
+<p style="margin-left:11%;">getAttribute (name)</p>
+
+<p style="margin-left:17%;">Provides the value of the
+attribute with the specified qualified name.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+string containing the value of the specified attribute, or
+undef in case of error.</p>
+
+<p style="margin-left:11%;">getAttributeNs (localName,
+namespaceURI)</p>
+
+<p style="margin-left:17%;">Provides the value of the
+specified attribute.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+string containing the value of the specified attribute, or
+undef in case of error.</p>
+
+<p style="margin-left:11%;">getAttributeNo (no)</p>
+
+<p style="margin-left:17%;">Provides the value of the
+attribute with the specified index relative to the
+containing element.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+string containing the value of the specified attribute, or
+undef in case of error.</p>
+
+<p style="margin-left:11%;">isDefault ()</p>
+
+<p style="margin-left:17%;">Returns true if the current
+attribute node was generated from the default value defined
+in the <small>DTD.</small></p>
+
+<p style="margin-left:11%;">moveToAttribute (name)</p>
+
+<p style="margin-left:17%;">Moves the position to the
+attribute with the specified local name and namespace
+<small>URI.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+found</p>
+
+<p style="margin-left:11%;">moveToAttributeNo (no)</p>
+
+<p style="margin-left:17%;">Moves the position to the
+attribute with the specified index relative to the
+containing element.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+found</p>
+
+<p style="margin-left:11%;">moveToAttributeNs
+(localName,namespaceURI)</p>
+
+<p style="margin-left:17%;">Moves the position to the
+attribute with the specified local name and namespace
+<small>URI.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+found</p>
+
+<p style="margin-left:11%;">moveToFirstAttribute ()</p>
+
+<p style="margin-left:17%;">Moves the position to the first
+attribute associated with the current node.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+found</p>
+
+<p style="margin-left:11%;">moveToNextAttribute ()</p>
+
+<p style="margin-left:17%;">Moves the position to the next
+attribute associated with the current node.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+found</p>
+
+<p style="margin-left:11%;">moveToElement ()</p>
+
+<p style="margin-left:17%;">Moves the position to the node
+that contains the current attribute node.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 in
+case of success, &minus;1 in case of error, 0 if not
+moved</p>
+
+<p style="margin-left:11%;">isNamespaceDecl ()</p>
+
+<p style="margin-left:17%;">Determine whether the current
+node is a namespace declaration rather than a regular
+attribute.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+the current node is a namespace declaration, 0 if it is a
+regular attribute or other type of node, or &minus;1 in case
+of error.</p>
+
+<h2>OTHER METHODS
+<a name="OTHER METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">lookupNamespace
+(prefix)</p>
+
+<p style="margin-left:17%;">Resolves a namespace prefix in
+the scope of the current element.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+string containing the namespace <small>URI</small> to which
+the prefix maps or undef in case of error.</p>
+
+<p style="margin-left:11%;">encoding ()</p>
+
+<p style="margin-left:17%;">Returns a string containing the
+encoding of the document or undef in case of error.</p>
+
+<p style="margin-left:11%;">standalone ()</p>
+
+<p style="margin-left:17%;">Determine the standalone status
+of the document being read. Returns 1 if the document was
+declared to be standalone, 0 if it was declared to be not
+standalone, or &minus;1 if the document did not specify its
+standalone status or in case of error.</p>
+
+<p style="margin-left:11%;">xmlVersion ()</p>
+
+<p style="margin-left:17%;">Determine the
+<small>XML</small> version of the document being read.
+Returns a string containing the <small>XML</small> version
+of the document or undef in case of error.</p>
+
+<p style="margin-left:11%;">baseURI ()</p>
+
+<p style="margin-left:17%;">Returns the base
+<small>URI</small> of a given node.</p>
+
+<p style="margin-left:11%;">isValid ()</p>
+
+<p style="margin-left:17%;">Retrieve the validity status
+from the parser.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 1 if
+valid, 0 if no, and &minus;1 in case of error.</p>
+
+<p style="margin-left:11%;">xmlLang ()</p>
+
+<p style="margin-left:17%;">The xml:lang scope within which
+the node resides.</p>
+
+<p style="margin-left:11%;">lineNumber ()</p>
+
+<p style="margin-left:17%;">Provide the line number of the
+current parsing point.</p>
+
+<p style="margin-left:11%;">columnNumber ()</p>
+
+<p style="margin-left:17%;">Provide the column number of
+the current parsing point.</p>
+
+<p style="margin-left:11%;">byteConsumed ()</p>
+
+<p style="margin-left:17%;">This function provides the
+current index of the parser relative to the start of the
+current entity. This function is computed in bytes from the
+beginning starting at zero and finishing at the size in
+bytes of the file if parsing a file. The function is of
+constant cost if the input is <small>UTF&minus;8</small> but
+can be costly if run on non&minus;UTF&minus;8 input.</p>
+
+<p style="margin-left:11%;">setParserProp (prop =&gt;
+value, ...)</p>
+
+<p style="margin-left:17%;">Change the parser processing
+behaviour by changing some of its internal properties. The
+following properties are available with this function:
+&lsquo;&lsquo;load_ext_dtd&rsquo;&rsquo;,
+&lsquo;&lsquo;complete_attributes&rsquo;&rsquo;,
+&lsquo;&lsquo;validation&rsquo;&rsquo;,
+&lsquo;&lsquo;expand_entities&rsquo;&rsquo;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Since some of
+the properties can only be changed before any read has been
+done, it is best to set the parsing properties at the
+constructor.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns 0 if
+the call was successful, or &minus;1 in case of error</p>
+
+<p style="margin-left:11%;">getParserProp (prop)</p>
+
+<p style="margin-left:17%;">Get value of an parser internal
+property. The following property names can be used:
+&lsquo;&lsquo;load_ext_dtd&rsquo;&rsquo;,
+&lsquo;&lsquo;complete_attributes&rsquo;&rsquo;,
+&lsquo;&lsquo;validation&rsquo;&rsquo;,
+&lsquo;&lsquo;expand_entities&rsquo;&rsquo;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns the
+value, usually 0 or 1, or &minus;1 in case of error.</p>
+
+<h2>DESTRUCTION
+<a name="DESTRUCTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::LibXML
+takes care of the reader object destruction when the last
+reference to the reader object goes out of scope. The
+document tree is preserved, though, if either of
+<tt>$reader</tt>&minus;&gt;document or
+<tt>$reader</tt>&minus;&gt;preserveNode was used and
+references to the document tree exist.</p>
+
+<h2>NODE TYPES
+<a name="NODE TYPES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The reader
+interface provides the following constants for node types
+(the constant symbols are exported by default or if tag
+<tt>&quot;:types&quot;</tt> is used).</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  XML_READER_TYPE_NONE                    =&gt; 0
+  XML_READER_TYPE_ELEMENT                 =&gt; 1
+  XML_READER_TYPE_ATTRIBUTE               =&gt; 2
+  XML_READER_TYPE_TEXT                    =&gt; 3
+  XML_READER_TYPE_CDATA                   =&gt; 4
+  XML_READER_TYPE_ENTITY_REFERENCE        =&gt; 5
+  XML_READER_TYPE_ENTITY                  =&gt; 6
+  XML_READER_TYPE_PROCESSING_INSTRUCTION  =&gt; 7
+  XML_READER_TYPE_COMMENT                 =&gt; 8
+  XML_READER_TYPE_DOCUMENT                =&gt; 9
+  XML_READER_TYPE_DOCUMENT_TYPE           =&gt; 10
+  XML_READER_TYPE_DOCUMENT_FRAGMENT       =&gt; 11
+  XML_READER_TYPE_NOTATION                =&gt; 12
+  XML_READER_TYPE_WHITESPACE              =&gt; 13
+  XML_READER_TYPE_SIGNIFICANT_WHITESPACE  =&gt; 14
+  XML_READER_TYPE_END_ELEMENT             =&gt; 15
+  XML_READER_TYPE_END_ENTITY              =&gt; 16
+  XML_READER_TYPE_XML_DECLARATION         =&gt; 17</pre>
+
+
+<h2>STATES
+<a name="STATES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+constants represent the values returned by
+<tt>&quot;readState()&quot;</tt>. They are exported by
+default, or if tag <tt>&quot;:states&quot;</tt> is used:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  XML_READER_NONE      =&gt; &minus;1
+  XML_READER_START     =&gt;  0
+  XML_READER_ELEMENT   =&gt;  1
+  XML_READER_END       =&gt;  2
+  XML_READER_EMPTY     =&gt;  3
+  XML_READER_BACKTRACK =&gt;  4
+  XML_READER_DONE      =&gt;  5
+  XML_READER_ERROR     =&gt;  6</pre>
+
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::LibXML::Pattern
+for information about compiled patterns.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://xmlsoft.org/html/libxml&minus;xmlreader.html</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">http://dotgnu.org/pnetlib&minus;doc/System/Xml/XmlTextReader.html</p>
+
+<h2>ORIGINAL IMPLEMENTATION
+<a name="ORIGINAL IMPLEMENTATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Heiko Klein,
+&lt;H.Klein@gmx.net&lt;gt&gt; and Petr Pajas</p>
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Matt Sergeant,
+Christian Glahn, Petr Pajas</p>
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">2.0018</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">2001&minus;2007,
+AxKit.com Ltd.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">2002&minus;2006,
+Christian Glahn.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">2006&minus;2009,
+Petr Pajas.</p>
+<hr>
+</body>
+</html>

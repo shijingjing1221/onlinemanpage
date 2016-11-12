@@ -87,6 +87,7 @@ function convertAll
 
 function main
 {
+    makewhatis
     convertAll
     return $?
 }

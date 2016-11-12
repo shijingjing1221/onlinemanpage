@@ -1,0 +1,217 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:13:24 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PG_RESETXLOG</title>
+
+</head>
+<body>
+
+<h1 align="center">PG_RESETXLOG</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#NOTES">NOTES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">pg_resetxlog
+&minus; reset the write&minus;ahead log and other control
+information of a PostgreSQL database cluster</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="89%">
+
+
+<p style="margin-top: 1em"><b>pg_resetxlog</b>
+[<b>&minus;f</b>] [<b>&minus;n</b>]
+[<b>&minus;o&nbsp;</b><i>oid</i>]
+[<b>&minus;x&nbsp;</b><i>xid</i>]
+[<b>&minus;e&nbsp;</b><i>xid_epoch</i>]
+[<b>&minus;m&nbsp;</b><i>mxid</i>]
+[<b>&minus;O&nbsp;</b><i>mxoff</i>]
+[<b>&minus;l&nbsp;</b><i>timelineid</i>,<i>fileid</i>,<i>seg</i>]
+<i>datadir</i></p> </td></tr>
+</table>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><b>pg_resetxlog</b></i>
+clears the write&minus;ahead log (WAL) and optionally resets
+some other control information stored in the pg_control
+file. This function is sometimes needed if these files have
+become corrupted. It should be used only as a last resort,
+when the server will not start due to such corruption.</p>
+
+<p style="margin-left:11%; margin-top: 1em">After running
+this command, it should be possible to start the server, but
+bear in mind that the database might contain inconsistent
+data due to partially&minus;committed transactions. You
+should immediately dump your data, run <b>initdb</b>, and
+reload. After reload, check for inconsistencies and repair
+as needed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This utility
+can only be run by the user who installed the server,
+because it requires read/write access to the data directory.
+For safety reasons, you must specify the data directory on
+the command line. <b>pg_resetxlog</b> does not use the
+environment variable <b>PGDATA</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<b>pg_resetxlog</b> complains that it cannot determine valid
+data for pg_control, you can force it to proceed anyway by
+specifying the <b>&minus;f</b> (force) option. In this case
+plausible values will be substituted for the missing data.
+Most of the fields can be expected to match, but manual
+assistance might be needed for the next OID, next
+transaction ID and epoch, next multitransaction ID and
+offset, and WAL starting address fields. These fields can be
+set using the options discussed below. If you are not able
+to determine correct values for all these fields,
+<b>&minus;f</b> can still be used, but the recovered
+database must be treated with even more suspicion than
+usual: an immediate dump and reload is imperative. <i>Do
+not</i> execute any data&minus;modifying operations in the
+database before you dump, as any such action is likely to
+make the corruption worse.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>&minus;o</b>, <b>&minus;x</b>, <b>&minus;e</b>,
+<b>&minus;m</b>, <b>&minus;O</b>, and <b>&minus;l</b>
+options allow the next OID, next transaction ID, next
+transaction ID's epoch, next multitransaction ID, next
+multitransaction offset, and WAL starting address values to
+be set manually. These are only needed when
+<b>pg_resetxlog</b> is unable to determine appropriate
+values by reading pg_control. Safe values can be determined
+as follows:</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; A safe
+value for the next transaction ID (<b>&minus;x</b>) can be
+determined by looking for the numerically largest file name
+in the directory pg_clog under the data directory, adding
+one, and then multiplying by 1048576. Note that the file
+names are in hexadecimal. It is usually easiest to specify
+the option value in hexadecimal too. For example, if 0011 is
+the largest entry in pg_clog, &minus;x 0x1200000 will work
+(five trailing zeroes provide the proper multiplier).</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; A safe
+value for the next multitransaction ID (<b>&minus;m</b>) can
+be determined by looking for the numerically largest file
+name in the directory pg_multixact/offsets under the data
+directory, adding one, and then multiplying by 65536. As
+above, the file names are in hexadecimal, so the easiest way
+to do this is to specify the option value in hexadecimal and
+add four zeroes.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; A safe
+value for the next multitransaction offset (<b>&minus;O</b>)
+can be determined by looking for the numerically largest
+file name in the directory pg_multixact/members under the
+data directory, adding one, and then multiplying by 65536.
+As above, the file names are in hexadecimal, so the easiest
+way to do this is to specify the option value in hexadecimal
+and add four zeroes.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; The WAL
+starting address (<b>&minus;l</b>) should be larger than any
+WAL segment file name currently existing in the directory
+pg_xlog under the data directory. These names are also in
+hexadecimal and have three parts. The first part is the
+&ldquo;timeline ID&rdquo; and should usually be kept the
+same. Do not choose a value larger than 255 (0xFF) for the
+third part; instead increment the second part and reset the
+third part to 0. For example, if 00000001000000320000004A is
+the largest entry in pg_xlog, &minus;l 0x1,0x32,0x4B will
+work; but if the largest entry is 000000010000003A000000FF,
+choose &minus;l 0x1,0x3B,0x0 or more.</p>
+
+
+<p style="margin-left:23%; margin-top: 1em"><b><big>Note</big>
+<br>
+pg_resetxlog</b> itself looks at the files in pg_xlog and
+chooses a default <b>&minus;l</b> setting beyond the last
+existing file name. Therefore, manual adjustment of
+<b>&minus;l</b> should only be needed if you are aware of
+WAL segment files that are not currently present in pg_xlog,
+such as entries in an offline archive; or if the contents of
+pg_xlog have been lost entirely.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; There is
+no comparably easy way to determine a next OID that's beyond
+the largest one in the database, but fortunately it is not
+critical to get the next&minus;OID setting right.</p>
+
+<p style="margin-left:17%; margin-top: 1em">&bull; The
+transaction ID epoch is not actually stored anywhere in the
+database except in the field that is set by
+<b>pg_resetxlog</b>, so any value will work so far as the
+database itself is concerned. You might need to adjust this
+value to ensure that replication systems such as
+Slony&minus;I work correctly &mdash; if so, an appropriate
+value should be obtainable from the state of the downstream
+replicated database.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>The
+<b>&minus;n</b> (no operation) option instructs
+<b>pg_resetxlog</b> to print the values reconstructed from
+pg_control and then exit without modifying anything. This is
+mainly a debugging tool, but can be useful as a sanity check
+before allowing <b>pg_resetxlog</b> to proceed for
+real.</big></p>
+
+<p style="margin-left:11%; margin-top: 1em"><big>The
+<b>&minus;V</b> and <b>&minus;&minus;version</b> options
+print the pg_resetxlog version and exit. The options
+<b>&minus;?</b> and <b>&minus;&minus;help</b> show supported
+arguments, and exit.</big></p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><big>This
+command must not be used when the server is running.
+<b>pg_resetxlog</b> will refuse to start up if it finds a
+server lock file in the data directory. If the server
+crashed then a lock file might have been left behind; in
+that case you can remove the lock file to allow
+<b>pg_resetxlog</b> to run. But before you do so, make
+doubly certain that there is no server process still
+alive.</big></p>
+<hr>
+</body>
+</html>

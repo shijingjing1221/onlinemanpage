@@ -1,0 +1,227 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:27:53 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>TRUNCATE</title>
+
+</head>
+<body>
+
+<h1 align="center">TRUNCATE</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#PARAMETERS">PARAMETERS</a><br>
+<a href="#NOTES">NOTES</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#COMPATIBILITY">COMPATIBILITY</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">TRUNCATE
+&minus; empty a table or set of tables</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">TRUNCATE [
+TABLE ] [ ONLY ] <i>name</i> [ * ] [, ... ] <br>
+[ RESTART IDENTITY | CONTINUE IDENTITY ] [ CASCADE |
+RESTRICT ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>TRUNCATE</b>
+quickly removes all rows from a set of tables. It has the
+same effect as an unqualified <b>DELETE</b> on each table,
+but since it does not actually scan the tables it is faster.
+Furthermore, it reclaims disk space immediately, rather than
+requiring a subsequent <b>VACUUM</b> operation. This is most
+useful on large tables.</p>
+
+<h2>PARAMETERS
+<a name="PARAMETERS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>name</i></p>
+
+<p style="margin-left:17%;">The name (optionally
+schema&minus;qualified) of a table to truncate. If ONLY is
+specified before the table name, only that table is
+truncated. If ONLY is not specified, the table and all its
+descendant tables (if any) are truncated. Optionally, * can
+be specified after the table name to explicitly indicate
+that descendant tables are included.</p>
+
+<p style="margin-left:11%; margin-top: 1em">RESTART
+IDENTITY</p>
+
+<p style="margin-left:17%;">Automatically restart sequences
+owned by columns of the truncated table(s).</p>
+
+<p style="margin-left:11%; margin-top: 1em">CONTINUE
+IDENTITY</p>
+
+<p style="margin-left:17%;">Do not change the values of
+sequences. This is the default.</p>
+
+<p style="margin-left:11%; margin-top: 1em">CASCADE</p>
+
+<p style="margin-left:17%;">Automatically truncate all
+tables that have foreign&minus;key references to any of the
+named tables, or to any tables added to the group due to
+CASCADE.</p>
+
+<p style="margin-left:11%; margin-top: 1em">RESTRICT</p>
+
+<p style="margin-left:17%;">Refuse to truncate if any of
+the tables have foreign&minus;key references from tables
+that are not listed in the command. This is the default.</p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You must have
+the TRUNCATE privilege on a table to truncate it.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>TRUNCATE</b>
+acquires an ACCESS EXCLUSIVE lock on each table it operates
+on, which blocks all other concurrent operations on the
+table. When RESTART IDENTITY is specified, any sequences
+that are to be restarted are likewise locked exclusively. If
+concurrent access to a table is required, then the
+<b>DELETE</b> command should be used instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>TRUNCATE</b>
+cannot be used on a table that has foreign&minus;key
+references from other tables, unless all such tables are
+also truncated in the same command. Checking validity in
+such cases would require table scans, and the whole point is
+not to do one. The CASCADE option can be used to
+automatically include all dependent tables &mdash; but be
+very careful when using this option, or else you might lose
+data you did not intend to!</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>TRUNCATE</b>
+will not fire any ON DELETE triggers that might exist for
+the tables. But it will fire ON TRUNCATE triggers. If ON
+TRUNCATE triggers are defined for any of the tables, then
+all BEFORE TRUNCATE triggers are fired before any truncation
+happens, and all AFTER TRUNCATE triggers are fired after the
+last truncation is performed and any sequences are reset.
+The triggers will fire in the order that the tables are to
+be processed (first those listed in the command, and then
+any that were added due to cascading).</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b><big>Warning</big>
+<br>
+TRUNCATE</b> is not MVCC&minus;safe (see Chapter 13,
+Concurrency Control, in the documentation for general
+information about MVCC). After truncation, the table will
+appear empty to all concurrent transactions, even if they
+are using a snapshot taken before the truncation occurred.
+This will only be an issue for a transaction that did not
+access the truncated table before the truncation happened
+&mdash; any transaction that has done so would hold at least
+an ACCESS SHARE lock, which would block <b>TRUNCATE</b>
+until that transaction completes. So truncation will not
+cause any apparent inconsistency in the table contents for
+successive queries on the same table, but it could cause
+visible inconsistency between the contents of the truncated
+table and other tables in the database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>TRUNCATE</b>
+is transaction&minus;safe with respect to the data in the
+tables: the truncation will be safely rolled back if the
+surrounding transaction does not commit.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When RESTART
+IDENTITY is specified, the implied <b>ALTER SEQUENCE
+RESTART</b> operations are also done transactionally; that
+is, they will be rolled back if the surrounding transaction
+does not commit. This is unlike the normal behavior of
+<b>ALTER SEQUENCE RESTART</b>. Be aware that if any
+additional sequence operations are done on the restarted
+sequences before the transaction rolls back, the effects of
+these operations on the sequences will be rolled back, but
+not their effects on <b>currval()</b>; that is, after the
+transaction <b>currval()</b> will continue to reflect the
+last sequence value obtained inside the failed transaction,
+even though the sequence itself may no longer be consistent
+with that. This is similar to the usual behavior of
+<b>currval()</b> after a failed transaction.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Truncate the
+tables bigtable and fattable:</p>
+
+<p style="margin-left:17%; margin-top: 1em">TRUNCATE
+bigtable, fattable;</p>
+
+<p style="margin-left:11%; margin-top: 1em">The same, and
+also reset any associated sequence generators:</p>
+
+<p style="margin-left:17%; margin-top: 1em">TRUNCATE
+bigtable, fattable RESTART IDENTITY;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Truncate the
+table othertable, and cascade to any tables that reference
+othertable via foreign&minus;key constraints:</p>
+
+<p style="margin-left:17%; margin-top: 1em">TRUNCATE
+othertable CASCADE;</p>
+
+<h2>COMPATIBILITY
+<a name="COMPATIBILITY"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The SQL:2008
+standard includes a <b>TRUNCATE</b> command with the syntax
+TRUNCATE TABLE <i>tablename</i>. The clauses CONTINUE
+IDENTITY/RESTART IDENTITY also appear in that standard, but
+have slightly different though related meanings. Some of the
+concurrency behavior of this command is left
+implementation&minus;defined by the standard, so the above
+notes should be considered and compared with other
+implementations if necessary.</p>
+<hr>
+</body>
+</html>

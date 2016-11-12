@@ -1,0 +1,548 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Sat Nov 12 01:11:25 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMDA</title>
+
+</head>
+<body>
+
+<h1 align="center">PMDA</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#HELPER METHODS">HELPER METHODS</a><br>
+<a href="#MACROS">MACROS</a><br>
+<a href="#DEBUGGING">DEBUGGING</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">PCP::PMDA
+&minus; Perl extension for Performance Metrics Domain
+Agents</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use PCP::PMDA;
+  $pmda = PCP::PMDA&minus;&gt;new('myname', $MYDOMAIN);
+  $pmda&minus;&gt;connect_pmcd;
+  $pmda&minus;&gt;add_metric($pmid, $type, $indom, $sem, $units, 'name', '', '');
+  $pmda&minus;&gt;add_indom($indom, [0 =&gt; 'white', 1 =&gt; 'black', ...], '', '');
+  $pmda&minus;&gt;set_fetch(\&amp;fetch_method);
+  $pmda&minus;&gt;set_refresh(\&amp;refresh_method);
+  $pmda&minus;&gt;set_instance(\&amp;instance_method);
+  $pmda&minus;&gt;set_fetch_callback(\&amp;fetch_callback_method);
+  $pmda&minus;&gt;set_store_callback(\&amp;store_callback_method);
+  $pmda&minus;&gt;set_user('pcp');
+  $pmda&minus;&gt;run;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>PCP::PMDA</small> Perl module contains the language
+bindings for building Performance Metric Domain Agents
+(PMDAs) using Perl. Each <small>PMDA</small> exports
+performance data for one specific domain, for example the
+operating system kernel, Cisco routers, a database, an
+application, etc.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><small>PCP::PMDA&minus;</small>
+&gt;new(name, domain)</p>
+
+<p style="margin-left:17%;"><small>PCP::PMDA</small> class
+constructor. <i>name</i> is a string that becomes the name
+of the <small>PMDA</small> for messages and default prefix
+for the names of external files used by the
+<small>PMDA.</small> <i>domain</i> is an integer domain
+number for the <small>PMDA,</small> usually from the
+register of domain numbers found in
+<b>$PCP_VAR_DIR/pmns/stdpmid</b>.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;<i>run()</i></p>
+
+<p style="margin-left:17%;">Once all local setup is
+complete (i.e. instance domains and metrics are registered,
+callbacks registered &minus; as discussed below) the
+<small>PMDA</small> must connect to <b>pmcd</b>(1) to
+complete its initialisation and begin answering client
+requests for its metrics. This is the role performed by
+<i>run</i>, and upon invoking it all interaction within the
+<small>PMDA</small> is done via callback routines (that is
+to say, under normal cicrumstances, the <i>run</i> routine
+does not return).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The behaviour
+of the <i>run</i> method is different in the presence of
+either the <b><small>PCP_PERL_PMNS</small></b> or
+<b><small>PCP_PERL_DOMAIN</small></b> environment variables.
+These can be used to generate the namespace or domain number
+files, which are used as part of the <small>PMDA</small>
+installation process.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;<i>connect_pmcd()</i></p>
+
+<p style="margin-left:17%;">Allows the <small>PMDA</small>
+to set up the <small>IPC</small> channel to <b>pmcd</b>(1)
+and complete the credentials handshake with <b>pmcd</b>(1).
+If <i>connect_pmcd</i> is not explicitly called the setup
+and handshake will be done when the <i>run</i> method is
+called.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The advantage
+of explicitly calling <i>connect_pmcd</i> early in the life
+of the <small>PMDA</small> is that this reduces the risk of
+a fatal timeout during the credentials handshake, which may
+be an issue if the <small>PMDA</small> has considerable work
+to do, e.g. determining which metrics and instance domains
+are available, before calling <i>run</i>.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_indom(indom,
+insts, help, longhelp)</p>
+
+<p style="margin-left:17%;">Define a new instance domain.
+The instance domain identifier is <i>indom</i>, which is an
+integer and unique across all instance domains for single
+<small>PMDA.</small></p>
+
+<p style="margin-left:17%; margin-top: 1em">The instances
+of the instance domain are defined by <i>insts</i> which can
+be specified as either a list or a hash.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In list form,
+the contents of the list must provide consecutive pairs of
+identifier (a integer, unique across all instances in the
+instance domain) and external instance name (a string, must
+by unique up to the first space, if any, across all
+instances in the instance domain). For example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> @colours = [0 =&gt; 'red', 1 =&gt; 'green', 2 =&gt; 'blue'];</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">In hash form,
+the external instance identifier (string) is used as the
+hash key. An arbitrary value can be stored along with the
+key (this value is often used as a convenient place to hold
+the latest value for each metric instance, for example).</p>
+
+<pre style="margin-left:17%; margin-top: 1em"> %timeslices = ('sec' =&gt; 42, 'min' =&gt; \&amp;min_func, 'hour' =&gt; '0');</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The <i>help</i>
+and <i>longhelp</i> strings are interpreted as the one-line
+and expanded help text to be used for this instance domain
+as further described in <b>pmLookupInDomText</b>(3).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Refer also to
+the <b>replace_indom</b>() discussion below for further
+details about manipulating instance domains.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_metric(pmid,
+type, indom, sem, units, name, help, longhelp)</p>
+
+<p style="margin-left:17%;">Define a new metric identified
+by the <small>PMID</small> <i>pmid</i> and the full metric
+name <i>name</i>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+metric&rsquo;s metadata is defined by <i>type</i>,
+<i>indom</i>, <i>sem</i> and <i>units</i> and these
+parameters are used to set up the <i>pmDesc</i> structure as
+described in <b>pmLookupDesc</b>(3).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The <i>help</i>
+and <i>longhelp</i> strings are interpreted as the one-line
+and expanded help text to be used for the metric as further
+described in <b>pmLookupText</b>(3).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;replace_indom(index,
+insts)</p>
+
+<p style="margin-left:17%;">Whenever an instance domain
+identified by <i>index</i>, previously registered using
+<b>add_indom</b>(), changes in any way, this change must be
+reflected by replacing the existing mapping with a new one
+(<i>insts</i>).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The replacement
+mapping must be a hash if the instance domain was registered
+initially with <b>add_indom</b>() as a hash, otherwise it
+must be a list.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Refer to the
+earlier <b>add_indom</b>() discussion concerning these two
+different types of instance domains definitions.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_pipe(command,
+callback, data)</p>
+
+<p style="margin-left:17%;">Allow data to be injected into
+the <small>PMDA</small> using a <b>pipe</b>(2).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The given
+<i>command</i> is run early in the life of the
+<small>PMDA,</small> and a pipe is formed between the
+<small>PMDA</small> and the <i>command</i>. Line-oriented
+output is assumed (else truncation will occur), and on
+receipt of each line of text on the pipe, the
+<i>callback</i> function will be called.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The optional
+<i>data</i> parameter can be used to specify extra data to
+pass into the <i>callback</i> routine.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_sock(hostname,
+port, callback, data)</p>
+
+<p style="margin-left:17%;">Create a <b>socket</b>(2)
+connection to the <i>hostname</i>, <i>port</i> pair.
+Whenever data arrives (as above, a line-oriented protocol is
+best) the <i>callback</i> function will be called.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The optional
+<i>data</i> parameter can be used to specify extra data to
+pass into the <i>callback</i> routine.</p>
+
+<p style="margin-left:17%; margin-top: 1em">An opaque
+integer-sized identifier for the socket will be returned,
+which can later be used in calls to <b>put_sock</b>() as
+discussed below.</p>
+
+<p style="margin-left:11%;">$pmda&minus;&gt;put_sock(id,
+output)</p>
+
+<p style="margin-left:17%;">Write an <i>output</i> string
+to the socket identified by <i>id</i>, which must refer to a
+socket previously registered using <b>add_sock</b>().</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_tail(filename,
+callback, data)</p>
+
+<p style="margin-left:17%;">Monitor the given
+<i>filename</i> for the arrival of newly appended
+information. Line-oriented input is assumed (else truncation
+will occur), and on receipt of each line of text on the
+pipe, the <i>callback</i> function will be called.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The optional
+<i>data</i> parameter can be used to specify extra data to
+pass into the <i>callback</i> routine.</p>
+
+<p style="margin-left:17%; margin-top: 1em">This interface
+deals with the issue of the file being renamed (such as on
+daily log file rotation), and will attempt to automatically
+re-route information from the new log file if this
+occurs.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;add_timer(timeout,
+callback, data)</p>
+
+<p style="margin-left:17%;">Registers a timer with the
+<small>PMDA,</small> such that on expiry of a <i>timeout</i>
+a <i>callback</i> routine will be called. This is a
+repeating timer.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The optional
+<i>data</i> parameter can be used to specify extra data to
+pass into the <i>callback</i> routine.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;err(message)</p>
+
+<p style="margin-left:17%;">Report a timestamped error
+message into the <small>PMDA</small> log file.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;error(message)</p>
+
+<p style="margin-left:17%;">Report a timestamped error
+message into the <small>PMDA</small> log file.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;log(message)</p>
+
+<p style="margin-left:17%;">Report a timestamped
+informational message into the <small>PMDA</small> log
+file.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_fetch_callback(cb_function)</p>
+
+<p style="margin-left:17%;">Register a callback function
+akin to <b>pmdaSetFetchCallBack</b>(3).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_fetch(function)</p>
+
+<p style="margin-left:17%;">Register a fetch function, as
+used by <b>pmdaInit</b>(3).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_instance(function)</p>
+
+<p style="margin-left:17%;">Register an instance function,
+as used by <b>pmdaInit</b>(3).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_refresh(function)</p>
+
+<p style="margin-left:17%;">Register a refresh function,
+which will be called once per metric cluster, during the
+fetch operation. Only clusters being requested during this
+fetch will be refreshed, allowing selective metric value
+updates within the <small>PMDA.</small></p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_store_callback(cb_function)</p>
+
+<p style="margin-left:17%;">Register an store function,
+used indirectly by <b>pmdaInit</b>(3). The
+<i>cb_function</i> is called once for each metric/instance
+pair into which a <b>pmStore</b>(3) is performed.</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_inet_socket(port)</p>
+
+<p style="margin-left:17%;">Specify the IPv4 socket
+<i>port</i> to be used to communicate with
+<b>pmcd</b>(1).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_ipv6_socket(port)</p>
+
+<p style="margin-left:17%;">Specify the IPv6 socket
+<i>port</i> to be used to communicate with
+<b>pmcd</b>(1).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_unix_socket(socket_name)</p>
+
+<p style="margin-left:17%;">Specify the filesystem
+<i>socket_name</i> path to be used for communication with
+<b>pmcd</b>(1).</p>
+
+
+<p style="margin-left:11%;">$pmda&minus;&gt;set_user(username)</p>
+
+<p style="margin-left:17%;">Run the <small>PMDA</small>
+under the <i>username</i> user account, instead of the
+default (root) user.</p>
+
+<h2>HELPER METHODS
+<a name="HELPER METHODS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">pmda_pmid(cluster,
+item)</p>
+
+<p style="margin-left:17%;">Construct a Performance Metric
+Identifier ( <small>PMID</small> ) from the domain number
+(passed as an argument to the <i>new</i> constructor), the
+<i>cluster</i> (an integer in the range 0 to 2^12&minus;1)
+and the <i>item</i> (an integer in the range 0 to
+2^10&minus;1).</p>
+
+<p style="margin-left:17%; margin-top: 1em">Every
+performance metric exported from a <small>PMDA</small> must
+have a unique <small>PMID.</small></p>
+
+<p style="margin-left:11%;">pmda_pmid_name(cluster,
+item)</p>
+
+<p style="margin-left:17%;">Perform a reverse metric
+identifier to name lookup &minus; given the metric
+<i>cluster</i> and <i>item</i> numbers, returns the metric
+name string.</p>
+
+<p style="margin-left:11%;">pmda_pmid_text(cluster,
+item)</p>
+
+<p style="margin-left:17%;">Returns the one-line metric
+help text string &minus; given the metric <i>cluster</i> and
+<i>item</i> numbers, returns the help text string.</p>
+
+<p style="margin-left:11%;">pmda_inst_name(index,
+instance)</p>
+
+<p style="margin-left:17%;">Perform a reverse instance
+identifier to instance name lookup for the instance domain
+identified by <i>index</i>. Given the internal
+<i>instance</i> identifier, returns the external instance
+name string.</p>
+
+<p style="margin-left:11%;">pmda_inst_lookup(index,
+instance)</p>
+
+<p style="margin-left:17%;">Given an internal
+<i>instance</i> identifier (key) for the instance domain
+identified by <i>index</i> with an associated indom hash,
+return the value associated with that key. The value can be
+any scalar value (this includes references, of course, so
+complex data structures can be referenced).</p>
+
+<p style="margin-left:11%;">pmda_units(dim_space, dim_time,
+dim_count, scale_space, scale_time, <br>
+scale_count)</p>
+
+<p style="margin-left:17%;">Construct a <b>pmUnits</b>
+structure suitable for registering a metrics metadata via
+<b>add_metric</b>().</p>
+
+<p style="margin-left:11%;">pmda_config(name)</p>
+
+<p style="margin-left:17%;">Lookup the value for
+configuration variable <i>name</i> from the
+<i>/etc/pcp.conf</i> file, using <b>pmGetConfig</b>(3).</p>
+
+<p style="margin-left:11%;">pmda_uptime(now)</p>
+
+<p style="margin-left:17%;">Return a human-readable uptime
+string, based on <i>now</i> seconds since the epoch.</p>
+
+<p style="margin-left:11%;"><i>pmda_long()</i></p>
+
+<p style="margin-left:17%;">Return either
+<small>PM_TYPE_32</small> or <small>PM_TYPE_64</small>
+depending on the platform size for a signed long
+integer.</p>
+
+<p style="margin-left:11%;"><i>pmda_ulong()</i></p>
+
+<p style="margin-left:17%;">Return either
+<small>PM_TYPE_U32</small> or <small>PM_TYPE_U64</small>
+depending on the platform size for an unsigned long
+integer.</p>
+
+<h2>MACROS
+<a name="MACROS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Most of the
+PM_* macros from the <small>PCP C</small> headers are
+available.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example the
+<i>type</i> of a metric&rsquo;s value may be directly
+specified as one of <b><small>PM_TYPE_32</small></b> ,
+<b><small>PM_TYPE_U32</small></b> ,
+<b><small>PM_TYPE_64</small></b> ,
+<b><small>PM_TYPE_U64</small></b> ,
+<b><small>PM_TYPE_FLOAT</small></b> ,
+<b><small>PM_TYPE_DOUBLE</small></b> ,
+<b><small>PM_TYPE_STRING</small></b> or
+<b><small>PM_TYPE_NOSUPPORT</small></b> .</p>
+
+<h2>DEBUGGING
+<a name="DEBUGGING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Perl PMDAs do
+not follow the <b>&minus;D</b> convention of other
+<small>PCP</small> applications for enabling run-time
+diagnostics and tracing. Rather the environment variable
+<b><small>PCP_PERL_DEBUG</small></b> needs to be set to a
+string value matching the syntax accepted for the option
+value for <b>&minus;D</b> elsewhere, see
+<b>__pmParseDebug</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">This requires a
+little trickery. The <b>pmcd</b>(1) configuration file (
+<b><small>PCP_PMCDCONF_PATH</small></b> from
+<i>/etc/pcp.conf</i>) needs hand editing. This is best
+demonstrated by example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Replace this
+line</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> foo  242  pipe  binary  python  /somepath/foo.py</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">with</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> foo  242  pipe  binary  python  \
+     sh &minus;c &quot;PCP_PERL_DEBUG=pdu,fetch /usr/bin/python /somepath/foo.py&quot;</pre>
+
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>perl</i>(1)
+and <i>PCPIntro</i>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<small>PCP</small> mailing list
+pcp@mail.performancecopilot.org can be used for questions
+about this module.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Further details
+can be found at http://www.performancecopilot.org/</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The Performance
+Co-Pilot development team.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Copyright (C)
+2014 Red Hat. Copyright (C) 2008&minus;2010 Aconex.
+Copyright (C) 2004 Silicon Graphics, Inc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you can redistribute it and/or modify it
+under the terms of the <small>GNU</small> General Public
+License, version 2 (see the &quot;
+<small>COPYING&quot;</small> file in the <small>PCP</small>
+source tree for further details).</p>
+<hr>
+</body>
+</html>
