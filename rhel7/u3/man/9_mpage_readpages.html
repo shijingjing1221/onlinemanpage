@@ -1,0 +1,161 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:57:00 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>MPAGE_READPAGES</title>
+
+</head>
+<body>
+
+<h1 align="center">MPAGE_READPAGES</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#BH_BOUNDARY EXPLANATION">BH_BOUNDARY EXPLANATION</a><br>
+<a href="#SUBMITTED IN THE FOLLOWING ORDER">SUBMITTED IN THE FOLLOWING ORDER</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">mpage_readpages
+&minus; populate an address space with some pages &amp;
+start reads against them</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="89%">
+
+
+<p style="margin-top: 1em"><b>int
+mpage_readpages(struct&nbsp;address_space&nbsp;*&nbsp;</b><i>mapping</i><b>,
+struct&nbsp;list_head&nbsp;*&nbsp;</b><i>pages</i><b>,
+unsigned&nbsp;</b><i>nr_pages</i><b>,
+get_block_t&nbsp;</b><i>get_block</i><b>);</b></p> </td></tr>
+</table>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>mapping</i></b></p>
+
+<p style="margin-left:17%;">the address_space</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>pages</i></p>
+
+<p style="margin-left:17%;">The address of a list_head
+which contains the target pages. These pages have their
+&minus;&gt;index populated and are otherwise uninitialised.
+The page at <i>pages</i>&minus;&gt;prev has the lowest file
+offset, and reads should be issued in
+<i>pages</i>&minus;&gt;prev to <i>pages</i>&minus;&gt;next
+order.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>nr_pages</i></p>
+
+<p style="margin-left:17%;">The number of pages at
+*<i>pages</i></p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>get_block</i></p>
+
+<p style="margin-left:17%;">The filesystem's block mapper
+function.</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This function
+walks the pages and the blocks within each page, building
+and emitting large BIOs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If anything
+unusual happens, such as:</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;
+encountering a page which has buffers &minus; encountering a
+page which has a non&minus;hole after a hole &minus;
+encountering a page with non&minus;contiguous blocks</p>
+
+<p style="margin-left:11%; margin-top: 1em">then this code
+just gives up and calls the buffer_head&minus;based read
+function. It does handle a page which has holes at the end
+&minus; that is a common case: the end&minus;of&minus;file
+on blocksize &lt; PAGE_CACHE_SIZE setups.</p>
+
+<h2>BH_BOUNDARY EXPLANATION
+<a name="BH_BOUNDARY EXPLANATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There is a
+problem. The mpage read code assembles several pages, gets
+all their disk mappings, and then submits them all. That's
+fine, but obtaining the disk mappings may require I/O. Reads
+of indirect blocks, for example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So an mpage
+read of the first 16 blocks of an ext2 file will cause I/O
+to be</p>
+
+<h2>SUBMITTED IN THE FOLLOWING ORDER
+<a name="SUBMITTED IN THE FOLLOWING ORDER"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">12 0 1 2 3 4 5
+6 7 8 9 10 11 13 14 15 16</p>
+
+<p style="margin-left:11%; margin-top: 1em">because the
+indirect block has to be read to get the mappings of blocks
+13,14,15,16. Obviously, this impacts performance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So what we do
+it to allow the filesystem's <b>get_block</b> function to
+set BH_Boundary when it maps block 11. BH_Boundary says:
+mapping of the block after this one will require I/O against
+a block which is probably close to this one. So you should
+push what I/O you have currently accumulated.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This all causes
+the disk requests to be issued in the correct order.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+<hr>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 20:48:39 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMCONTROLLOG</title>
+
+</head>
+<body>
+
+<h1 align="center">PMCONTROLLOG</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#NOTE">NOTE</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>__pmControlLog</b>
+&minus; enable, disable or enquire about logging of
+performance metrics</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt; <br>
+#include &lt;pcp/impl.h&gt;</b></p>
+
+<p style="margin-left:23%; margin-top: 1em"><b>int
+__pmControlLog(int</b> <i>fd</i><b>, const pmResult
+*</b><i>request</i><b>, int&nbsp;</b><i>control</i><b>,
+int&nbsp;</b><i>state</i><b>, int&nbsp;</b><i>delta</i><b>,
+pmResult&nbsp;**</b><i>status</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>__pmControlLog</b>
+may be used to enable or disable the archive logging for
+particular performance metrics, as identified by the
+<i>request</i> parameter; see <b>pmFetch</b>(3) for an
+explanation of the <i>pmResult</i> structure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The application
+must have previously issued a call to
+<b>__pmConnectLogger</b>(3) to establish a control-port
+connection to the <b>pmlogger</b>(1) instance to whom the
+control request is to be directed, and <i>fd</i> (the result
+from <b>__pmConnectLogger</b>(3)) identifies this
+connection.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Within
+<i>request</i>, only the details of the performance metrics
+and their associated instances will be used, i.e. the values
+of the metrics, if any, will be ignored. <i>request</i>
+would typically be constructed as the result of an earlier
+call to <b>pmFetch</b>(3). For metrics with a singular value
+(having an instance domain of <b>PM_INDOM_NULL</b>) the
+corresponding <i>pmValueSet</i> should have the value one in
+the <i>numval</i> field and <b>PM_IN_NULL</b> as the
+<i>inst</i> field of the single <i>pmValue</i> supplied. If
+multiple explicit instances are to be logged, the
+<i>numval</i> field of the <i>pmValueSet</i> should contain
+the number of instances supplied and the <i>inst</i> fields
+of the <i>pmValue</i> structures should contain specific
+instance identifiers (which may not have the reserved value
+<b>PM_IN_NULL</b>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<i>numval</i> field within any of the <i>pmValueSet</i>
+structures in <i>request</i> has a value of zero, it
+indicates that all available instances of the metric should
+be used. Enumeration of the instance domain is deferred
+until the logger fetches the metric prior to writing it to
+the log, rather than being performed when the
+<b>__pmControlLog</b> request is received. This is useful
+for metrics with instance domains that change over time. It
+is an error to specify <i>numval</i> equal to zero if the
+corresponding metric has a singular value (no instance
+domain).</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are
+several sorts of logging control available, namely mandatory
+or advisory, as defined by the <i>control</i> argument, and
+on, off or maybe as defined by the <i>state</i> argument.
+These different types of control may be used to ensure that
+some performance metrics can be guaranteed to always be in
+the log, while others may be dynamically enabled or disabled
+as determined by the level and type of system activity.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The actual
+action to be performed is defined by the combination of
+<i>control</i> and <i>state</i> as follows. If
+<i>control</i> is <b>PM_LOG_MANDATORY</b> and <i>state</i>
+is <b>PM_LOG_ON</b>, then logging is enabled. If
+<i>control</i> is <b>PM_LOG_MANDATORY</b> and <i>state</i>
+is <b>PM_LOG_OFF</b>, then logging is disabled. If
+<i>control</i> is <b>PM_LOG_MANDATORY</b> and <i>state</i>
+is <b>PM_LOG_MAYBE</b>, then subsequent advisory controls
+will be honored. If the logging state prior to the request
+was mandatory (on or off), the state is changed to advisory
+off. If the logging state was already advisory (either on or
+off), it remains unchanged. If <i>control</i> is
+<b>PM_LOG_ADVISORY</b> and the last mandatory control for
+the metric was <b>PM_LOG_MAYBE</b>, then logging is enabled
+or disabled as specified by the <i>state</i> argument, i.e.
+<b>PM_LOG_ON</b> or <b>PM_LOG_OFF</b>. When the arguments
+<i>state</i> and <i>control</i> specify a request to change
+the logging behavior, the argument <i>delta</i> defines the
+logging interval in milliseconds to be applied to all
+metrics and instances identified in <i>request</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result
+argument <i>status</i> returns the current logging state for
+each of the nominated performance metrics. There is a 1:1
+correspondence between the elements of <i>request</i> and
+<i>status.</i> For metrics in <i>request</i> that have
+<i>pmValueSet</i>s with <i>numval</i> equal to zero, the
+corresponding <i>pmValueSet</i> in <i>result</i> will
+contain a value for each available instance at the time of
+the call. Each metric value in <i>status</i> will have the
+current logging state encoded in it. The detailed outcome of
+the operation for each metric can be determined by comparing
+these values to that requested via <i>control</i>,
+<i>state</i> and <i>delta</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Macros defined
+in <b>&lt;pcp/impl.h&gt;</b> may be used to extract the
+state and logging interval from the returned metric values.
+<b>PMLC_GET_ON</b> returns true if logging is on, or false
+if it is off; <b>PMLC_GET_MAND</b> returns true if logging
+is mandatory, or false if it is advisory;
+<b>PMLC_GET_INLOG</b> returns true if the metric has been
+logged at least once, or false otherwise;
+<b>PMLC_GET_AVAIL</b> returns true if the metric was
+available from its source the last time it was supposed to
+be logged, or false if it was unavailable; and
+<b>PMLC_GET_DELTA</b> returns the current logging interval
+for the metric (in milliseconds). <b>PMLC_MAX_DELTA</b>
+defines the greatest <i>delta</i> that can be returned in an
+encoded metric value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As a special
+case, when <i>control</i> is <b>PM_LOG_ENQUIRE</b>,
+<i>state</i> and <i>delta</i> are ignored, and <i>status</i>
+returns the current logging state of the nominated
+performance metrics (this variant makes no changes to the
+logging state).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the value of
+the logging interval is 0, either for <i>delta</i> in a
+request to change state to <b>PM_LOG_ON</b>, or encoded in
+the value returned from <b>PM_LOG_ENQUIRE</b>, then this
+corresponds to the special &lsquo;&lsquo;once
+only&rsquo;&rsquo; logging of metrics that appear once in
+the archive log, and are never logged again.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>__pmControlLog</b>
+returns zero on success.</p>
+
+<h2>NOTE
+<a name="NOTE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This routine is
+not thread-safe as there is no serialization on the use of
+the communication channel between the sending of the request
+and receiving the reply. It is assumed that the caller is
+single-threaded, which is true for the only current user of
+this routine, namely <b>pmlc</b>(1).</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmlc</b>(1),
+<b>pmlogger</b>(1), <b>PMAPI</b>(3), <b>pmFetch</b>(3) and
+<b>__pmConnectLogger</b>(3).</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PM_ERR_TOOSMALL</b></p>
+
+<p style="margin-left:22%;">The number of metrics in
+<i>request</i> is less than one.</p>
+
+<p style="margin-left:11%;"><b>PM_ERR_VALUE</b></p>
+
+<p style="margin-left:22%;">One or more of the
+<i>pmValueSet</i>s in <i>request</i> had <i>numval</i> (the
+number of instances) less than one.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>EINVAL</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>An invalid combination of <i>control</i> and
+<i>state</i> was specified, or <i>delta</i> was
+negative.</p> </td></tr>
+ </table>
+<hr>
+</body>
+</html>

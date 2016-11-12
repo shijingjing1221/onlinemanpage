@@ -1,0 +1,279 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:59:05 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>NDCTL&minus;CREATE&minus;NAMES</title>
+
+</head>
+<body>
+
+<h1 align="center">NDCTL&minus;CREATE&minus;NAMES</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#NOTES">NOTES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">ndctl-create-namespace
+&minus; provision or reconfigure a namespace</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>ndctl
+create&minus;namespace</i> [&lt;options&gt;]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A REGION, after
+resolving DPA aliasing and LABEL specified boundaries,
+surfaces one or more &quot;namespace&quot; devices. The
+arrival of a &quot;namespace&quot; device currently triggers
+either the nd_blk or nd_pmem driver to load and register a
+disk/block device.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Create a
+maximally sized pmem namespace in <i>memory</i> mode</p>
+
+<p style="margin-left:17%; margin-top: 1em">ndctl
+create&minus;namespace</p>
+
+<p style="margin-left:11%; margin-top: 1em">Convert
+namespace0.0 to <i>sector</i> mode</p>
+
+<p style="margin-left:17%; margin-top: 1em">ndctl
+create&minus;namespace &minus;f &minus;e namespace0.0
+&minus;&minus;mode=sector</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">&minus;t,
+&minus;&minus;type=</p>
+
+<p style="margin-left:17%;">Create a <i>pmem</i> or
+<i>blk</i> namespace (subject to available capacity). A pmem
+namespace supports the DAX (direct access) capability to
+<b>mmap</b>(2) persistent memory directly into a process
+address space. A blk namespace access persistent memory
+through a block&minus;window&minus;aperture. Compared to
+pmem it supports a traditional storage error model (EIO on
+error rather than a cpu exception on a bad memory access),
+but it does not support DAX.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;m,
+&minus;&minus;mode=</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;raw&quot;: expose the namespace capacity directly with
+some limitations. Neither a raw pmem namepace nor raw blk
+namespace support sector atomicity by default (see
+&quot;sector&quot; mode below). A raw pmem namespace may
+have limited support for passing a DAX mapping to other
+syscalls. I.e. direct&minus;I/O to/from a DAX buffer may
+fail for a pmem namespace in raw mode.</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;sector&quot; or &quot;safe&quot;: persistent memory,
+given that it is byte addressable, does not support sector
+atomicity. The problematic aspect of sector tearing is that
+most applications do not know they have a atomic sector
+update dependency. At least a disk rarely ever tears sectors
+and if it does it almost certainly returns a checksum error
+on access. Persistent memory devices will always tear and
+always silently. Until an application is audited to be
+robust in the presence of sector&minus;tearing
+&quot;safe&quot; mode is recommended. This imposes some
+performance overhead and disables the DAX capability.</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;memory&quot;: A pmem namespace in this mode supports
+direct I/O to/from DAX mappings. Depending on the kernel
+this mode may come at the cost of allocating
+per&minus;pmem&minus;page metadata. If that allocation is
+required the capacity can be allocated from &quot;System
+RAM&quot; or from a reserved portion of pmem (see the
+&minus;&minus;map= option).</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;dax&quot;: Device DAX is the device&minus;centric
+analogue of Filesystem DAX (CONFIG_FS_DAX). It allows memory
+ranges to be allocated and mapped without need of an
+intervening file system. Device DAX is strict, precise and
+predictable. Specifically this interface:</p>
+
+<p style="margin-left:29%; margin-top: 1em">&bull;
+Guarantees fault granularity with respect to a given page
+size (pte, pmd, or pud) set at configuration time.</p>
+
+<p style="margin-left:29%; margin-top: 1em">&bull; Enforces
+deterministic behavior by being strict about what fault
+scenarios are supported.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;s,
+&minus;&minus;size=</p>
+
+<p style="margin-left:17%;">For NVDIMM devices that support
+namespace labels, set the namespace size. Otherwise it
+defaults to the maximum size specified by platform
+firmware.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;e,
+&minus;&minus;reconfig=</p>
+
+<p style="margin-left:17%;">Reconfigure an existing
+namespace (change the mode, sector size, etc...). All
+namespace parameters, save uuid, default to the current
+attributes of the specified namespace. The namespace is then
+re&minus;created with the specified modifications. The uuid
+is refreshed to a new value by default whenever the data
+layout of a namespace is changed, see &minus;&minus;uuid= to
+set a specific uuid.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;u,
+&minus;&minus;uuid=</p>
+
+<p style="margin-left:17%;">This option is not recommended
+as a new uuid should be generated every time a namespace is
+(re&minus;)created. For recovery scenarios however the uuid
+may be specified.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;n,
+&minus;&minus;name=</p>
+
+<p style="margin-left:17%;">For NVDIMM devices that support
+namespace labels, specify a human friendly name for a
+namespace. This name is available as device attribute for
+use in udev rules or elsewhere.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;l,
+&minus;&minus;sector&minus;size</p>
+
+<p style="margin-left:17%;">Specify the logical sector size
+(LBA size) of the block storage device associated with a
+namespace.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;M,
+&minus;&minus;map=</p>
+
+<p style="margin-left:17%;">A pmem namespace in
+&quot;memory&quot; mode may require allocation of
+per&minus;page metadata. The allocation can be drawn from
+either:</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;mem&quot;: typical system memory</p>
+
+<p style="margin-left:23%; margin-top: 1em">&bull;
+&quot;dev&quot;: persistent memory reserved from the
+namespace</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;f,
+&minus;&minus;force</p>
+
+<p style="margin-left:17%;">Unless this option is specified
+a <i>reconfigure namespace</i> operation will fail if the
+namespace is presently active. Specifying
+&minus;&minus;force causes the namespace to be disabled
+before reconfiguring.</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;v,
+&minus;&minus;verbose</p>
+
+<p style="margin-left:17%;">Emit debug messages for the
+namespace creation process</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;r,
+&minus;&minus;region=</p>
+
+<p style="margin-left:17%;">A <i>regionX</i> device name,
+or a region id number. The keyword <i>all</i> can be
+specified to carry out the operation on every region in the
+system, optionally filtered by bus id (see
+&minus;&minus;bus= option).</p>
+
+<p style="margin-left:11%; margin-top: 1em">&minus;b,
+&minus;&minus;bus=</p>
+
+<p style="margin-left:17%;">Enforce that the operation only
+be carried on devices that are attached to the given bus.
+Where <i>bus</i> can be a provider name or a bus id
+number.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ndctl-zero-labels</b>(1),
+<b>ndctl-disable-namespace</b>(1),
+<b>ndctl-enable-namespace</b>(1),
+<b><font color="#0000FF">NVDIMM Namespace
+Specification</font></b>
+<small><font color="#000000">[1]</font></small></p>
+
+<h2>NOTES
+<a name="NOTES"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="12%"></td>
+<td width="3%">
+
+
+
+<p style="margin-top: 1em"><font color="#000000">1.</font></p> </td>
+<td width="2%"></td>
+<td width="46%">
+
+
+<p style="margin-top: 1em"><font color="#000000">NVDIMM
+Namespace Specification</font></p></td>
+<td width="37%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:17%;"><font color="#000000">http://pmem.io/documents/NVDIMM_Namespace_Spec.pdf</font></p>
+<hr>
+</body>
+</html>

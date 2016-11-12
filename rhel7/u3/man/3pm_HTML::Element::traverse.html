@@ -1,0 +1,546 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:40:30 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>HTML::Element::traverse</title>
+
+</head>
+<body>
+
+<h1 align="center">HTML::Element::traverse</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#THE TRAVERSE METHOD">THE TRAVERSE METHOD</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">HTML::Element::traverse
+&minus; discussion of HTML::Element&rsquo;s traverse
+method</p>
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This document
+describes version 5.03 of HTML::Element::traverse, released
+September 22, 2012 as part of HTML-Tree.</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  # $element&minus;&gt;traverse is unnecessary and obscure.
+  #   Don't use it in new code.</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;HTML::Element&quot;</tt>
+provides a method <tt>&quot;traverse&quot;</tt> that
+traverses the tree and calls user-specified callbacks for
+each node, in pre&minus; or post-order. However, use of the
+method is quite superfluous: if you want to recursively
+visit every node in the tree, it&rsquo;s almost always
+simpler to write a subroutine does just that, than it is to
+bundle up the pre&minus; and/or post-order code in callbacks
+for the <tt>&quot;traverse&quot;</tt> method.</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Suppose you
+want to traverse at/under a node <tt>$tree</tt> and give
+elements an &rsquo;id&rsquo; attribute unless they already
+have one.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can use the
+<tt>&quot;traverse&quot;</tt> method:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  {
+    my $counter = 'x0000';
+    $start_node&minus;&gt;traverse(
+      [ # Callbacks;
+        # pre&minus;order callback:
+        sub {
+          my $x = $_[0];
+          $x&minus;&gt;attr('id', $counter++) unless defined $x&minus;&gt;attr('id');
+          return HTML::Element::OK; # keep traversing
+        },
+        # post&minus;order callback:
+        undef
+      ],
+      1, # don't call the callbacks for text nodes
+    );
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or you can just
+be simple and clear (and not have to understand the calling
+format for <tt>&quot;traverse&quot;</tt>) by writing a sub
+that traverses the tree by just calling itself:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  {
+    my $counter = 'x0000';
+    sub give_id {
+      my $x = $_[0];
+      $x&minus;&gt;attr('id', $counter++) unless defined $x&minus;&gt;attr('id');
+      foreach my $c ($x&minus;&gt;content_list) {
+        give_id($c) if ref $c; # ignore text nodes
+      }
+    };
+    give_id($start_node);
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See,
+isn&rsquo;t that nice and clear?</p>
+
+<p style="margin-left:11%; margin-top: 1em">But, if you
+really need to know:</p>
+
+<h2>THE TRAVERSE METHOD
+<a name="THE TRAVERSE METHOD"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;traverse()&quot;</tt> method is a general
+object-method for traversing a tree or subtree and calling
+user-specified callbacks. It accepts the following syntaxes:
+<br>
+$h&minus;&gt;traverse(\&amp;callback) <br>
+or $h&minus;&gt;traverse(\&amp;callback, $ignore_text) <br>
+or $h&minus;&gt;traverse(
+[\&amp;pre_callback,\&amp;post_callback] , $ignore_text)</p>
+
+<p style="margin-left:11%; margin-top: 1em">These all mean
+to traverse the element and all of its children. That is,
+this method starts at node <tt>$h</tt>, &quot;pre-order
+visits&quot; <tt>$h</tt>, traverses its children, and then
+will &quot;post-order visit&quot; <tt>$h</tt>.
+&quot;Visiting&quot; means that the callback routine is
+called, with these arguments:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $_[0] : the node (element or text segment),
+    $_[1] : a startflag, and
+    $_[2] : the depth</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<tt>$ignore_text</tt> parameter is given and true, then the
+pre-order call <i>will not</i> be happen for text
+content.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The startflag
+is 1 when we enter a node (i.e., in pre-order calls) and 0
+when we leave the node (in post-order calls).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note, however,
+that post-order calls don&rsquo;t happen for nodes that are
+text segments or are elements that are prototypically empty
+(like &quot;br&quot;, &quot;hr&quot;, etc.).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If we visit
+text nodes (i.e., unless <tt>$ignore_text</tt> is given and
+true), then when text nodes are visited, we will also pass
+two extra arguments to the callback:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $_[3] : the element that's the parent
+             of this text node
+    $_[4] : the index of this text node
+             in its parent's content list</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that you
+can specify that the pre-order routine can be a different
+routine from the post-order one:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $h&minus;&gt;traverse( [\&amp;pre_callback,\&amp;post_callback], ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+specify that no post-order calls are to be made, by
+providing a false value as the post-order routine:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $h&minus;&gt;traverse([ \&amp;pre_callback,0 ], ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And similarly
+for suppressing pre-order callbacks:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $h&minus;&gt;traverse([ 0,\&amp;post_callback ], ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that these
+two syntaxes specify the same operation:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $h&minus;&gt;traverse([\&amp;foo,\&amp;foo], ...);
+    $h&minus;&gt;traverse( \&amp;foo       , ...);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The return
+values from calls to your pre&minus; or post-order routines
+are significant, and are used to control recursion into the
+tree.</p>
+
+<p style="margin-left:11%; margin-top: 1em">These are the
+values you can return, listed in descending order of my
+estimation of their usefulness: <br>
+HTML::Element::OK, 1, or any other true value</p>
+
+<p style="margin-left:17%;">...to keep on traversing.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that
+<tt>&quot;HTML::Element::OK&quot;</tt> et al are constants.
+So if you&rsquo;re running under <tt>&quot;use
+strict&quot;</tt> (as I hope you are), and you say:
+<tt>&quot;return HTML::Element::PRUEN&quot;</tt> the
+compiler will flag this as an error (an unallowable
+bareword, specifically), whereas if you spell
+<small>PRUNE</small> correctly, the compiler will not
+complain.</p>
+
+<p style="margin-left:11%;">undef, 0, &rsquo;0&rsquo;,
+&rsquo;&rsquo;, or HTML::Element::PRUNE</p>
+
+<p style="margin-left:17%;">...to block traversing under
+the current element&rsquo;s content. (This is ignored if
+received from a post-order callback, since by then the
+recursion has already happened.) If this is returned by a
+pre-order callback, no post-order callback for the current
+node will happen. (Recall that if your callback exits with
+just <tt>&quot;return;&quot;</tt>, it is returning undef --
+at least in scalar context, and
+<tt>&quot;traverse&quot;</tt> always calls your callbacks in
+scalar context.)</p>
+
+<p style="margin-left:11%;">HTML::Element::ABORT</p>
+
+<p style="margin-left:17%;">...to abort the whole traversal
+immediately. This is often useful when you&rsquo;re looking
+for just the first node in the tree that meets some
+criterion of yours.</p>
+
+<p style="margin-left:11%;">HTML::Element::PRUNE_UP</p>
+
+<p style="margin-left:17%;">...to abort continued traversal
+into this node and its parent node. No post-order callback
+for the current or parent node will happen.</p>
+
+
+<p style="margin-left:11%;">HTML::Element::PRUNE_SOFTLY</p>
+
+<p style="margin-left:17%;">Like <small>PRUNE,</small>
+except that the post-order call for the current node is not
+blocked.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Almost every
+task to do with extracting information from a tree can be
+expressed in terms of traverse operations (usually in only
+one pass, and usually paying attention to only pre-order, or
+to only post-order), or operations based on traversing. (In
+fact, many of the other methods in this class are basically
+calls to <i>traverse()</i> with particular arguments.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">The source code
+for HTML::Element and HTML::TreeBuilder contain several
+examples of the use of the &quot;traverse&quot; method to
+gather information about the content of trees and
+subtrees.</p>
+
+<p style="margin-left:11%; margin-top: 1em">(Note: you
+should not change the structure of a tree <i>while</i> you
+are traversing it.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">[End of
+documentation for the <tt>&quot;traverse()&quot;</tt>
+method]</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Traversing
+with Recursive Anonymous Routines</b> <br>
+Now, if you&rsquo;ve been reading <i>Structure and
+Interpretation of Computer Programs</i> too much, maybe you
+even want a recursive lambda. Go ahead:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  {
+    my $counter = 'x0000';
+    my $give_id;
+    $give_id = sub {
+      my $x = $_[0];
+      $x&minus;&gt;attr('id', $counter++) unless defined $x&minus;&gt;attr('id');
+      foreach my $c ($x&minus;&gt;content_list) {
+        $give_id&minus;&gt;($c) if ref $c; # ignore text nodes
+      }
+    };
+    $give_id&minus;&gt;($start_node);
+    undef $give_id;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">It&rsquo;s a
+bit nutty, and it&rsquo;s <i>still</i> more concise than a
+call to the <tt>&quot;traverse&quot;</tt> method!</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is left as
+an exercise to the reader to figure out how to do the same
+thing without using a <tt>$give_id</tt> symbol at all.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is also left
+as an exercise to the reader to figure out why I undefine
+<tt>$give_id</tt>, above; and why I could achieved the same
+effect with any of:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $give_id = 'I like pie!';
+   # or...
+    $give_id = [];
+   # or even;
+    $give_id = sub { print &quot;Mmmm pie!\n&quot; };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">But not:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $give_id = sub { print &quot;I'm $give_id and I like pie!\n&quot; };
+   # nor...
+    $give_id = \$give_id;
+   # nor...
+    $give_id = { 'pie' =&gt; \$give_id, 'mode' =&gt; 'a la' };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Doing
+Recursive Things Iteratively</b> <br>
+Note that you may at times see an iterative implementation
+of pre-order traversal, like so:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   {
+     my @to_do = ($tree); # start&minus;node
+     while(@to_do) {
+       my $this = shift @to_do;
+       # &quot;Visit&quot; the node:
+       $this&minus;&gt;attr('id', $counter++)
+        unless defined $this&minus;&gt;attr('id');
+       unshift @to_do, grep ref $_, $this&minus;&gt;content_list;
+        # Put children on the stack &minus;&minus; they'll be visited next
+     }
+   }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This can
+<i>under certain circumstances</i> be more efficient than
+just a normal recursive routine, but at the cost of being
+rather obscure. It gains efficiency by avoiding the overhead
+of function-calling, but since there are several method
+dispatches however you do it (to <tt>&quot;attr&quot;</tt>
+and <tt>&quot;content_list&quot;</tt>), the overhead for a
+simple function call is insignificant.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Pruning and
+Whatnot</b> <br>
+The <tt>&quot;traverse&quot;</tt> method does have the
+fairly neat features of the <tt>&quot;ABORT&quot;</tt>,
+<tt>&quot;PRUNE_UP&quot;</tt> and
+<tt>&quot;PRUNE_SOFTLY&quot;</tt> signals. None of these can
+be implemented <i>totally</i> straightforwardly with
+recursive routines, but it is quite possible.
+<tt>&quot;ABORT&quot;</tt>&minus;like behavior can be
+implemented either with using non-local returning with
+<tt>&quot;eval&quot;</tt>/<tt>&quot;die&quot;</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $died_on; # if you need to know where...
+  sub thing {
+    ... visits $_[0]...
+    ... maybe set $died_on to $_[0] and die &quot;ABORT_TRAV&quot; ...
+    ... else call thing($child) for each child...
+    ...any post&minus;order visiting $_[0]...
+  }
+  eval { thing($node) };
+  if($@) {
+    if($@ =~ m&lt;^ABORT_TRAV&gt;) {
+      ...it died (aborted) on $died_on...
+    } else {
+      die $@; # some REAL error happened
+    }
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">or you can just
+do it with flags:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my($abort_flag, $died_on);
+  sub thing {
+    ... visits $_[0]...
+    ... maybe set $abort_flag = 1; $died_on = $_[0]; return;
+    foreach my $c ($_[0]&minus;&gt;content_list) {
+      thing($c);
+      return if $abort_flag;
+    }
+    ...any post&minus;order visiting $_[0]...
+    return;
+  }
+  $abort_flag = $died_on = undef;
+  thing($node);
+  ...if defined $abort_flag, it died on $died_on</pre>
+
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">HTML::Element</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Current
+maintainers:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="68%">
+
+
+<p>Christopher J. Madsen
+<tt>&quot;&lt;perl&nbsp;AT&nbsp;cjmweb.net&gt;&quot;</tt></p> </td>
+<td width="15%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="68%">
+
+
+<p>Jeff Fearn
+<tt>&quot;&lt;jfearn&nbsp;AT&nbsp;cpan.org&gt;&quot;</tt></p> </td>
+<td width="15%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Original
+HTML-Tree author:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="14%">
+
+
+<p style="margin-top: 1em">Gisle Aas</p></td>
+<td width="69%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Former
+maintainers:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p style="margin-top: 1em">Sean M. Burke</p></td>
+<td width="29%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p>Andy Lester</p></td>
+<td width="29%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="54%">
+
+
+<p>Pete Krawczyk
+<tt>&quot;&lt;petek&nbsp;AT&nbsp;cpan.org&gt;&quot;</tt></p> </td>
+<td width="29%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">You can follow
+or contribute to HTML-Tree&rsquo;s development at
+&lt;http://github.com/madsen/HTML&minus;Tree&gt;.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Copyright
+2000,2001 Sean M. Burke</p>
+<hr>
+</body>
+</html>

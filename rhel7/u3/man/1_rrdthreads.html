@@ -1,0 +1,368 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:18:45 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>RRDTHREADS</title>
+
+</head>
+<body>
+
+<h1 align="center">RRDTHREADS</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">rrdthreads
+&minus; Provisions for linking the RRD library to use in
+multi&minus;threaded programs</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Using librrd in
+multi-threaded programs requires some extra precautions, as
+the <small>RRD</small> library in its original form was not
+thread-safe at all. This document describes requirements and
+pitfalls on the way to use the multi-threaded version of
+librrd in your own programs. It also gives hints for future
+<small>RRD</small> development to keep the library
+thread-safe.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Currently only
+some <small>RRD</small> operations are implemented in a
+thread-safe way. They all end in the usual
+&quot;<tt>&quot;_r&quot;</tt>&quot; suffix.</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">In order to use
+librrd in multi-threaded programs you must:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Link with <i>librrd_th</i> instead of <i>librrd</i> (use
+<tt>&quot;&minus;lrrd_th&quot;</tt> when linking)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Use the &quot;<tt>&quot;_r&quot;</tt>&quot; functions
+instead of the normal API-functions</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Do not use any at-style time specifications. Parsing of
+such time specifications is terribly non-thread-safe.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Never use non *<tt>&quot;_r&quot;</tt> functions unless
+it is explicitly documented that the function is
+tread-safe.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Every thread <small>SHOULD</small> call
+<tt>&quot;rrd_get_context()&quot;</tt> before its first call
+to any <tt>&quot;librrd_th&quot;</tt> function in order to
+set up thread specific data. This is not strictly required,
+but it is the only way to test if memory allocation can be
+done by this function. Otherwise the program may die with a
+<small>SIGSEGV</small> in a low-memory situation.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>Always call <tt>&quot;rrd_error_clear()&quot;</tt>
+before any call to the library. Otherwise the call might
+fail due to some earlier error.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>NOTES
+FOR RRD CONTRIBUTORS</small></b> <br>
+Some precautions must be followed when developing
+<small>RRD</small> from now on:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Only use thread-safe functions
+in library code. Many often used libc functions aren&rsquo;t
+thread-safe. Take care in the following situations or when
+using the following library functions:</p></td></tr>
+</table>
+
+<p style="margin-left:17%;">&bull;</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%"></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p style="margin-top: 1em">Direct calls to
+<tt>&quot;strerror()&quot;</tt> must be avoided: use
+<tt>&quot;rrd_strerror()&quot;</tt> instead, it provides a
+per-thread error message.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>The <tt>&quot;getpw*&quot;</tt>,
+<tt>&quot;getgr*&quot;</tt>, <tt>&quot;gethost*&quot;</tt>
+function families (and some more <tt>&quot;get*&quot;</tt>
+functions) are not thread-safe: use the
+*<tt>&quot;_r&quot;</tt> variants</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Time functions: <tt>&quot;asctime&quot;</tt>,
+<tt>&quot;ctime&quot;</tt>, <tt>&quot;gmtime&quot;</tt>,
+<tt>&quot;localtime&quot;</tt>: use *<tt>&quot;_r&quot;</tt>
+variants</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p><tt>&quot;strtok&quot;</tt>: use
+<tt>&quot;strtok_r&quot;</tt></p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p><tt>&quot;tmpnam&quot;</tt>: use
+<tt>&quot;tmpnam_r&quot;</tt></p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+
+
+<p>Many others (lookup documentation)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="77%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">A header file
+named <i>rrd_is_thread_safe.h</i> is provided that works
+with the <small>GNU</small> C&minus;preprocessor to
+&quot;poison&quot; some of the most common non-thread-safe
+functions using the <tt>&quot;#pragma GCC poison&quot;</tt>
+directive. Just include this header in source files you want
+to keep thread-safe.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="52%">
+
+
+<p style="margin-top: 1em">Do not introduce global
+variables!</p> </td>
+<td width="31%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">If you really,
+really have to use a global variable you may add a new field
+to the <tt>&quot;rrd_context&quot;</tt> structure and modify
+<i>rrd_error.c</i>, <i>rrd_thread_safe.c</i> and
+<i>rrd_non_thread_safe.c</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">Do not use
+<tt>&quot;getopt&quot;</tt> or
+<tt>&quot;getopt_long&quot;</tt> in *<tt>&quot;_r&quot;</tt>
+(neither directly nor indirectly).</p></td></tr>
+</table>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>&quot;getopt&quot;</tt>
+uses global variables and behaves badly in a multi-threaded
+application when called concurrently. Instead provide a *_r
+function taking all options as function parameters. You may
+provide argc and **argv arguments for variable length
+argument lists. See <tt>&quot;rrd_update_r&quot;</tt> as an
+example.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="61%">
+
+
+<p style="margin-top: 1em">Do not use the
+<tt>&quot;rrd_parsetime&quot;</tt> function!</p></td>
+<td width="22%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">It uses lots of
+global variables. You may use it in functions not designed
+to be thread-safe, like in functions wrapping the
+<tt>&quot;_r&quot;</tt> version of some operation (e.g.,
+<tt>&quot;rrd_create&quot;</tt>, but not in
+<tt>&quot;rrd_create_r&quot;</tt>)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>CURRENTLY
+IMPLEMENTED THREAD SAFE FUNCTIONS</small></b> <br>
+Currently there exist thread-safe variants of
+<tt>&quot;rrd_update&quot;</tt>,
+<tt>&quot;rrd_create&quot;</tt>,
+<tt>&quot;rrd_dump&quot;</tt>,
+<tt>&quot;rrd_info&quot;</tt>,
+<tt>&quot;rrd_last&quot;</tt>, and
+<tt>&quot;rrd_fetch&quot;</tt>.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Peter Stamfest
+&lt;peter@stamfest.at&gt;</p>
+<hr>
+</body>
+</html>

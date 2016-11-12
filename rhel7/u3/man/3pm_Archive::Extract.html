@@ -1,0 +1,615 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 20:50:40 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Archive::Extract</title>
+
+</head>
+<body>
+
+<h1 align="center">Archive::Extract</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#ACCESSORS">ACCESSORS</a><br>
+<a href="#HOW IT WORKS">HOW IT WORKS</a><br>
+<a href="#CAVEATS">CAVEATS</a><br>
+<a href="#GLOBAL VARIABLES">GLOBAL VARIABLES</a><br>
+<a href="#TODO / CAVEATS">TODO / CAVEATS</a><br>
+<a href="#BUG REPORTS">BUG REPORTS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Archive::Extract
+&minus; A generic archive extracting mechanism</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    use Archive::Extract;
+    ### build an Archive::Extract object ###
+    my $ae = Archive::Extract&minus;&gt;new( archive =&gt; 'foo.tgz' );
+    ### extract to cwd() ###
+    my $ok = $ae&minus;&gt;extract;
+    ### extract to /tmp ###
+    my $ok = $ae&minus;&gt;extract( to =&gt; '/tmp' );
+    ### what if something went wrong?
+    my $ok = $ae&minus;&gt;extract or die $ae&minus;&gt;error;
+    ### files from the archive ###
+    my $files   = $ae&minus;&gt;files;
+    ### dir that was extracted to ###
+    my $outdir  = $ae&minus;&gt;extract_path;
+    ### quick check methods ###
+    $ae&minus;&gt;is_tar     # is it a .tar file?
+    $ae&minus;&gt;is_tgz     # is it a .tar.gz or .tgz file?
+    $ae&minus;&gt;is_gz;     # is it a .gz file?
+    $ae&minus;&gt;is_zip;    # is it a .zip file?
+    $ae&minus;&gt;is_bz2;    # is it a .bz2 file?
+    $ae&minus;&gt;is_tbz;    # is it a .tar.bz2 or .tbz file?
+    $ae&minus;&gt;is_lzma;   # is it a .lzma file?
+    $ae&minus;&gt;is_xz;     # is it a .xz file?
+    $ae&minus;&gt;is_txz;    # is it a .tar.xz or .txz file?
+    ### absolute path to the archive you provided ###
+    $ae&minus;&gt;archive;
+    ### commandline tools, if found ###
+    $ae&minus;&gt;bin_tar     # path to /bin/tar, if found
+    $ae&minus;&gt;bin_gzip    # path to /bin/gzip, if found
+    $ae&minus;&gt;bin_unzip   # path to /bin/unzip, if found
+    $ae&minus;&gt;bin_bunzip2 # path to /bin/bunzip2 if found
+    $ae&minus;&gt;bin_unlzma  # path to /bin/unlzma if found
+    $ae&minus;&gt;bin_unxz    # path to /bin/unxz if found</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Archive::Extract
+is a generic archive extraction mechanism.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It allows you
+to extract any archive file of the type .tar, .tar.gz, .gz,
+.Z, tar.bz2, .tbz, .bz2, .zip, .xz,, .txz, .tar.xz or .lzma
+without having to worry how it does so, or use different
+interfaces for each type by using either perl modules, or
+commandline tools on your system.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+<tt>&quot;HOW IT WORKS&quot;</tt> section further down for
+details.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae =
+Archive::Extract&minus;&gt;new(archive =&gt;
+&rsquo;/path/to/archive&rsquo;,[type =&gt;
+<small>TYPE</small> ])</b> <br>
+Creates a new <tt>&quot;Archive::Extract&quot;</tt> object
+based on the archive file you passed it. Automatically
+determines the type of archive based on the extension, but
+you can override that by explicitly providing the
+<tt>&quot;type&quot;</tt> argument.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Valid values
+for <tt>&quot;type&quot;</tt> are:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>tar</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Standard tar files, as produced by, for example,
+<tt>&quot;/bin/tar&quot;</tt>. Corresponds to a
+<tt>&quot;.tar&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>tgz</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Gzip compressed tar files, as produced by, for example
+<tt>&quot;/bin/tar &minus;z&quot;</tt>. Corresponds to a
+<tt>&quot;.tgz&quot;</tt> or <tt>&quot;.tar.gz&quot;</tt>
+suffix.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>gz</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Gzip compressed file, as produced by, for example
+<tt>&quot;/bin/gzip&quot;</tt>. Corresponds to a
+<tt>&quot;.gz&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>Z</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Lempel-Ziv compressed file, as produced by, for example
+<tt>&quot;/bin/compress&quot;</tt>. Corresponds to a
+<tt>&quot;.Z&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>zip</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Zip compressed file, as produced by, for example
+<tt>&quot;/bin/zip&quot;</tt>. Corresponds to a
+<tt>&quot;.zip&quot;</tt>, <tt>&quot;.jar&quot;</tt> or
+<tt>&quot;.par&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>bz2</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Bzip2 compressed file, as produced by, for example,
+<tt>&quot;/bin/bzip2&quot;</tt>. Corresponds to a
+<tt>&quot;.bz2&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>tbz</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Bzip2 compressed tar file, as produced by, for example
+<tt>&quot;/bin/tar &minus;j&quot;</tt>. Corresponds to a
+<tt>&quot;.tbz&quot;</tt> or <tt>&quot;.tar.bz2&quot;</tt>
+suffix.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;">lzma</p>
+
+<p style="margin-left:17%;">Lzma compressed file, as
+produced by <tt>&quot;/bin/lzma&quot;</tt>. Corresponds to a
+<tt>&quot;.lzma&quot;</tt> suffix.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>xz</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Xz compressed file, as produced by
+<tt>&quot;/bin/xz&quot;</tt>. Corresponds to a
+<tt>&quot;.xz&quot;</tt> suffix.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p>txz</p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Xz compressed tar file, as produced by, for example
+<tt>&quot;/bin/tar &minus;J&quot;</tt>. Corresponds to a
+<tt>&quot;.txz&quot;</tt> or <tt>&quot;.tar.xz&quot;</tt>
+suffix.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Returns a
+<tt>&quot;Archive::Extract&quot;</tt> object on success, or
+false on failure.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;extract(
+[to =&gt; &rsquo;/output/path&rsquo;] )</b> <br>
+Extracts the archive represented by the
+<tt>&quot;Archive::Extract&quot;</tt> object to the path of
+your choice as specified by the <tt>&quot;to&quot;</tt>
+argument. Defaults to <tt>&quot;cwd()&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Since
+<tt>&quot;.gz&quot;</tt> files never hold a directory, but
+only a single file; if the <tt>&quot;to&quot;</tt> argument
+is an existing directory, the file is extracted there, with
+its <tt>&quot;.gz&quot;</tt> suffix stripped. If the
+<tt>&quot;to&quot;</tt> argument is not an existing
+directory, the <tt>&quot;to&quot;</tt> argument is
+understood to be a filename, if the archive type is
+<tt>&quot;gz&quot;</tt>. In the case that you did not
+specify a <tt>&quot;to&quot;</tt> argument, the output file
+will be the name of the archive file, stripped from its
+<tt>&quot;.gz&quot;</tt> suffix, in the current working
+directory.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;extract&quot;</tt>
+will try a pure perl solution first, and then fall back to
+commandline tools if they are available. See the
+<tt>&quot;GLOBAL VARIABLES&quot;</tt> section below on how
+to alter this behaviour.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It will return
+true on success, and false on failure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">On success, it
+will also set the follow attributes in the object: <br>
+$ae&minus;&gt;extract_path</p>
+
+<p style="margin-left:17%;">This is the directory that the
+files where extracted to.</p>
+
+<p style="margin-left:11%;">$ae&minus;&gt;files</p>
+
+<p style="margin-left:17%;">This is an array ref with the
+paths of all the files in the archive, relative to the
+<tt>&quot;to&quot;</tt> argument you specified. To get the
+full path to an extracted file, you would use:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    File::Spec&minus;&gt;catfile( $to, $ae&minus;&gt;files&minus;&gt;[0] );</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Note that all
+files from a tar archive will be in unix format, as per the
+tar specification.</p>
+
+<h2>ACCESSORS
+<a name="ACCESSORS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;error([
+<small>BOOL</small> ])</b> <br>
+Returns the last encountered error as string. Pass it a true
+value to get the <tt>&quot;Carp::longmess()&quot;</tt>
+output instead.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;extract_path</b>
+<br>
+This is the directory the archive got extracted to. See
+<tt>&quot;extract()&quot;</tt> for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;files</b>
+<br>
+This is an array ref holding all the paths from the archive.
+See <tt>&quot;extract()&quot;</tt> for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;archive</b>
+<br>
+This is the full path to the archive file represented by
+this <tt>&quot;Archive::Extract&quot;</tt> object.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;type</b>
+<br>
+This is the type of archive represented by this
+<tt>&quot;Archive::Extract&quot;</tt> object. See accessors
+below for an easier way to use this. See the
+<tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;types</b>
+<br>
+Returns a list of all known <tt>&quot;types&quot;</tt> for
+<tt>&quot;Archive::Extract&quot;</tt>&rsquo;s
+<tt>&quot;new&quot;</tt> method.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_tgz</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.tar.gz&quot;</tt>. See the
+<tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_tar</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.tar&quot;</tt>. See the
+<tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_gz</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.gz&quot;</tt>. See the <tt>&quot;new()&quot;</tt>
+method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_Z</b>
+<br>
+Returns true if the file is of type <tt>&quot;.Z&quot;</tt>.
+See the <tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_zip</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.zip&quot;</tt>. See the
+<tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_lzma</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.lzma&quot;</tt>. See the
+<tt>&quot;new()&quot;</tt> method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;is_xz</b>
+<br>
+Returns true if the file is of type
+<tt>&quot;.xz&quot;</tt>. See the <tt>&quot;new()&quot;</tt>
+method for details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;bin_tar</b>
+<br>
+Returns the full path to your tar binary, if found.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;bin_gzip</b>
+<br>
+Returns the full path to your gzip binary, if found</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;bin_unzip</b>
+<br>
+Returns the full path to your unzip binary, if found</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;bin_unlzma</b>
+<br>
+Returns the full path to your unlzma binary, if found</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ae&minus;&gt;bin_unxz</b>
+<br>
+Returns the full path to your unxz binary, if found</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$ae&minus;&gt;have_old_bunzip2</b> <br>
+Older versions of <tt>&quot;/bin/bunzip2&quot;</tt>, from
+before the <tt>&quot;bunzip2 1.0&quot;</tt> release, require
+all archive names to end in <tt>&quot;.bz2&quot;</tt> or it
+will not extract them. This method checks if you have a
+recent version of <tt>&quot;bunzip2&quot;</tt> that allows
+any extension, or an older one that doesn&rsquo;t.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>debug(
+<small>MESSAGE</small> )</b> <br>
+This method outputs <small>MESSAGE</small> to the default
+filehandle if <tt>$DEBUG</tt> is true. It&rsquo;s a small
+method, but it&rsquo;s here if you&rsquo;d like to subclass
+it so you can so something else with any debugging
+output.</p>
+
+<h2>HOW IT WORKS
+<a name="HOW IT WORKS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;Archive::Extract&quot;</tt>
+tries first to determine what type of archive you are
+passing it, by inspecting its suffix. It does not do this by
+using Mime magic, or something related. See
+<tt>&quot;CAVEATS&quot;</tt> below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Once it has
+determined the file type, it knows which extraction methods
+it can use on the archive. It will try a perl solution
+first, then fall back to a commandline tool if that fails.
+If that also fails, it will return false, indicating it was
+unable to extract the archive. See the section on
+<tt>&quot;GLOBAL VARIABLES&quot;</tt> to see how to alter
+this order.</p>
+
+<h2>CAVEATS
+<a name="CAVEATS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>File
+Extensions</b> <tt><br>
+&quot;Archive::Extract&quot;</tt> trusts on the extension of
+the archive to determine what type it is, and what extractor
+methods therefore can be used. If your archives do not have
+any of the extensions as described in the
+<tt>&quot;new()&quot;</tt> method, you will have to specify
+the type explicitly, or
+<tt>&quot;Archive::Extract&quot;</tt> will not be able to
+extract the archive for you.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Supporting
+Very Large Files</b> <tt><br>
+&quot;Archive::Extract&quot;</tt> can use either pure perl
+modules or command line programs under the hood. Some of the
+pure perl modules (like <tt>&quot;Archive::Tar&quot;</tt>
+and Compress::unLZMA) take the entire contents of the
+archive into memory, which may not be feasible on your
+system. Consider setting the global variable
+<tt>$Archive::Extract::PREFER_BIN</tt> to <tt>1</tt>, which
+will prefer the use of command line programs and won&rsquo;t
+consume so much memory.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See the
+<tt>&quot;GLOBAL VARIABLES&quot;</tt> section below for
+details.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Bunzip2
+support of arbitrary extensions.</b> <br>
+Older versions of <tt>&quot;/bin/bunzip2&quot;</tt> do not
+support arbitrary file extensions and insist on a
+<tt>&quot;.bz2&quot;</tt> suffix. Although we do our best to
+guard against this, if you experience a bunzip2 error, it
+may be related to this. For details, please see the
+<tt>&quot;have_old_bunzip2&quot;</tt> method.</p>
+
+<h2>GLOBAL VARIABLES
+<a name="GLOBAL VARIABLES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$Archive::Extract::DEBUG</b>
+<br>
+Set this variable to <tt>&quot;true&quot;</tt> to have all
+calls to command line tools be printed out, including all
+their output. This also enables
+<tt>&quot;Carp::longmess&quot;</tt> errors, instead of the
+regular <tt>&quot;carp&quot;</tt> errors.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Good for
+tracking down why things don&rsquo;t work with your
+particular setup.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Defaults to
+<tt>&quot;false&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$Archive::Extract::WARN</b>
+<br>
+This variable controls whether errors encountered internally
+by <tt>&quot;Archive::Extract&quot;</tt> should be
+<tt>&quot;carp&quot;</tt>&rsquo;d or not.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Set to false to
+silence warnings. Inspect the output of the
+<tt>&quot;error()&quot;</tt> method manually to see what
+went wrong.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Defaults to
+<tt>&quot;true&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$Archive::Extract::PREFER_BIN</b>
+<br>
+This variables controls whether
+<tt>&quot;Archive::Extract&quot;</tt> should prefer the use
+of perl modules, or commandline tools to extract
+archives.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Set to
+<tt>&quot;true&quot;</tt> to have
+<tt>&quot;Archive::Extract&quot;</tt> prefer commandline
+tools.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Defaults to
+<tt>&quot;false&quot;</tt>.</p>
+
+<h2>TODO / CAVEATS
+<a name="TODO / CAVEATS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Mime magic
+support</p>
+
+<p style="margin-left:17%;">Maybe this module should use
+something like <tt>&quot;File::Type&quot;</tt> to determine
+the type, rather than blindly trust the suffix.</p>
+
+<p style="margin-left:11%;">Thread safety</p>
+
+<p style="margin-left:17%;">Currently,
+<tt>&quot;Archive::Extract&quot;</tt> does a
+<tt>&quot;chdir&quot;</tt> to the extraction dir before
+extraction, and a <tt>&quot;chdir&quot;</tt> back again
+after. This is not necessarily thread safe. See
+<tt>&quot;rt.cpan.org&quot;</tt> bug
+<tt>&quot;#45671&quot;</tt> for details.</p>
+
+<h2>BUG REPORTS
+<a name="BUG REPORTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Please report
+bugs or other issues to
+&lt;bug&minus;archive&minus;extract@rt.cpan.org&gt;.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module by
+Jos Boumans &lt;kane@cpan.org&gt;.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you may redistribute and/or modify it under
+the same terms as Perl itself.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 23:08:45 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>XML::LibXML::InputCallback</title>
+
+</head>
+<body>
+
+<h1 align="center">XML::LibXML::InputCallback</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#INTERFACE DESCRIPTION">INTERFACE DESCRIPTION</a><br>
+<a href="#EXAMPLE CALLBACKS">EXAMPLE CALLBACKS</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+<a href="#VERSION">VERSION</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">XML::LibXML::InputCallback
+&minus; XML::LibXML Class for Input Callbacks</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  use XML::LibXML;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may get
+unexpected results if you are trying to load external
+documents during libxml2 parsing if the location of the
+resource is not a <small>HTTP, FTP</small> or relative
+location but a absolute path for example. To get around this
+limitation, you may add your own input handler to open, read
+and close particular types of locations or
+<small>URI</small> classes. Using this input callback
+handlers, you can handle your own custom <small>URI</small>
+schemes for example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The input
+callbacks are used whenever LibXML has to get something
+other than externally parsed entities from somewhere. They
+are implemented using a callback stack on the Perl layer in
+analogy to libxml2&rsquo;s native callback stack.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+XML::LibXML::InputCallback class transparently registers the
+input callbacks for the libxml2&rsquo;s parser
+processes.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>How does
+XML::LibXML::InputCallback work?</b> <br>
+The libxml2 library offers a callback implementation as
+global functions only. To work-around the troubles resulting
+in having only global callbacks &minus; for example, if the
+same global callback stack is manipulated by different
+applications running together in a single Apache Web-server
+environment &minus;, XML::LibXML::InputCallback comes with a
+object-oriented and a function-oriented part.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Using the
+function-oriented part the global callback stack of libxml2
+can be manipulated. Those functions can be used as interface
+to the callbacks on the C&minus; and <small>XS</small>
+Layer. At the object-oriented part, operations for working
+with the &quot;pseudo-localized&quot; callback stack are
+implemented. Currently, you can register and de-register
+callbacks on the Perl layer and initialize them on a per
+parser basis.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>Callback
+Groups</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The libxml2
+input callbacks come in groups. One group contains a
+<small>URI</small> matcher (<i>match</i>), a data stream
+constructor (<i>open</i>), a data stream reader
+(<i>read</i>), and a data stream destructor (<i>close</i>).
+The callbacks can be manipulated on a per group basis
+only.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><i>The Parser
+Process</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The parser
+process works on an <small>XML</small> data stream, along
+which, links to other resources can be embedded. This can be
+links to external DTDs or XIncludes for example. Those
+resources are identified by URIs. The callback
+implementation of libxml2 assumes that one callback group
+can handle a certain amount of URIs and a certain
+<small>URI</small> scheme. Per default, callback handlers
+for <i>file://*</i>, <i>file:://*.gz</i>, <i>http://*</i>
+and <i>ftp://*</i> are registered.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Callback groups
+in the callback stack are processed from top to bottom,
+meaning that callback groups registered later will be
+processed before the earlier registered ones.</p>
+
+<p style="margin-left:11%; margin-top: 1em">While parsing
+the data stream, the libxml2 parser checks if a registered
+callback group will handle a <small>URI &minus;</small> if
+they will not, the <small>URI</small> will be interpreted as
+<i>file://URI</i>. To handle a <small>URI,</small> the
+<i>match</i> callback will have to return &rsquo;1&rsquo;.
+If that happens, the handling of the <small>URI</small> will
+be passed to that callback group. Next, the
+<small>URI</small> will be passed to the <i>open</i>
+callback, which should return a <i>reference</i> to the data
+stream if it successfully opened the file, &rsquo;0&rsquo;
+otherwise. If opening the stream was successful, the
+<i>read</i> callback will be called repeatedly until it
+returns an empty string. After the read callback, the
+<i>close</i> callback will be called to close the
+stream.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Organisation
+of callback groups in XML::LibXML::InputCallback</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">Callback groups
+are implemented as a stack (Array), each entry holds a
+reference to an array of the callbacks. For the libxml2
+library, the XML::LibXML::InputCallback callback
+implementation appears as one single callback group. The
+Perl implementation however allows to manage different
+callback stacks on a per libxml2&minus;parser basis.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Using
+XML::LibXML::InputCallback</b> <br>
+After object instantiation using the parameter-less
+constructor, you can register callback groups.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $input_callbacks = XML::LibXML::InputCallback&minus;&gt;new();
+  $input_callbacks&minus;&gt;register_callbacks([ $match_cb1, $open_cb1,
+                                         $read_cb1, $close_cb1 ] );
+  $input_callbacks&minus;&gt;register_callbacks([ $match_cb2, $open_cb2,
+                                         $read_cb2, $close_cb2 ] );
+  $input_callbacks&minus;&gt;register_callbacks( [ $match_cb3, $open_cb3,
+                                          $read_cb3, $close_cb3 ] );
+  $parser&minus;&gt;input_callbacks( $input_callbacks );
+  $parser&minus;&gt;parse_file( $some_xml_file );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>What about
+the old callback system prior to
+XML::LibXML::InputCallback?</b> <br>
+In XML::LibXML versions prior to 1.59 &minus; i.e. without
+the XML::LibXML::InputCallback module &minus; you could
+define your callbacks either using globally or locally. You
+still can do that using XML::LibXML::InputCallback, and in
+addition to that you can define the callbacks on a per
+parser basis!</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you use the
+old callback interface through global callbacks,
+XML::LibXML::InputCallback will treat them with a lower
+priority as the ones registered using the new interface. The
+global callbacks will not override the callback groups
+registered using the new interface. Local callbacks are
+attached to a specific parser instance, therefore they are
+treated with highest priority. If the <i>match</i> callback
+of the callback group registered as local variable is
+identical to one of the callback groups registered using the
+new interface, that callback group will be replaced.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Users of the
+old callback implementation whose <i>open</i> callback
+returned a plain string, will have to adapt their code to
+return a reference to that string after upgrading to version
+&gt;= 1.59. The new callback system can only deal with the
+<i>open</i> callback returning a reference!</p>
+
+<h2>INTERFACE DESCRIPTION
+<a name="INTERFACE DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Global
+Variables</b> <br>
+$_CUR_CB</p>
+
+<p style="margin-left:17%;">Stores the current callback and
+can be used as shortcut to access the callback stack.</p>
+
+<p style="margin-left:11%;">@_GLOBAL_CALLBACKS</p>
+
+<p style="margin-left:17%;">Stores all callback groups for
+the current parser process.</p>
+
+<p style="margin-left:11%;">@_CB_STACK</p>
+
+<p style="margin-left:17%;">Stores the currently used
+callback group. Used to prevent parser errors when dealing
+with nested <small>XML</small> data.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Global
+Callbacks</b> <br>
+_callback_match</p>
+
+<p style="margin-left:17%;">Implements the interface for
+the <i>match</i> callback at C&minus;level and for the
+selection of the callback group from the callbacks defined
+at the Perl-level.</p>
+
+<p style="margin-left:11%;">_callback_open</p>
+
+<p style="margin-left:17%;">Forwards the <i>open</i>
+callback from libxml2 to the corresponding callback function
+at the Perl-level.</p>
+
+<p style="margin-left:11%;">_callback_read</p>
+
+<p style="margin-left:17%;">Forwards the read request to
+the corresponding callback function at the Perl-level and
+returns the result to libxml2.</p>
+
+<p style="margin-left:11%;">_callback_close</p>
+
+<p style="margin-left:17%;">Forwards the <i>close</i>
+callback from libxml2 to the corresponding callback function
+at the Perl-level..</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Class
+methods</b> <i><br>
+new()</i></p>
+
+<p style="margin-left:17%;">A simple constructor.</p>
+
+<p style="margin-left:11%;">register_callbacks( [
+$match_cb, $open_cb, $read_cb, $close_cb ])</p>
+
+<p style="margin-left:17%;">The four callbacks <i>have</i>
+to be given as array reference in the above order
+<i>match</i>, <i>open</i>, <i>read</i>, <i>close</i>!</p>
+
+<p style="margin-left:11%;">unregister_callbacks( [
+$match_cb, $open_cb, $read_cb, $close_cb ])</p>
+
+<p style="margin-left:17%;">With no arguments given,
+<tt>&quot;unregister_callbacks()&quot;</tt> will delete the
+last registered callback group from the stack. If four
+callbacks are passed as array reference, the callback group
+to unregister will be identified by the <i>match</i>
+callback and deleted from the callback stack. Note that if
+several identical <i>match</i> callbacks are defined in
+different callback groups, <small>ALL</small> of them will
+be deleted from the stack.</p>
+
+<p style="margin-left:11%;">init_callbacks( $parser )</p>
+
+<p style="margin-left:17%;">Initializes the callback system
+for the provided parser before starting a parsing
+process.</p>
+
+<p style="margin-left:11%;"><i>cleanup_callbacks()</i></p>
+
+<p style="margin-left:17%;">Resets global variables and the
+libxml2 callback stack.</p>
+
+
+<p style="margin-left:11%;"><i>lib_init_callbacks()</i></p>
+
+<p style="margin-left:17%;">Used internally for callback
+registration at C&minus;level.</p>
+
+
+<p style="margin-left:11%;"><i>lib_cleanup_callbacks()</i></p>
+
+<p style="margin-left:17%;">Used internally for callback
+resetting at the C&minus;level.</p>
+
+<h2>EXAMPLE CALLBACKS
+<a name="EXAMPLE CALLBACKS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+example is a purely fictitious example that uses a
+MyScheme::Handler object that responds to methods similar to
+an IO::Handle.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  # Define the four callback functions
+  sub match_uri {
+      my $uri = shift;
+      return $uri =~ /^myscheme:/; # trigger our callback group at a 'myscheme' URIs
+  }
+  sub open_uri {
+      my $uri = shift;
+      my $handler = MyScheme::Handler&minus;&gt;new($uri);
+      return $handler;
+  }
+  # The returned $buffer will be parsed by the libxml2 parser
+  sub read_uri {
+      my $handler = shift;
+      my $length = shift;
+      my $buffer;
+      read($handler, $buffer, $length);
+      return $buffer; # $buffer will be an empty string '' if read() is done
+  }
+  # Close the handle associated with the resource.
+  sub close_uri {
+      my $handler = shift;
+      close($handler);
+  }
+  # Register them with a instance of XML::LibXML::InputCallback
+  my $input_callbacks = XML::LibXML::InputCallback&minus;&gt;new();
+  $input_callbacks&minus;&gt;register_callbacks([ \&amp;match_uri, \&amp;open_uri,
+                                         \&amp;read_uri, \&amp;close_uri ] );
+  # Register the callback group at a parser instance
+  $parser&minus;&gt;input_callbacks( $input_callbacks );
+  # $some_xml_file will be parsed using our callbacks
+  $parser&minus;&gt;parse_file( $some_xml_file );</pre>
+
+
+<h2>AUTHORS
+<a name="AUTHORS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Matt Sergeant,
+Christian Glahn, Petr Pajas</p>
+
+<h2>VERSION
+<a name="VERSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">2.0018</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">2001&minus;2007,
+AxKit.com Ltd.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">2002&minus;2006,
+Christian Glahn.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">2006&minus;2009,
+Petr Pajas.</p>
+<hr>
+</body>
+</html>

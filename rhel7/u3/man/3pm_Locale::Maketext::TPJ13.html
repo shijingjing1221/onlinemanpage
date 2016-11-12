@@ -1,0 +1,1016 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:52:30 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Locale::Maketext::TPJ13</title>
+
+</head>
+<body>
+
+<h1 align="center">Locale::Maketext::TPJ13</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#Localization and Perl: gettext breaks, Maketext fixes">Localization and Perl: gettext breaks, Maketext fixes</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Locale::Maketext::TPJ13
+&minus;&minus; article about software localization</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">  # This an article, not a module.</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+article by Sean M. Burke and Jordan Lachler first appeared
+in <i>The Perl Journal</i> #13 and is copyright 1999 The
+Perl Journal. It appears courtesy of Jon Orwant and The Perl
+Journal. This document may be distributed under the same
+terms as Perl itself.</p>
+
+<h2>Localization and Perl: gettext breaks, Maketext fixes
+<a name="Localization and Perl: gettext breaks, Maketext fixes"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">by Sean M.
+Burke and Jordan Lachler</p>
+
+<p style="margin-left:11%; margin-top: 1em">This article
+points out cases where gettext (a common system for
+localizing software interfaces -- i.e., making them work in
+the user&rsquo;s language of choice) fails because of basic
+differences between human languages. This article then
+describes Maketext, a new system capable of correctly
+treating these differences.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>A
+Localization Horror Story: It Could Happen To You</b></p>
+
+<p style="margin-left:17%;">&quot;There are a number of
+languages spoken by human beings in this world.&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">&minus;&minus;
+Harald Tveit Alvestrand, in <small>RFC 1766,</small>
+&quot;Tags for the Identification of Languages&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Imagine that
+your task for the day is to localize a piece of software --
+and luckily for you, the only output the program emits is
+two messages, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  I scanned 12 directories.
+  Your query matched 10 files in 4 directories.</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">So how hard
+could that be? You look at the code that produces the first
+item, and it reads:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf(&quot;I scanned %g directories.&quot;,
+         $directory_count);</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You think about
+that, and realize that it doesn&rsquo;t even work right for
+English, as it can produce this output:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  I scanned 1 directories.</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">So you rewrite
+it to read:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf(&quot;I scanned %g %s.&quot;,
+         $directory_count,
+         $directory_count == 1 ?
+           &quot;directory&quot; : &quot;directories&quot;,
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">...which does
+the Right Thing. (In case you don&rsquo;t recall,
+&quot;%g&quot; is for locale-specific number interpolation,
+and &quot;%s&quot; is for string interpolation.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">But you still
+have to localize it for all the languages you&rsquo;re
+producing this software for, so you pull Locale::gettext off
+of <small>CPAN</small> so you can access the
+<tt>&quot;gettext&quot;</tt> C functions you&rsquo;ve heard
+are standard for localization tasks.</p>
+
+<p style="margin-left:11%; margin-top: 1em">And you
+write:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf(gettext(&quot;I scanned %g %s.&quot;),
+         $dir_scan_count,
+         $dir_scan_count == 1 ?
+           gettext(&quot;directory&quot;) : gettext(&quot;directories&quot;),
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">But you then
+read in the gettext manual (Drepper, Miller, and Pinard
+1995) that this is not a good idea, since how a single word
+like &quot;directory&quot; or &quot;directories&quot; is
+translated may depend on context -- and this is true, since
+in a case language like German or Russian, you&rsquo;d may
+need these words with a different case ending in the first
+instance (where the word is the object of a verb) than in
+the second instance, which you haven&rsquo;t even gotten to
+yet (where the word is the object of a preposition, &quot;in
+<tt>%g</tt> directories&quot;) -- assuming these keep the
+same syntax when translated into those languages.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So, on the
+advice of the gettext manual, you rewrite:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf( $dir_scan_count == 1 ?
+           gettext(&quot;I scanned %g directory.&quot;) :
+           gettext(&quot;I scanned %g directories.&quot;),
+         $dir_scan_count );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">So, you email
+your various translators (the boss decides that the
+languages du jour are Chinese, Arabic, Russian, and Italian,
+so you have one translator for each), asking for
+translations for &quot;I scanned <tt>%g</tt>
+directory.&quot; and &quot;I scanned <tt>%g</tt>
+directories.&quot;. When they reply, you&rsquo;ll put that
+in the lexicons for gettext to use when it localizes your
+software, so that when the user is running under the
+&quot;zh&quot; (Chinese) locale, gettext(&quot;I scanned
+<tt>%g</tt> directory.&quot;) will return the appropriate
+Chinese text, with a &quot;%g&quot; in there where printf
+can then interpolate <tt>$dir_scan</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Your Chinese
+translator emails right back -- he says both of these
+phrases translate to the same thing in Chinese, because, in
+linguistic jargon, Chinese &quot;doesn&rsquo;t have number
+as a grammatical category&quot; -- whereas English does.
+That is, English has grammatical rules that refer to
+&quot;number&quot;, i.e., whether something is grammatically
+singular or plural; and one of these rules is the one that
+forces nouns to take a plural suffix (generally
+&quot;s&quot;) when in a plural context, as they are when
+they follow a number other than &quot;one&quot; (including,
+oddly enough, &quot;zero&quot;). Chinese has no such rules,
+and so has just the one phrase where English has two. But,
+no problem, you can have this one Chinese phrase appear as
+the translation for the two English phrases in the
+&quot;zh&quot; gettext lexicon for your program.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Emboldened by
+this, you dive into the second phrase that your software
+needs to output: &quot;Your query matched 10 files in 4
+directories.&quot;. You notice that if you want to treat
+phrases as indivisible, as the gettext manual wisely
+advises, you need four cases now, instead of two, to cover
+the permutations of singular and plural on the two items,
+<tt>$dir_count</tt> and <tt>$file_count</tt>. So you try
+this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf( $file_count == 1 ?
+    ( $directory_count == 1 ?
+     gettext(&quot;Your query matched %g file in %g directory.&quot;) :
+     gettext(&quot;Your query matched %g file in %g directories.&quot;) ) :
+    ( $directory_count == 1 ?
+     gettext(&quot;Your query matched %g files in %g directory.&quot;) :
+     gettext(&quot;Your query matched %g files in %g directories.&quot;) ),
+   $file_count, $directory_count,
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">(The case of
+&quot;1 file in 2 [or more] directories&quot; could, I
+suppose, occur in the case of symlinking or something of the
+sort.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">It occurs to
+you that this is not the prettiest code you&rsquo;ve ever
+written, but this seems the way to go. You mail off to the
+translators asking for translations for these four cases.
+The Chinese guy replies with the one phrase that these all
+translate to in Chinese, and that phrase has two
+&quot;%g&quot;s in it, as it should -- but there&rsquo;s a
+problem. He translates it word-for-word back: &quot;In
+<tt>%g</tt> directories contains <tt>%g</tt> files match
+your query.&quot; The <tt>%g</tt> slots are in an order
+reverse to what they are in English. You wonder how
+you&rsquo;ll get gettext to handle that.</p>
+
+<p style="margin-left:11%; margin-top: 1em">But you put it
+aside for the moment, and optimistically hope that the other
+translators won&rsquo;t have this problem, and that their
+languages will be better behaved -- i.e., that they will be
+just like English.</p>
+
+<p style="margin-left:11%; margin-top: 1em">But the Arabic
+translator is the next to write back. First off, your code
+for &quot;I scanned <tt>%g</tt> directory.&quot; or &quot;I
+scanned <tt>%g</tt> directories.&quot; assumes there&rsquo;s
+only singular or plural. But, to use linguistic jargon
+again, Arabic has grammatical number, like English (but
+unlike Chinese), but it&rsquo;s a three-term category:
+singular, dual, and plural. In other words, the way you say
+&quot;directory&quot; depends on whether there&rsquo;s one
+directory, or <i>two</i> of them, or <i>more than two</i> of
+them. Your test of <tt>&quot;($directory == 1)&quot;</tt> no
+longer does the job. And it means that where English&rsquo;s
+grammatical category of number necessitates only the two
+permutations of the first sentence based on &quot;directory
+[singular]&quot; and &quot;directories [plural]&quot;,
+Arabic has three -- and, worse, in the second sentence
+(&quot;Your query matched <tt>%g</tt> file in <tt>%g</tt>
+directory.&quot;), where English has four, Arabic has nine.
+You sense an unwelcome, exponential trend taking shape.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Your Italian
+translator emails you back and says that &quot;I searched 0
+directories&quot; (a possible English output of your
+program) is stilted, and if you think that&rsquo;s fine
+English, that&rsquo;s your problem, but that <i>just will
+not do</i> in the language of Dante. He insists that where
+<tt>$directory_count</tt> is 0, your program should produce
+the Italian text for &quot;I <i>didn&rsquo;t</i> scan
+<i>any</i> directories.&quot;. And ditto for &quot;I
+didn&rsquo;t match any files in any directories&quot;,
+although he says the last part about &quot;in any
+directories&quot; should probably just be left off.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You wonder how
+you&rsquo;ll get gettext to handle this; to accommodate the
+ways Arabic, Chinese, and Italian deal with numbers in just
+these few very simple phrases, you need to write code that
+will ask gettext for different queries depending on whether
+the numerical values in question are 1, 2, more than 2, or
+in some cases 0, and you still haven&rsquo;t figured out the
+problem with the different word order in Chinese.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Then your
+Russian translator calls on the phone, to <i>personally</i>
+tell you the bad news about how really unpleasant your life
+is about to become:</p>
+
+<p style="margin-left:11%; margin-top: 1em">Russian, like
+German or Latin, is an inflectional language; that is, nouns
+and adjectives have to take endings that depend on their
+case (i.e., nominative, accusative, genitive, etc...) --
+which is roughly a matter of what role they have in syntax
+of the sentence -- as well as on the grammatical gender
+(i.e., masculine, feminine, neuter) and number (i.e.,
+singular or plural) of the noun, as well as on the
+declension class of the noun. But unlike with most other
+inflected languages, putting a number-phrase (like
+&quot;ten&quot; or &quot;forty-three&quot;, or their Arabic
+numeral equivalents) in front of noun in Russian can change
+the case and number that noun is, and therefore the endings
+you have to put on it.</p>
+
+<p style="margin-left:11%; margin-top: 1em">He elaborates:
+In &quot;I scanned <tt>%g</tt> directories&quot;,
+you&rsquo;d <i>expect</i> &quot;directories&quot; to be in
+the accusative case (since it is the direct object in the
+sentence) and the plural number, except where
+<tt>$directory_count</tt> is 1, then you&rsquo;d expect the
+singular, of course. Just like Latin or German. <i>But!</i>
+Where <tt>$directory_count</tt> % 10 is 1 (&quot;%&quot; for
+modulo, remember), assuming <tt>$directory</tt> count is an
+integer, and except where <tt>$directory_count</tt> % 100 is
+11, &quot;directories&quot; is forced to become
+grammatically singular, which means it gets the ending for
+the accusative singular... You begin to visualize the code
+it&rsquo;d take to test for the problem so far, <i>and still
+work for Chinese and Arabic and Italian</i>, and how many
+gettext items that&rsquo;d take, but he keeps going... But
+where <tt>$directory_count</tt> % 10 is 2, 3, or 4 (except
+where <tt>$directory_count</tt> % 100 is 12, 13, or 14), the
+word for &quot;directories&quot; is forced to be genitive
+singular -- which means another ending... The room begins to
+spin around you, slowly at first... But with <i>all
+other</i> integer values, since &quot;directory&quot; is an
+inanimate noun, when preceded by a number and in the
+nominative or accusative cases (as it is here, just your
+luck!), it does stay plural, but it is forced into the
+genitive case -- yet another ending... And you never hear
+him get to the part about how you&rsquo;re going to run into
+similar (but maybe subtly different) problems with other
+Slavic languages like Polish, because the floor comes up to
+meet you, and you fade into unconsciousness.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The above
+cautionary tale relates how an attempt at localization can
+lead from programmer consternation, to program obfuscation,
+to a need for sedation. But careful evaluation shows that
+your choice of tools merely needed further
+consideration.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The
+Linguistic View</b></p>
+
+<p style="margin-left:17%;">&quot;It is more complicated
+than you think.&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">&minus;&minus;
+The Eighth Networking Truth, from <small>RFC
+1925</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">The field of
+Linguistics has expended a great deal of effort over the
+past century trying to find grammatical patterns which hold
+across languages; it&rsquo;s been a constant process of
+people making generalizations that should apply to all
+languages, only to find out that, all too often, these
+generalizations fail -- sometimes failing for just a few
+languages, sometimes whole classes of languages, and
+sometimes nearly every language in the world except English.
+Broad statistical trends are evident in what the
+&quot;average language&quot; is like as far as what its
+rules can look like, must look like, and cannot look like.
+But the &quot;average language&quot; is just as unreal a
+concept as the &quot;average person&quot; -- it runs up
+against the fact no language (or person) is, in fact,
+average. The wisdom of past experience leads us to believe
+that any given language can do whatever it wants, in any
+order, with appeal to any kind of grammatical categories
+wants -- case, number, tense, real or metaphoric
+characteristics of the things that words refer to, arbitrary
+or predictable classifications of words based on what
+endings or prefixes they can take, degree or means of
+certainty about the truth of statements expressed, and so
+on, ad infinitum.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Mercifully,
+most localization tasks are a matter of finding ways to
+translate whole phrases, generally sentences, where the
+context is relatively set, and where the only variation in
+content is <i>usually</i> in a number being expressed -- as
+in the example sentences above. Translating specific,
+fully-formed sentences is, in practice, fairly foolproof --
+which is good, because that&rsquo;s what&rsquo;s in the
+phrasebooks that so many tourists rely on. Now, a given
+phrase (whether in a phrasebook or in a gettext lexicon) in
+one language <i>might</i> have a greater or lesser
+applicability than that phrase&rsquo;s translation into
+another language -- for example, strictly speaking, in
+Arabic, the &quot;your&quot; in &quot;Your query
+matched...&quot; would take a different form depending on
+whether the user is male or female; so the Arabic
+translation &quot;your[feminine] query&quot; is applicable
+in fewer cases than the corresponding English phrase, which
+doesn&rsquo;t distinguish the user&rsquo;s gender. (In
+practice, it&rsquo;s not feasible to have a program know the
+user&rsquo;s gender, so the masculine &quot;you&quot; in
+Arabic is usually used, by default.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">But in general,
+such surprises are rare when entire sentences are being
+translated, especially when the functional context is
+restricted to that of a computer interacting with a user
+either to convey a fact or to prompt for a piece of
+information. So, for purposes of localization, translation
+by phrase (generally by sentence) is both the simplest and
+the least problematic.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Breaking
+gettext</b></p>
+
+<p style="margin-left:17%;">&quot;It Has To Work.&quot;</p>
+
+<p style="margin-left:17%; margin-top: 1em">&minus;&minus;
+First Networking Truth, <small>RFC 1925</small></p>
+
+<p style="margin-left:11%; margin-top: 1em">Consider that
+sentences in a tourist phrasebook are of two types: ones
+like &quot;How do I get to the marketplace?&quot; that
+don&rsquo;t have any blanks to fill in, and ones like
+&quot;How much do these ___ cost?&quot;, where there&rsquo;s
+one or more blanks to fill in (and these are usually linked
+to a list of words that you can put in that blank:
+&quot;fish&quot;, &quot;potatoes&quot;,
+&quot;tomatoes&quot;, etc.) The ones with no blanks are no
+problem, but the fill-in-the-blank ones may not be really
+straightforward. If it&rsquo;s a Swahili phrasebook, for
+example, the authors probably didn&rsquo;t bother to tell
+you the complicated ways that the verb &quot;cost&quot;
+changes its inflectional prefix depending on the noun
+you&rsquo;re putting in the blank. The trader in the
+marketplace will still understand what you&rsquo;re saying
+if you say &quot;how much do these potatoes cost?&quot; with
+the wrong inflectional prefix on &quot;cost&quot;. After
+all, <i>you</i> can&rsquo;t speak proper Swahili,
+<i>you&rsquo;re</i> just a tourist. But while tourists can
+be stupid, computers are supposed to be smart; the computer
+should be able to fill in the blank, and still have the
+results be grammatical.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In other words,
+a phrasebook entry takes some values as parameters (the
+things that you fill in the blank or blanks), and provides a
+value based on these parameters, where the way you get that
+final value from the given values can, properly speaking,
+involve an arbitrarily complex series of operations. (In the
+case of Chinese, it&rsquo;d be not at all complex, at least
+in cases like the examples at the beginning of this article;
+whereas in the case of Russian it&rsquo;d be a rather
+complex series of operations. And in some languages, the
+complexity could be spread around differently: while the act
+of putting a number-expression in front of a noun phrase
+might not be complex by itself, it may change how you have
+to, for example, inflect a verb elsewhere in the sentence.
+This is what in syntax is called &quot;long-distance
+dependencies&quot;.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">This talk of
+parameters and arbitrary complexity is just another way to
+say that an entry in a phrasebook is what in a programming
+language would be called a &quot;function&quot;. Just so you
+don&rsquo;t miss it, this is the crux of this article: <i>A
+phrase is a function; a phrasebook is a bunch of
+functions.</i></p>
+
+<p style="margin-left:11%; margin-top: 1em">The reason that
+using gettext runs into walls (as in the above second-person
+horror story) is that you&rsquo;re trying to use a string
+(or worse, a choice among a bunch of strings) to do what you
+really need a function for -- which is futile. Preforming
+(s)printf interpolation on the strings which you get back
+from gettext does allow you to do <i>some</i> common things
+passably well... sometimes... sort of; but, to paraphrase
+what some people say about <tt>&quot;csh&quot;</tt> script
+programming, &quot;it fools you into thinking you can use it
+for real things, but you can&rsquo;t, and you don&rsquo;t
+discover this until you&rsquo;ve already spent too much time
+trying, and by then it&rsquo;s too late.&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Replacing
+gettext</b> <br>
+So, what needs to replace gettext is a system that supports
+lexicons of functions instead of lexicons of strings. An
+entry in a lexicon from such a system should <i>not</i> look
+like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &quot;J'ai trouv\xE9 %g fichiers dans %g r\xE9pertoires&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">[\xE9 is
+e&minus;acute in Latin&minus;1. Some pod renderers would
+scream if I used the actual character here. --
+<small>SB</small> ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">but instead
+like this, bearing in mind that this is just a first
+stab:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub I_found_X1_files_in_X2_directories {
+    my( $files, $dirs ) = @_[0,1];
+    $files = sprintf(&quot;%g %s&quot;, $files,
+      $files == 1 ? 'fichier' : 'fichiers');
+    $dirs = sprintf(&quot;%g %s&quot;, $dirs,
+      $dirs == 1 ? &quot;r\xE9pertoire&quot; : &quot;r\xE9pertoires&quot;);
+    return &quot;J'ai trouv\xE9 $files dans $dirs.&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Now,
+there&rsquo;s no particularly obvious way to store anything
+but strings in a gettext lexicon; so it looks like we just
+have to start over and make something better, from scratch.
+I call my shot at a gettext-replacement system
+&quot;Maketext&quot;, or, in <small>CPAN</small> terms,
+Locale::Maketext.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When designing
+Maketext, I chose to plan its main features in terms of
+&quot;buzzword compliance&quot;. And here are the
+buzzwords:</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Buzzwords:
+Abstraction and Encapsulation</b> <br>
+The complexity of the language you&rsquo;re trying to output
+a phrase in is entirely abstracted inside (and encapsulated
+within) the Maketext module for that interface. When you
+call:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  print $lang&minus;&gt;maketext(&quot;You have [quant,_1,piece] of new mail.&quot;,
+                       scalar(@messages));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">you don&rsquo;t
+know (and in fact can&rsquo;t easily find out) whether this
+will involve lots of figuring, as in Russian (if
+<tt>$lang</tt> is a handle to the Russian module), or
+relatively little, as in Chinese. That kind of abstraction
+and encapsulation may encourage other pleasant buzzwords
+like modularization and stratification, depending on what
+design decisions you make.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Buzzword:
+Isomorphism</b> <br>
+&quot;Isomorphism&quot; means &quot;having the same
+structure or form&quot;; in discussions of program design,
+the word takes on the special, specific meaning that your
+implementation of a solution to a problem <i>has the same
+structure</i> as, say, an informal verbal description of the
+solution, or maybe of the problem itself. Isomorphism is,
+all things considered, a good thing -- it&rsquo;s what
+problem-solving (and solution-implementing) should look
+like.</p>
+
+<p style="margin-left:11%; margin-top: 1em">What&rsquo;s
+wrong the with gettext-using code like this...</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  printf( $file_count == 1 ?
+    ( $directory_count == 1 ?
+     &quot;Your query matched %g file in %g directory.&quot; :
+     &quot;Your query matched %g file in %g directories.&quot; ) :
+    ( $directory_count == 1 ?
+     &quot;Your query matched %g files in %g directory.&quot; :
+     &quot;Your query matched %g files in %g directories.&quot; ),
+   $file_count, $directory_count,
+  );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">is first off
+that it&rsquo;s not well abstracted -- these ways of testing
+for grammatical number (as in the expressions like
+<tt>&quot;foo == 1 ? singular_form : plural_form&quot;</tt>)
+should be abstracted to each language module, since how you
+get grammatical number is language-specific.</p>
+
+<p style="margin-left:11%; margin-top: 1em">But second off,
+it&rsquo;s not isomorphic -- the &quot;solution&quot; (i.e.,
+the phrasebook entries) for Chinese maps from these four
+English phrases to the one Chinese phrase that fits for all
+of them. In other words, the informal solution would be
+&quot;The way to say what you want in Chinese is with the
+one phrase &rsquo;For your question, in Y directories you
+would find X files&rsquo;&quot; -- and so the implemented
+solution should be, isomorphically, just a straightforward
+way to spit out that one phrase, with numerals properly
+interpolated. It shouldn&rsquo;t have to map from the
+complexity of other languages to the simplicity of this
+one.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Buzzword:
+Inheritance</b> <br>
+There&rsquo;s a great deal of reuse possible for sharing of
+phrases between modules for related dialects, or for sharing
+of auxiliary functions between related languages. (By
+&quot;auxiliary functions&quot;, I mean functions that
+don&rsquo;t produce phrase-text, but which, say, return an
+answer to &quot;does this number require a plural noun after
+it?&quot;. Such auxiliary functions would be used in the
+internal logic of functions that actually do produce
+phrase-text.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the case of
+sharing phrases, consider that you have an interface already
+localized for American English (probably by having been
+written with that as the native locale, but that&rsquo;s
+incidental). Localizing it for <small>UK</small> English
+should, in practical terms, be just a matter of running it
+past a British person with the instructions to indicate what
+few phrases would benefit from a change in spelling or
+possibly minor rewording. In that case, you should be able
+to put in the <small>UK</small> English localization module
+<i>only</i> those phrases that are UK-specific, and for all
+the rest, <i>inherit</i> from the American English module.
+(And I expect this same situation would apply with Brazilian
+and Continental Portugese, possibly with some <i>very</i>
+closely related languages like Czech and Slovak, and
+possibly with the slightly different &quot;versions&quot; of
+written Mandarin Chinese, as I hear exist in Taiwan and
+mainland China.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">As to sharing
+of auxiliary functions, consider the problem of Russian
+numbers from the beginning of this article; obviously,
+you&rsquo;d want to write only once the hairy code that,
+given a numeric value, would return some specification of
+which case and number a given quantified noun should use.
+But suppose that you discover, while localizing an interface
+for, say, Ukranian (a Slavic language related to Russian,
+spoken by several million people, many of whom would be
+relieved to find that your Web site&rsquo;s or
+software&rsquo;s interface is available in their language),
+that the rules in Ukranian are the same as in Russian for
+quantification, and probably for many other grammatical
+functions. While there may well be no phrases in common
+between Russian and Ukranian, you could still choose to have
+the Ukranian module inherit from the Russian module, just
+for the sake of inheriting all the various grammatical
+methods. Or, probably better organizationally, you could
+move those functions to a module called
+<tt>&quot;_E_Slavic&quot;</tt> or something, which Russian
+and Ukrainian could inherit useful functions from, but which
+would (presumably) provide no lexicon.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Buzzword:
+Concision</b> <br>
+Okay, concision isn&rsquo;t a buzzword. But it should be, so
+I decree that as a new buzzword, &quot;concision&quot; means
+that simple common things should be expressible in very few
+lines (or maybe even just a few characters) of code -- call
+it a special case of &quot;making simple things easy and
+hard things possible&quot;, and see also the role it played
+in the MIDI::Simple language, discussed elsewhere in this
+issue [TPJ#13].</p>
+
+<p style="margin-left:11%; margin-top: 1em">Consider our
+first stab at an entry in our &quot;phrasebook of
+functions&quot;:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub I_found_X1_files_in_X2_directories {
+    my( $files, $dirs ) = @_[0,1];
+    $files = sprintf(&quot;%g %s&quot;, $files,
+      $files == 1 ? 'fichier' : 'fichiers');
+    $dirs = sprintf(&quot;%g %s&quot;, $dirs,
+      $dirs == 1 ? &quot;r\xE9pertoire&quot; : &quot;r\xE9pertoires&quot;);
+    return &quot;J'ai trouv\xE9 $files dans $dirs.&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may sense
+that a lexicon (to use a non-committal catch-all term for a
+collection of things you know how to say, regardless of
+whether they&rsquo;re phrases or words) consisting of
+functions <i>expressed</i> as above would make for rather
+long-winded and repetitive code -- even if you wisely
+rewrote this to have quantification (as we call adding a
+number expression to a noun phrase) be a function called
+like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub I_found_X1_files_in_X2_directories {
+    my( $files, $dirs ) = @_[0,1];
+    $files = quant($files, &quot;fichier&quot;);
+    $dirs =  quant($dirs,  &quot;r\xE9pertoire&quot;);
+    return &quot;J'ai trouv\xE9 $files dans $dirs.&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">And you may
+also sense that you do not want to bother your translators
+with having to write Perl code -- you&rsquo;d much rather
+that they spend their <i>very costly time</i> on just
+translation. And this is to say nothing of the near
+impossibility of finding a commercial translator who would
+know even simple Perl.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In a first-hack
+implementation of Maketext, each language-module&rsquo;s
+lexicon looked like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> %Lexicon = (
+   &quot;I found %g files in %g directories&quot;
+   =&gt; sub {
+      my( $files, $dirs ) = @_[0,1];
+      $files = quant($files, &quot;fichier&quot;);
+      $dirs =  quant($dirs,  &quot;r\xE9pertoire&quot;);
+      return &quot;J'ai trouv\xE9 $files dans $dirs.&quot;;
+    },
+  ... and so on with other phrase =&gt; sub mappings ...
+ );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">but I
+immediately went looking for some more concise way to
+basically denote the same phrase-function -- a way that
+would also serve to concisely denote <i>most</i>
+phrase-functions in the lexicon for <i>most</i> languages.
+After much time and even some actual thought, I decided on
+this system:</p>
+
+<p style="margin-left:11%; margin-top: 1em">* Where a value
+in a <tt>%Lexicon</tt> hash is a contentful string instead
+of an anonymous sub (or, conceivably, a coderef), it would
+be interpreted as a sort of shorthand expression of what the
+sub does. When accessed for the first time in a session, it
+is parsed, turned into Perl code, and then eval&rsquo;d into
+an anonymous sub; then that sub replaces the original string
+in that lexicon. (That way, the work of parsing and evaling
+the shorthand form for a given phrase is done no more than
+once per session.)</p>
+
+<p style="margin-left:11%; margin-top: 1em">* Calls to
+<tt>&quot;maketext&quot;</tt> (as Maketext&rsquo;s main
+function is called) happen thru a &quot;language session
+handle&quot;, notionally very much like an <small>IO</small>
+handle, in that you open one at the start of the session,
+and use it for &quot;sending signals&quot; to an object in
+order to have it return the text you want.</p>
+
+<p style="margin-left:11%; margin-top: 1em">So, this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $lang&minus;&gt;maketext(&quot;You have [quant,_1,piece] of new mail.&quot;,
+                 scalar(@messages));</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">basically means
+this: look in the lexicon for <tt>$lang</tt> (which may
+inherit from any number of other lexicons), and find the
+function that we happen to associate with the string
+&quot;You have [quant,_1,piece] of new mail&quot; (which is,
+and should be, a functioning &quot;shorthand&quot; for this
+function in the native locale -- English in this case). If
+you find such a function, call it with <tt>$lang</tt> as its
+first parameter (as if it were a method), and then a copy of
+scalar(@messages) as its second, and then return that value.
+If that function was found, but was in string shorthand
+instead of being a fully specified function, parse it and
+make it into a function before calling it the first
+time.</p>
+
+<p style="margin-left:11%; margin-top: 1em">* The shorthand
+uses code in brackets to indicate method calls that should
+be performed. A full explanation is not in order here, but a
+few examples will suffice:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &quot;You have [quant,_1,piece] of new mail.&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above code
+is shorthand for, and will be interpreted as, this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub {
+    my $handle = $_[0];
+    my(@params) = @_;
+    return join '',
+      &quot;You have &quot;,
+      $handle&minus;&gt;quant($params[1], 'piece'),
+      &quot;of new mail.&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">where
+&quot;quant&quot; is the name of a method you&rsquo;re using
+to quantify the noun &quot;piece&quot; with the number
+<tt>$params</tt>[0].</p>
+
+<p style="margin-left:11%; margin-top: 1em">A string with
+no brackety calls, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &quot;Your search expression was malformed.&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">is somewhat of
+a degenerate case, and just gets turned into:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub { return &quot;Your search expression was malformed.&quot; }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">However, not
+everything you can write in Perl code can be written in the
+above shorthand system -- not by a long shot. For example,
+consider the Italian translator from the beginning of this
+article, who wanted the Italian for &quot;I didn&rsquo;t
+find any files&quot; as a special case, instead of &quot;I
+found 0 files&quot;. That couldn&rsquo;t be specified (at
+least not easily or simply) in our shorthand system, and it
+would have to be written out in full, like this:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  sub {  # pretend the English strings are in Italian
+    my($handle, $files, $dirs) = @_[0,1,2];
+    return &quot;I didn't find any files&quot; unless $files;
+    return join '',
+      &quot;I found &quot;,
+      $handle&minus;&gt;quant($files, 'file'),
+      &quot; in &quot;,
+      $handle&minus;&gt;quant($dirs,  'directory'),
+      &quot;.&quot;;
+  }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Next to a
+lexicon full of shorthand code, that sort of sticks out like
+a sore thumb -- but this <i>is</i> a special case, after
+all; and at least it&rsquo;s possible, if not as concise as
+usual.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As to how
+you&rsquo;d implement the Russian example from the beginning
+of the article, well, There&rsquo;s More Than One Way To Do
+It, but it could be something like this (using English words
+for Russian, just so you know what&rsquo;s going on):</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &quot;I [quant,_1,directory,accusative] scanned.&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This shifts the
+burden of complexity off to the quant method. That
+method&rsquo;s parameters are: the numeric value it&rsquo;s
+going to use to quantify something; the Russian word
+it&rsquo;s going to quantify; and the parameter
+&quot;accusative&quot;, which you&rsquo;re using to mean
+that this sentence&rsquo;s syntax wants a noun in the
+accusative case there, although that quantification method
+may have to overrule, for grammatical reasons you may recall
+from the beginning of this article.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Now, the
+Russian quant method here is responsible not only for
+implementing the strange logic necessary for figuring out
+how Russian number-phrases impose case and number on their
+noun-phrases, but also for inflecting the Russian word for
+&quot;directory&quot;. How that inflection is to be carried
+out is no small issue, and among the solutions I&rsquo;ve
+seen, some (like variations on a simple lookup in a hash
+where all possible forms are provided for all necessary
+words) are straightforward but <i>can</i> become cumbersome
+when you need to inflect more than a few dozen words; and
+other solutions (like using algorithms to model the
+inflections, storing only root forms and irregularities)
+<i>can</i> involve more overhead than is justifiable for all
+but the largest lexicons.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Mercifully,
+this design decision becomes crucial only in the hairiest of
+inflected languages, of which Russian is by no means the
+<i>worst</i> case scenario, but is worse than most. Most
+languages have simpler inflection systems; for example, in
+English or Swahili, there are generally no more than two
+possible inflected forms for a given noun
+(&quot;error/errors&quot;; &quot;kosa/makosa&quot;), and the
+rules for producing these forms are fairly simple -- or at
+least, simple rules can be formulated that work for most
+words, and you can then treat the exceptions as just
+&quot;irregular&quot;, at least relative to your ad hoc
+rules. A simpler inflection system (simpler rules, fewer
+forms) means that design decisions are less crucial to
+maintaining sanity, whereas the same decisions could incur
+overhead-versus-scalability problems in languages like
+Russian. It may <i>also</i> be likely that code (possibly in
+Perl, as with Lingua::EN::Inflect, for English nouns) has
+already been written for the language in question, whether
+simple or complex.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Moreover, a
+third possibility may even be simpler than anything
+discussed above: &quot;Just require that all possible (or at
+least applicable) forms be provided in the call to the given
+language&rsquo;s quant method, as in:&quot;</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &quot;I found [quant,_1,file,files].&quot;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">That way, quant
+just has to chose which form it needs, without having to
+look up or generate anything. While possibly not optimal for
+Russian, this should work well for most other languages,
+where quantification is not as complicated an operation.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Devil in
+the Details</b> <br>
+There&rsquo;s plenty more to Maketext than described above
+-- for example, there&rsquo;s the details of how language
+tags (&quot;en-US&quot;, &quot;i&minus;pwn&quot;,
+&quot;fi&quot;, etc.) or locale IDs (&quot;en_US&quot;)
+interact with actual module naming
+(&quot;BogoQuery/Locale/en_us.pm&quot;), and what magic can
+ensue; there&rsquo;s the details of how to record (and
+possibly negotiate) what character encoding Maketext will
+return text in ( <small>UTF8</small> ? Latin&minus;1?
+<small>KOI8</small> ?). There&rsquo;s the interesting fact
+that Maketext is for localization, but nowhere actually has
+a &quot;<tt>&quot;use locale;&quot;</tt>&quot; anywhere in
+it. For the curious, there&rsquo;s the somewhat frightening
+details of how I actually implement something like data
+inheritance so that searches across modules&rsquo;
+<tt>%Lexicon</tt> hashes can parallel how Perl implements
+method inheritance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">And, most
+importantly, there&rsquo;s all the practical details of how
+to actually go about deriving from Maketext so you can use
+it for your interfaces, and the various tools and
+conventions for starting out and maintaining individual
+language modules.</p>
+
+<p style="margin-left:11%; margin-top: 1em">That is all
+covered in the documentation for Locale::Maketext and the
+modules that come with it, available in <small>CPAN.</small>
+After having read this article, which covers the why&rsquo;s
+of Maketext, the documentation, which covers the how&rsquo;s
+of it, should be quite straightforward.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>The Proof in
+the Pudding: Localizing Web Sites</b> <br>
+Maketext and gettext have a notable difference: gettext is
+in C, accessible thru C library calls, whereas Maketext is
+in Perl, and really can&rsquo;t work without a Perl
+interpreter (although I suppose something like it could be
+written for C). Accidents of history (and not necessarily
+lucky ones) have made C <small>++</small> the most common
+language for the implementation of applications like word
+processors, Web browsers, and even many in-house
+applications like custom query systems. Current conditions
+make it somewhat unlikely that the next one of any of these
+kinds of applications will be written in Perl, albeit
+clearly more for reasons of custom and inertia than out of
+consideration of what is the right tool for the job.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, other
+accidents of history have made Perl a well-accepted language
+for design of server-side programs (generally in
+<small>CGI</small> form) for Web site interfaces.
+Localization of static pages in Web sites is trivial,
+feasable either with simple language-negotiation features in
+servers like Apache, or with some kind of server-side
+inclusions of language-appropriate text into layout
+templates. However, I think that the localization of
+Perl-based search systems (or other kinds of dynamic
+content) in Web sites, be they public or access-restricted,
+is where Maketext will see the greatest use.</p>
+
+<p style="margin-left:11%; margin-top: 1em">I presume that
+it would be only the exceptional Web site that gets
+localized for English <i>and</i> Chinese <i>and</i> Italian
+<i>and</i> Arabic <i>and</i> Russian, to recall the
+languages from the beginning of this article -- to say
+nothing of German, Spanish, French, Japanese, Finnish, and
+Hindi, to name a few languages that benefit from large
+numbers of programmers or Web viewers or both.</p>
+
+<p style="margin-left:11%; margin-top: 1em">However, the
+ever-increasing internationalization of the Web (whether
+measured in terms of amount of content, of numbers of
+content writers or programmers, or of size of content
+audiences) makes it increasingly likely that the interface
+to the average Web-based dynamic content service will be
+localized for two or maybe three languages. It is my hope
+that Maketext will make that task as simple as possible, and
+will remove previous barriers to localization for languages
+dissimilar to English.</p>
+
+<pre style="margin-left:11%; margin-top: 1em"> __END__</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Sean M. Burke
+(sburke@cpan.org) has a Master&rsquo;s in linguistics from
+Northwestern University; he specializes in language
+technology. Jordan Lachler (lachler@unm.edu) is a PhD
+student in the Department of Linguistics at the University
+of New Mexico; he specializes in morphology and pedagogy of
+North American native languages.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>References</b>
+<br>
+Alvestrand, Harald Tveit. 1995. <i><small>RFC 1766:</small>
+Tags for the Identification of Languages.</i>
+<tt>&quot;http://www.ietf.org/rfc/rfc1766.txt&quot;</tt>
+[Now see <small>RFC 3066.</small> ]</p>
+
+<p style="margin-left:11%; margin-top: 1em">Callon, Ross,
+editor. 1996. <i><small>RFC 1925:</small> The Twelve
+Networking Truths.</i>
+<tt>&quot;http://www.ietf.org/rfc/rfc1925.txt&quot;</tt></p>
+
+<p style="margin-left:11%; margin-top: 1em">Drepper,
+Ulrich, Peter Miller, and Francois Pinard. 1995&minus;2001.
+<small>GNU</small> <tt>&quot;gettext&quot;</tt>. Available
+in <tt>&quot;ftp://prep.ai.mit.edu/pub/gnu/&quot;</tt>, with
+extensive docs in the distribution tarball. [Since I wrote
+this article in 1998, I now see that the gettext docs are
+now trying more to come to terms with plurality. Whether
+useful conclusions have come from it is another question
+altogether. -- <small>SMB,</small> May 2001]</p>
+
+<p style="margin-left:11%; margin-top: 1em">Forbes, Nevill.
+1964. <i>Russian Grammar.</i> Third Edition, revised by J.
+C. Dumbreck. Oxford University Press.</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:10:36 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMLOOKUPNAME</title>
+
+</head>
+<body>
+
+<h1 align="center">PMLOOKUPNAME</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmLookupName</b>
+&minus; translate performance metric names into PMIDs</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt;</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>int
+pmLookupName(int</b> <i>numpmid</i><b>, char
+**</b><i>namelist</i><b>, pmID
+*</b><i>pmidlist</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Given a list in
+<i>namelist</i> containing <i>numpmid</i> full pathnames for
+performance metrics from a Performance Metrics Name Space
+(PMNS), <b>pmLookupName</b> returns the list of associated
+Performance Metric Identifiers (PMIDs) via
+<i>pmidlist</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The result from
+<b>pmLookupName</b> depends on the presence of any lookup
+failures, their severity and the number of metrics being
+looked up.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>1.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If there are no lookup failures, the return value will
+be <i>numpmid</i>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If a fatal error is encountered, the return value will
+be less than 0. For example <b>PM_ERR_TOOSMALL</b>,
+<b>PM_ERR_NOPMNS</b> or <b>PM_ERR_IPC</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If <i>numpmid</i> is greater than one and non-fatal
+error(s) are encountered, the return value is the number of
+metric names that have successfully been looked up (greater
+than or equal to zero and less than or equal to
+<i>numpmid</i>).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>4.</p></td>
+<td width="3%"></td>
+<td width="83%">
+
+
+<p>If <i>numpmid</i> is one and a non-fatal error is
+encountered, the return value is the error code (less than
+zero).</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">When errors are
+encountered, any metrics that cannot be looked up result in
+the corresponding element of <i>pmidlist</i> being set to
+<b>PM_ID_NULL</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The slightly
+convoluted error protocol allows bulk lookups, then probing
+for more error details in the case of a specific failure, as
+shown in the <b>EXAMPLES</b> section below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+error protocol guarantees there is a 1:1 relationship
+between the elements of <i>namelist</i> and <i>pmidlist</i>,
+hence both lists contain exactly <i>numpmid</i> elements.
+For this reason, the caller is expected to have
+pre-allocated a suitably sized array for
+<i>pmidlist</i>.</p>
+
+<h2>EXAMPLE
+<a name="EXAMPLE"></a>
+</h2>
+
+<pre style="margin-left:11%; margin-top: 1em">#include &lt;pcp/pmapi.h&gt;
+
+#define NUMPMID 5
+char      *names[] = { &quot;sample.bin&quot;,
+               &quot;sample&quot;,
+               &quot;sample.bog&quot;,
+               &quot;sample.secret.bar&quot;,
+               &quot;sample.secret.bar.bad&quot;
+             };
+pmID pmids[NUMPMID];
+
+int
+main(int argc, char **argv)
+{
+    int   sts;
+    int   numpmid = NUMPMID;
+
+    pmNewContext(PM_CONTEXT_HOST, &quot;local:&quot;);
+
+    sts = pmLookupName(numpmid, names, pmids);
+
+    if (sts &lt; 0) {
+     fprintf(stderr, &quot;pmLookupName failed: %s0, pmErrStr(sts));
+     exit(1);
+    }
+    if (sts != numpmid) {
+     /*
+      * some of the lookups failed ... report the reason(s)
+      */
+     int  i;
+
+     for (i = 0; i &lt; numpmid; i++) {
+         if (pmids[i] != PM_ID_NULL) continue;
+         /* this one failed */
+         sts = pmLookupName(1, &amp;names[i], &amp;pmids[i]);
+         fprintf(stderr, &quot;%s: lookup failed: %s0, names[i], pmErrStr(sts));
+     }
+     exit(1);
+    }
+
+    /* all good ... */
+    ...
+}</pre>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PMAPI</b>(3),
+<b>pmGetChildren</b>(3), <b>pmGetChildrenStatus</b>(3),
+<b>pmGetConfig</b>(3), <b>pmLoadNameSpace</b>(3),
+<b>pmNameID</b>(3), <b>pmNewContext</b>(3),
+<b>pcp.conf</b>(5) and <b>pcp.env</b>(5).</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PM_ERR_TOOSMALL</b></p>
+
+<p style="margin-left:22%;"><i>numpmid</i> must be at least
+1</p>
+
+<p style="margin-left:11%;"><b>PM_ERR_NOPMNS</b></p>
+
+<p style="margin-left:22%;">Failed to access a PMNS for
+operation. Note that if the application hasn&rsquo;t a
+priori called <b>pmLoadNameSpace</b>(3) and wants to use the
+distributed PMNS, then a call to <b>pmLookupName</b> must be
+made after the creation of a context (see
+<b>pmNewContext</b>(3)).</p>
+
+<p style="margin-left:11%;"><b>PM_ERR_NAME</b></p>
+
+<p style="margin-left:22%;"><i>namelist[0]</i> does not
+correspond to a valid metric name in the PMNS.</p>
+
+<p style="margin-left:11%;"><b>PM_ERR_NONLEAF</b></p>
+
+<p style="margin-left:22%;"><i>namelist[0]</i> refers to a
+node in the PMNS but it was not a leaf node.</p>
+
+<p style="margin-left:11%;"><b>PM_ERR_*</b></p>
+
+<p style="margin-left:22%;">Other diagnostics are for
+protocol failures when accessing the distributed PMNS.</p>
+<hr>
+</body>
+</html>

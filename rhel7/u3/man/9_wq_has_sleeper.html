@@ -1,0 +1,109 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:52:42 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>WQ_HAS_SLEEPER</title>
+
+</head>
+<body>
+
+<h1 align="center">WQ_HAS_SLEEPER</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#ARGUMENTS">ARGUMENTS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#CONSIDER FOLLOWING TCP CODE PATHS">CONSIDER FOLLOWING TCP CODE PATHS</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">wq_has_sleeper
+&minus; check if there are any waiting processes</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="66%">
+
+
+<p style="margin-top: 1em"><b>bool
+wq_has_sleeper(struct&nbsp;socket_wq&nbsp;*&nbsp;</b><i>wq</i><b>);</b></p> </td>
+<td width="23%">
+</td></tr>
+</table>
+
+<h2>ARGUMENTS
+<a name="ARGUMENTS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><i>wq</i></b></p>
+
+<p style="margin-left:17%;">struct socket_wq</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns true if
+socket_wq has waiting processes</p>
+
+<p style="margin-left:11%; margin-top: 1em">The purpose of
+the wq_has_sleeper and sock_poll_wait is to wrap the memory
+barrier call. They were added due to the race found within
+the tcp code.</p>
+
+<h2>CONSIDER FOLLOWING TCP CODE PATHS
+<a name="CONSIDER FOLLOWING TCP CODE PATHS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">CPU1 CPU2</p>
+
+<p style="margin-left:11%; margin-top: 1em">sys_select
+receive packet ... ... __add_wait_queue update
+tp&minus;&gt;rcv_nxt ... ... tp&minus;&gt;rcv_nxt check
+sock_def_readable ... { schedule <b>rcu_read_lock</b>; wq =
+rcu_dereference(sk&minus;&gt;sk_wq); if (wq &amp;&amp;
+waitqueue_active(wq&minus;&gt;wait))
+wake_up_interruptible(wq&minus;&gt;wait) ... }</p>
+
+<p style="margin-left:11%; margin-top: 1em">The race for
+tcp fires when the __add_wait_queue changes done by CPU1
+stay in its cache, and so does the tp&minus;&gt;rcv_nxt
+update on CPU2 side. The CPU1 could then endup calling
+schedule and sleep forever if there are no more data on the
+socket.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+<hr>
+</body>
+</html>

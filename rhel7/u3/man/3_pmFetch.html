@@ -1,0 +1,410 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:08:51 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMFETCH</title>
+
+</head>
+<body>
+
+<h1 align="center">PMFETCH</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#DIAGNOSTICS">DIAGNOSTICS</a><br>
+<a href="#ENVIRONMENT">ENVIRONMENT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmFetch</b>
+&minus; get performance metric values</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt;</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>int
+pmFetch(int</b> <i>numpmid</i><b>, pmID
+*</b><i>pmidlist</i><b>, pmResult
+**</b><i>result</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Given a list of
+Performance Metric Identifiers (PMID)s, e.g. as constructed
+by <b>pmLookupName</b>(3), via <i>pmidlist</i> and
+<i>numpmid</i>, fetch the values for these performance
+metrics.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The call to
+<b>pmFetch</b> is executed in the context of a source of
+metrics, instance profile and collection time, previously
+established by calls to the appropriate context and profile
+functions, namely some of <b>pmNewContext</b>(3),
+<b>pmDupContext</b>(3), <b>pmUseContext</b>(3),
+<b>pmAddProfile</b>(3), <b>pmDelProfile</b>(3) and
+<b>pmSetMode</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The principal
+result from <b>pmFetch</b> is returned in the argument
+<i>result</i> as a tree, using the following component data
+structures;</p>
+<pre style="margin-left:18%; margin-top: 1em">typedef struct {
+      unsigned int vtype : 8;        /* value type (same as pmDesc.type) */
+      unsigned int vlen : 24;        /* bytes for vtype/vlen + vbuf */
+      char         vbuf[1];          /* one or more values */
+} pmValueBlock;
+
+typedef struct {
+      int      inst;                 /* instance identifier */
+      union {
+            pmValueBlock *pval;      /* pointer to value-block */
+            int          lval;       /* integer value insitu */
+      } value;
+} pmValue;
+
+typedef struct {
+      pmID      pmid;                /* metric identifier */
+      int       numval;              /* number of values or error code */
+      int       valfmt;              /* value style, insitu or ptr */
+      pmValue   vlist[1];            /* set of instances/values */
+} pmValueSet;
+
+
+/* Result returned by pmFetch() */
+typedef struct {
+      struct timeval timestamp;      /* time stamped by collector */
+      int            numpmid;        /* number of PMIDs */
+      pmValueSet     *vset[1];       /* set of value sets */
+} pmResult;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To accommodate
+metrics with multiple value instances, the <i>numval</i>
+field indicates how many values are returned for each
+requested PMID. The field <i>valfmt</i> in the
+<i>pmValueSet</i> structure indicates if the values for this
+metric are stored <i>insitu</i> in the <i>lval</i> field,
+i.e. a 32-bit integer quantity (either int, unsigned int,
+long or unsigned long) or if the values are held in
+associated <i>pmValueBlock</i> structures. The
+<i>pmValueBlock</i> structure is always used for floating
+point values (float or double) and also accommodates
+arbitrary sized binary data such as
+&lsquo;string-valued&rsquo; metrics and metrics with
+aggregated or complex data types. The maximum length of a
+<i>pmValueBlock</i> buffer is <b>PM_VAL_VLEN_MAX</b> bytes.
+If the <i>pmValueBlock</i> format is used, the <i>vtype</i>
+field indicates the data type of the value. This field has
+the same interpretation as the <i>type</i> field in the
+<b>pmDesc</b> structure, see <b>pmLookupDesc</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+insitu value may be a signed or unsigned 32 bit integer,
+signed or unsigned 32 bit long value (on 32 bit platforms),
+In the special cases described below, it may also be a 32
+bit floating point value. If the application needs to know
+the type of an insitu value, which is almost always the
+case, it is necessary to fetch the descriptor for the metric
+and interpret the <b>type</b> field, as described in detail
+in <b>pmLookupDesc</b>(3). When the <i>pmResult</i> is
+received from a PCP1.x <b>pmcd</b>, insitu values may also
+be 32 bit floating point values (of type
+<b>PM_TYPE_FLOAT</b>). In all cases, it is good practice to
+use <b>pmLookupDesc</b>(3) to fetch the descriptor for the
+metric and interpret the <b>type</b> field therein. Note
+also that the <b>PMAPI</b>(3) will automatically translate
+from the PCP2.0 format to the PCP1.x format when a PCP1.x
+client requests 32 bit floating point values from a PCP2.0
+<b>pmcd</b>, but the reverse translation does not occur
+(because the PCP2.0 <b>pmcd</b> cannot automatically
+distinguish between arbitrary 32 bit floating point values
+and 32 bit integers).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If one value
+(i.e. associated with a particular instance) for a requested
+metric is &lsquo;unavailable&rsquo; (at the requested time),
+then there is no associated <i>pmValue</i> structure in the
+<i>result</i>. If there are no available values for a
+metric, then <i>numval</i> will be zero and the associated
+<i>pmValue[]</i> instance will be empty (<i>valfmt</i> is
+undefined in these circumstances, however <i>pmid</i> will
+be correctly set to the PMID of the metric with no
+values).</p>
+
+<p style="margin-left:11%; margin-top: 1em">As an extension
+of this protocol, if the Performance Metrics Collection
+System (PMCS) is able to provide a reason why no values are
+available for a particular metric, this is encoded as a
+standard error code in the corresponding <i>numval</i>.
+Since the error codes are all negative, values for a
+requested metric are &lsquo;unavailable&rsquo; if
+<i>numval</i> is less than, or equal to, zero. A performance
+metric&rsquo;s value may be &lsquo;unavailable&rsquo; for a
+number of reasons; the following list is illustrative but
+not exhaustive: of the software for the associated
+Performance Metric Domain</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Collection is not currently activated in the software
+for the associated Performance Metric Domain</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>The associated PMID is not known</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>The current system configuration does not include the
+associated hardware component and/or the associated software
+module, e.g. a disk is not installed, or off-line, or Oracle
+is not installed</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>The metric is one for which an instance profile is
+required, and none was provided (there are a small number of
+metrics in this category, typically ones with very large,
+and/or very dynamic instance domains, and/or expensive
+metric instantiation methods).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>+</p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>If the current context involves fetching metrics from an
+archive log, values may be unavailable in the region around
+a <i>&lt;mark&gt;</i> record (see <b>pmlogextract</b>(1))
+that indicate a temporal discontinuity in the time-series of
+metric values.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">In general, we
+may not be able to differentiate between the various cases,
+and if differentiation is not possible, <i>numval</i> will
+simply be zero.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The argument
+definition and the result specifications have been
+constructed to ensure that for each PMID in the requested
+<i>pmidlist</i> there is exactly one <i>pmValueSet</i> in
+the <i>result</i>, and further the PMIDs appear in exactly
+the same sequence in both <i>pmidlist</i> and <i>result</i>.
+This makes the number and order of entries in <i>result</i>
+completely deterministic, and greatly simplifies the
+application programming logic after the call to
+<b>pmFetch</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>result</i> structure returned by <b>pmFetch</b> is
+dynamically allocated using a combination of
+<b>malloc</b>(3) calls and specialized allocation
+strategies, and should be released when no longer required
+by calling <b>pmFreeResult</b>(3) &minus; under no
+circumstances should <b>free</b>(3) be called directly to
+release this space.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As common error
+conditions are encoded in the <i>result</i> data structure,
+we&rsquo;d expect only cataclysmic events to cause an error
+value to be returned. One example would be if the metrics
+source context was a remote host, and that host or the PMCS
+on that host became unreachable. Otherwise the value
+returned by the <b>pmFetch</b> function will be
+non-negative.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the current
+context involves fetching metrics from a Performance Metrics
+Collector Daemon (PMCD), then the return value may be used
+to encode out-of-band changes in the state of the PMCD and
+the associated Performance Metrics Daemon Agents (PMDAs), as
+a bit-wise &lsquo;&lsquo;or&rsquo;&rsquo; of the following
+values:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="27%">
+
+
+<p style="margin-top: 1em"><b>PMCD_RESTART_AGENT</b></p></td>
+<td width="4%"></td>
+<td width="58%">
+
+
+<p style="margin-top: 1em">An attempt has been made to
+restart at least one failed PMDA.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="27%">
+
+
+<p><b>PMCD_ADD_AGENT</b></p></td>
+<td width="4%"></td>
+<td width="58%">
+
+
+<p>At least one PMDA has been started.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="27%">
+
+
+<p><b>PMCD_DROP_AGENT</b></p></td>
+<td width="4%"></td>
+<td width="58%">
+
+
+<p>PMCD has noticed the termination of at least one
+PMDA.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The default is
+to return zero to indicate no change in state, however the
+<i>pmResult</i> returned by <b>pmFetch</b> has the same
+interpretation independent of the return value being zero or
+greater than zero.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmcd</b>(1),
+<b>pmAddProfile</b>(3), <b>PMAPI</b>(3),
+<b>pmDelProfile</b>(3), <b>pmDupContext</b>(3),
+<b>pmExtractValue</b>(3), <b>pmFetchArchive</b>(3),
+<b>pmFreeResult</b>(3), <b>pmGetInDom</b>(3),
+<b>pmLookupDesc</b>(3), <b>pmLookupName</b>(3),
+<b>pmNewContext</b>(3), <b>pmSetMode</b>(3),
+<b>pmUseContext</b>(3) and <b>pmWhichContext</b>(3).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<b>pmFetch</b> is the most primitive method of fetching
+metric values from the PMCS. See the <b>pmFetchGroup</b>(3)
+API for a higher level method that insulates the user from
+the intricacies of looking up metric names and metadata,
+setting up instance profiles, <i>pmResult</i> traversal,
+conversions, and scaling.</p>
+
+<h2>DIAGNOSTICS
+<a name="DIAGNOSTICS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">As mentioned
+above, <b>pmFetch</b> returns error codes <i>insitu</i> in
+the argument <i>result</i>. If no result is returned, e.g.
+due to IPC failure using the current PMAPI context, or end
+of file on an archive log, then <b>pmFetch</b> will return a
+negative error code which may be examined using
+<b>pmErrStr</b>(3). <b><br>
+PM_ERR_EOL</b></p>
+
+<p style="margin-left:22%;">When fetching records from an
+archive log, <b>pmFetch</b> returns this error code to
+indicate the end of the log has been passed (or the start of
+the log has been passed, if the direction of traversal is
+backwards in time). If the &lsquo;&lsquo;mode&rsquo;&rsquo;
+for the current PMAPI context (see <b>pmSetMode</b>(3)) is
+<b>PM_MODE_INTERP</b> then the time origin is advanced, even
+when this error code is returned. In this way applications
+that position the time outside the range defined by the
+records in the archive, and then commence to <b>pmFetch</b>
+will eventually see valid results once the time origin moves
+inside the temporal span of the archive.</p>
+
+<h2>ENVIRONMENT
+<a name="ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Many of the
+performance metrics exported from PCP agents have the
+semantics of <i>counter</i> meaning they are expected to be
+monotonically increasing. Under some circumstances, one
+value of these metrics may be smaller than the previously
+fetched value. This can happen when a counter of finite
+precision overflows, or when the PCP agent has been reset or
+restarted, or when the PCP agent is exporting values from
+some underlying instrumentation that is subject to some
+asynchronous discontinuity. <br>
+The environment variable <b>PCP_COUNTER_WRAP</b> may be set
+to indicate that all such cases of a decreasing
+&lsquo;&lsquo;counter&rsquo;&rsquo; should be treated as a
+counter overflow, and hence the values are assumed to have
+wrapped once in the interval between consecutive samples.
+This &lsquo;&lsquo;wrapping&rsquo;&rsquo; behavior was the
+default in earlier PCP versions, but by default has been
+disabled in PCP version 1.3 and later.</p>
+<hr>
+</body>
+</html>

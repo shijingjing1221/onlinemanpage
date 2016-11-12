@@ -1,0 +1,462 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:08:54 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>PMGETOPTIONS</title>
+
+</head>
+<body>
+
+<h1 align="center">PMGETOPTIONS</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#C SYNOPSIS">C SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#FLAGS VALUES">FLAGS VALUES</a><br>
+<a href="#RETURN VALUE">RETURN VALUE</a><br>
+<a href="#PCP ENVIRONMENT">PCP ENVIRONMENT</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmgetopt_r</b>,
+<b>pmGetOptions</b>, <b>pmGetContextOptions</b>,
+<b>pmFreeOptions</b>, <b>pmUsageMessage</b> &minus; command
+line handling for PMAPI tools</p>
+
+<h2>C SYNOPSIS
+<a name="C SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>#include
+&lt;pcp/pmapi.h&gt;</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>int
+pmgetopt_r(int</b> <i>argc</i><b>, char *const
+*</b><i>argv</i><b>, pmOptions *</b><i>opts</i><b>); <br>
+int pmGetOptions(int</b> <i>argc</i><b>, char *const
+*</b><i>argv</i><b>, pmOptions *</b><i>opts</i><b>); <br>
+int pmGetContextOptions(int</b> <i>ctx</i><b>, pmOptions
+*</b><i>opts</i><b>); <br>
+void pmUsageMessage(pmOptions *</b><i>opts</i><b>); <br>
+void pmFreeOptions(pmOptions *</b><i>opts</i><b>);</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>cc ...
+&minus;lpcp</b></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmGetOptions</b> function provides command line option
+processing services for both monitor and collector
+<b>PMAPI</b>(3) tools. It is modelled on the thread-safe
+variants of the GNU <b>getopt_long</b>(3) API, and primarily
+differs in its focus on providing generalised processing for
+the (de-facto) standard PCP command line options described
+in <b>PCPIntro</b>(1). These common options include the host
+and archive specification, time windows, timezones, sample
+counts, time intervals, and so on.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The primary
+interface is <b>pmGetOptions</b>, which should be passed the
+<i>argc</i> argument count and <i>argv</i> array, as passed
+to the <i>main()</i> function on program invocation. The
+final <i>opts</i> argument describes the set of long and
+short options the tools is prepared to process, and other
+metadata regarding how those options should be
+processed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmgetopt_r</b> interface, used internally by
+<b>pmGetOptions</b>, behaves in a similar fashion, but it
+does not perform any common option processing. It is more
+suited to PCP collector processes, whereas PCP monitor tools
+tend to use <b>pmGetOptions</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The <i>opts</i>
+argument consists of an array of <i>pmLongOpts</i> entries
+describing the arguments, as well as the enclosing
+<i>pmOptions</i> struct, which are defined as follows
+(internal fields are not presented, for brevity):</p>
+<pre style="margin-left:14%; margin-top: 1em">typedef struct {
+    const char *        long_opt;
+    int                 has_arg;
+    int                 short_opt;
+    const char *        argname;
+    const char *        message;
+} pmLongOptions;
+
+typedef struct {
+    int                 version;
+    int                 flags;
+    const char *        short_options;
+    pmLongOptions *     long_options;
+    const char *        short_usage;
+    pmOptionOverride    override;
+
+    int                 index;
+    int                 optind;
+    int                 opterr;
+    int                 optopt;
+    char                *optarg;
+    /* [internal fields, undocumented] */
+
+
+    int                 errors;
+    int                 context; /* PM_CONTEXT_{HOST,ARCHIVE,LOCAL} */
+    int                 nhosts;
+    int                 narchives;
+    char **             hosts;
+    char **             archives;
+    struct timeval      start;
+    struct timeval      finish;
+    struct timeval      origin;
+    struct timeval      interval;
+    char *              align_optarg;
+    char *              start_optarg;
+    char *              finish_optarg;
+    char *              origin_optarg;
+    char *              guiport_optarg;
+    char *              timezone;
+    int                 samples;
+    int                 guiport;
+    int                 padding;
+    unsigned int        guiflag : 1;
+    unsigned int        tzflag  : 1;
+    unsigned int        nsflag  : 1;
+    unsigned int        Lflag   : 1;
+    unsigned int        zeroes  : 28;
+} pmOptions;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The initial
+<i>flags</i> and <i>version</i> fields describe how the rest
+of the pmOptions structure is to be interpreted. These
+fields can be zeroed, specifying a default interpretation.
+Alternatively, the PMAPI_VERSION macro can be used to
+specify the API level to use (currently, values of 2 or less
+are allowed). The <i>flags</i> field can be used to modify
+option processing behaviour as described in the
+&lsquo;&lsquo;FLAGS VALUES&rsquo;&rsquo; section below.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The array of
+<i>long_options</i> pmLongOpts structures must be terminated
+by a sentinel and the PMAPI_OPTIONS_END macro can be used to
+effect this termination. Individual records within the
+<i>long_options</i> array can be of two types &minus;
+options headers, or actual options. An options header is
+constructed using the PMAPI_OPTIONS_HEADER macro, and is
+used for usage message option grouping. Free form text can
+be inserted into the usage message at any point using the
+PMAPI_OPTIONS_TEXT macro &minus; this is intended for
+additional explanatory text covering detailed usage that is
+beyond the scope of the individual headers or options.
+Otherwise, the array entry specifies an option. These should
+be named (<i>long_opt</i>) if a long-option form is allowed,
+specify whether or not they take an argument
+(<i>has_arg</i>), specify the single character variant
+argument (<i>short_opt</i>) if a short-option form is
+allowed, and finally specify how to present the option in
+the usage message. This latter component consists of a
+short, one-word description of the optional argument
+(<i>argname</i>) and a one-line description of what the
+command-line option does (<i>message</i>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<i>short_usage</i> string is also used only when
+constructing the usage message. It forms the component of
+the usage message that follows the program name (i.e.
+<i>argv[0]</i>).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The optional
+<i>short_options</i> string is the normal <i>getopt</i>
+command-line option specification string, using individual
+characters (those with arguments are designated as such
+using the &rsquo;:&rsquo; character) &minus; as used by all
+<i>getopt</i> implementations.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A facility is
+provided to extend the existing set of common options with
+additional options, as well as to re-task the standard
+options into non-standard roles for individual tools. The
+latter is achieved using the <i>override</i> method, which
+allows a callback function to be provided which will be
+called on receipt of every argument, prior to common
+processing. If this callback returns a non-zero value the
+common processing will be short-circuited for that option,
+otherwise processing continues. Thus, aach client tool is
+free to choose exactly which of the standard options they
+wish to support &minus; this can be all, some, or none, and
+no matter what they choose, each tool always has access to
+the long option parsing capability and the usage message
+generation facility.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The remaining
+pmOptions structure fields are filled in as a result of
+processing the arguments, and are largely self-explanatory.
+Further discussion of these is deferred to the
+&lsquo;&lsquo;FLAGS VALUES&rsquo;&rsquo; section below. The
+<i>error</i> field contains a count of errors detected
+during option processing. These can be either usage or
+runtime errors, as indicated by the <i>flags</i> field (set,
+and passed out to the caller). Typically, a command line
+tool will fail to start successfully and will produce an
+error message (e.g. via <b>pmUsageMessage</b>) if the
+<i>error</i> field is non-zero at the end of either
+<b>pmGetOptions</b> or <b>pmGetContextOptions</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Some command
+line option post-processing can only be performed once the
+tool has established a PMAPI context via
+<b>pmNewContext</b>(3). This processing includes use of
+context-aware timezones (<b>&minus;z</b>), and time window
+processing (<b>&minus;A</b>, <b>&minus;O</b>,
+<b>&minus;S</b>, <b>&minus;T</b>) that may be affected by
+the timezone, for example. The <b>pmGetContextOptions</b>
+function is available for such situations, and it completes
+any remaining processing of <i>opts</i> with respect to the
+<i>ctx</i> context identifier given.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmUsageMessage</b> function generates a usage message for
+the tool, and included both standard PCP options and custom
+options for each tool, as specified by the pmLongOptions
+array. It supports grouping of options (via
+PMAPI_OPTIONS_HEADER) as well as neat formatting of all
+options &minus; short and long &minus; their arguments, and
+individual explanatory messages. It will build this usage
+message using <b>pmprintf</b>(3) upon which it will issue a
+single <b>pmflush</b>(3) before returning to the caller,
+provided the PM_OPTFLAG_USAGE_ERR flag is set in
+<i>flags</i>, which will happen automatically during option
+parsing, when usage errors are detected.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In certain
+situations, such as recording lists of host specifications
+or PCP archive paths, the <b>pmGetOptions</b> routine may
+allocate memory, and store pointers to it within
+<i>opts</i>. Should a program wish to free this memory
+before exiting, it can use the <b>pmFreeOptions</b> routine
+to do so. This is safe to call irrespective of whether
+memory was allocated dynamically, provided that <i>opts</i>
+was zeroed initially.</p>
+
+<h2>FLAGS VALUES
+<a name="FLAGS VALUES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PM_OPTFLAG_INIT</b></p>
+
+<p style="margin-left:22%;">Used internally within the
+library to indicate initialisation has been done, so that on
+subsequent calls it will not be done again.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_DONE</b></p>
+
+<p style="margin-left:22%;">Used primarily internally
+within the library to indicate that the final option
+processing has been completed. This processing involves
+cross-referencing a number of the options, to check for
+mutual exclusion, for example. There may be other
+post-processing at this stage also, provided it does not
+require a PMAPI context.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_MULTI</b></p>
+
+<p style="margin-left:22%;">Allow more than one host or set
+of archives to be specified. The default is to allow one
+source of metrics only, however some of the more
+sophisticated tools permit multiple metric sources, each of
+which is handled within a separate context. See also
+<b>PM_OPTFLAG_MIXED</b>.</p>
+
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_USAGE_ERR</b></p>
+
+<p style="margin-left:22%;">Indicates that the library has
+detected a command-line usage error. This is an error such
+as when an option requires an argument but none is supplied,
+or conflicting options are specified (such as
+<b>&minus;s</b> and <b>-T</b>).</p>
+
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_RUNTIME_ERR</b></p>
+
+<p style="margin-left:22%;">Indicates that the library has
+detected an error at run time. This is an error such as
+failing to retrieve timezone information from <b>pmcd
+(1)</b> or failing to load an alternate metric namespace
+from a local file (via the <b>-n</b> option).</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_EXIT</b></p>
+
+<p style="margin-left:22%;">Indicates a suggestion from the
+library that the tool exit cleanly. This is used when the
+version number is requested, for example (the
+<b>&minus;V</b> option and PMOPT_VERSION macro).</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_POSIX</b></p>
+
+<p style="margin-left:22%;">Use strict POSIX command line
+argument handling. This means options and following
+arguments will not be reordered, so additional options
+cannot follow command line arguments. This may be important
+for tools where the arguments can be negative numbers, for
+example, as these should not be treated as command line
+options in this case.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_MIXED</b></p>
+
+<p style="margin-left:22%;">Allow both live and archive
+metric sources to be specified. The default is to allow one
+type of metric context only, however some of the more
+sophisticated tools permit multiple context types. See also
+<b>PM_OPTFLAG_MULTI</b>.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_ENV_ONLY</b></p>
+
+<p style="margin-left:22%;">Many options can be specified
+through the either the command line or from similarly-named
+environment variables. This flag disables all argument
+parsing, and only changes <i>opts</i> based on the
+environment variables. This may be useful for tools wishing
+to ensure no command line option conflicts occur between
+their own set and the standard PCP option set (such as an
+existing tool, reimplemented using PMAPI services).</p>
+
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_LONG_ONLY</b></p>
+
+<p style="margin-left:22%;">Only process long options, not
+short options.</p>
+
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_BOUNDARIES</b></p>
+
+<p style="margin-left:22%;">The default <b>pmGetOptions</b>
+behaviour is to parse the time window options (namely,
+<b>&minus;A</b>, <b>&minus;O</b>, <b>&minus;S</b> and
+<b>&minus;T</b>), only if one of those options has been
+specified on the command line. However, this flag can be
+used (particularly with archive contexts) to find the
+<i>start</i> and <i>finish</i> times associated with the
+context(s) even if no time window options were specified. In
+the case of multiple archives, the time window is defined as
+the time window spanning all of the archives.</p>
+
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_STDOUT_TZ</b></p>
+
+<p style="margin-left:22%;">The timezone being used will be
+reported on the standard output stream during option
+parsing. The default behaviour is to not report, but simply
+return timezone information via the <i>timezone</i>
+(<b>&minus;Z</b>) and <i>tzflag</i> (<b>&minus;z</b>) fields
+in the <i>opts</i> structure.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_NOFLUSH</b></p>
+
+<p style="margin-left:22%;">The final <b>pmflush</b> call
+issued by <b>pmUsageMessage</b> will be skipped if this flag
+is set. This is useful in situations where the caller wishes
+to append additional test to the generated usage message
+before flushing.</p>
+
+<p style="margin-left:11%;"><b>PM_OPTFLAG_QUIET</b></p>
+
+<p style="margin-left:22%;">Suppress messages from
+<b>pmgetopt_r</b> about unrecognised command line options.
+This is the equivalent to setting the <i>opterr</i> field in
+the <i>opt</i> parameter (which mimics the <b>getopt</b>
+variable of the same name).</p>
+
+<h2>RETURN VALUE
+<a name="RETURN VALUE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmGetOptions</b> function returns either when it detects
+a command-line option that is not one of the standard PCP
+set, or when the end of the command line options has been
+reached (at which point &minus;1 is returned). Both the
+<b>pmgetopt_r</b> and <b>pmGetOptions</b> routines return
+control to the caller in the same way that a regular
+<b>getopt</b> call would, with the return value indicating
+either the end of all processing (&minus;1), or the single
+character form of the option currently being processed, or
+zero for the special long-option-only case. For all
+option-processing cases, the <i>opts</i> structure is
+returned containing filled out <i>optarg</i>, <i>opterr</i>,
+<i>optopt</i>, <i>optind</i>, and <i>index</i> fields as
+normal (do <b>NOT</b> use the global optarg or optind from
+your platform C library, these will <b>NOT</b> be
+modified).</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>pmGetOptions</b>
+does not return to the caller when any of the standard PCP
+options are being processed (although the <i>override</i>
+mechanism can be used to still detect such options if
+needed).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>pmGetContextOptions</b> function returns zero on success,
+or a negative PCP error code on failure. The <i>error</i>
+field within the <i>opts</i> parameter will also be non-zero
+in the latter case.</p>
+
+<h2>PCP ENVIRONMENT
+<a name="PCP ENVIRONMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Environment
+variables with the prefix <b>PCP_</b> are used to
+parameterize the file and directory names used by PCP. On
+each installation, the file <i>/etc/pcp.conf</i> contains
+the local values for these variables. The <b>$PCP_CONF</b>
+variable may be used to specify an alternative configuration
+file, as described in <b>pcp.conf</b>(5). Values for these
+variables may be obtained programmatically using the
+<b>pmGetOptions</b>(3) function.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>PCPIntro</b>(1),
+<b>pmcd</b>(1), <b>pminfo</b>(1), <b>pmstat</b>(1),
+<b>getopt</b>(3), <b>getopt_long</b>(3),
+<b>pmNewContext</b>(3), <b>pmGetConfig</b>(3),
+<b>pmprintf</b>(3), <b>pmflush</b>(3) and
+<b>PMAPI</b>(3).</p>
+<hr>
+</body>
+</html>

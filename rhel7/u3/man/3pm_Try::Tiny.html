@@ -1,0 +1,726 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:47:31 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Try::Tiny</title>
+
+</head>
+<body>
+
+<h1 align="center">Try::Tiny</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXPORTS">EXPORTS</a><br>
+<a href="#BACKGROUND">BACKGROUND</a><br>
+<a href="#SHINY SYNTAX">SHINY SYNTAX</a><br>
+<a href="#CAVEATS">CAVEATS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#LIGHTNING TALK">LIGHTNING TALK</a><br>
+<a href="#VERSION CONTROL">VERSION CONTROL</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Try::Tiny
+&minus; minimal try/catch with proper localization of $@</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can use
+Try::Tiny&rsquo;s <tt>&quot;try&quot;</tt> and
+<tt>&quot;catch&quot;</tt> to expect and handle exceptional
+conditions, avoiding quirks in Perl and common mistakes:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        # handle errors with a catch handler
+        try {
+                die &quot;foo&quot;;
+        } catch {
+                warn &quot;caught error: $_&quot;; # not $@
+        };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+use it like a standalone <tt>&quot;eval&quot;</tt> to catch
+and ignore any error conditions. Obviously, this is an
+extreme measure not to be undertaken lightly:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        # just silence errors
+        try {
+                die &quot;foo&quot;;
+        };</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+provides bare bones
+<tt>&quot;try&quot;</tt>/<tt>&quot;catch&quot;</tt>/<tt>&quot;finally&quot;</tt>
+statements that are designed to minimize common mistakes
+with eval blocks, and <small>NOTHING</small> else.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is unlike
+TryCatch which provides a nice syntax and avoids adding
+another call stack layer, and supports calling
+<tt>&quot;return&quot;</tt> from the
+<tt>&quot;try&quot;</tt> block to return from the parent
+subroutine. These extra features come at a cost of a few
+dependencies, namely Devel::Declare and Scope::Upper which
+are occasionally problematic, and the additional catch
+filtering uses Moose type constraints which may not be
+desirable either.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The main focus
+of this module is to provide simple and reliable error
+handling for those having a hard time installing TryCatch,
+but who still want to write correct
+<tt>&quot;eval&quot;</tt> blocks without 5 lines of
+boilerplate each time.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It&rsquo;s
+designed to work as correctly as possible in light of the
+various pathological edge cases (see &quot;
+<small>BACKGROUND&quot;</small> ) and to be compatible with
+any style of error values (simple strings, references,
+objects, overloaded objects, etc).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the
+<tt>&quot;try&quot;</tt> block dies, it returns the value of
+the last statement executed in the
+<tt>&quot;catch&quot;</tt> block, if there is one.
+Otherwise, it returns <tt>&quot;undef&quot;</tt> in scalar
+context or the empty list in list context. The following
+examples all assign <tt>&quot;bar&quot;</tt> to
+<tt>$x</tt>:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        my $x = try { die &quot;foo&quot; } catch { &quot;bar&quot; };
+        my $x = try { die &quot;foo&quot; } || { &quot;bar&quot; };
+        my $x = (try { die &quot;foo&quot; }) // { &quot;bar&quot; };
+        my $x = eval { die &quot;foo&quot; } || &quot;bar&quot;;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You can add
+<tt>&quot;finally&quot;</tt> blocks, yielding the
+following:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        my $x;
+        try { die 'foo' } finally { $x = 'bar' };
+        try { die 'foo' } catch { warn &quot;Got a die: $_&quot; } finally { $x = 'bar' };</pre>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&quot;finally&quot;
+blocks are always executed making them suitable for cleanup
+code which cannot be handled using local. You can add as
+many <tt>&quot;finally&quot;</tt> blocks to a given
+<tt>&quot;try&quot;</tt> block as you like.</p>
+
+<h2>EXPORTS
+<a name="EXPORTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">All functions
+are exported by default using Exporter.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you need to
+rename the <tt>&quot;try&quot;</tt>,
+<tt>&quot;catch&quot;</tt> or <tt>&quot;finally&quot;</tt>
+keyword consider using Sub::Import to get
+Sub::Exporter&rsquo;s flexibility. <br>
+try (&amp;;@)</p>
+
+<p style="margin-left:17%;">Takes one mandatory
+<tt>&quot;try&quot;</tt> subroutine, an optional
+<tt>&quot;catch&quot;</tt> subroutine and
+<tt>&quot;finally&quot;</tt> subroutine.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The mandatory
+subroutine is evaluated in the context of an
+<tt>&quot;eval&quot;</tt> block.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If no error
+occurred the value from the first block is returned,
+preserving list/scalar context.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If there was an
+error and the second subroutine was given it will be invoked
+with the error in <tt>$_</tt> (localized) and as that
+block&rsquo;s first and only argument.</p>
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$@</tt>
+does <b>not</b> contain the error. Inside the
+<tt>&quot;catch&quot;</tt> block it has the same value it
+had before the <tt>&quot;try&quot;</tt> block was
+executed.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that the
+error may be false, but if that happens the
+<tt>&quot;catch&quot;</tt> block will still be invoked.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Once all
+execution is finished then the <tt>&quot;finally&quot;</tt>
+block, if given, will execute.</p>
+
+<p style="margin-left:11%;">catch (&amp;;$)</p>
+
+<p style="margin-left:17%;">Intended to be used in the
+second argument position of <tt>&quot;try&quot;</tt>.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Returns a
+reference to the subroutine it was given but blessed as
+<tt>&quot;Try::Tiny::Catch&quot;</tt> which allows try to
+decode correctly what to do with this code reference.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">        catch { ... }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Inside the
+<tt>&quot;catch&quot;</tt> block the caught error is stored
+in <tt>$_</tt>, while previous value of <tt>$@</tt> is still
+available for use. This value may or may not be meaningful
+depending on what happened before the
+<tt>&quot;try&quot;</tt>, but it might be a good idea to
+preserve it in an error stack.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For code that
+captures <tt>$@</tt> when throwing new errors (i.e.
+Class::Throwable), you&rsquo;ll need to do:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">        local $@ = $_;</pre>
+
+
+<p style="margin-left:11%;">finally (&amp;;$)</p>
+
+<pre style="margin-left:17%;">  try     { ... }
+  catch   { ... }
+  finally { ... };</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Or</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  try     { ... }
+  finally { ... };</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Or even</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  try     { ... }
+  finally { ... }
+  catch   { ... };</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Intended to be
+the second or third element of <tt>&quot;try&quot;</tt>.
+<tt>&quot;finally&quot;</tt> blocks are always executed in
+the event of a successful <tt>&quot;try&quot;</tt> or if
+<tt>&quot;catch&quot;</tt> is run. This allows you to locate
+cleanup code which cannot be done via
+<tt>&quot;local()&quot;</tt> e.g. closing a file handle.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When invoked,
+the <tt>&quot;finally&quot;</tt> block is passed the error
+that was caught. If no error was caught, it is passed
+nothing. (Note that the <tt>&quot;finally&quot;</tt> block
+does not localize <tt>$_</tt> with the error, since unlike
+in a <tt>&quot;catch&quot;</tt> block, there is no way to
+know if <tt>&quot;$_ == undef&quot;</tt> implies that there
+were no errors.) In other words, the following code does
+just what you would expect:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  try {
+    die_sometimes();
+  } catch {
+    # ...code run in case of error
+  } finally {
+    if (@_) {
+      print &quot;The try block died with: @_\n&quot;;
+    } else {
+      print &quot;The try block ran without error.\n&quot;;
+    }
+  };</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em"><b>You must
+always do your own error handling in the &quot;finally&quot;
+block</b>. <tt>&quot;Try::Tiny&quot;</tt> will not do
+anything about handling possible errors coming from code
+located in these blocks.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In the same way
+<tt>&quot;catch()&quot;</tt> blesses the code reference this
+subroutine does the same except it bless them as
+<tt>&quot;Try::Tiny::Finally&quot;</tt>.</p>
+
+<h2>BACKGROUND
+<a name="BACKGROUND"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">There are a
+number of issues with <tt>&quot;eval&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Clobbering
+$@</b> <br>
+When you run an <tt>&quot;eval&quot;</tt> block and it
+succeeds, <tt>$@</tt> will be cleared, potentially
+clobbering an error that is currently being caught.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This causes
+action at a distance, clearing previous errors your caller
+may have not yet handled.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$@</tt>
+must be properly localized before invoking
+<tt>&quot;eval&quot;</tt> in order to avoid this issue.</p>
+
+<p style="margin-left:11%; margin-top: 1em">More
+specifically, <tt>$@</tt> is clobbered at the beginning of
+the <tt>&quot;eval&quot;</tt>, which also makes it
+impossible to capture the previous error before you die (for
+instance when making exception objects with error
+stacks).</p>
+
+<p style="margin-left:11%; margin-top: 1em">For this reason
+<tt>&quot;try&quot;</tt> will actually set <tt>$@</tt> to
+its previous value (before the localization) in the
+beginning of the <tt>&quot;eval&quot;</tt> block.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Localizing
+$@ silently masks errors</b> <br>
+Inside an <tt>&quot;eval&quot;</tt> block,
+<tt>&quot;die&quot;</tt> behaves sort of like:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        sub die {
+                $@ = $_[0];
+                return_undef_from_eval();
+        }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This means that
+if you were polite and localized <tt>$@</tt> you can&rsquo;t
+die in that scope, or your error will be discarded (printing
+&quot;Something&rsquo;s wrong&quot; instead).</p>
+
+<p style="margin-left:11%; margin-top: 1em">The workaround
+is very ugly:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        my $error = do {
+                local $@;
+                eval { ... };
+                $@;
+        };
+        ...
+        die $error;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$@ might not
+be a true value</b> <br>
+This code is wrong:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        if ( $@ ) {
+                ...
+        }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">because due to
+the previous caveats it may have been unset.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><tt>$@</tt>
+could also be an overloaded error object that evaluates to
+false, but that&rsquo;s asking for trouble anyway.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The classic
+failure mode is:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        sub Object::DESTROY {
+                eval { ... }
+        }
+        eval {
+                my $obj = Object&minus;&gt;new;
+                die &quot;foo&quot;;
+        };
+        if ( $@ ) {
+        }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">In this case
+since <tt>&quot;Object::DESTROY&quot;</tt> is not localizing
+<tt>$@</tt> but still uses <tt>&quot;eval&quot;</tt>, it
+will set <tt>$@</tt> to <tt>&quot;&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The destructor
+is called when the stack is unwound, after
+<tt>&quot;die&quot;</tt> sets <tt>$@</tt> to <tt>&quot;foo
+at Foo.pm line 42\n&quot;</tt>, so by the time <tt>&quot;if
+( $@ )&quot;</tt> is evaluated it has been cleared by
+<tt>&quot;eval&quot;</tt> in the destructor.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The workaround
+for this is even uglier than the previous ones. Even though
+we can&rsquo;t save the value of <tt>$@</tt> from code that
+doesn&rsquo;t localize, we can at least be sure the
+<tt>&quot;eval&quot;</tt> was aborted due to an error:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        my $failed = not eval {
+                ...
+                return 1;
+        };</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is because
+an <tt>&quot;eval&quot;</tt> that caught a
+<tt>&quot;die&quot;</tt> will always return a false
+value.</p>
+
+<h2>SHINY SYNTAX
+<a name="SHINY SYNTAX"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Using Perl 5.10
+you can use &quot;Switch statements&quot; in perlsyn.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<tt>&quot;catch&quot;</tt> block is invoked in a topicalizer
+context (like a <tt>&quot;given&quot;</tt> block), but note
+that you can&rsquo;t return a useful value from
+<tt>&quot;catch&quot;</tt> using the
+<tt>&quot;when&quot;</tt> blocks without an explicit
+<tt>&quot;return&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">This is
+somewhat similar to Perl 6&rsquo;s
+<tt>&quot;CATCH&quot;</tt> blocks. You can use it to
+concisely match errors:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">        try {
+                require Foo;
+        } catch {
+                when (/^Can't locate .*?\.pm in \@INC/) { } # ignore
+                default { die $_ }
+        };</pre>
+
+
+<h2>CAVEATS
+<a name="CAVEATS"></a>
+</h2>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><tt>@_</tt> is not available
+within the <tt>&quot;try&quot;</tt> block, so you need to
+copy your arglist. In case you want to work with argument
+values directly via <tt>@_</tt> aliasing (i.e. allow
+<tt>&quot;$_[1] = &quot;foo&quot;&quot;</tt>), you need to
+pass <tt>@_</tt> by reference:</p></td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em">        sub foo {
+                my ( $self, @args ) = @_;
+                try { $self&minus;&gt;bar(@args) }
+        }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">or</p>
+
+<pre style="margin-left:17%; margin-top: 1em">        sub bar_in_place {
+                my $self = shift;
+                my $args = \@_;
+                try { $_ = $self&minus;&gt;bar($_) for @$args }
+        }</pre>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><tt>&quot;return&quot;</tt>
+returns from the <tt>&quot;try&quot;</tt> block, not from
+the parent sub (note that this is also how
+<tt>&quot;eval&quot;</tt> works, but not how TryCatch
+works):</p> </td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em">  sub parent_sub {
+      try {
+          die;
+      }
+      catch {
+          return;
+      };
+      say &quot;this text WILL be displayed, even though an exception is thrown&quot;;
+  }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Instead, you
+should capture the return value:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  sub parent_sub {
+      my $success = try {
+          die;
+          1;
+      }
+      return unless $success;
+      say &quot;This text WILL NEVER appear!&quot;;
+  }</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Note that if
+you have a <tt>&quot;catch&quot;</tt> block, it must return
+<tt>&quot;undef&quot;</tt> for this to work, since if a
+<tt>&quot;catch&quot;</tt> block exists, its return value is
+returned in place of <tt>&quot;undef&quot;</tt> when an
+exception is thrown.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em"><tt>&quot;try&quot;</tt>
+introduces another caller stack frame. Sub::Uplevel is not
+used. Carp will not report this when using full stack
+traces, though, because <tt>%Carp::Internal</tt> is used.
+This lack of magic is considered a feature.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>The value of <tt>$_</tt> in the
+<tt>&quot;catch&quot;</tt> block is not guaranteed to be the
+value of the exception thrown (<tt>$@</tt>) in the
+<tt>&quot;try&quot;</tt> block. There is no safe way to
+ensure this, since <tt>&quot;eval&quot;</tt> may be used
+unhygenically in destructors. The only guarantee is that the
+<tt>&quot;catch&quot;</tt> will be called if an exception is
+thrown.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>The return value of the <tt>&quot;catch&quot;</tt> block
+is not ignored, so if testing the result of the expression
+for truth on success, be sure to return a false value from
+the <tt>&quot;catch&quot;</tt> block:</p></td></tr>
+</table>
+
+<pre style="margin-left:17%; margin-top: 1em">        my $obj = try {
+                MightFail&minus;&gt;new;
+        } catch {
+                ...
+                return; # avoid returning a true value;
+        };
+        return unless $obj;</pre>
+
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="51%">
+
+
+<p style="margin-top: 1em"><tt>$SIG{__DIE__}</tt> is still
+in effect.</p></td>
+<td width="32%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Though it can
+be argued that <tt>$SIG{__DIE__}</tt> should be disabled
+inside of <tt>&quot;eval&quot;</tt> blocks, since it
+isn&rsquo;t people have grown to rely on it. Therefore in
+the interests of compatibility, <tt>&quot;try&quot;</tt>
+does not disable <tt>$SIG{__DIE__}</tt> for the scope of the
+error throwing code.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="72%">
+
+
+<p style="margin-top: 1em">Lexical <tt>$_</tt> may override
+the one set by <tt>&quot;catch&quot;</tt>.</p></td>
+<td width="11%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">For example
+Perl 5.10&rsquo;s <tt>&quot;given&quot;</tt> form uses a
+lexical <tt>$_</tt>, creating some confusing behavior:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">        given ($foo) {
+                when (...) {
+                        try {
+                                ...
+                        } catch {
+                                warn $_; # will print $foo, not the error
+                                warn $_[0]; # instead, get the error like this
+                        }
+                }
+        }</pre>
+
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">TryCatch</p>
+
+<p style="margin-left:17%;">Much more feature complete,
+more convenient semantics, but at the cost of implementation
+complexity.</p>
+
+<p style="margin-left:11%;">autodie</p>
+
+<p style="margin-left:17%;">Automatic error throwing for
+builtin functions and more. Also designed to work well with
+<tt>&quot;given&quot;</tt>/<tt>&quot;when&quot;</tt>.</p>
+
+<p style="margin-left:11%;">Throwable</p>
+
+<p style="margin-left:17%;">A lightweight role for rolling
+your own exception classes.</p>
+
+<p style="margin-left:11%;">Error</p>
+
+<p style="margin-left:17%;">Exception object implementation
+with a <tt>&quot;try&quot;</tt> statement. Does not localize
+<tt>$@</tt>.</p>
+
+<p style="margin-left:11%;">Exception::Class::TryCatch</p>
+
+<p style="margin-left:17%;">Provides a
+<tt>&quot;catch&quot;</tt> statement, but properly calling
+<tt>&quot;eval&quot;</tt> is your responsibility.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+<tt>&quot;try&quot;</tt> keyword pushes <tt>$@</tt> onto an
+error stack, avoiding some of the issues with <tt>$@</tt>,
+but you still need to localize to prevent clobbering.</p>
+
+<h2>LIGHTNING TALK
+<a name="LIGHTNING TALK"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">I gave a
+lightning talk about this module, you can see the slides
+(Firefox only):</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://nothingmuch.woobling.org/talks/takahashi.xul?data=yapc_asia_2009/try_tiny.txt&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Or read the
+source:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://nothingmuch.woobling.org/talks/yapc_asia_2009/try_tiny.yml&gt;</p>
+
+<h2>VERSION CONTROL
+<a name="VERSION CONTROL"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://github.com/nothingmuch/try&minus;tiny/&gt;</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Yuval Kogman
+&lt;nothingmuch@woobling.org&gt;</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">        Copyright (c) 2009 Yuval Kogman. All rights reserved.
+        This program is free software; you can redistribute
+        it and/or modify it under the terms of the MIT license.</pre>
+<hr>
+</body>
+</html>

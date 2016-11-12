@@ -1,0 +1,469 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:56:37 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Module::Build::Authoring</title>
+
+</head>
+<body>
+
+<h1 align="center">Module::Build::Authoring</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#STRUCTURE">STRUCTURE</a><br>
+<a href="#SUBCLASSING">SUBCLASSING</a><br>
+<a href="#PREREQUISITES">PREREQUISITES</a><br>
+<a href="#SAVING CONFIGURATION INFORMATION">SAVING CONFIGURATION INFORMATION</a><br>
+<a href="#STARTING MODULE DEVELOPMENT">STARTING MODULE DEVELOPMENT</a><br>
+<a href="#AUTOMATION">AUTOMATION</a><br>
+<a href="#MIGRATION">MIGRATION</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Module::Build::Authoring
+&minus; Authoring Module::Build modules</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When creating a
+<tt>&quot;Build.PL&quot;</tt> script for a module, something
+like the following code will typically be used:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use Module::Build;
+  my $build = Module::Build&minus;&gt;new
+    (
+     module_name =&gt; 'Foo::Bar',
+     license  =&gt; 'perl',
+     requires =&gt; {
+                  'perl'          =&gt; '5.6.1',
+                  'Some::Module'  =&gt; '1.23',
+                  'Other::Module' =&gt; '&gt;= 1.2, != 1.5, &lt; 2.0',
+                 },
+    );
+  $build&minus;&gt;create_build_script;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">A simple module
+could get away with something as short as this for its
+<tt>&quot;Build.PL&quot;</tt> script:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  use Module::Build;
+  Module::Build&minus;&gt;new(
+    module_name =&gt; 'Foo::Bar',
+    license     =&gt; 'perl',
+  )&minus;&gt;create_build_script;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The model used
+by <tt>&quot;Module::Build&quot;</tt> is a lot like the
+<tt>&quot;MakeMaker&quot;</tt> metaphor, with the following
+correspondences:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   In Module::Build                 In ExtUtils::MakeMaker
+  &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;      &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+   Build.PL (initial script)        Makefile.PL (initial script)
+   Build (a short perl script)      Makefile (a long Makefile)
+   _build/ (saved state info)       various config text in the Makefile</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Any
+customization can be done simply by subclassing
+<tt>&quot;Module::Build&quot;</tt> and adding a method
+called (for example) <tt>&quot;ACTION_test&quot;</tt>,
+overriding the default &rsquo;test&rsquo; action. You could
+also add a method called
+<tt>&quot;ACTION_whatever&quot;</tt>, and then you could
+perform the action <tt>&quot;Build whatever&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For information
+on providing compatibility with
+<tt>&quot;ExtUtils::MakeMaker&quot;</tt>, see
+Module::Build::Compat and
+&lt;http://www.makemaker.org/wiki/index.cgi?ModuleBuildConversionGuide&gt;.</p>
+
+<h2>STRUCTURE
+<a name="STRUCTURE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Module::Build
+creates a class hierarchy conducive to customization. Here
+is the parent-child class hierarchy in classy
+<small>ASCII</small> art:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">   /&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;\
+   |   Your::Parent     |  (If you subclass Module::Build)
+   \&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;/
+            |
+            |
+   /&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;\  (Doesn't define any functionality
+   |   Module::Build    |   of its own &minus; just figures out what
+   \&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;/   other modules to load.)
+            |
+            |
+   /&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;\  (Some values of $^O may
+   |   Module::Build::Platform::$^O    |   define specialized functionality.
+   \&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;/   Otherwise it's ...::Default, a
+            |                              pass&minus;through class.)
+            |
+   /&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;\
+   |   Module::Build::Base    |  (Most of the functionality of
+   \&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;/   Module::Build is defined here.)</pre>
+
+
+<h2>SUBCLASSING
+<a name="SUBCLASSING"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Right now,
+there are two ways to subclass Module::Build. The first way
+is to create a regular module (in a <tt>&quot;.pm&quot;</tt>
+file) that inherits from Module::Build, and use that
+module&rsquo;s class instead of using Module::Build
+directly:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &minus;&minus;&minus;&minus;&minus;&minus; in Build.PL: &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+  #!/usr/bin/perl
+  use lib q(/nonstandard/library/path);
+  use My::Builder;  # Or whatever you want to call it
+  my $build = My::Builder&minus;&gt;new
+    (
+     module_name =&gt; 'Foo::Bar',  # All the regular args...
+     license     =&gt; 'perl',
+     dist_author =&gt; 'A N Other &lt;me@here.net.au&gt;',
+     requires    =&gt; { Carp =&gt; 0 }
+    );
+  $build&minus;&gt;create_build_script;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This is
+relatively straightforward, and is the best way to do things
+if your My::Builder class contains lots of code. The
+<tt>&quot;create_build_script()&quot;</tt> method will
+ensure that the current value of <tt>@INC</tt> (including
+the <tt>&quot;/nonstandard/library/path&quot;</tt>) is
+propagated to the Build script, so that My::Builder can be
+found when running build actions. If you find that you need
+to <tt>&quot;chdir&quot;</tt> into a different directories
+in your subclass methods or actions, be sure to always
+return to the original directory (available via the
+<tt>&quot;base_dir()&quot;</tt> method) before returning
+control to the parent class. This is important to avoid data
+serialization problems.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For very small
+additions, Module::Build provides a
+<tt>&quot;subclass()&quot;</tt> method that lets you
+subclass Module::Build more conveniently, without creating a
+separate file for your module:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  &minus;&minus;&minus;&minus;&minus;&minus; in Build.PL: &minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;&minus;
+  #!/usr/bin/perl
+  use Module::Build;
+  my $class = Module::Build&minus;&gt;subclass
+    (
+     class =&gt; 'My::Builder',
+     code =&gt; q{
+       sub ACTION_foo {
+         print &quot;I'm fooing to death!\n&quot;;
+       }
+     },
+    );
+  my $build = $class&minus;&gt;new
+    (
+     module_name =&gt; 'Foo::Bar',  # All the regular args...
+     license     =&gt; 'perl',
+     dist_author =&gt; 'A N Other &lt;me@here.net.au&gt;',
+     requires    =&gt; { Carp =&gt; 0 }
+    );
+  $build&minus;&gt;create_build_script;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Behind the
+scenes, this actually does create a <tt>&quot;.pm&quot;</tt>
+file, since the code you provide must persist after Build.PL
+is run if it is to be very useful.</p>
+
+<p style="margin-left:11%; margin-top: 1em">See also the
+documentation for the &quot;<i>subclass()</i>&quot; in
+Module::Build::API method.</p>
+
+<h2>PREREQUISITES
+<a name="PREREQUISITES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Types of
+prerequisites</b> <br>
+To specify what versions of other modules are used by this
+distribution, several types of prerequisites can be defined
+with the following parameters: <br>
+configure_requires</p>
+
+<p style="margin-left:15%;">Items that must be installed
+<i>before</i> configuring this distribution (i.e. before
+running the <i>Build.PL</i> script). This might be a
+specific minimum version of
+<tt>&quot;Module::Build&quot;</tt> or any other module the
+<i>Build.PL</i> needs in order to do its stuff. Clients like
+<tt>&quot;CPAN.pm&quot;</tt> or
+<tt>&quot;CPANPLUS&quot;</tt> will be expected to pick
+<tt>&quot;configure_requires&quot;</tt> out of the
+<i><small>META</small> .yml</i> file and install these items
+before running the <tt>&quot;Build.PL&quot;</tt>.</p>
+
+<p style="margin-left:15%; margin-top: 1em">If no
+configure_requires is specified, the current version of
+Module::Build is automatically added to
+configure_requires.</p>
+
+<p style="margin-left:11%;">build_requires</p>
+
+<p style="margin-left:15%;">Items that are necessary for
+building and testing this distribution, but aren&rsquo;t
+necessary after installation. This can help users who only
+want to install these items temporarily. It also helps
+reduce the size of the <small>CPAN</small> dependency graph
+if everything isn&rsquo;t smooshed into
+<tt>&quot;requires&quot;</tt>.</p>
+
+<p style="margin-left:11%;">requires</p>
+
+<p style="margin-left:15%;">Items that are necessary for
+basic functioning.</p>
+
+<p style="margin-left:11%;">recommends</p>
+
+<p style="margin-left:15%;">Items that are recommended for
+enhanced functionality, but there are ways to use this
+distribution without having them installed. You might also
+think of this as &quot;can use&quot; or &quot;is aware
+of&quot; or &quot;changes behavior in the presence
+of&quot;.</p>
+
+<p style="margin-left:11%;">test_requires</p>
+
+<p style="margin-left:15%;">Items that are necessary for
+testing.</p>
+
+<p style="margin-left:11%;">conflicts</p>
+
+<p style="margin-left:15%;">Items that can cause problems
+with this distribution when installed. This is pretty
+rare.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Format of
+prerequisites</b> <br>
+The prerequisites are given in a hash reference, where the
+keys are the module names and the values are version
+specifiers:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  requires =&gt; {
+               Foo::Module =&gt; '2.4',
+               Bar::Module =&gt; 0,
+               Ken::Module =&gt; '&gt;= 1.2, != 1.5, &lt; 2.0',
+               perl =&gt; '5.6.0'
+              },</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">The above four
+version specifiers have different effects. The value
+<tt>'2.4'</tt> means that <b>at least</b> version 2.4 of
+<tt>&quot;Foo::Module&quot;</tt> must be installed. The
+value <tt>0</tt> means that <b>any</b> version of
+<tt>&quot;Bar::Module&quot;</tt> is acceptable, even if
+<tt>&quot;Bar::Module&quot;</tt> doesn&rsquo;t define a
+version. The more verbose value <tt>'&gt;= 1.2, != 1.5, &lt;
+2.0'</tt> means that
+<tt>&quot;Ken::Module&quot;</tt>&rsquo;s version must be
+<b>at least</b> 1.2, <b>less than</b> 2.0, and <b>not equal
+to</b> 1.5. The list of criteria is separated by commas, and
+all criteria must be satisfied.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A special
+<tt>&quot;perl&quot;</tt> entry lets you specify the
+versions of the Perl interpreter that are supported by your
+module. The same version dependency-checking semantics are
+available, except that we also understand perl&rsquo;s new
+double-dotted version numbers.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>XS</small>
+Extensions</b> <br>
+Modules which need to compile <small>XS</small> code should
+list <tt>&quot;ExtUtils::CBuilder&quot;</tt> as a
+<tt>&quot;build_requires&quot;</tt> element.</p>
+
+<h2>SAVING CONFIGURATION INFORMATION
+<a name="SAVING CONFIGURATION INFORMATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Module::Build
+provides a very convenient way to save configuration
+information that your installed modules (or your regression
+tests) can access. If your Build process calls the
+<tt>&quot;feature()&quot;</tt> or
+<tt>&quot;config_data()&quot;</tt> methods, then a
+<tt>&quot;Foo::Bar::ConfigData&quot;</tt> module will
+automatically be created for you, where
+<tt>&quot;Foo::Bar&quot;</tt> is the
+<tt>&quot;module_name&quot;</tt> parameter as passed to
+<tt>&quot;new()&quot;</tt>. This module provides access to
+the data saved by these methods, and a way to update the
+values. There is also a utility script called
+<tt>&quot;config_data&quot;</tt> distributed with
+Module::Build that provides a command line interface to this
+same functionality. See also the generated
+<tt>&quot;Foo::Bar::ConfigData&quot;</tt> documentation, and
+the <tt>&quot;config_data&quot;</tt> script&rsquo;s
+documentation, for more information.</p>
+
+<h2>STARTING MODULE DEVELOPMENT
+<a name="STARTING MODULE DEVELOPMENT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">When starting
+development on a new module, it&rsquo;s rarely worth your
+time to create a tree of all the files by hand. Some
+automatic module-creators are available: the oldest is
+<tt>&quot;h2xs&quot;</tt>, which has shipped with perl
+itself for a long time. Its name reflects the fact that
+modules were originally conceived of as a way to wrap up a C
+library (thus the <tt>&quot;h&quot;</tt> part) into perl
+extensions (thus the <tt>&quot;xs&quot;</tt> part).</p>
+
+<p style="margin-left:11%; margin-top: 1em">These days,
+<tt>&quot;h2xs&quot;</tt> has largely been superseded by
+modules like <tt>&quot;ExtUtils::ModuleMaker&quot;</tt>, and
+<tt>&quot;Module::Starter&quot;</tt>. They have varying
+degrees of support for
+<tt>&quot;Module::Build&quot;</tt>.</p>
+
+<h2>AUTOMATION
+<a name="AUTOMATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">One advantage
+of Module::Build is that since it&rsquo;s implemented as
+Perl methods, you can invoke these methods directly if you
+want to install a module non-interactively. For instance,
+the following Perl script will invoke the entire
+build/install procedure:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $build = Module::Build&minus;&gt;new(module_name =&gt; 'MyModule');
+  $build&minus;&gt;dispatch('build');
+  $build&minus;&gt;dispatch('test');
+  $build&minus;&gt;dispatch('install');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">If any of these
+steps encounters an error, it will throw a fatal
+exception.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can also
+pass arguments as part of the build process:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  my $build = Module::Build&minus;&gt;new(module_name =&gt; 'MyModule');
+  $build&minus;&gt;dispatch('build');
+  $build&minus;&gt;dispatch('test', verbose =&gt; 1);
+  $build&minus;&gt;dispatch('install', sitelib =&gt; '/my/secret/place/');</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Building and
+installing modules in this way skips creating the
+<tt>&quot;Build&quot;</tt> script.</p>
+
+<h2>MIGRATION
+<a name="MIGRATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that if
+you want to provide both a <i>Makefile.PL</i> and a
+<i>Build.PL</i> for your distribution, you probably want to
+add the following to <tt>&quot;WriteMakefile&quot;</tt> in
+your <i>Makefile.PL</i> so that
+<tt>&quot;MakeMaker&quot;</tt> doesn&rsquo;t try to run your
+<i>Build.PL</i> as a normal <i>.PL</i> file:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  PL_FILES =&gt; {},</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">You may also be
+interested in looking at the
+<tt>&quot;Module::Build::Compat&quot;</tt> module, which can
+automatically create various kinds of <i>Makefile.PL</i>
+compatibility layers.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Ken Williams
+&lt;kwilliams@cpan.org&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">Development
+questions, bug reports, and patches should be sent to the
+Module-Build mailing list at
+&lt;module&minus;build@perl.org&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Bug reports are
+also welcome at
+&lt;http://rt.cpan.org/NoAuth/Bugs.html?Dist=Module&minus;Build&gt;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The latest
+development version is available from the Git repository at
+&lt;https://github.com/Perl&minus;Toolchain&minus;Gang/Module&minus;Build&gt;</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>perl</i>(1),
+Module::Build(3), Module::Build::API(3),
+Module::Build::Cookbook(3), ExtUtils::MakeMaker(3),
+<small>YAML</small> (3)</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i><small>META</small>
+.yml</i> Specification: CPAN::META::Spec</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://www.dsmit.com/cons/&gt;</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">&lt;http://search.cpan.org/dist/PerlBuildSystem/&gt;</p>
+<hr>
+</body>
+</html>

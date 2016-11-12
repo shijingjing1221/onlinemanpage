@@ -1,0 +1,536 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 22:01:32 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Object::Accessor</title>
+
+</head>
+<body>
+
+<h1 align="center">Object::Accessor</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#LVALUE ACCESSORS">LVALUE ACCESSORS</a><br>
+<a href="#GLOBAL VARIABLES">GLOBAL VARIABLES</a><br>
+<a href="#TODO">TODO</a><br>
+<a href="#CAVEATS">CAVEATS</a><br>
+<a href="#BUG REPORTS">BUG REPORTS</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Object::Accessor
+&minus; interface to create per object accessors</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">    ### using the object
+    $obj = Object::Accessor&minus;&gt;new;        # create object
+    $obj = Object::Accessor&minus;&gt;new(@list); # create object with accessors
+    $obj = Object::Accessor&minus;&gt;new(\%h);   # create object with accessors
+                                         # and their allow handlers
+    $bool   = $obj&minus;&gt;mk_accessors('foo'); # create accessors
+    $bool   = $obj&minus;&gt;mk_accessors(        # create accessors with input
+               {foo =&gt; ALLOW_HANDLER} ); # validation
+    $bool   = $obj&minus;&gt;mk_aliases(          # create an alias to an existing
+                alias_name =&gt; 'method'); # method name
+    $clone  = $obj&minus;&gt;mk_clone;            # create a clone of original
+                                         # object without data
+    $bool   = $obj&minus;&gt;mk_flush;            # clean out all data
+    @list   = $obj&minus;&gt;ls_accessors;        # retrieves a list of all
+                                         # accessors for this object
+    $bar    = $obj&minus;&gt;foo('bar');          # set 'foo' to 'bar'
+    $bar    = $obj&minus;&gt;foo();               # retrieve 'bar' again
+    $sub    = $obj&minus;&gt;can('foo');          # retrieve coderef for
+                                         # 'foo' accessor
+    $bar    = $sub&minus;&gt;('bar');             # set 'foo' via coderef
+    $bar    = $sub&minus;&gt;();                  # retrieve 'bar' by coderef
+    ### using the object as base class
+    package My::Class;
+    use base 'Object::Accessor';
+    $obj    = My::Class&minus;&gt;new;               # create base object
+    $bool   = $obj&minus;&gt;mk_accessors('foo');    # create accessors, etc...
+    ### make all attempted access to non&minus;existent accessors fatal
+    ### (defaults to false)
+    $Object::Accessor::FATAL = 1;
+    ### enable debugging
+    $Object::Accessor::DEBUG = 1;
+    ### advanced usage &minus;&minus; callbacks
+    {   my $obj = Object::Accessor&minus;&gt;new('foo');
+        $obj&minus;&gt;register_callback( sub { ... } );
+        $obj&minus;&gt;foo( 1 ); # these calls invoke the callback you registered
+        $obj&minus;&gt;foo()     # which allows you to change the get/set
+                        # behaviour and what is returned to the caller.
+    }
+    ### advanced usage &minus;&minus; lvalue attributes
+    {   my $obj = Object::Accessor::Lvalue&minus;&gt;new('foo');
+        print $obj&minus;&gt;foo = 1;            # will print 1
+    }
+    ### advanced usage &minus;&minus; scoped attribute values
+    {   my $obj = Object::Accessor&minus;&gt;new('foo');
+        $obj&minus;&gt;foo( 1 );
+        print $obj&minus;&gt;foo;                # will print 1
+        ### bind the scope of the value of attribute 'foo'
+        ### to the scope of '$x' &minus;&minus; when $x goes out of
+        ### scope, 'foo's previous value will be restored
+        {   $obj&minus;&gt;foo( 2 =&gt; \my $x );
+            print $obj&minus;&gt;foo, ' ', $x;   # will print '2 2'
+        }
+        print $obj&minus;&gt;foo;                # will print 1
+    }</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;Object::Accessor&quot;</tt>
+provides an interface to create per object accessors (as
+opposed to per <tt>&quot;Class&quot;</tt> accessors, as, for
+example, <tt>&quot;Class::Accessor&quot;</tt> provides).</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can choose
+to either subclass this module, and thus using its accessors
+on your own module, or to store an
+<tt>&quot;Object::Accessor&quot;</tt> object inside your own
+object, and access the accessors from there. See the
+<tt>&quot;SYNOPSIS&quot;</tt> for examples.</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$object =
+Object::Accessor&minus;&gt;new( [ <small>ARGS</small> ]
+);</b> <br>
+Creates a new (and empty)
+<tt>&quot;Object::Accessor&quot;</tt> object. This method is
+inheritable.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Any arguments
+given to <tt>&quot;new&quot;</tt> are passed straight to
+<tt>&quot;mk_accessors&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If you want to
+be able to assign to your accessors as if they were
+<tt>&quot;lvalue&quot;</tt>s, you should create your object
+in the <tt>&quot;Object::Accessor::Lvalue&quot;</tt>
+namespace instead. See the section on <tt>&quot;LVALUE
+ACCESSORS&quot;</tt> below.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$object&minus;&gt;mk_accessors( @ACCESSORS | \%ACCESSOR_MAP
+);</b> <br>
+Creates a list of accessors for this object (and
+<tt>&quot;NOT&quot;</tt> for other ones in the same class!).
+Will not clobber existing data, so if an accessor already
+exists, requesting to create again is effectively a
+<tt>&quot;no&minus;op&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When providing
+a <tt>&quot;hashref&quot;</tt> as argument, rather than a
+normal list, you can specify a list of key/value pairs of
+accessors and their respective input validators. The
+validators can be anything that
+<tt>&quot;Params::Check&quot;</tt>&rsquo;s
+<tt>&quot;allow&quot;</tt> function accepts. Please see its
+manpage for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $object&minus;&gt;mk_accessors( {
+        foo     =&gt; qr/^\d+$/,       # digits only
+        bar     =&gt; [0,1],           # booleans
+        zot     =&gt; \&amp;my_sub         # a custom verification sub
+    } );</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Returns true on
+success, false on failure.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Accessors that
+are called on an object, that do not exist return
+<tt>&quot;undef&quot;</tt> by default, but you can make this
+a fatal error by setting the global variable <tt>$FATAL</tt>
+to true. See the section on <tt>&quot;GLOBAL
+VARIABLES&quot;</tt> for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that you
+can bind the values of attributes to a scope. This allows
+you to <tt>&quot;temporarily&quot;</tt> change a value of an
+attribute, and have it&rsquo;s original value restored up on
+the end of it&rsquo;s bound variable&rsquo;s scope;</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example, in
+this snippet of code, the attribute <tt>&quot;foo&quot;</tt>
+will temporarily be set to <tt>2</tt>, until the end of the
+scope of <tt>$x</tt>, at which point the original value of
+<tt>1</tt> will be restored.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $obj = Object::Accessor&minus;&gt;new;
+    $obj&minus;&gt;mk_accessors('foo');
+    $obj&minus;&gt;foo( 1 );
+    print $obj&minus;&gt;foo;                # will print 1
+    ### bind the scope of the value of attribute 'foo'
+    ### to the scope of '$x' &minus;&minus; when $x goes out of
+    ### scope, 'foo' previous value will be restored
+    {   $obj&minus;&gt;foo( 2 =&gt; \my $x );
+        print $obj&minus;&gt;foo, ' ', $x;   # will print '2 2'
+    }
+    print $obj&minus;&gt;foo;                # will print 1</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that all
+accessors are read/write for everyone. See the
+<tt>&quot;TODO&quot;</tt> section for details.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>@list =
+$self&minus;&gt;ls_accessors;</b> <br>
+Returns a list of accessors that are supported by the
+current object. The corresponding coderefs can be retrieved
+by passing this list one by one to the
+<tt>&quot;can&quot;</tt> method.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$ref =
+$self&minus;&gt;ls_allow( <small>KEY</small> )</b> <br>
+Returns the allow handler for the given key, which can be
+used with <tt>&quot;Params::Check&quot;</tt>&rsquo;s
+<tt>&quot;allow()&quot;</tt> handler. If there was no allow
+handler specified, an allow handler that always returns true
+will be returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;mk_aliases( alias =&gt; method, [alias2
+=&gt; method2, ...] );</b> <br>
+Creates an alias for a given method name. For all intents
+and purposes, these two accessors are now identical for this
+object. This is akin to doing the following on the symbol
+table level:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  *alias = *method</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">This allows you
+to do the following:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">  $self&minus;&gt;mk_accessors('foo');
+  $self&minus;&gt;mk_aliases( bar =&gt; 'foo' );
+  $self&minus;&gt;bar( 42 );
+  print $self&minus;&gt;foo;     # will print 42</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$clone =
+$self&minus;&gt;mk_clone;</b> <br>
+Makes a clone of the current object, which will have the
+exact same accessors as the current object, but without the
+data stored in them.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;mk_flush;</b> <br>
+Flushes all the data from the current object; all accessors
+will be set back to their default state of
+<tt>&quot;undef&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Returns true on
+success and false on failure.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;mk_verify;</b> <br>
+Checks if all values in the current object are in accordance
+with their own allow handler. Specifically useful to check
+if an empty initialised object has been filled with values
+satisfying their own allow criteria.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;register_callback( sub { ... } );</b> <br>
+This method allows you to register a callback, that is
+invoked every time an accessor is called. This allows you to
+munge input data, access external data stores, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You are free to
+return whatever you wish. On a <tt>&quot;set&quot;</tt>
+call, the data is even stored in the object.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Below is an
+example of the use of a callback.</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $object&minus;&gt;some_method( &quot;some_value&quot; );
+    my $callback = sub {
+        my $self    = shift; # the object
+        my $meth    = shift; # &quot;some_method&quot;
+        my $val     = shift; # [&quot;some_value&quot;]
+                             # could be undef &minus;&minus; check 'exists';
+                             # if scalar @$val is empty, it was a 'get'
+        # your code here
+        return $new_val;     # the value you want to be set/returned
+    }</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">To access the
+values stored in the object, circumventing the callback
+structure, you should use the <tt>&quot;___get&quot;</tt>
+and <tt>&quot;___set&quot;</tt> methods documented further
+down.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;can( <small>METHOD_NAME</small> )</b> <br>
+This method overrides <tt>&quot;UNIVERAL::can&quot;</tt> in
+order to provide coderefs to accessors which are loaded on
+demand. It will behave just like
+<tt>&quot;UNIVERSAL::can&quot;</tt> where it can --
+returning a class method if it exists, or a closure pointing
+to a valid accessor of this particular object.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can use it
+as follows:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    $sub = $object&minus;&gt;can('some_accessor');   # retrieve the coderef
+    $sub&minus;&gt;('foo');                          # 'some_accessor' now set
+                                            # to 'foo' for $object
+    $foo = $sub&minus;&gt;();                        # retrieve the contents
+                                            # of 'some_accessor'</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">See the
+<tt>&quot;SYNOPSIS&quot;</tt> for more examples.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$val =
+$self&minus;&gt;___get( <small>METHOD_NAME</small> );</b>
+<br>
+Method to directly access the value of the given accessor in
+the object. It circumvents all calls to allow checks,
+callbacks, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Use only if you
+<tt>&quot;Know What You Are Doing&quot;</tt>! General usage
+for this functionality would be in your own custom
+callbacks.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;___set( <small>METHOD_NAME</small> =&gt;
+<small>VALUE</small> );</b> <br>
+Method to directly set the value of the given accessor in
+the object. It circumvents all calls to allow checks,
+callbacks, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Use only if you
+<tt>&quot;Know What You Are Doing&quot;</tt>! General usage
+for this functionality would be in your own custom
+callbacks.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>$bool =
+$self&minus;&gt;___alias( <small>ALIAS</small> =&gt;
+<small>METHOD</small> );</b> <br>
+Method to directly alias one accessor to another for this
+object. It circumvents all sanity checks, etc.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Use only if you
+<tt>&quot;Know What You Are Doing&quot;</tt>!</p>
+
+<h2>LVALUE ACCESSORS
+<a name="LVALUE ACCESSORS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><tt>&quot;Object::Accessor&quot;</tt>
+supports <tt>&quot;lvalue&quot;</tt> attributes as well. To
+enable these, you should create your objects in the
+designated namespace,
+<tt>&quot;Object::Accessor::Lvalue&quot;</tt>. For
+example:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $obj = Object::Accessor::Lvalue&minus;&gt;new('foo');
+    $obj&minus;&gt;foo += 1;
+    print $obj&minus;&gt;foo;</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">will actually
+print <tt>1</tt> and work as expected. Since this is an
+optional feature, that&rsquo;s not desirable in all cases,
+we require you to explicitly use the
+<tt>&quot;Object::Accessor::Lvalue&quot;</tt> class.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Doing the same
+on the standard <tt>&quot;Object&quot;</tt>&gt;Accessor&gt;
+class would generate the following code &amp; errors:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    my $obj = Object::Accessor&minus;&gt;new('foo');
+    $obj&minus;&gt;foo += 1;
+    Can't modify non&minus;lvalue subroutine call</pre>
+
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+<tt>&quot;lvalue&quot;</tt> support on
+<tt>&quot;AUTOLOAD&quot;</tt> routines is a <tt>&quot;perl
+5.8.x&quot;</tt> feature. See perldoc perl58delta for
+details.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b><small>CAVEATS</small></b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="21%">
+
+
+<p>Allow handlers</p></td>
+<td width="62%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Due to the
+nature of <tt>&quot;lvalue subs&quot;</tt>, we never get
+access to the value you are assigning, so we can not check
+it against your allow handler. Allow handlers are therefor
+unsupported under <tt>&quot;lvalue&quot;</tt>
+conditions.</p>
+
+<p style="margin-left:17%; margin-top: 1em">See
+<tt>&quot;perldoc perlsub&quot;</tt> for details.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="14%">
+
+
+<p style="margin-top: 1em">Callbacks</p></td>
+<td width="69%">
+</td></tr>
+</table>
+
+<p style="margin-left:17%; margin-top: 1em">Due to the
+nature of <tt>&quot;lvalue subs&quot;</tt>, we never get
+access to the value you are assigning, so we can not check
+provide this value to your callback. Furthermore, we can not
+distinguish between a <tt>&quot;get&quot;</tt> and a
+<tt>&quot;set&quot;</tt> call. Callbacks are therefor
+unsupported under <tt>&quot;lvalue&quot;</tt>
+conditions.</p>
+
+<p style="margin-left:17%; margin-top: 1em">See
+<tt>&quot;perldoc perlsub&quot;</tt> for details.</p>
+
+<h2>GLOBAL VARIABLES
+<a name="GLOBAL VARIABLES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$Object::Accessor::FATAL</b>
+<br>
+Set this variable to true to make all attempted access to
+non-existent accessors be fatal. This defaults to
+<tt>&quot;false&quot;</tt>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>$Object::Accessor::DEBUG</b>
+<br>
+Set this variable to enable debugging output. This defaults
+to <tt>&quot;false&quot;</tt>.</p>
+
+<h2>TODO
+<a name="TODO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Create
+read-only accessors</b> <br>
+Currently all accessors are read/write for everyone. Perhaps
+a future release should make it possible to have read-only
+accessors as well.</p>
+
+<h2>CAVEATS
+<a name="CAVEATS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If you use
+codereferences for your allow handlers, you will not be able
+to freeze the data structures using
+<tt>&quot;Storable&quot;</tt>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Due to a bug in
+storable (until at least version 2.15),
+<tt>&quot;qr//&quot;</tt> compiled regexes also don&rsquo;t
+de-serialize properly. Although this bug has been reported,
+you should be aware of this issue when serializing your
+objects.</p>
+
+<p style="margin-left:11%; margin-top: 1em">You can track
+the bug here:</p>
+
+<pre style="margin-left:11%; margin-top: 1em">    http://rt.cpan.org/Ticket/Display.html?id=1827</pre>
+
+
+<h2>BUG REPORTS
+<a name="BUG REPORTS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Please report
+bugs or other issues to
+&lt;bug&minus;object&minus;accessor@rt.cpan.org&gt;.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module by
+Jos Boumans &lt;kane@cpan.org&gt;.</p>
+
+<h2>COPYRIGHT
+<a name="COPYRIGHT"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This library is
+free software; you may redistribute and/or modify it under
+the same terms as Perl itself.</p>
+<hr>
+</body>
+</html>

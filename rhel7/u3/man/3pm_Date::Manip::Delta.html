@@ -1,0 +1,1053 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 21:08:47 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>Date::Manip::Delta</title>
+
+</head>
+<body>
+
+<h1 align="center">Date::Manip::Delta</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#METHODS">METHODS</a><br>
+<a href="#PRINTF DIRECTIVES">PRINTF DIRECTIVES</a><br>
+<a href="#KNOWN BUGS">KNOWN BUGS</a><br>
+<a href="#BUGS AND QUESTIONS">BUGS AND QUESTIONS</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#LICENSE">LICENSE</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em">Date::Manip::Delta
+&minus; Methods for working with deltas</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<pre style="margin-left:11%; margin-top: 1em">   use Date::Manip::Delta;
+   $date = new Date::Manip::Delta;</pre>
+
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This module
+contains functions useful in parsing and manipulating
+deltas. As used in this module, a delta refers only to the
+amount of time elapsed. It includes no information about a
+starting or ending time.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There are
+several concepts involved in understanding the properties of
+a delta. <b><br>
+standard and business delta</b></p>
+
+<p style="margin-left:17%;">Deltas can refer to changes in
+either the full calendar (standard deltas), or they can
+refer to a business calendar.</p>
+
+<p style="margin-left:17%; margin-top: 1em">With a business
+delta, non-business days are ignored. Typically, this
+includes holidays and weekends. In addition, the part of the
+day outside of business hours is also ignored, so a day may
+only run from 08:00 to 17:00 and everything outside of this
+is ignored.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The length of a
+work day is usually not 24 hours. It is defined by the start
+and end of the work day and is set using the config
+variables: WorkDayBeg and WorkDayEnd (WorkDay24Hr may be
+used to specify a 24&minus;hour work day). The work week is
+defined using the config variables: WorkWeekBeg and
+WorkWeekEnd.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Daylight saving
+time will have no impact on business calculations because
+time changes occur at night (usually on the weekends)
+outside of business hours. As such, they are ignored in
+business calculations.</p>
+
+<p style="margin-left:11%;"><b>fields</b></p>
+
+<p style="margin-left:17%;">A delta consists of 7 fields:
+years, months, weeks, days, hours, minutes, and seconds,
+usually expressed as a colon-separated string. For
+example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1:2:3:4:5:6:7</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">refers to an
+elapsed amount of time 1 year, 2 months, 3 weeks, 4 days, 5
+hours, 6 minutes, and 7 seconds long.</p>
+
+<p style="margin-left:11%;"><b>normalized</b></p>
+
+<p style="margin-left:17%;">A delta can be normalized or
+not. A normalized delta has values which have been made
+consistent with the type of data they represent. For
+example, a delta of:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:0:0:10:70</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">is not
+normalized since 70 seconds is better expressed as 1 minute
+10 seconds. The normalized form of this delta would be:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:0:0:11:10</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">By default,
+deltas are converted to a normalized form in most functions
+that create/modify a delta, but this can be overridden.</p>
+
+<p style="margin-left:11%;"><b>sets of fields</b></p>
+
+<p style="margin-left:17%;">When normalizing a delta,
+fields are grouped together in sets where the exact
+relationship is known between all fields in the set.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example,
+there is an exactly known relationship between seconds and
+minutes (Date::Manip ignores leap seconds, so there are
+always 60 seconds in a minute), so they will be in one
+set.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Likewise, the
+relationship between years and months is known, so they will
+be in one set. There is no known relationship between months
+and weeks though, so they will be in separate sets.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A standard
+(i.e. non-business) delta contains 3 sets of fields:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   approximate:  year, month
+   semi&minus;exact:   week, day
+   exact:        hour, minute, second</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The following
+known relationships exist:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 year   = 12 months
+   1 week   = 7 days
+   1 hour   = 60 minutes
+   1 minute = 60 seconds</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The following
+semi-approximate relationships are used to link the
+semi-exact and exact fields when required:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 day    = 24 hours</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The following
+approximate relationship is used to link the approximate
+fields to the semi-exact fields when required:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 year = 365.2425</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Business deltas
+differ slightly, Since daylight saving times effects are
+ignored, the length of the work day is constant, but due to
+there being holidays, the length of a week is not known, so
+a business delta has the following sets of fields:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   approximate:  year, month
+   semi&minus;exact:   week
+   exact:        day, hour, minute, second</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and the
+relationships used are:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 year   = 12 months
+   1 day    = length of business day
+   1 hour   = 60 minutes
+   1 minute = 60 seconds</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The
+semi-approximate relationship may be used to link the
+semi-approximate and exact fields together:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 week   = X  (length of business week in days)</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and the
+following approximate relationship may be used:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 year   = X/7 * 365.2425</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">When
+normalizing a delta, no data from one set will ever be mixed
+with data from another set.</p>
+
+<p style="margin-left:17%; margin-top: 1em">As a result,
+the following delta is normalized:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:3:8:0:0:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Although 8
+weeks is clearly more than 1 month, we don&rsquo;t know the
+relationship between the two, so they don&rsquo;t mix.</p>
+
+<p style="margin-left:11%;"><b>exact, semi-exact, and
+approximate deltas</b></p>
+
+<p style="margin-left:17%;">An exact delta is one which
+every value is of an exactly known length (i.e. it only
+includes the exact fields listed above).</p>
+
+<p style="margin-left:17%; margin-top: 1em">A semi-exact
+delta is a delta which includes the exact fields as well as
+semi-exact ones.</p>
+
+<p style="margin-left:17%; margin-top: 1em">An approximate
+delta can include any of the fields.</p>
+
+<p style="margin-left:17%; margin-top: 1em">So, the
+delta:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:3:8:0:0:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">is approximate.
+The delta:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:0:30:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">is exact. The
+delta:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:1:30:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">is semi-exact
+(if it is non-business) or exact (if it is business).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The term
+&quot;semi-exact&quot; needs a little explanation.
+Date::Manip tries to do things in a way which humans think
+of them. It is immediately recognized that the approximate
+fields are of completely unknown length, and the exact
+fields are of known length. The &quot;semi-exact&quot;
+fields are termed such since humans have a way of looking at
+them which is consistent, even if it is not exact.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example, a
+day is thought of as the same wall clock time on two
+successive days, so from noon on one day to noon the next
+day is one day. Usually that is 24 hours (for standard
+deltas), but if you cross a daylight saving time change, it
+might be 23 or 25 hours (or something different if a very
+irregular time change occurs). So where possible, in a
+standard delta, a day field will change the date, but leave
+the time alone.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Likewise, a
+business week is thought of as 7 days (i.e. Wednesday to
+Wednesday) regardless of whether there was a holiday in
+there.</p>
+
+<p style="margin-left:11%;"><b>signs</b></p>
+
+<p style="margin-left:17%;">Each field has a sign
+associated with it. For example, the delta &quot;1 year
+ago&quot; is written as:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   &minus;1:0:0:0:0:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The sign of any
+field is optional, and if omitted, it is the same as the
+next higher field. So, the following are identical:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   +1:2:3:4:5:6:7
+   +1:+2:+3:+4:+5:+6:+7</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Since there is
+no mixing of data between sets of fields, you can end up
+with a delta with as many as four signs. So, the following
+is a fully normalized business delta:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   +1:0:&minus;3:+3:1:0:0</pre>
+
+
+<p style="margin-left:11%;"><b>fractional values</b></p>
+
+<p style="margin-left:17%;">Fractional fields are allowed
+such as:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1.25 days
+   1.1 years</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">When parsing a
+delta with fractional fields, the delta will
+<small>ALWAY</small> be normalized using the exact,
+semi-exact, and approximate relationships described
+above.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example,
+for a non-business delta, a delta of 1.1 years will use the
+following relationships:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 year = 365.2425 days
+   1 year = 12 months
+   1 day  = 24 hours</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Since the delta
+includes approximate fields, as much of the 1.1 year portion
+of the delta will be stored in the approximate fields as
+possible.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Using the above
+approximate relationships, we can see that:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 month = 365.2425/12 days = 30.436875 days</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">so</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1.1 years
+   = 1 year, 1.2 months
+   = 1 year, 1 month, 6.087375 days
+   = 1 year, 1 month, 6 days, 2 hours, 5 minutes, 49 seconds</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Fractional
+seconds will be discarded (no rounding).</p>
+
+<h2>METHODS
+<a name="METHODS"></a>
+</h2>
+
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p style="margin-top: 1em"><b>new</b></p></td>
+<td width="85%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>new_config <br>
+new_date <br>
+new_delta <br>
+new_recur <br>
+base</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>tz</b></p></td>
+<td width="86%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>is_date <br>
+is_delta <br>
+is_recur <br>
+config</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>err</b></p></td>
+<td width="2%"></td>
+<td width="83%">
+
+
+<p>Please refer to the Date::Manip::Obj documentation for
+these methods.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>parse</b></p>
+
+<pre style="margin-left:17%;">   $err = $delta&minus;&gt;parse($string [,$business] [,$no_normalize]);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This takes a
+string and parses it to see if it is a valid delta. If it
+is, an error code of 0 is returned and <tt>$delta</tt> now
+contains the value of the delta. Otherwise, an error code of
+1 is returned and an error condition is set in the
+delta.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A valid delta
+is in one of two forms: compact or expanded.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The compact
+format is a colon separated list of numbers (with optional
+signs):</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   Examples:
+      0:0:0:0:4:3:&minus;2
+      +4:3:&minus;2
+      +4::3</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">In the compact
+format, from 1 to 7 of the fields may be given. For example
+D:H:MN:S may be given to specify only four of the fields. No
+spaces may be present in the compact format. It is allowed
+to omit some of the fields. For example 5::3:30 is valid. In
+this case, missing fields default to the value 0.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The expanded
+format has the fields spelled out in some language specific
+form:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   Examples:
+      +4 hours +3mn &minus;2second
+      + 4 hr 3 minutes &minus;2
+      4 hour + 3 min &minus;2 s
+      4 hr 2 s</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">A field in the
+expanded format has an optional sign, a number, and a string
+specifying the type of field. If the sign is absent, it
+defaults to the sign of the next larger element. So the
+following are equivalent:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   &minus;4 hr 3 min 2 sec
+   &minus;4 hr &minus;3 min &minus;2 sec</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The valid
+strings (in English) specifying the field type are:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   y:  y, yr, year, years
+   m:  m, mon, month, months
+   w:  w, wk, ws, wks, week, weeks
+   d:  d, day, days
+   h:  h, hr, hour, hours
+   mn: mn, min, minute, minutes
+   s:  s, sec, second, seconds</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Other languages
+have similar abbreviations.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The
+&quot;seconds&quot; string may be omitted. The sign, number,
+and string may all be separated from each other by any
+amount of whitespace. The string specifying the unit must be
+separated from a following number by whitespace or a comma,
+so the following example will <small>NOT</small> work:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   4hours3minutes</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">At minimum, it
+must be expressed as:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   4hours 3minutes
+   4 hours, 3 minutes</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">In the the
+expanded format, all fields must be given in the order: Y M
+W D H <small>MN S.</small> Any number of them may be omitted
+provided the rest remain in the correct order. Numbers may
+be spelled out, so</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   in two weeks
+   in 2 weeks</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">both work.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Most languages
+also allow a word to specify whether the delta is an amount
+of time after or before a fixed point. In English, the word
+&quot;in&quot; refers to a time after a fixed point, and
+&quot;ago&quot; refers to a point before a fixed point. So,
+the following deltas are equivalent:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  1:0:0:0:0:0:0
+  in 1 year</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and the
+following are equivalent</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  &minus;1:0:0:0:0:0:0
+  1 year ago</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The word
+&quot;in&quot; is completely ignored. The word
+&quot;ago&quot; has the affect of reversing all signs that
+appear in front of the components of the delta. In other
+words, the following two strings are identical:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   &minus;12 yr  6 mon ago
+   +12 yr +6 mon</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">(don&rsquo;t
+forget that there is an implied minus sign in front of the 6
+in the first string because when no sign is explicitly
+given, it carries the previously entered sign).</p>
+
+<p style="margin-left:17%; margin-top: 1em">The in/ago
+words only apply to the expanded format, so the following is
+invalid:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1:0:0 ago</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">A delta may be
+standard (non-business) or business. By default, a delta is
+treated as a non-business delta, but this can be changed in
+two different ways.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The first way
+to make a delta be business is to pass in the 2nd argument
+to the function. The <tt>$business</tt> argument may be a
+string &rsquo;standard&rsquo; or &rsquo;business&rsquo; to
+explicitly set the type of delta. Alternately, any non-zero
+value for <tt>$business</tt> will force the delta to be a
+business delta.</p>
+
+<p style="margin-left:17%; margin-top: 1em">So the
+following are identical:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;parse($string,'business');
+   $delta&minus;&gt;parse($string,1);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">and the
+following are identical:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;parse($string);
+   $delta&minus;&gt;parse($string,'standard');
+   $delta&minus;&gt;parse($string,0);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The second way
+to specify whether a delta is business or non-business is to
+include a key word in the string that is parsed. When this
+is done, these strings override any value of the
+<tt>$business</tt> argument.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Most languages
+include a word like &quot;business&quot; which can be used
+to specify that the resulting delta is a business delta or a
+non-business delta. Other languages have equivalent words.
+The placement of the word is not important. Also, the
+&quot;business&quot; word can be included with both types of
+deltas, so the following are valid and equivalent:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   in 4 hours business
+   4:0:0 business
+   business 0:0:0:0:4:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">There are also
+words &quot;exact&quot; or &quot;approximate&quot; which may
+be included in the delta for backward compatibility.
+However, they will be ignored. The accuracy of delta (exact,
+semi-exact, approximate) will be determined only by what
+fields are present in the delta.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When a delta is
+parsed, it is automatically normalized, unless the
+<tt>$no_normalize</tt> argument is passed in. It can be the
+string &rsquo;nonormalize&rsquo; or any non-zero value. If
+passing it as a non-zero value, the <tt>$business</tt>
+argument <small>MUST</small> be included (though it can be
+zero) in order to avoid ambiguity.</p>
+
+<p style="margin-left:17%; margin-top: 1em">So the
+following are equivalent:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;parse($string,'nonormalize');
+   $delta&minus;&gt;parse($string,$business,1);</pre>
+
+
+<p style="margin-left:11%;"><b>input</b></p>
+
+<pre style="margin-left:17%;">   $str = $delta&minus;&gt;input();</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This returns
+the string that was parsed to form the delta.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>set</b></p></td>
+<td width="7%"></td>
+<td width="75%">
+
+<pre>   $err = $delta&minus;&gt;set($field,$val [,$no_normalize]);</td>
+<td width="3%">
+</td></tr>
+</table></pre>
+
+<p style="margin-left:17%; margin-top: 1em">This explicitly
+sets one or more fields in a delta.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em"><tt>$field</tt>
+can be any of the following:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $field   $val
+   delta    [Y,M,W,D,H,MN,S]  sets the entire delta
+   business [Y,M,W,D,H,MN,S]  sets the entire delta
+   standard [Y,M,W,D,H,MN,S]  sets the entire delta
+   y        YEAR              sets one field
+   M        MONTH
+   w        WEEK
+   d        DAY
+   h        HOUR
+   m        MINUTE
+   s        SECOND
+   mode     business, standard</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">An error is
+returned if an invalid value is passed in.</p>
+
+<p style="margin-left:17%; margin-top: 1em">When setting
+the entire delta with &quot;business&quot; or
+&quot;normal&quot;, it flags the delta as a business or
+non-business delta respectively. When setting the entire
+delta with &quot;delta&quot;, the flag is left unchanged.
+Also, when setting the entire delta, signs are not carried
+from one field to another.</p>
+
+<p style="margin-left:17%; margin-top: 1em">By default, a
+delta is normalized, but passing <tt>$no_normalize</tt> as
+any true value, this will not be done.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+<tt>$no_normalize</tt> is not passed in, the current value
+for the delta (which defaults to 0) will be used.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For backwards
+compatibility, &rsquo;normal&rsquo; can be used in place of
+&rsquo;standard&rsquo;, both as <tt>$field</tt> or as
+<tt>$val</tt>.</p>
+
+<p style="margin-left:11%;"><b>printf</b></p>
+
+<pre style="margin-left:17%;">   $out = $delta&minus;&gt;printf($in);
+   @out = $delta&minus;&gt;printf(@in);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This takes a
+string or list of strings which may contain any number of
+special formatting directives. These directives are replaced
+with information contained in the delta. Everything else in
+the string is returned unmodified.</p>
+
+<p style="margin-left:17%; margin-top: 1em">A directive
+always begins with &rsquo;%&rsquo;. They are described in
+the section below in the section <small>PRINTF
+DIRECTIVES.</small></p>
+
+<p style="margin-left:11%;"><b>calc</b></p>
+
+<pre style="margin-left:17%;">   $date2  = $delta&minus;&gt;calc($date1 [,$subtract]);
+   $delta3 = $delta1&minus;&gt;calc($delta2 [,$subtract]);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Please refer to
+the Date::Manip::Calc documentation for details.</p>
+
+<p style="margin-left:11%;"><b>type</b></p>
+
+<pre style="margin-left:17%;">   $flag = $delta&minus;&gt;type($op);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This tests to
+see if a delta is of a certain type. <tt>$op</tt> can
+be;</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   business  : returns 1 if it is a business delta
+   standard  : returns 1 if it is a standard (non&minus;business delta)
+   exact     : returns 1 if it is exact
+   semi      : returns 1 if it is semi&minus;exact
+   approx    : returns 1 if it is approximate</pre>
+
+
+<p style="margin-left:11%;"><b>value</b></p>
+
+<pre style="margin-left:17%;">   $val = $delta&minus;&gt;value();
+   @val = $delta&minus;&gt;value();</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This returns
+the value of the delta. In scalar context, it returns the
+printable string (equivalent to the printf directive
+&rsquo;%Dt&rsquo;). In list context, it returns a list of
+fields.</p>
+
+<p style="margin-left:17%; margin-top: 1em">undef is
+returned if there is no valid delta stored in
+<tt>$delta</tt>.</p>
+
+<p style="margin-left:11%;"><b>convert</b></p>
+
+<pre style="margin-left:17%;">   $delta&minus;&gt;convert($to);</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">This converts a
+delta from one type to another. <tt>$to</tt> can be
+&rsquo;exact&rsquo;, &rsquo;semi&rsquo;, or
+&rsquo;approx&rsquo;. The conversion uses the approximate
+relationships listed above to convert the delta.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For example, if
+the exact non-business delta <tt>$delta</tt> contains:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:0:44:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">then the
+following call:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;convert('semi')</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">would produce
+the semi-exact delta:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   0:0:0:1:20:0:0</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The result will
+always be normalized, and will be strictly positive or
+negative (i.e. all fields will have the same sign).</p>
+
+<p style="margin-left:17%; margin-top: 1em">This function
+can be used to take an exact delta and turn it into a
+semi-exact delta (with a day being treated as 24 hours in
+non-business mode).</p>
+
+<p style="margin-left:17%; margin-top: 1em">There is
+currently no support for converting business to non-business
+(or vice-versa).</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>cmp</b></p></td>
+<td width="7%"></td>
+<td width="46%">
+
+<pre>   $flag = $delta1&minus;&gt;cmp($delta2);</td>
+<td width="32%">
+</td></tr>
+</table></pre>
+
+<p style="margin-left:17%; margin-top: 1em">This compares
+two deltas (using the approximate relationships listed
+above) and returns &minus;1, 0, or 1 which could be used to
+sort them by length of time.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Both deltas
+must be valid, and both must be either business or
+non-business deltas. They do not need to be the same out of
+exact, semi-exact, and approximate.</p>
+
+<p style="margin-left:17%; margin-top: 1em">undef will be
+returned if either delta is invalid, or you try to compare a
+business and non-business delta.</p>
+
+<h2>PRINTF DIRECTIVES
+<a name="PRINTF DIRECTIVES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+printf directives are replaced with information from the
+delta. Directives may be replaced by the values of a single
+field in the delta (i.e. the hours or weeks field), the
+value of several fields expressed in terms of one of them
+(i.e. the number of years and months expressed in terms of
+months), or the directive may format either the entire
+delta, or portions of it. <b><br>
+Simple directives</b></p>
+
+<p style="margin-left:17%;">These are directives which
+print simple characters. Currently, the only one is:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   %%    Replaced by a single '%'</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">As an
+example:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">  $delta&minus;&gt;printf('|%%|');
+     =&gt; |%|</pre>
+
+
+<p style="margin-left:11%;"><b>Directives to print out a
+single field</b></p>
+
+<p style="margin-left:17%;">The following directive is used
+to print out the value of a single field. Spaces are
+included here for clarity, but are not in the actual
+directive.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   % [+] [pad] [width] Xv</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Here, X is one
+of (y,M,w,d,h,m,s). The directive will print out the value
+for that field (in the normalized delta).</p>
+
+<p style="margin-left:17%; margin-top: 1em">If a
+&rsquo;+&rsquo; is included immediately after the
+&rsquo;%&rsquo;, a sign will always be included. By default,
+only negative values will include a sign.</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">&rsquo;width&rsquo;
+is any positive integer (without a sign). If
+&rsquo;width&rsquo; is included, it sets the length of the
+output string (unless the string is already longer than
+that, in which case the &rsquo;width&rsquo; is ignored).</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+&rsquo;pad&rsquo; is included, it may be the character
+&rsquo;&lt;&rsquo;, &rsquo;&gt;&rsquo;, or &rsquo;0&rsquo;.
+It will be ignored unless &rsquo;width&rsquo; is included.
+If the formatted delta field is shorter than
+&rsquo;width&rsquo;, it will be padded with spaces on the
+left (if &rsquo;pad&rsquo; is &rsquo;&lt;&rsquo;), or right
+(if &rsquo;pad&rsquo; is &rsquo;&gt;&rsquo;), or it will be
+padded on the left (after any sign) with zeroes (if
+&rsquo;pad&rsquo; is &rsquo;0&rsquo;).</p>
+
+<p style="margin-left:17%; margin-top: 1em">In the
+following examples, <tt>$delta</tt> contains the delta:
+1:2:3:4:5:6:7</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;printf('|Month: %Mv|');
+      =&gt; |Month: 2|
+   $delta&minus;&gt;printf('|Day: %+05dv|');
+      =&gt; |Day: +0004|
+   $delta&minus;&gt;printf('|Day: %+&lt;5dv|');
+      =&gt; |Day:    +4|
+   $delta&minus;&gt;printf('|Day: %&gt;5sv|');
+      =&gt; |Day: 7    |</pre>
+
+
+<p style="margin-left:11%;"><b>Directives to print out
+several fields in terms of one of them</b></p>
+
+<p style="margin-left:17%;">The following directive is used
+to print out the value of several different fields,
+expressed in terms of a single field.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   % [+] [pad] [width] [.precision] XYZ</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">Here, X, Y, and
+Z are each one of (y,M,w,d,h,m,s). The directive will print
+out the value for fields Y through Z expressed in terms of
+field X.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Y must come
+before Z in the sequence (y,M,w,d,h,m,s) or it can be the
+same as Z.</p>
+
+<p style="margin-left:17%; margin-top: 1em">So, to print
+the day and hour fields in terms of seconds, use the
+directive:</p>
+<pre style="margin-left:17%; margin-top: 1em">   %sdh</pre>
+
+<p style="margin-left:17%; margin-top: 1em">Any time all of
+X, Y, and Z are from a single set of fields, exact
+relationships are used.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If the X, Y,
+and Z fields do not all belong to the same set of fields,
+approximate relationships are used.</p>
+
+<p style="margin-left:17%; margin-top: 1em">For
+non-business deltas, an approximate relationship is needed
+to link the Y/M part of the delta to the W/D part and a
+semi-approximate relationship is needed to link the W/D part
+with the H/MN/S part. These relationships are:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 day    = 24 hours
+   1 year   = 365.2425</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">For business
+deltas, the approximate and semi-approximate relationships
+used to link the fields together are:</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   1 week   = X    (length of business week in days)
+   1 year   = X/7 * 365.2425</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">For business
+deltas, the length of the day is defined using WorkDayStart
+and WorkDayEnd. For non-business deltas, a day is 24 hours
+long (i.e. daylight saving time is ignored).</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+&rsquo;precision&rsquo; is included, it is the number of
+decimal places to print. If it is not included, but
+&rsquo;width&rsquo; is included, precision will be set
+automatically to display the maximum number of decimal
+places given &rsquo;width&rsquo;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If
+&rsquo;pad&rsquo; is included, it may be the character
+&rsquo;&lt;&rsquo;, &rsquo;&gt;&rsquo;, or &rsquo;0&rsquo;,
+and is used in the same way as printing out a single
+field.</p>
+
+<p style="margin-left:17%; margin-top: 1em">In the
+following examples, <tt>$delta</tt> contains the delta:
+1:2:3:4:5:6:7</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   $delta&minus;&gt;printf('|%.4Myw|');
+      =&gt; |14.6900|
+      1 year, 2 months, 3 weeks is approximately
+      14.6900 months</pre>
+
+
+<p style="margin-left:11%;"><b>Directives to print out
+portions of the delta</b></p>
+
+<p style="margin-left:17%;">The following directives may be
+used to print out some or all of a delta.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">   % [+] [pad] [width] Dt
+   % [+] [pad] [width] DXY</pre>
+
+
+<p style="margin-left:17%; margin-top: 1em">The first
+directive will print out the entire delta.</p>
+
+<p style="margin-left:17%; margin-top: 1em">The second will
+print out the delta from the X to Y fields inclusive (where
+X and Y are each one of (y,M,w,d,h,m,s) and X must come
+before Y in the sequence).</p>
+
+
+<p style="margin-left:17%; margin-top: 1em">&rsquo;pad&rsquo;
+is optional and can be either &rsquo;&lt;&rsquo; or
+&rsquo;&gt;&rsquo; meaning to pad on the left or right with
+spaces. It defaults to &rsquo;&lt;&rsquo;.</p>
+
+<p style="margin-left:17%; margin-top: 1em">If a
+&rsquo;+&rsquo; is included immediately following the
+&rsquo;%&rsquo;, every field will have a sign attached.
+Otherwise, only the leftmost field in each set of fields
+will include a sign.</p>
+
+<pre style="margin-left:17%; margin-top: 1em">    $delta&minus;&gt;printf('|%Dt|');
+       =&gt; |+1:2:+3:+4:5:6:7|
+    $delta&minus;&gt;printf('|%+Dyd|');
+       =&gt; |+1:+2:+3:+4|</pre>
+
+
+<h2>KNOWN BUGS
+<a name="KNOWN BUGS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">None known.</p>
+
+<h2>BUGS AND QUESTIONS
+<a name="BUGS AND QUESTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Please refer to
+the Date::Manip::Problems documentation for information on
+submitting bug reports or questions to the author.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Date::Manip
+&minus; main module documentation</p>
+
+<h2>LICENSE
+<a name="LICENSE"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">This script is
+free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Sullivan Beck
+(sbeck@cpan.org)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,4818 @@
+<!-- Creator     : groff version 1.22.2 -->
+<!-- CreationDate: Fri Nov 11 23:18:23 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>ZSHEXPN</title>
+
+</head>
+<body>
+
+<h1 align="center">ZSHEXPN</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#HISTORY EXPANSION">HISTORY EXPANSION</a><br>
+<a href="#PROCESS SUBSTITUTION">PROCESS SUBSTITUTION</a><br>
+<a href="#PARAMETER EXPANSION">PARAMETER EXPANSION</a><br>
+<a href="#COMMAND SUBSTITUTION">COMMAND SUBSTITUTION</a><br>
+<a href="#ARITHMETIC EXPANSION">ARITHMETIC EXPANSION</a><br>
+<a href="#BRACE EXPANSION">BRACE EXPANSION</a><br>
+<a href="#FILENAME EXPANSION">FILENAME EXPANSION</a><br>
+<a href="#FILENAME GENERATION">FILENAME GENERATION</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">zshexpn &minus;
+zsh expansion and substitution</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The following
+types of expansions are performed in the indicated order in
+five steps: <i><br>
+History Expansion</i></p>
+
+<p style="margin-left:22%;">This is performed only in
+interactive shells.</p>
+
+<p style="margin-left:11%;"><i>Alias Expansion</i></p>
+
+<p style="margin-left:22%;">Aliases are expanded
+immediately before the command line is parsed as explained
+under Aliasing in <i>zshmisc</i>(1).</p>
+
+<p style="margin-left:11%;"><i>Process Substitution <br>
+Parameter Expansion <br>
+Command Substitution <br>
+Arithmetic Expansion <br>
+Brace Expansion</i></p>
+
+<p style="margin-left:22%;">These five are performed in one
+step in left&minus;to&minus;right fashion. After these
+expansions, all unquoted occurrences of the characters
+&lsquo;<b>\</b>&rsquo;, &lsquo;<b>&rsquo;</b>&rsquo; and
+&lsquo;<b>&quot;</b>&rsquo; are removed.</p>
+
+<p style="margin-left:11%;"><i>Filename Expansion</i></p>
+
+<p style="margin-left:22%;">If the <b>SH_FILE_EXPANSION</b>
+option is set, the order of expansion is modified for
+compatibility with <b>sh</b> and <b>ksh</b>. In that case
+<i>filename expansion</i> is performed immediately after
+<i>alias expansion</i>, preceding the set of five expansions
+mentioned above.</p>
+
+<p style="margin-left:11%;"><i>Filename Generation</i></p>
+
+<p style="margin-left:22%;">This expansion, commonly
+referred to as <b>globbing</b>, is always done last.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+sections explain the types of expansion in detail.</p>
+
+<h2>HISTORY EXPANSION
+<a name="HISTORY EXPANSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">History
+expansion allows you to use words from previous command
+lines in the command line you are typing. This simplifies
+spelling corrections and the repetition of complicated
+commands or arguments. Immediately before execution, each
+command is saved in the history list, the size of which is
+controlled by the <b>HISTSIZE</b> parameter. The one most
+recent command is always retained in any case. Each saved
+command in the history list is called a history <i>event</i>
+and is assigned a number, beginning with 1 (one) when the
+shell starts up. The history number that you may see in your
+prompt (see EXPANSION OF PROMPT SEQUENCES in
+<i>zshmisc</i>(1)) is the number that is to be assigned to
+the <i>next</i> command.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Overview</b>
+<br>
+A history expansion begins with the first character of the
+<b>histchars</b> parameter, which is &lsquo;<b>!</b>&rsquo;
+by default, and may occur anywhere on the command line;
+history expansions do not nest. The &lsquo;<b>!</b>&rsquo;
+can be escaped with &lsquo;<b>\</b>&rsquo; or can be
+enclosed between a pair of single quotes
+(<b>&rsquo;&rsquo;</b>) to suppress its special meaning.
+Double quotes will <i>not</i> work for this. Following this
+history character is an optional event designator (see the
+section &lsquo;Event Designators&rsquo;) and then an
+optional word designator (the section &lsquo;Word
+Designators&rsquo;); if neither of these designators is
+present, no history expansion occurs.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Input lines
+containing history expansions are echoed after being
+expanded, but before any other expansions take place and
+before the command is executed. It is this expanded form
+that is recorded as the history event for later
+references.</p>
+
+<p style="margin-left:11%; margin-top: 1em">By default, a
+history reference with no event designator refers to the
+same event as any preceding history reference on that
+command line; if it is the only history reference in a
+command, it refers to the previous command. However, if the
+option <b>CSH_JUNKIE_HISTORY</b> is set, then every history
+reference with no event specification <i>always</i> refers
+to the previous command.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example,
+&lsquo;<b>!</b>&rsquo; is the event designator for the
+previous command, so &lsquo;<b>!!:1</b>&rsquo; always refers
+to the first word of the previous command, and
+&lsquo;<b>!!$</b>&rsquo; always refers to the last word of
+the previous command. With <b>CSH_JUNKIE_HISTORY</b> set,
+then &lsquo;<b>!:1</b>&rsquo; and &lsquo;<b>!$</b>&rsquo;
+function in the same manner as &lsquo;<b>!!:1</b>&rsquo; and
+&lsquo;<b>!!$</b>&rsquo;, respectively. Conversely, if
+<b>CSH_JUNKIE_HISTORY</b> is unset, then
+&lsquo;<b>!:1</b>&rsquo; and &lsquo;<b>!$</b>&rsquo; refer
+to the first and last words, respectively, of the same event
+referenced by the nearest other history reference preceding
+them on the current command line, or to the previous command
+if there is no preceding reference.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The character
+sequence &lsquo;<b>^</b><i>foo</i><b>^</b><i>bar</i>&rsquo;
+(where &lsquo;<b>^</b>&rsquo; is actually the second
+character of the <b>histchars</b> parameter) repeats the
+last command, replacing the string <i>foo</i> with
+<i>bar</i>. More precisely, the sequence
+&lsquo;<b>^</b><i>foo</i><b>^</b><i>bar</i><b>^</b>&rsquo;
+is synonymous with
+&lsquo;<b>!!:s^</b><i>foo</i><b>^</b><i>bar</i><b>^</b>&rsquo;,
+hence other modifiers (see the section
+&lsquo;Modifiers&rsquo;) may follow the final
+&lsquo;<b>^</b>&rsquo;. In particular,
+&lsquo;<b>^</b><i>foo</i><b>^</b><i>bar</i><b>^:G</b>&rsquo;
+performs a global substitution.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the shell
+encounters the character sequence
+&lsquo;<b>!&quot;</b>&rsquo; in the input, the history
+mechanism is temporarily disabled until the current list
+(see <i>zshmisc</i>(1)) is fully parsed. The
+&lsquo;<b>!&quot;</b>&rsquo; is removed from the input, and
+any subsequent &lsquo;<b>!</b>&rsquo; characters have no
+special significance.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A less
+convenient but more comprehensible form of command history
+support is provided by the <b>fc</b> builtin.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Event
+Designators</b> <br>
+An event designator is a reference to a command&minus;line
+entry in the history list. In the list below, remember that
+the initial <b>&lsquo;!&rsquo;</b> in each item may be
+changed to another character by setting the <b>histchars</b>
+parameter.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>!</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Start a history expansion, except when followed by a
+blank, newline, &lsquo;<b>=</b>&rsquo; or
+&lsquo;<b>(</b>&rsquo;. If followed immediately by a word
+designator (see the section &lsquo;Word Designators&rsquo;),
+this forms a history reference with no event designator (see
+the section &lsquo;Overview&rsquo;).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>!!</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Refer to the previous command. By itself, this expansion
+repeats the previous command.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>!</b><i>n</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Refer to command&minus;line <i>n</i>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>!&minus;</b><i>n</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Refer to the current command&minus;line minus
+<i>n</i>.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>!</b><i>str</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Refer to the most recent command starting with
+<i>str</i>.</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>!?</b><i>str</i>[<b>?</b>]</p>
+
+<p style="margin-left:22%;">Refer to the most recent
+command containing <i>str</i>. The trailing
+&lsquo;<b>?</b>&rsquo; is necessary if this reference is to
+be followed by a modifier or followed by any text that is
+not to be considered part of <i>str</i>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>!#</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Refer to the current command line typed in so far. The
+line is treated as if it were complete up to and including
+the word before the one with the &lsquo;<b>!#</b>&rsquo;
+reference.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>!{</b>...<b>}</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Insulate a history reference from adjacent characters
+(if necessary).</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Word
+Designators</b> <br>
+A word designator indicates which word or words of a given
+command line are to be included in a history reference. A
+&lsquo;<b>:</b>&rsquo; usually separates the event
+specification from the word designator. It may be omitted
+only if the word designator begins with a
+&lsquo;<b>^</b>&rsquo;, &lsquo;<b>$</b>&rsquo;,
+&lsquo;<b>*</b>&rsquo;, &lsquo;<b>&minus;</b>&rsquo; or
+&lsquo;<b>%</b>&rsquo;. Word designators include:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p style="margin-top: 1em"><b>0</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">The first input word
+(command).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>n</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>The <i>n</i>th argument.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>^</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>The first argument. That is, <b>1</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>$</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>The last argument.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>%</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>The word matched by (the most recent) <b>?</b><i>str</i>
+search.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>&minus;</b><i>y</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>A range of words; <i>x</i> defaults to <b>0</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>*</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>All the arguments, or a null value if there are
+none.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>*</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>Abbreviates &lsquo;<i>x</i><b>&minus;$</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>&minus;</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>Like &lsquo;<i>x</i><b>*</b>&rsquo; but omitting word
+<b>$</b>.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Note that a
+&lsquo;<b>%</b>&rsquo; word designator works only when used
+in one of &lsquo;<b>!%</b>&rsquo;, &lsquo;<b>!:%</b>&rsquo;
+or &lsquo;<b>!?</b><i>str</i><b>?:%</b>&rsquo;, and only
+when used after a <b>!?</b> expansion (possibly in an
+earlier command). Anything else results in an error,
+although the error may not be the most obvious one.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Modifiers</b>
+<br>
+After the optional word designator, you can add a sequence
+of one or more of the following modifiers, each preceded by
+a &lsquo;<b>:</b>&rsquo;. These modifiers also work on the
+result of <i>filename generation</i> and <i>parameter
+expansion</i>, except where noted.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>a</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Turn a file name into an
+absolute path: prepends the current directory, if necessary,
+and resolves any use of &lsquo;<b>..</b>&rsquo; and
+&lsquo;<b>.</b>&rsquo; in the path. Note that the
+transformation takes place even if the file or any
+intervening directories do not exist.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>A</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>As &lsquo;<b>a</b>&rsquo;, but also resolve use of
+symbolic links where possible. Note that resolution of
+&lsquo;<b>..</b>&rsquo; occurs <i>before</i> resolution of
+symbolic links. This call is equivalent to <b>a</b> unless
+your system has the <b>realpath</b> system call (modern
+systems do).</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>c</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Resolve a command name into an absolute path by
+searching the command path given by the <b>PATH</b>
+variable. This does not work for commands containing
+directory parts. Note also that this does not usually work
+as a glob qualifier unless a file of the same name is found
+in the current directory.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>e</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Remove all but the part of the filename extension
+following the &lsquo;<b>.</b>&rsquo;; see the definition of
+the filename extension in the description of the <b>r</b>
+modifier below. Note that according to that definition the
+result will be empty if the string ends with a
+&lsquo;<b>.</b>&rsquo;.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>h</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Remove a trailing pathname component, leaving the head.
+This works like &lsquo;<b>dirname</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>l</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Convert the words to all lowercase.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>p</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Print the new command but do not execute it. Only works
+with history expansion.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>q</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Quote the substituted words, escaping further
+substitutions. Works with history expansion and parameter
+expansion, though for parameters it is only useful if the
+resulting text is to be re&minus;evaluated such as by
+<b>eval</b>.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>Q</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Remove one level of quotes from the substituted
+words.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>r</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Remove a filename extension leaving the root name.
+Strings with no filename extension are not altered. A
+filename extension is a &lsquo;<b>.</b>&rsquo; followed by
+any number of characters (including zero) that are neither
+&lsquo;<b>.</b>&rsquo; nor &lsquo;<b>/</b>&rsquo; and that
+continue to the end of the string. For example, the
+extension of &lsquo;<b>foo.orig.c</b>&rsquo; is
+&lsquo;<b>.c</b>&rsquo;, and &lsquo;<b>dir.c/foo</b>&rsquo;
+has no extension.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>s/</b><i>l</i><b>/</b><i>r</i>[<b>/</b>]</p>
+
+<p style="margin-left:22%;">Substitute <i>r</i> for
+<i>l</i> as described below. The substitution is done only
+for the first string that matches <i>l</i>. For arrays and
+for filename generation, this applies to each word of the
+expanded text. See below for further notes on
+substitutions.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The forms
+&lsquo;<b>gs/</b><i>l</i><b>/</b><i>r</i>&rsquo; and
+&lsquo;<b>s/</b><i>l</i><b>/</b><i>r</i><b>/:G</b>&rsquo;
+perform global substitution, i.e. substitute every
+occurrence of <i>r</i> for <i>l</i>. Note that the <b>g</b>
+or <b>:G</b> must appear in exactly the position shown.</p>
+
+<p style="margin-left:22%; margin-top: 1em">See further
+notes on this form of substitution below.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>&amp;</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Repeat the previous <b>s</b> substitution. Like
+<b>s</b>, may be preceded immediately by a <b>g</b>. In
+parameter expansion the <b>&amp;</b> must appear inside
+braces, and in filename generation it must be quoted with a
+backslash.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>t</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Remove all leading pathname components, leaving the
+tail. This works like &lsquo;<b>basename</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>u</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Convert the words to all uppercase.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>x</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Like <b>q</b>, but break into words at whitespace. Does
+not work with parameter expansion.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The
+<b>s/</b><i>l</i><b>/</b><i>r</i><b>/</b> substitution works
+as follows. By default the left&minus;hand side of
+substitutions are not patterns, but character strings. Any
+character can be used as the delimiter in place of
+&lsquo;<b>/</b>&rsquo;. A backslash quotes the delimiter
+character. The character &lsquo;<b>&amp;</b>&rsquo;, in the
+right&minus;hand&minus;side <i>r</i>, is replaced by the
+text from the left&minus;hand&minus;side <i>l</i>. The
+&lsquo;<b>&amp;</b>&rsquo; can be quoted with a backslash. A
+null <i>l</i> uses the previous string either from the
+previous <i>l</i> or from the contextual scan string
+<i>s</i> from &lsquo;<b>!?</b><i>s</i>&rsquo;. You can omit
+the rightmost delimiter if a newline immediately follows
+<i>r</i>; the rightmost &lsquo;<b>?</b>&rsquo; in a context
+scan can similarly be omitted. Note the same record of the
+last <i>l</i> and <i>r</i> is maintained across all forms of
+expansion.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that if a
+&lsquo;<b>&amp;</b>&rsquo; is used within glob qualifers an
+extra backslash is needed as a <b>&amp;</b> is a special
+character in this case.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the option
+<b>HIST_SUBST_PATTERN</b> is set, <i>l</i> is treated as a
+pattern of the usual form described in the section FILENAME
+GENERATION below. This can be used in all the places where
+modifiers are available; note, however, that in globbing
+qualifiers parameter substitution has already taken place,
+so parameters in the replacement string should be quoted to
+ensure they are replaced at the correct time. Note also that
+complicated patterns used in globbing qualifiers may need
+the extended glob qualifier notation
+<b>(#q:s/</b><i>...</i><b>/</b><i>...</i><b>/)</b> in order
+for the shell to recognize the expression as a glob
+qualifier. Further, note that bad patterns in the
+substitution are not subject to the <b>NO_BAD_PATTERN</b>
+option so will cause an error.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When
+<b>HIST_SUBST_PATTERN</b> is set, <i>l</i> may start with a
+<b>#</b> to indicate that the pattern must match at the
+start of the string to be substituted, and a <b>%</b> may
+appear at the start or after an <b>#</b> to indicate that
+the pattern must match at the end of the string to be
+substituted. The <b>%</b> or <b>#</b> may be quoted with two
+backslashes.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example,
+the following piece of filename generation code with the
+<b>EXTENDED_GLOB</b> option:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>print
+*.c(#q:s/#%(#b)s(*).c/&rsquo;S${match[1]}.C&rsquo;/)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">takes the
+expansion of <b>*.c</b> and applies the glob qualifiers in
+the <b>(#q</b><i>...</i><b>)</b> expression, which consists
+of a substitution modifier anchored to the start and end of
+each word (<b>#%</b>). This turns on backreferences
+(<b>(#b)</b>), so that the parenthesised subexpression is
+available in the replacement string as <b>${match[1]}</b>.
+The replacement string is quoted so that the parameter is
+not substituted before the start of filename generation.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+<b>f</b>, <b>F</b>, <b>w</b> and <b>W</b> modifiers work
+only with parameter expansion and filename generation. They
+are listed here to provide a single point of reference for
+all modifiers.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>f</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Repeats the immediately (without
+a colon) following modifier until the resulting word
+doesn&rsquo;t change any more.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>F:</b><i>expr</i><b>:</b></p>
+
+<p style="margin-left:22%;">Like <b>f</b>, but repeats only
+<i>n</i> times if the expression <i>expr</i> evaluates to
+<i>n</i>. Any character can be used instead of the
+&lsquo;<b>:</b>&rsquo;; if &lsquo;<b>(</b>&rsquo;,
+&lsquo;<b>[</b>&rsquo;, or &lsquo;<b>{</b>&rsquo; is used as
+the opening delimiter, the closing delimiter should be
+&rsquo;<b>)</b>&rsquo;, &lsquo;<b>]</b>&rsquo;, or
+&lsquo;<b>}</b>&rsquo;, respectively.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>w</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Makes the immediately following modifier work on each
+word in the string.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>W:</b><i>sep</i><b>:</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Like <b>w</b> but words are considered to be the parts
+of the string that are separated by <i>sep</i>. Any
+character can be used instead of the &lsquo;<b>:</b>&rsquo;;
+opening parentheses are handled specially, see above.</p></td></tr>
+</table>
+
+<h2>PROCESS SUBSTITUTION
+<a name="PROCESS SUBSTITUTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Each part of a
+command argument that takes the form
+&lsquo;<b>&lt;(</b><i>list</i><b>)</b>&rsquo;,
+&lsquo;<b>&gt;(</b><i>list</i><b>)</b>&rsquo; or
+&lsquo;<b>=(</b><i>list</i><b>)</b>&rsquo; is subject to
+process substitution. The expression may be preceded or
+followed by other strings except that, to prevent clashes
+with commonly occurring strings and patterns, the last form
+must occur at the start of a command argument, and the forms
+are only expanded when first parsing command or assignment
+arguments. Process substitutions may be used following
+redirection operators; in this case, the substitution must
+appear with no trailing string.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the case of
+the <b>&lt;</b> or <b>&gt;</b> forms, the shell runs the
+commands in <i>list</i> as a subprocess of the job executing
+the shell command line. If the system supports the
+<b>/dev/fd</b> mechanism, the command argument is the name
+of the device file corresponding to a file descriptor;
+otherwise, if the system supports named pipes (FIFOs), the
+command argument will be a named pipe. If the form with
+<b>&gt;</b> is selected then writing on this special file
+will provide input for <i>list</i>. If <b>&lt;</b> is used,
+then the file passed as an argument will be connected to the
+output of the <i>list</i> process. For example,</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>paste
+&lt;(cut &minus;f1</b> <i>file1</i><b>) &lt;(cut
+&minus;f3</b> <i>file2</i><b>) | <br>
+tee &gt;(</b><i>process1</i><b>)
+&gt;(</b><i>process2</i><b>) &gt;/dev/null</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">cuts fields 1
+and 3 from the files <i>file1</i> and <i>file2</i>
+respectively, pastes the results together, and sends it to
+the processes <i>process1</i> and <i>process2</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If
+<b>=(</b><i>...</i><b>)</b> is used instead of
+<b>&lt;(</b><i>...</i><b>)</b>, then the file passed as an
+argument will be the name of a temporary file containing the
+output of the <i>list</i> process. This may be used instead
+of the <b>&lt;</b> form for a program that expects to lseek
+(see <i>lseek</i>(2)) on the input file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is an
+optimisation for substitutions of the form
+<b>=(&lt;&lt;&lt;</b><i>arg</i><b>)</b>, where <i>arg</i> is
+a single&minus;word argument to the here&minus;string
+redirection <b>&lt;&lt;&lt;</b>. This form produces a file
+name containing the value of <i>arg</i> after any
+substitutions have been performed. This is handled entirely
+within the current shell. This is effectively the reverse of
+the special form <b>$(&lt;</b><i>arg</i><b>)</b> which
+treats <i>arg</i> as a file name and replaces it with the
+file&rsquo;s contents.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The <b>=</b>
+form is useful as both the <b>/dev/fd</b> and the named pipe
+implementation of <b>&lt;(</b><i>...</i><b>)</b> have
+drawbacks. In the former case, some programmes may
+automatically close the file descriptor in question before
+examining the file on the command line, particularly if this
+is necessary for security reasons such as when the programme
+is running setuid. In the second case, if the programme does
+not actually open the file, the subshell attempting to read
+from or write to the pipe will (in a typical implementation,
+different operating systems may have different behaviour)
+block for ever and have to be killed explicitly. In both
+cases, the shell actually supplies the information using a
+pipe, so that programmes that expect to lseek (see
+<i>lseek</i>(2)) on the file will not work.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Also note that
+the previous example can be more compactly and efficiently
+written (provided the <b>MULTIOS</b> option is set) as:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>paste
+&lt;(cut &minus;f1</b> <i>file1</i><b>) &lt;(cut
+&minus;f3</b> <i>file2</i><b>) \ <br>
+&gt; &gt;(</b><i>process1</i><b>) &gt;
+&gt;(</b><i>process2</i><b>)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The shell uses
+pipes instead of FIFOs to implement the latter two process
+substitutions in the above example.</p>
+
+<p style="margin-left:11%; margin-top: 1em">There is an
+additional problem with <b>&gt;(</b><i>process</i><b>)</b>;
+when this is attached to an external command, the parent
+shell does not wait for <i>process</i> to finish and hence
+an immediately following command cannot rely on the results
+being complete. The problem and solution are the same as
+described in the section <i>MULTIOS</i> in
+<i>zshmisc</i>(1). Hence in a simplified version of the
+example above:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>paste
+&lt;(cut &minus;f1</b> <i>file1</i><b>) &lt;(cut
+&minus;f3</b> <i>file2</i><b>) &gt;
+&gt;(</b><i>process</i><b>)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">(note that no
+<b>MULTIOS</b> are involved), <i>process</i> will be run
+asynchronously as far as the parent shell is concerned. The
+workaround is:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>{ paste
+&lt;(cut &minus;f1</b> <i>file1</i><b>) &lt;(cut
+&minus;f3</b> <i>file2</i><b>) } &gt;
+&gt;(</b><i>process</i><b>)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The extra
+processes here are spawned from the parent shell which will
+wait for their completion.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Another problem
+arises any time a job with a substitution that requires a
+temporary file is disowned by the shell, including the case
+where &lsquo;<b>&amp;!</b>&rsquo; or
+&lsquo;<b>&amp;|</b>&rsquo; appears at the end of a command
+containing a subsitution. In that case the temporary file
+will not be cleaned up as the shell no longer has any memory
+of the job. A workaround is to use a subshell, for
+example,</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>(mycmd
+=(myoutput)) &amp;!</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">as the forked
+subshell will wait for the command to finish then remove the
+temporary file.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A general
+workaround to ensure a process substitution endures for an
+appropriate length of time is to pass it as a parameter to
+an anonymous shell function (a piece of shell code that is
+run immediately with function scope). For example, this
+code:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>() { <br>
+print File $1: <br>
+cat $1 <br>
+} =(print This be the verse)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">outputs
+something resembling the following</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>File
+/tmp/zsh6nU0kS: <br>
+This be the verse</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The temporary
+file created by the process substitution will be deleted
+when the function exits.</p>
+
+<h2>PARAMETER EXPANSION
+<a name="PARAMETER EXPANSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">The character
+&lsquo;<b>$</b>&rsquo; is used to introduce parameter
+expansions. See <i>zshparam</i>(1) for a description of
+parameters, including arrays, associative arrays, and
+subscript notation to access individual array elements.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note in
+particular the fact that words of unquoted parameters are
+not automatically split on whitespace unless the option
+<b>SH_WORD_SPLIT</b> is set; see references to this option
+below for more details. This is an important difference from
+other shells.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the
+expansions discussed below that require a pattern, the form
+of the pattern is the same as that used for filename
+generation; see the section &lsquo;Filename
+Generation&rsquo;. Note that these patterns, along with the
+replacement text of any substitutions, are themselves
+subject to parameter expansion, command substitution, and
+arithmetic expansion. In addition to the following
+operations, the colon modifiers described in the section
+&lsquo;Modifiers&rsquo; in the section &lsquo;History
+Expansion&rsquo; can be applied: for example,
+<b>${i:s/foo/bar/}</b> performs string substitution on the
+expansion of parameter <b>$i</b>. <b><br>
+${</b><i>name</i><b>}</b></p>
+
+<p style="margin-left:22%;">The value, if any, of the
+parameter <i>name</i> is substituted. The braces are
+required if the expansion is to be followed by a letter,
+digit, or underscore that is not to be interpreted as part
+of <i>name</i>. In addition, more complicated forms of
+substitution usually require the braces to be present;
+exceptions, which only apply if the option <b>KSH_ARRAYS</b>
+is not set, are a single subscript or any colon modifiers
+appearing after the name, or any of the characters
+&lsquo;<b>^</b>&rsquo;, &lsquo;<b>=</b>&rsquo;,
+&lsquo;<b>~</b>&rsquo;, &lsquo;<b>#</b>&rsquo; or
+&lsquo;<b>+</b>&rsquo; appearing before the name, all of
+which work with or without braces.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If <i>name</i>
+is an array parameter, and the <b>KSH_ARRAYS</b> option is
+not set, then the value of each element of <i>name</i> is
+substituted, one element per word. Otherwise, the expansion
+results in one word only; with <b>KSH_ARRAYS</b>, this is
+the first element of an array. No field splitting is done on
+the result unless the <b>SH_WORD_SPLIT</b> option is set.
+See also the flags <b>=</b> and
+<b>s:</b><i>string</i><b>:</b>.</p>
+
+
+<p style="margin-left:11%;"><b>${+</b><i>name</i><b>}</b></p>
+
+<p style="margin-left:22%;">If <i>name</i> is the name of a
+set parameter &lsquo;<b>1</b>&rsquo; is substituted,
+otherwise &lsquo;<b>0</b>&rsquo; is substituted.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>&minus;</b><i>word</i><b>}
+<br>
+${</b><i>name</i><b>:&minus;</b><i>word</i><b>}</b></p>
+
+<p style="margin-left:22%;">If <i>name</i> is set, or in
+the second form is non&minus;null, then substitute its
+value; otherwise substitute <i>word</i>. In the second form
+<i>name</i> may be omitted, in which case <i>word</i> is
+always substituted.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>+</b><i>word</i><b>}
+<br>
+${</b><i>name</i><b>:+</b><i>word</i><b>}</b></p>
+
+<p style="margin-left:22%;">If <i>name</i> is set, or in
+the second form is non&minus;null, then substitute
+<i>word</i>; otherwise substitute nothing.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>=</b><i>word</i><b>}
+<br>
+${</b><i>name</i><b>:=</b><i>word</i><b>} <br>
+${</b><i>name</i><b>::=</b><i>word</i><b>}</b></p>
+
+<p style="margin-left:22%;">In the first form, if
+<i>name</i> is unset then set it to <i>word</i>; in the
+second form, if <i>name</i> is unset or null then set it to
+<i>word</i>; and in the third form, unconditionally set
+<i>name</i> to <i>word</i>. In all forms, the value of the
+parameter is then substituted.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>?</b><i>word</i><b>}
+<br>
+${</b><i>name</i><b>:?</b><i>word</i><b>}</b></p>
+
+<p style="margin-left:22%;">In the first form, if
+<i>name</i> is set, or in the second form if <i>name</i> is
+both set and non&minus;null, then substitute its value;
+otherwise, print <i>word</i> and exit from the shell.
+Interactive shells instead return to the prompt. If
+<i>word</i> is omitted, then a standard message is
+printed.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In any of the
+above expressions that test a variable and substitute an
+alternate <i>word</i>, note that you can use standard shell
+quoting in the <i>word</i> value to selectively override the
+splitting done by the <b>SH_WORD_SPLIT</b> option and the
+<b>=</b> flag, but not splitting by the
+<b>s:</b><i>string</i><b>:</b> flag.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In the
+following expressions, when <i>name</i> is an array and the
+substitution is not quoted, or if the
+&lsquo;<b>(@)</b>&rsquo; flag or the <i>name</i><b>[@]</b>
+syntax is used, matching and replacement is performed on
+each array element separately. <b><br>
+${</b><i>name</i><b>#</b><i>pattern</i><b>} <br>
+${</b><i>name</i><b>##</b><i>pattern</i><b>}</b></p>
+
+<p style="margin-left:22%;">If the <i>pattern</i> matches
+the beginning of the value of <i>name</i>, then substitute
+the value of <i>name</i> with the matched portion deleted;
+otherwise, just substitute the value of <i>name</i>. In the
+first form, the smallest matching pattern is preferred; in
+the second form, the largest matching pattern is
+preferred.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>%</b><i>pattern</i><b>}
+<br>
+${</b><i>name</i><b>%%</b><i>pattern</i><b>}</b></p>
+
+<p style="margin-left:22%;">If the <i>pattern</i> matches
+the end of the value of <i>name</i>, then substitute the
+value of <i>name</i> with the matched portion deleted;
+otherwise, just substitute the value of <i>name</i>. In the
+first form, the smallest matching pattern is preferred; in
+the second form, the largest matching pattern is
+preferred.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>:#</b><i>pattern</i><b>}</b></p>
+
+<p style="margin-left:22%;">If the <i>pattern</i> matches
+the value of <i>name</i>, then substitute the empty string;
+otherwise, just substitute the value of <i>name</i>. If
+<i>name</i> is an array the matching array elements are
+removed (use the &lsquo;<b>(M)</b>&rsquo; flag to remove the
+non&minus;matched elements).</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>:|</b><i>arrayname</i><b>}</b></p>
+
+<p style="margin-left:22%;">If <i>arrayname</i> is the name
+(N.B., not contents) of an array variable, then any elements
+contained in <i>arrayname</i> are removed from the
+substitution of <i>name</i>. If the substitution is scalar,
+either because <i>name</i> is a scalar variable or the
+expression is quoted, the elements of <i>arrayname</i> are
+instead tested against the entire expression.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>:*</b><i>arrayname</i><b>}</b></p>
+
+<p style="margin-left:22%;">Similar to the preceding
+subsitution, but in the opposite sense, so that entries
+present in both the original substitution and as elements of
+<i>arrayname</i> are retained and others removed.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>:</b><i>offset</i><b>}
+<br>
+
+${</b><i>name</i><b>:</b><i>offset</i><b>:</b><i>length</i><b>}</b></p>
+
+<p style="margin-left:22%;">This syntax gives effects
+similar to parameter subscripting in the form
+<b>$</b><i>name</i><b>[</b><i>start</i><b>,</b><i>end</i><b>]</b>,
+but is compatible with other shells; note that both
+<i>offset</i> and <i>length</i> are interpreted differently
+from the components of a subscript.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If
+<i>offset</i> is non&minus;negative, then if the variable
+<i>name</i> is a scalar substitute the contents starting
+<i>offset</i> characters from the first character of the
+string, and if <i>name</i> is an array substitute elements
+starting <i>offset</i> elements from the first element. If
+<i>length</i> is given, substitute that many characters or
+elements, otherwise the entire rest of the scalar or
+array.</p>
+
+<p style="margin-left:22%; margin-top: 1em">A positive
+<i>offset</i> is always treated as the offset of a character
+or element in <i>name</i> from the first character or
+element of the array (this is different from native zsh
+subscript notation). Hence 0 refers to the first character
+or element regardless of the setting of the option
+<b>KSH_ARRAYS</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">A negative
+offset counts backwards from the end of the scalar or array,
+so that &minus;1 corresponds to the last character or
+element, and so on.</p>
+
+<p style="margin-left:22%; margin-top: 1em">When positive,
+<i>length</i> counts from the <i>offset</i> position toward
+the end of the scalar or array. When negative, <i>length</i>
+counts back from the end. If this results in a position
+smaller than <i>offset</i>, a diagnostic is printed and
+nothing is substituted.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The option
+<b>MULTIBYTE</b> is obeyed, i.e. the offset and length count
+multibyte characters where appropriate.</p>
+
+<p style="margin-left:22%; margin-top: 1em"><i>offset</i>
+and <i>length</i> undergo the same set of shell
+substitutions as for scalar assignment; in addition, they
+are then subject to arithmetic evaluation. Hence, for
+example</p>
+
+<p style="margin-left:32%; margin-top: 1em"><b>print
+${foo:3} <br>
+print ${foo: 1 + 2} <br>
+print ${foo:$(( 1 + 2))} <br>
+print ${foo:$(echo 1 + 2)}</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">all have the
+same effect, extracting the string starting at the fourth
+character of <b>$foo</b> if the substution would otherwise
+return a scalar, or the array starting at the fourth element
+if <b>$foo</b> would return an array. Note that with the
+option <b>KSH_ARRAYS $foo</b> always returns a scalar
+(regardless of the use of the offset syntax) and a form such
+as <b>$foo[*]:3</b> is required to extract elements of an
+array named <b>foo</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If
+<i>offset</i> is negative, the <b>&minus;</b> may not appear
+immediately after the <b>:</b> as this indicates the
+<b>${</b><i>name</i><b>:&minus;</b><i>word</i><b>}</b> form
+of substitution. Instead, a space may be inserted before the
+<b>&minus;</b>. Furthermore, neither <i>offset</i> nor
+<i>length</i> may begin with an alphabetic character or
+<b>&amp;</b> as these are used to indicate
+history&minus;style modifiers. To substitute a value from a
+variable, the recommended approach is to precede it with a
+<b>$</b> as this signifies the intention (parameter
+substitution can easily be rendered unreadable); however, as
+arithmetic substitution is performed, the expression
+<b>${var: offs}</b> does work, retrieving the offset from
+<b>$offs</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">For further
+compatibility with other shells there is a special case for
+array offset 0. This usually accesses to the first element
+of the array. However, if the substitution refers the
+positional parameter array, e.g. <b>$@</b> or <b>$*</b>,
+then offset 0 instead refers to <b>$0</b>, offset 1 refers
+to <b>$1</b>, and so on. In other words, the positional
+parameter array is effectively extended by prepending
+<b>$0</b>. Hence <b>${*:0:1}</b> substitutes <b>$0</b> and
+<b>${*:1:1}</b> substitutes <b>$1</b>.</p>
+
+
+<p style="margin-left:11%;"><b>${</b><i>name</i><b>/</b><i>pattern</i><b>/</b><i>repl</i><b>}
+<br>
+
+${</b><i>name</i><b>//</b><i>pattern</i><b>/</b><i>repl</i><b>}</b></p>
+
+<p style="margin-left:22%;">Replace the longest possible
+match of <i>pattern</i> in the expansion of parameter
+<i>name</i> by string <i>repl</i>. The first form replaces
+just the first occurrence, the second form all occurrences.
+Both <i>pattern</i> and <i>repl</i> are subject to
+double&minus;quoted substitution, so that expressions like
+<b>${name/$opat/$npat}</b> will work, but note the usual
+rule that pattern characters in <b>$opat</b> are not treated
+specially unless either the option <b>GLOB_SUBST</b> is set,
+or <b>$opat</b> is instead substituted as
+<b>${~opat}</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The
+<i>pattern</i> may begin with a &lsquo;<b>#</b>&rsquo;, in
+which case the <i>pattern</i> must match at the start of the
+string, or &lsquo;<b>%</b>&rsquo;, in which case it must
+match at the end of the string, or &lsquo;<b>#%</b>&rsquo;
+in which case the <i>pattern</i> must match the entire
+string. The <i>repl</i> may be an empty string, in which
+case the final &lsquo;<b>/</b>&rsquo; may also be omitted.
+To quote the final &lsquo;<b>/</b>&rsquo; in other cases it
+should be preceded by a single backslash; this is not
+necessary if the &lsquo;<b>/</b>&rsquo; occurs inside a
+substituted parameter. Note also that the
+&lsquo;<b>#</b>&rsquo;, &lsquo;<b>%</b>&rsquo; and
+&lsquo;<b>#%</b> are not active if they occur inside a
+substituted parameter, even at the start.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The first
+&lsquo;<b>/</b>&rsquo; may be preceded by a
+&lsquo;<b>:</b>&rsquo;, in which case the match will only
+succeed if it matches the entire word. Note also the effect
+of the <b>I</b> and <b>S</b> parameter expansion flags
+below; however, the flags <b>M</b>, <b>R</b>, <b>B</b>,
+<b>E</b> and <b>N</b> are not useful.</p>
+
+<p style="margin-left:22%; margin-top: 1em">For
+example,</p>
+
+
+<p style="margin-left:32%; margin-top: 1em"><b>foo=&quot;twinkle
+twinkle little star&quot; sub=&quot;t*e&quot;
+rep=&quot;spy&quot; <br>
+print ${foo//${~sub}/$rep} <br>
+print ${(S)foo//${~sub}/$rep}</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">Here, the
+&lsquo;<b>~</b>&rsquo; ensures that the text of <b>$sub</b>
+is treated as a pattern rather than a plain string. In the
+first case, the longest match for <b>t*e</b> is substituted
+and the result is &lsquo;<b>spy star</b>&rsquo;, while in
+the second case, the shortest matches are taken and the
+result is &lsquo;<b>spy spy lispy star</b>&rsquo;.</p>
+
+
+<p style="margin-left:11%;"><b>${#</b><i>spec</i><b>}</b></p>
+
+<p style="margin-left:22%;">If <i>spec</i> is one of the
+above substitutions, substitute the length in characters of
+the result instead of the result itself. If <i>spec</i> is
+an array expression, substitute the number of elements of
+the result. Note that &lsquo;<b>^</b>&rsquo;,
+&lsquo;<b>=</b>&rsquo;, and &lsquo;<b>~</b>&rsquo;, below,
+must appear to the left of &lsquo;<b>#</b>&rsquo; when these
+forms are combined.</p>
+
+
+<p style="margin-left:11%;"><b>${^</b><i>spec</i><b>}</b></p>
+
+<p style="margin-left:22%;">Turn on the
+<b>RC_EXPAND_PARAM</b> option for the evaluation of
+<i>spec</i>; if the &lsquo;<b>^</b>&rsquo; is doubled, turn
+it off. When this option is set, array expansions of the
+form <i>foo</i><b>${</b><i>xx</i><b>}</b><i>bar</i>, where
+the parameter <i>xx</i> is set to <b>(</b><i>a b
+c</i><b>)</b>, are substituted with &lsquo;<i>fooabar
+foobbar foocbar</i>&rsquo; instead of the default
+&lsquo;<i>fooa b cbar</i>&rsquo;. Note that an empty array
+will therefore cause all arguments to be removed.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Internally,
+each such expansion is converted into the equivalent list
+for brace expansion. E.g., <b>${^var}</b> becomes
+<b>{$var[1],$var[2],</b>...<b>}</b>, and is processed as
+described in the section &lsquo;Brace Expansion&rsquo;
+below. If word splitting is also in effect the
+<b>$var[</b><i>N</i><b>]</b> may themselves be split into
+different list elements.</p>
+
+
+<p style="margin-left:11%;"><b>${=</b><i>spec</i><b>}</b></p>
+
+<p style="margin-left:22%;">Perform word splitting using
+the rules for <b>SH_WORD_SPLIT</b> during the evaluation of
+<i>spec</i>, but regardless of whether the parameter appears
+in double quotes; if the &lsquo;<b>=</b>&rsquo; is doubled,
+turn it off. This forces parameter expansions to be split
+into separate words before substitution, using <b>IFS</b> as
+a delimiter. This is done by default in most other
+shells.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Note that
+splitting is applied to <i>word</i> in the assignment forms
+of <i>spec before</i> the assignment to <i>name</i> is
+performed. This affects the result of array assignments with
+the <b>A</b> flag.</p>
+
+
+<p style="margin-left:11%;"><b>${~</b><i>spec</i><b>}</b></p>
+
+<p style="margin-left:22%;">Turn on the <b>GLOB_SUBST</b>
+option for the evaluation of <i>spec</i>; if the
+&lsquo;<b>~</b>&rsquo; is doubled, turn it off. When this
+option is set, the string resulting from the expansion will
+be interpreted as a pattern anywhere that is possible, such
+as in filename expansion and filename generation and
+pattern&minus;matching contexts like the right hand side of
+the &lsquo;<b>=</b>&rsquo; and &lsquo;<b>!=</b>&rsquo;
+operators in conditions.</p>
+
+<p style="margin-left:22%; margin-top: 1em">In nested
+substitutions, note that the effect of the <b>~</b> applies
+to the result of the current level of substitution. A
+surrounding pattern operation on the result may cancel it.
+Hence, for example, if the parameter <b>foo</b> is set to
+<b>*</b>, <b>${~foo//\*/*.c}</b> is substituted by the
+pattern <b>*.c</b>, which may be expanded by filename
+generation, but <b>${${~foo}//\*/*.c}</b> substitutes to the
+string <b>*.c</b>, which will not be further expanded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a
+<b>${</b>...<b>}</b> type parameter expression or a
+<b>$(</b>...<b>)</b> type command substitution is used in
+place of <i>name</i> above, it is expanded first and the
+result is used as if it were the value of <i>name</i>. Thus
+it is possible to perform nested operations:
+<b>${${foo#head}%tail}</b> substitutes the value of
+<b>$foo</b> with both &lsquo;<b>head</b>&rsquo; and
+&lsquo;<b>tail</b>&rsquo; deleted. The form with
+<b>$(</b>...<b>)</b> is often useful in combination with the
+flags described next; see the examples below. Each
+<i>name</i> or nested <b>${</b>...<b>}</b> in a parameter
+expansion may also be followed by a subscript expression as
+described in <i>Array Parameters</i> in
+<i>zshparam</i>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+double quotes may appear around nested expressions, in which
+case only the part inside is treated as quoted; for example,
+<b>${(f)&quot;$(foo)&quot;}</b> quotes the result of
+<b>$(foo)</b>, but the flag &lsquo;<b>(f)</b>&rsquo; (see
+below) is applied using the rules for unquoted expansions.
+Note further that quotes are themselves nested in this
+context; for example, in
+<b>&quot;${(@f)&quot;$(foo)&quot;}&quot;</b>, there are two
+sets of quotes, one surrounding the whole expression, the
+other (redundant) surrounding the <b>$(foo)</b> as
+before.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Parameter
+Expansion Flags</b> <br>
+If the opening brace is directly followed by an opening
+parenthesis, the string up to the matching closing
+parenthesis will be taken as a list of flags. In cases where
+repeating a flag is meaningful, the repetitions need not be
+consecutive; for example, &lsquo;(<b>q%q%q</b>)&rsquo; means
+the same thing as the more readable
+&lsquo;(<b>%%qqq</b>)&rsquo;. The following flags are
+supported:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>#</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Evaluate the resulting words as numeric expressions and
+output the characters corresponding to the resulting
+integer. Note that this form is entirely distinct from use
+of the <b>#</b> without parentheses.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If the
+<b>MULTIBYTE</b> option is set and the number is greater
+than 127 (i.e. not an ASCII character) it is treated as a
+Unicode character.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>%</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Expand all <b>%</b> escapes in
+the resulting words in the same way as in prompts (see
+EXPANSION OF PROMPT SEQUENCES in <i>zshmisc</i>(1)). If this
+flag is given twice, full prompt expansion is done on the
+resulting words, depending on the setting of the
+<b>PROMPT_PERCENT</b>, <b>PROMPT_SUBST</b> and
+<b>PROMPT_BANG</b> options.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>@</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>In double quotes, array elements are put into separate
+words. E.g., &lsquo;<b>&quot;${(@)foo}&quot;</b>&rsquo; is
+equivalent to &lsquo;<b>&quot;${foo[@]}&quot;</b>&rsquo; and
+&lsquo;<b>&quot;${(@)foo[1,2]}&quot;</b>&rsquo; is the same
+as &lsquo;<b>&quot;$foo[1]&quot;
+&quot;$foo[2]&quot;</b>&rsquo;. This is distinct from
+<i>field splitting</i> by the <b>f</b>, <b>s</b> or <b>z</b>
+flags, which still applies within each array element.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>A</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Create an array parameter with
+&lsquo;<b>${</b>...<b>=</b>...<b>}</b>&rsquo;,
+&lsquo;<b>${</b>...<b>:=</b>...<b>}</b>&rsquo; or
+&lsquo;<b>${</b>...<b>::=</b>...<b>}</b>&rsquo;. If this
+flag is repeated (as in &lsquo;<b>AA</b>&rsquo;), create an
+associative array parameter. Assignment is made before
+sorting or padding. The <i>name</i> part may be a
+subscripted range for ordinary arrays; the <i>word</i> part
+<i>must</i> be converted to an array, for example by using
+&lsquo;<b>${(AA)=</b><i>name</i><b>=</b>...<b>}</b>&rsquo;
+to activate field splitting, when creating an associative
+array.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>a</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Sort in array index order; when combined with
+&lsquo;<b>O</b>&rsquo; sort in reverse array index order.
+Note that &lsquo;<b>a</b>&rsquo; is therefore equivalent to
+the default but &lsquo;<b>Oa</b>&rsquo; is useful for
+obtaining an array&rsquo;s elements in reverse order.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>c</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>With <b>${#</b><i>name</i><b>}</b>, count the total
+number of characters in an array, as if the elements were
+concatenated with spaces between them.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>C</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Capitalize the resulting words. &lsquo;Words&rsquo; in
+this case refers to sequences of alphanumeric characters
+separated by non&minus;alphanumerics, <i>not</i> to words
+that result from field splitting.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>D</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Assume the string or array elements contain directories
+and attempt to substitute the leading part of these by
+names. The remainder of the path (the whole of it if the
+leading part was not subsituted) is then quoted so that the
+whole string can be used as a shell argument. This is the
+reverse of &lsquo;<b>~</b>&rsquo; substitution: see the
+section FILENAME EXPANSION below.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>e</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Perform <i>parameter expansion</i>, <i>command
+substitution</i> and <i>arithmetic expansion</i> on the
+result. Such expansions can be nested but too deep recursion
+may have unpredictable effects.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>f</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Split the result of the expansion at newlines. This is a
+shorthand for &lsquo;<b>ps:\n:</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>F</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Join the words of arrays together using newline as a
+separator. This is a shorthand for
+&lsquo;<b>pj:\n:</b>&rsquo;.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>g:opts:</b></p>
+
+<p style="margin-left:22%;">Process escape sequences like
+the echo builtin when no options are given (<b>g::</b>).
+With the <b>o</b> option, octal escapes don&rsquo;t take a
+leading zero. With the <b>c</b> option, sequences like
+&lsquo;<b>^X</b>&rsquo; are also processed. With the
+<b>e</b> option, processes &lsquo;<b>\M&minus;t</b>&rsquo;
+and similar sequences like the print builtin. With both of
+the <b>o</b> and <b>e</b> options, behaves like the print
+builtin except that in none of these modes is
+&lsquo;<b>\c</b>&rsquo; interpreted.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>i</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Sort case&minus;insensitively. May be combined with
+&lsquo;<b>n</b>&rsquo; or &lsquo;<b>O</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>k</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>If <i>name</i> refers to an associative array,
+substitute the <i>keys</i> (element names) rather than the
+values of the elements. Used with subscripts (including
+ordinary arrays), force indices or keys to be substituted
+even if the subscript form refers to values. However, this
+flag may not be combined with subscript ranges.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>L</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Convert all letters in the result to lower case.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>n</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Sort decimal integers numerically; if the first
+differing characters of two test strings are not digits,
+sorting is lexical. Integers with more initial zeroes are
+sorted before those with fewer or none. Hence the array
+&lsquo;<b>foo1 foo02 foo2 foo3 foo20 foo23</b>&rsquo; is
+sorted into the order shown. May be combined with
+&lsquo;<b>i</b>&rsquo; or &lsquo;<b>O</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>o</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Sort the resulting words in ascending order; if this
+appears on its own the sorting is lexical and
+case&minus;sensitive (unless the locale renders it
+case&minus;insensitive). Sorting in ascending order is the
+default for other forms of sorting, so this is ignored if
+combined with &lsquo;<b>a</b>&rsquo;, &lsquo;<b>i</b>&rsquo;
+or &lsquo;<b>n</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>O</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Sort the resulting words in descending order;
+&lsquo;<b>O</b>&rsquo; without &lsquo;<b>a</b>&rsquo;,
+&lsquo;<b>i</b>&rsquo; or &lsquo;<b>n</b>&rsquo; sorts in
+reverse lexical order. May be combined with
+&lsquo;<b>a</b>&rsquo;, &lsquo;<b>i</b>&rsquo; or
+&lsquo;<b>n</b>&rsquo; to reverse the order of sorting.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>P</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>This forces the value of the parameter <i>name</i> to be
+interpreted as a further parameter name, whose value will be
+used where appropriate. Note that flags set with one of the
+<b>typeset</b> family of commands (in particular case
+transformations) are not applied to the value of <i>name</i>
+used in this fashion.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If used with a
+nested parameter or command substitution, the result of that
+will be taken as a parameter name in the same way. For
+example, if you have &lsquo;<b>foo=bar</b>&rsquo; and
+&lsquo;<b>bar=baz</b>&rsquo;, the strings <b>${(P)foo}</b>,
+<b>${(P)${foo}}</b>, and <b>${(P)$(echo bar)}</b> will be
+expanded to &lsquo;<b>baz</b>&rsquo;.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>q</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Quote characters that are
+special to the shell in the resulting words with
+backslashes; unprintable or invalid characters are quoted
+using the <b>$&rsquo;\</b><i>NNN</i><b>&rsquo;</b> form,
+with separate quotes for each octet.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If this flag is
+given twice, the resulting words are quoted in single quotes
+and if it is given three times, the words are quoted in
+double quotes; in these forms no special handling of
+unprintable or invalid characters is attempted. If the flag
+is given four times, the words are quoted in single quotes
+preceded by a <b>$</b>. Note that in all three of these
+forms quoting is done unconditionally, even if this does not
+change the way the resulting string would be interpreted by
+the shell.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If a
+<b>q&minus;</b> is given (only a single <b>q</b> may
+appear), a minimal form of single quoting is used that only
+quotes the string if needed to protect special characters.
+Typically this form gives the most readable output.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>Q</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Remove one level of quotes from
+the resulting words.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>t</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Use a string describing the type of the parameter where
+the value of the parameter would usually appear. This string
+consists of keywords separated by hyphens
+(&lsquo;<b>&minus;</b>&rsquo;). The first keyword in the
+string describes the main type, it can be one of
+&lsquo;<b>scalar</b>&rsquo;, &lsquo;<b>array</b>&rsquo;,
+&lsquo;<b>integer</b>&rsquo;, &lsquo;<b>float</b>&rsquo; or
+&lsquo;<b>association</b>&rsquo;. The other keywords
+describe the type in more detail:</p></td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>local</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="6%"></td>
+<td width="4%"></td>
+<td width="45%">
+
+
+<p style="margin-top: 1em">for local parameters</p></td>
+<td width="23%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="6%">
+
+
+<p><b>left</b></p></td>
+<td width="4%"></td>
+<td width="45%">
+
+
+<p>for left justified parameters</p></td>
+<td width="23%">
+</td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>right_blanks</b></p>
+
+<p style="margin-left:32%;">for right justified parameters
+with leading blanks</p>
+
+<p style="margin-left:22%;"><b>right_zeros</b></p>
+
+<p style="margin-left:32%;">for right justified parameters
+with leading zeros</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="7%">
+
+
+<p><b>lower</b></p></td>
+<td width="3%"></td>
+<td width="68%">
+
+
+<p>for parameters whose value is converted to all lower
+case when it is expanded</p></td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="7%">
+
+
+<p><b>upper</b></p></td>
+<td width="3%"></td>
+<td width="68%">
+
+
+<p>for parameters whose value is converted to all upper
+case when it is expanded</p></td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>readonly</b></p>
+
+<p style="margin-left:32%;">for readonly parameters</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>tag</b></p></td>
+<td width="1%"></td>
+<td width="68%">
+
+
+<p>for tagged parameters</p></td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>export</b></p></td>
+<td width="1%"></td>
+<td width="68%">
+
+
+<p>for exported parameters</p></td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>unique</b></p></td>
+<td width="1%"></td>
+<td width="68%">
+
+
+<p>for arrays which keep only the first occurrence of
+duplicated values</p></td></tr>
+<tr valign="top" align="left">
+<td width="22%"></td>
+<td width="9%">
+
+
+<p><b>hide</b></p></td>
+<td width="1%"></td>
+<td width="68%">
+
+
+<p>for parameters with the &lsquo;hide&rsquo; flag</p></td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>special</b></p>
+
+<p style="margin-left:32%;">for special parameters defined
+by the shell</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>u</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Expand only the first occurrence of each unique
+word.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>U</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Convert all letters in the result to upper case.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>v</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Used with <b>k</b>, substitute (as two consecutive
+words) both the key and the value of each associative array
+element. Used with subscripts, force values to be
+substituted even if the subscript form refers to indices or
+keys.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>V</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Make any special characters in the resulting words
+visible.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>w</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>With <b>${#</b><i>name</i><b>}</b>, count words in
+arrays or strings; the <b>s</b> flag may be used to set a
+word delimiter.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>W</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Similar to <b>w</b> with the difference that empty words
+between repeated delimiters are also counted.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>X</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>With this flag, parsing errors occurring with the
+<b>Q</b>, <b>e</b> and <b>#</b> flags or the pattern
+matching forms such as
+&lsquo;<b>${</b><i>name</i><b>#</b><i>pattern</i><b>}</b>&rsquo;
+are reported. Without the flag, errors are silently
+ignored.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>z</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Split the result of the expansion into words using shell
+parsing to find the words, i.e. taking into account any
+quoting in the value. Comments are not treated specially but
+as ordinary strings, similar to interactive shells with the
+<b>INTERACTIVE_COMMENTS</b> option unset (however, see the
+<b>Z</b> flag below for related options)</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">Note that this
+is done very late, even later than the
+&lsquo;<b>(s)</b>&rsquo; flag. So to access single words in
+the result use nested expansions as in
+&lsquo;<b>${${(z)foo}[2]}</b>&rsquo;. Likewise, to remove
+the quotes in the resulting words use
+&lsquo;<b>${(Q)${(z)foo}}</b>&rsquo;.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>0</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Split the result of the
+expansion on null bytes. This is a shorthand for
+&lsquo;<b>ps:\0:</b>&rsquo;.</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+flags (except <b>p</b>) are followed by one or more
+arguments as shown. Any character, or the matching pairs
+&lsquo;<b>(</b>...<b>)</b>&rsquo;,
+&lsquo;<b>{</b>...<b>}</b>&rsquo;,
+&lsquo;<b>[</b>...<b>]</b>&rsquo;, or
+&lsquo;<b>&lt;</b>...<b>&gt;</b>&rsquo;, may be used in
+place of a colon as delimiters, but note that when a flag
+takes more than one argument, a matched pair of delimiters
+must surround each argument.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>p</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Recognize the same escape
+sequences as the <b>print</b> builtin in string arguments to
+any of the flags described below that follow this
+argument.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>~</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Force string arguments to any of the flags below that
+follow within the parentheses to be treated as patterns.
+Compare with a <b>~</b> outside parentheses, which forces
+the entire substituted string to be treated as a pattern.
+Hence, for example,</p></td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>[[ &quot;?&quot; =
+${(~j.|.)array} ]]</b></p>
+
+<p style="margin-left:11%;">with the <b>EXTENDED_GLOB</b>
+option set succeeds if and only if <b>$array</b> contains
+the string &lsquo;<b>?</b>&rsquo; as an element. The
+argument may be repeated to toggle the behaviour; its effect
+only lasts to the end of the parenthesised group. <b><br>
+j:</b><i>string</i><b>:</b></p>
+
+<p style="margin-left:22%;">Join the words of arrays
+together using <i>string</i> as a separator. Note that this
+occurs before field splitting by the
+<b>s:</b><i>string</i><b>:</b> flag or the
+<b>SH_WORD_SPLIT</b> option.</p>
+
+
+<p style="margin-left:11%;"><b>l:</b><i>expr</i><b>::</b><i>string1</i><b>::</b><i>string2</i><b>:</b></p>
+
+<p style="margin-left:22%;">Pad the resulting words on the
+left. Each word will be truncated if required and placed in
+a field <i>expr</i> characters wide.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The arguments
+<b>:</b><i>string1</i><b>:</b> and
+<b>:</b><i>string2</i><b>:</b> are optional; neither, the
+first, or both may be given. Note that the same pairs of
+delimiters must be used for each of the three arguments. The
+space to the left will be filled with <i>string1</i>
+(concatenated as often as needed) or spaces if
+<i>string1</i> is not given. If both <i>string1</i> and
+<i>string2</i> are given, <b>string2</b> is inserted once
+directly to the left of each word, truncated if necessary,
+before <i>string1</i> is used to produce any remaining
+padding.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If the
+<b>MULTIBYTE</b> option is in effect, the flag <b>m</b> may
+also be given, in which case widths will be used for the
+calculation of padding; otherwise individual multibyte
+characters are treated as occupying one unit of width.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If the
+<b>MULTIBYTE</b> option is not in effect, each byte in the
+string is treated as occupying one unit of width.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Control
+characters are always assumed to be one unit wide; this
+allows the mechanism to be used for generating repetitions
+of control characters.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>m</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Only useful together with one of the flags <b>l</b> or
+<b>r</b> or with the <b>#</b> length operator when the
+<b>MULTIBYTE</b> option is in effect. Use the character
+width reported by the system in calculating how much of the
+string it occupies or the overall length of the string. Most
+printable characters have a width of one unit, however
+certain Asian character sets and certain special effects use
+wider characters; combining characters have zero width.
+Non&minus;printable characters are arbitrarily counted as
+zero width; how they would actually be displayed will
+vary.</p> </td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If the <b>m</b>
+is repeated, the character either counts zero (if it has
+zero width), else one. For printable character strings this
+has the effect of counting the number of glyphs (visibly
+separate characters), except for the case where combining
+characters themselves have non&minus;zero width (true in
+certain alphabets).</p>
+
+
+<p style="margin-left:11%;"><b>r:</b><i>expr</i><b>::</b><i>string1</i><b>::</b><i>string2</i><b>:</b></p>
+
+<p style="margin-left:22%;">As <b>l</b>, but pad the words
+on the right and insert <i>string2</i> immediately to the
+right of the string to be padded.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Left and right
+padding may be used together. In this case the strategy is
+to apply left padding to the first half width of each of the
+resulting words, and right padding to the second half. If
+the string to be padded has odd width the extra padding is
+applied on the left.</p>
+
+
+<p style="margin-left:11%;"><b>s:</b><i>string</i><b>:</b></p>
+
+<p style="margin-left:22%;">Force field splitting at the
+separator <i>string</i>. Note that a <i>string</i> of two or
+more characters means that all of them must match in
+sequence; this differs from the treatment of two or more
+characters in the <b>IFS</b> parameter. See also the
+<b>=</b> flag and the <b>SH_WORD_SPLIT</b> option. An empty
+string may also be given in which case every character will
+be a separate element.</p>
+
+<p style="margin-left:22%; margin-top: 1em">For historical
+reasons, the usual behaviour that empty array elements are
+retained inside double quotes is disabled for arrays
+generated by splitting; hence the following:</p>
+
+
+<p style="margin-left:32%; margin-top: 1em"><b>line=&quot;one::three&quot;
+<br>
+print &minus;l &quot;${(s.:.)line}&quot;</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">produces two
+lines of output for <b>one</b> and <b>three</b> and elides
+the empty field. To override this behaviour, supply the
+&quot;(@)&quot; flag as well, i.e.
+<b>&quot;${(@s.:.)line}&quot;</b>.</p>
+
+
+<p style="margin-left:11%;"><b>Z:</b><i>opts</i><b>:</b></p>
+
+<p style="margin-left:22%;">As <b>z</b> but takes a
+combination of option letters between a following pair of
+delimiter characters. With no options the effect is
+identical to <b>z</b>. <b>(Z+c+)</b> causes comments to be
+parsed as a string and retained; any field in the resulting
+array beginning with an unquoted comment character is a
+comment. <b>(Z+C+)</b> causes comments to be parsed and
+removed. The rule for comments is standard: anything between
+a word starting with the third character of
+<b>$HISTCHARS</b>, default <b>#</b>, up to the next newline
+is a comment. <b>(Z+n+)</b> causes unquoted newlines to be
+treated as ordinary whitespace, else they are treated as if
+they are shell code delimiters and converted to semicolons.
+Options are combined within the same set of delimiters, e.g.
+<b>(Z+Cn+)</b>.</p>
+
+
+<p style="margin-left:11%;"><b>_:</b><i>flags</i><b>:</b></p>
+
+<p style="margin-left:22%;">The underscore (<b>_</b>) flag
+is reserved for future use. As of this revision of zsh,
+there are no valid <i>flags</i>; anything following an
+underscore, other than an empty pair of delimiters, is
+treated as an error, and the flag itself has no effect.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+flags are meaningful with the
+<b>${</b>...<b>#</b>...<b>}</b> or
+<b>${</b>...<b>%</b>...<b>}</b> forms. The <b>S</b> and
+<b>I</b> flags may also be used with the
+<b>${</b>...<b>/</b>...<b>}</b> forms.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>S</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Search substrings as well as beginnings or ends; with
+<b>#</b> start from the beginning and with <b>%</b> start
+from the end of the string. With substitution via
+<b>${</b>...<b>/</b>...<b>}</b> or
+<b>${</b>...<b>//</b>...<b>}</b>, specifies non&minus;greedy
+matching, i.e. that the shortest instead of the longest
+match should be replaced.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>I:</b><i>expr</i><b>:</b></p>
+
+<p style="margin-left:22%;">Search the <i>expr</i>th match
+(where <i>expr</i> evaluates to a number). This only applies
+when searching for substrings, either with the <b>S</b>
+flag, or with <b>${</b>...<b>/</b>...<b>}</b> (only the
+<i>expr</i>th match is substituted) or
+<b>${</b>...<b>//</b>...<b>}</b> (all matches from the
+<i>expr</i>th on are substituted). The default is to take
+the first match.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The
+<i>expr</i>th match is counted such that there is either one
+or zero matches from each starting position in the string,
+although for global substitution matches overlapping
+previous replacements are ignored. With the
+<b>${</b>...<b>%</b>...<b>}</b> and
+<b>${</b>...<b>%%</b>...<b>}</b> forms, the starting
+position for the match moves backwards from the end as the
+index increases, while with the other forms it moves forward
+from the start.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Hence with the
+string</p>
+
+<p style="margin-left:32%;"><b>which switch is the right
+switch for Ipswich?</b></p>
+
+<p style="margin-left:22%;">substitutions of the form
+<b>${</b>(<b>SI:</b><i>N</i><b>:</b>)<b>string#w*ch}</b> as
+<i>N</i> increases from 1 will match and remove
+&lsquo;<b>which</b>&rsquo;, &lsquo;<b>witch</b>&rsquo;,
+&lsquo;<b>witch</b>&rsquo; and &lsquo;<b>wich</b>&rsquo;;
+the form using &lsquo;<b>##</b>&rsquo; will match and remove
+&lsquo;<b>which switch is the right switch for
+Ipswich</b>&rsquo;, &lsquo;<b>witch is the right switch for
+Ipswich</b>&rsquo;, &lsquo;<b>witch for Ipswich</b>&rsquo;
+and &lsquo;<b>wich</b>&rsquo;. The form using
+&lsquo;<b>%</b>&rsquo; will remove the same matches as for
+&lsquo;<b>#</b>&rsquo;, but in reverse order, and the form
+using &lsquo;<b>%%</b>&rsquo; will remove the same matches
+as for &lsquo;<b>##</b>&rsquo; in reverse order.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>B</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Include the index of the beginning of the match in the
+result.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>E</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Include the index of the end of the match in the
+result.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>M</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Include the matched portion in the result.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>N</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Include the length of the match in the result.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>R</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Include the unmatched portion in the result (the
+<i>R</i>est).</p> </td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Rules</b>
+<br>
+Here is a summary of the rules for substitution; this
+assumes that braces are present around the substitution,
+i.e. <b>${...}</b>. Some particular examples are given
+below. Note that the Zsh Development Group accepts <i>no
+responsibility</i> for any brain damage which may occur
+during the reading of the following rules. <b><br>
+1.</b> <i>Nested substitution</i></p>
+
+<p style="margin-left:22%;">If multiple nested
+<b>${...}</b> forms are present, substitution is performed
+from the inside outwards. At each level, the substitution
+takes account of whether the current value is a scalar or an
+array, whether the whole substitution is in double quotes,
+and what flags are supplied to the current level of
+substitution, just as if the nested substitution were the
+outermost. The flags are not propagated up to enclosing
+substitutions; the nested substitution will return either a
+scalar or an array as determined by the flags, possibly
+adjusted for quoting. All the following steps take place
+where applicable at all levels of substitution. Note that,
+unless the &lsquo;<b>(P)</b>&rsquo; flag is present, the
+flags and any subscripts apply directly to the value of the
+nested substitution; for example, the expansion
+<b>${${foo}}</b> behaves exactly the same as
+<b>${foo}</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">At each nested
+level of substitution, the substituted words undergo all
+forms of single&minus;word substitution (i.e. not filename
+generation), including command substitution, arithmetic
+expansion and filename expansion (i.e. leading <b>~</b> and
+<b>=</b>). Thus, for example, <b>${${:&minus;=cat}:h}</b>
+expands to the directory where the <b>cat</b> program
+resides. (Explanation: the internal substitution has no
+parameter but a default value <b>=cat</b>, which is expanded
+by filename expansion to a full path; the outer substitution
+then applies the modifier <b>:h</b> and takes the directory
+part of the path.)</p>
+
+<p style="margin-left:11%;"><b>2.</b> <i>Internal parameter
+flags</i></p>
+
+<p style="margin-left:22%;">Any parameter flags set by one
+of the <b>typeset</b> family of commands, in particular the
+<b>L</b>, <b>R</b>, <b>Z</b>, <b>u</b> and <b>l</b> flags
+for padding and capitalization, are applied directly to the
+parameter value. Note these flags are options to the
+command, e.g. &lsquo;<b>typeset &minus;Z</b>&rsquo;; they
+are not the same as the flags used within parameter
+substitutions.</p>
+
+<p style="margin-left:11%;"><b>3.</b> <i>Parameter
+subscripting</i></p>
+
+<p style="margin-left:22%;">If the value is a raw parameter
+reference with a subscript, such as
+<b>${</b><i>var</i><b>[3]}</b>, the effect of subscripting
+is applied directly to the parameter. Subscripts are
+evaluated left to right; subsequent subscripts apply to the
+scalar or array value yielded by the previous subscript.
+Thus if <b>var</b> is an array, <b>${var[1][2]}</b> is the
+second character of the first word, but
+<b>${var[2,4][2]}</b> is the entire third word (the second
+word of the range of words two through four of the original
+array). Any number of subscripts may appear.</p>
+
+<p style="margin-left:11%;"><b>4.</b> <i>Parameter name
+replacement</i></p>
+
+<p style="margin-left:22%;">The effect of any <b>(P)</b>
+flag, which treats the value so far as a parameter name and
+replaces it with the corresponding value, is applied.</p>
+
+<p style="margin-left:11%;"><b>5.</b>
+<i>Double&minus;quoted joining</i></p>
+
+<p style="margin-left:22%;">If the value after this process
+is an array, and the substitution appears in double quotes,
+and no <b>(@)</b> flag is present at the current level, the
+words of the value are joined with the first character of
+the parameter <b>$IFS</b>, by default a space, between each
+word (single word arrays are not modified). If the
+<b>(j)</b> flag is present, that is used for joining instead
+of <b>$IFS</b>.</p>
+
+<p style="margin-left:11%;"><b>6.</b> <i>Nested
+subscripting</i></p>
+
+<p style="margin-left:22%;">Any remaining subscripts (i.e.
+of a nested substitution) are evaluated at this point, based
+on whether the value is an array or a scalar. As with
+<b>3.</b>, multiple subscripts can appear. Note that
+<b>${foo[2,4][2]}</b> is thus equivalent to
+<b>${${foo[2,4]}[2]}</b> and also to
+<b>&quot;${${(@)foo[2,4]}[2]}&quot;</b> (the nested
+substitution returns an array in both cases), but not to
+<b>&quot;${${foo[2,4]}[2]}&quot;</b> (the nested
+substitution returns a scalar because of the quotes).</p>
+
+<p style="margin-left:11%;"><b>7.</b> <i>Modifiers</i></p>
+
+<p style="margin-left:22%;">Any modifiers, as specified by
+a trailing &lsquo;<b>#</b>&rsquo;, &lsquo;<b>%</b>&rsquo;,
+&lsquo;<b>/</b>&rsquo; (possibly doubled) or by a set of
+modifiers of the form <b>:...</b> (see the section
+&lsquo;Modifiers&rsquo; in the section &lsquo;History
+Expansion&rsquo;), are applied to the words of the value at
+this level.</p>
+
+<p style="margin-left:11%;"><b>8.</b> <i>Character
+evaluation</i></p>
+
+<p style="margin-left:22%;">Any <b>(#)</b> flag is applied,
+evaluating the result so far numerically as a character.</p>
+
+<p style="margin-left:11%;"><b>9.</b> <i>Length</i></p>
+
+<p style="margin-left:22%;">Any initial <b>#</b> modifier,
+i.e. in the form <b>${#</b><i>var</i><b>}</b>, is used to
+evaluate the length of the expression so far.</p>
+
+<p style="margin-left:11%;"><b>10.</b> <i>Forced
+joining</i></p>
+
+<p style="margin-left:22%;">If the &lsquo;<b>(j)</b>&rsquo;
+flag is present, or no &lsquo;<b>(j)</b>&rsquo; flag is
+present but the string is to be split as given by rule
+<b>11.</b>, and joining did not take place at step
+<b>5.</b>, any words in the value are joined together using
+the given string or the first character of <b>$IFS</b> if
+none. Note that the &lsquo;<b>(F)</b>&rsquo; flag implicitly
+supplies a string for joining in this manner.</p>
+
+<p style="margin-left:11%;"><b>11.</b> <i>Simple word
+splitting</i></p>
+
+<p style="margin-left:22%;">If one of the
+&lsquo;<b>(s)</b>&rsquo; or &lsquo;<b>(f)</b>&rsquo; flags
+are present, or the &lsquo;<b>=</b>&rsquo; specifier was
+present (e.g. <b>${=</b><i>var</i><b>}</b>), the word is
+split on occurrences of the specified string, or (for
+<b>=</b> with neither of the two flags present) any of the
+characters in <b>$IFS</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If no
+&lsquo;<b>(s)</b>&rsquo;, &lsquo;<b>(f)</b>&rsquo; or
+&lsquo;<b>=</b>&rsquo; was given, but the word is not quoted
+and the option <b>SH_WORD_SPLIT</b> is set, the word is
+split on occurrences of any of the characters in
+<b>$IFS</b>. Note this step, too, takes place at all levels
+of a nested substitution.</p>
+
+<p style="margin-left:11%;"><b>12.</b> <i>Case
+modification</i></p>
+
+<p style="margin-left:22%;">Any case modification from one
+of the flags <b>(L)</b>, <b>(U)</b> or <b>(C)</b> is
+applied.</p>
+
+<p style="margin-left:11%;"><b>13.</b> <i>Escape sequence
+replacement</i></p>
+
+<p style="margin-left:22%;">First any replacements from the
+<b>(g)</b> flag are performed, then any prompt&minus;style
+formatting from the <b>(%)</b> family of flags is
+applied.</p>
+
+<p style="margin-left:11%;"><b>14.</b> <i>Quote
+application</i></p>
+
+<p style="margin-left:22%;">Any quoting or unquoting using
+<b>(q)</b> and <b>(Q)</b> and related flags is applied.</p>
+
+<p style="margin-left:11%;"><b>15.</b> <i>Directory
+naming</i></p>
+
+<p style="margin-left:22%;">Any directory name substitution
+using <b>(D)</b> flag is applied.</p>
+
+<p style="margin-left:11%;"><b>16.</b> <i>Visibility
+enhancement</i></p>
+
+<p style="margin-left:22%;">Any modifications to make
+characters visible using the <b>(V)</b> flag are
+applied.</p>
+
+<p style="margin-left:11%;"><b>17.</b> <i>Lexical word
+splitting</i></p>
+
+<p style="margin-left:22%;">If the &rsquo;<b>(z)</b>&rsquo;
+flag or one of the forms of the &rsquo;<b>(Z)</b>&rsquo;
+flag is present, the word is split as if it were a shell
+command line, so that quotation marks and other
+metacharacters are used to decide what constitutes a word.
+Note this form of splitting is entirely distinct from that
+described by rule <b>11.</b>: it does not use <b>$IFS</b>,
+and does not cause forced joining.</p>
+
+<p style="margin-left:11%;"><b>18.</b>
+<i>Uniqueness</i></p>
+
+<p style="margin-left:22%;">If the result is an array and
+the &lsquo;<b>(u)</b>&rsquo; flag was present, duplicate
+elements are removed from the array.</p>
+
+<p style="margin-left:11%;"><b>19.</b> <i>Ordering</i></p>
+
+<p style="margin-left:22%;">If the result is still an array
+and one of the &lsquo;<b>(o)</b>&rsquo; or
+&lsquo;<b>(O)</b>&rsquo; flags was present, the array is
+reordered.</p>
+
+<p style="margin-left:11%;"><b>20.</b>
+<i>Re&minus;evaluation</i></p>
+
+<p style="margin-left:22%;">Any &lsquo;<b>(e)</b>&rsquo;
+flag is applied to the value, forcing it to be
+re&minus;examined for new parameter substitutions, but also
+for command and arithmetic substitutions.</p>
+
+<p style="margin-left:11%;"><b>21.</b> <i>Padding</i></p>
+
+<p style="margin-left:22%;">Any padding of the value by the
+&lsquo;<b>(l.</b><i>fill</i><b>.)</b>&rsquo; or
+&lsquo;<b>(r.</b><i>fill</i><b>.)</b>&rsquo; flags is
+applied.</p>
+
+<p style="margin-left:11%;"><b>22.</b> <i>Semantic
+joining</i></p>
+
+<p style="margin-left:22%;">In contexts where expansion
+semantics requires a single word to result, all words are
+rejoined with the first character of <b>IFS</b> between. So
+in &lsquo;<b>${(P)${(f)lines}}</b>&rsquo; the value of
+<b>${lines}</b> is split at newlines, but then must be
+joined again before the <b>P</b> flag can be applied.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If a single
+word is not required, this rule is skipped.</p>
+
+<p style="margin-left:11%;"><b>23.</b> <i>Empty argument
+removal</i></p>
+
+<p style="margin-left:22%;">If the substitution does not
+appear in double quotes, any resulting zero&minus;length
+argument, whether from a scalar or an element of an array,
+is elided from the list of arguments inserted into the
+command line.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Strictly
+speaking, the removal happens later as the same happens with
+other forms of substitution; the point to note here is
+simply that it occurs after any of the above parameter
+operations.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Examples</b>
+<br>
+The flag <b>f</b> is useful to split a double&minus;quoted
+substitution line by line. For example,
+<b>${(f)&quot;$(&lt;</b><i>file</i><b>)&quot;}</b>
+substitutes the contents of <i>file</i> divided so that each
+line is an element of the resulting array. Compare this with
+the effect of <b>$(&lt;</b><i>file</i><b>)</b> alone, which
+divides the file up by words, or the same inside double
+quotes, which makes the entire content of the file a single
+string.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The following
+illustrates the rules for nested parameter expansions.
+Suppose that <b>$foo</b> contains the array <b>(bar
+baz)</b>: <b><br>
+&quot;${(@)${foo}[1]}&quot;</b></p>
+
+<p style="margin-left:22%;">This produces the result
+<b>b</b>. First, the inner substitution
+<b>&quot;${foo}&quot;</b>, which has no array (<b>@</b>)
+flag, produces a single word result <b>&quot;bar
+baz&quot;</b>. The outer substitution
+<b>&quot;${(@)...[1]}&quot;</b> detects that this is a
+scalar, so that (despite the &lsquo;<b>(@)</b>&rsquo; flag)
+the subscript picks the first character.</p>
+
+
+<p style="margin-left:11%;"><b>&quot;${${(@)foo}[1]}&quot;</b></p>
+
+<p style="margin-left:22%;">This produces the result
+&lsquo;<b>bar</b>&rsquo;. In this case, the inner
+substitution <b>&quot;${(@)foo}&quot;</b> produces the array
+&lsquo;<b>(bar baz)</b>&rsquo;. The outer substitution
+<b>&quot;${...[1]}&quot;</b> detects that this is an array
+and picks the first word. This is similar to the simple case
+<b>&quot;${foo[1]}&quot;</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As an example
+of the rules for word splitting and joining, suppose
+<b>$foo</b> contains the array &lsquo;<b>(ax1
+bx1)</b>&rsquo;. Then <b><br>
+${(s/x/)foo}</b></p>
+
+<p style="margin-left:22%;">produces the words
+&lsquo;<b>a</b>&rsquo;, &lsquo;<b>1 b</b>&rsquo; and
+&lsquo;<b>1</b>&rsquo;.</p>
+
+<p style="margin-left:11%;"><b>${(j/x/s/x/)foo}</b></p>
+
+<p style="margin-left:22%;">produces
+&lsquo;<b>a</b>&rsquo;, &lsquo;<b>1</b>&rsquo;,
+&lsquo;<b>b</b>&rsquo; and &lsquo;<b>1</b>&rsquo;.</p>
+
+<p style="margin-left:11%;"><b>${(s/x/)foo%%1*}</b></p>
+
+<p style="margin-left:22%;">produces &lsquo;<b>a</b>&rsquo;
+and &lsquo; <b>b</b>&rsquo; (note the extra space). As
+substitution occurs before either joining or splitting, the
+operation first generates the modified array <b>(ax bx)</b>,
+which is joined to give <b>&quot;ax bx&quot;</b>, and then
+split to give &lsquo;<b>a</b>&rsquo;, &lsquo;
+<b>b</b>&rsquo; and &lsquo;&rsquo;. The final empty string
+will then be elided, as it is not in double quotes.</p>
+
+<h2>COMMAND SUBSTITUTION
+<a name="COMMAND SUBSTITUTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A command
+enclosed in parentheses preceded by a dollar sign, like
+&lsquo;<b>$(</b>...<b>)</b>&rsquo;, or quoted with grave
+accents, like &lsquo;<b>&lsquo;</b>...<b>&lsquo;</b>&rsquo;,
+is replaced with its standard output, with any trailing
+newlines deleted. If the substitution is not enclosed in
+double quotes, the output is broken into words using the
+<b>IFS</b> parameter. The substitution &lsquo;<b>$(cat</b>
+<i>foo</i><b>)</b>&rsquo; may be replaced by the equivalent
+but faster &lsquo;<b>$(&lt;</b><i>foo</i><b>)</b>&rsquo;. In
+either case, if the option <b>GLOB_SUBST</b> is set, the
+output is eligible for filename generation.</p>
+
+<h2>ARITHMETIC EXPANSION
+<a name="ARITHMETIC EXPANSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A string of the
+form &lsquo;<b>$[</b><i>exp</i><b>]</b>&rsquo; or
+&lsquo;<b>$((</b><i>exp</i><b>))</b>&rsquo; is substituted
+with the value of the arithmetic expression <i>exp</i>.
+<i>exp</i> is subjected to <i>parameter expansion</i>,
+<i>command substitution</i> and <i>arithmetic expansion</i>
+before it is evaluated. See the section &lsquo;Arithmetic
+Evaluation&rsquo;.</p>
+
+<h2>BRACE EXPANSION
+<a name="BRACE EXPANSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">A string of the
+form
+&lsquo;<i>foo</i><b>{</b><i>xx</i><b>,</b><i>yy</i><b>,</b><i>zz</i><b>}</b><i>bar</i>&rsquo;
+is expanded to the individual words
+&lsquo;<i>fooxxbar</i>&rsquo;, &lsquo;<i>fooyybar</i>&rsquo;
+and &lsquo;<i>foozzbar</i>&rsquo;. Left&minus;to&minus;right
+order is preserved. This construct may be nested. Commas may
+be quoted in order to include them literally in a word.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An expression
+of the form
+&lsquo;<b>{</b><i>n1</i><b>..</b><i>n2</i><b>}</b>&rsquo;,
+where <i>n1</i> and <i>n2</i> are integers, is expanded to
+every number between <i>n1</i> and <i>n2</i> inclusive. If
+either number begins with a zero, all the resulting numbers
+will be padded with leading zeroes to that minimum width,
+but for negative numbers the <b>&minus;</b> character is
+also included in the width. If the numbers are in decreasing
+order the resulting sequence will also be in decreasing
+order.</p>
+
+<p style="margin-left:11%; margin-top: 1em">An expression
+of the form
+&lsquo;<b>{</b><i>n1</i><b>..</b><i>n2</i><b>..</b><i>n3</i><b>}</b>&rsquo;,
+where <i>n1</i>, <i>n2</i>, and <i>n3</i> are integers, is
+expanded as above, but only every <i>n3</i>th number
+starting from <i>n1</i> is output. If <i>n3</i> is negative
+the numbers are output in reverse order, this is slightly
+different from simply swapping <i>n1</i> and <i>n2</i> in
+the case that the step <i>n3</i> doesn&rsquo;t evenly divide
+the range. Zero padding can be specified in any of the three
+numbers, specifying it in the third can be useful to pad for
+example &lsquo;<b>{&minus;99..100..01}</b>&rsquo; which is
+not possible to specify by putting a 0 on either of the
+first two numbers (i.e. pad to two characters).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a brace
+expression matches none of the above forms, it is left
+unchanged, unless the option <b>BRACE_CCL</b> (an
+abbreviation for &lsquo;brace character class&rsquo;) is
+set. In that case, it is expanded to a list of the
+individual characters between the braces sorted into the
+order of the characters in the ASCII character set
+(multibyte characters are not currently handled). The syntax
+is similar to a <b>[</b>...<b>]</b> expression in filename
+generation: &lsquo;<b>&minus;</b>&rsquo; is treated
+specially to denote a range of characters, but
+&lsquo;<b>^</b>&rsquo; or &lsquo;<b>!</b>&rsquo; as the
+first character is treated normally. For example,
+&lsquo;<b>{abcdef0&minus;9}</b>&rsquo; expands to 16 words
+<b>0 1 2 3 4 5 6 7 8 9 a b c d e f</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that brace
+expansion is not part of filename generation (globbing); an
+expression such as <b>*/{foo,bar}</b> is split into two
+separate words <b>*/foo</b> and <b>*/bar</b> before filename
+generation takes place. In particular, note that this is
+liable to produce a &lsquo;no match&rsquo; error if
+<i>either</i> of the two expressions does not match; this is
+to be contrasted with <b>*/(foo|bar)</b>, which is treated
+as a single pattern but otherwise has similar effects.</p>
+
+<p style="margin-left:11%; margin-top: 1em">To combine
+brace expansion with array expansion, see the
+<b>${^</b><i>spec</i><b>}</b> form described in the section
+Parameter Expansion above.</p>
+
+<h2>FILENAME EXPANSION
+<a name="FILENAME EXPANSION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Each word is
+checked to see if it begins with an unquoted
+&lsquo;<b>~</b>&rsquo;. If it does, then the word up to a
+&lsquo;<b>/</b>&rsquo;, or the end of the word if there is
+no &lsquo;<b>/</b>&rsquo;, is checked to see if it can be
+substituted in one of the ways described here. If so, then
+the &lsquo;<b>~</b>&rsquo; and the checked portion are
+replaced with the appropriate substitute value.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&lsquo;<b>~</b>&rsquo; by itself is replaced by the value of
+<b>$HOME</b>. A &lsquo;<b>~</b>&rsquo; followed by a
+&lsquo;<b>+</b>&rsquo; or a &lsquo;<b>&minus;</b>&rsquo; is
+replaced by current or previous working directory,
+respectively.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&lsquo;<b>~</b>&rsquo; followed by a number is replaced by
+the directory at that position in the directory stack.
+&lsquo;<b>~0</b>&rsquo; is equivalent to
+&lsquo;<b>~+</b>&rsquo;, and &lsquo;<b>~1</b>&rsquo; is the
+top of the stack. &lsquo;<b>~+</b>&rsquo; followed by a
+number is replaced by the directory at that position in the
+directory stack. &lsquo;<b>~+0</b>&rsquo; is equivalent to
+&lsquo;<b>~+</b>&rsquo;, and &lsquo;<b>~+1</b>&rsquo; is the
+top of the stack. &lsquo;<b>~&minus;</b>&rsquo; followed by
+a number is replaced by the directory that many positions
+from the bottom of the stack. &lsquo;<b>~&minus;0</b>&rsquo;
+is the bottom of the stack. The <b>PUSHD_MINUS</b> option
+exchanges the effects of &lsquo;<b>~+</b>&rsquo; and
+&lsquo;<b>~&minus;</b>&rsquo; where they are followed by a
+number.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Dynamic
+named directories</b> <br>
+If the function <b>zsh_directory_name</b> exists, or the
+shell variable <b>zsh_directory_name_functions</b> exists
+and contains an array of function names, then the functions
+are used to implement dynamic directory naming. The
+functions are tried in order until one returns status zero,
+so it is important that functions test whether they can
+handle the case in question and return an appropriate
+status.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A
+&lsquo;<b>~</b>&rsquo; followed by a string <i>namstr</i> in
+unquoted square brackets is treated specially as a dynamic
+directory name. Note that the first unquoted closing square
+bracket always terminates <i>namstr</i>. The shell function
+is passed two arguments: the string <b>n</b> (for name) and
+<i>namstr</i>. It should either set the array <b>reply</b>
+to a single element which is the directory corresponding to
+the name and return status zero (executing an assignment as
+the last statement is usually sufficient), or it should
+return status non&minus;zero. In the former case the element
+of reply is used as the directory; in the latter case the
+substitution is deemed to have failed. If all functions fail
+and the option <b>NOMATCH</b> is set, an error results.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The functions
+defined as above are also used to see if a directory can be
+turned into a name, for example when printing the directory
+stack or when expanding <b>%~</b> in prompts. In this case
+each function is passed two arguments: the string <b>d</b>
+(for directory) and the candidate for dynamic naming. The
+function should either return non&minus;zero status, if the
+directory cannot be named by the function, or it should set
+the array reply to consist of two elements: the first is the
+dynamic name for the directory (as would appear within
+&lsquo;<b>~[</b><i>...</i><b>]</b>&rsquo;), and the second
+is the prefix length of the directory to be replaced. For
+example, if the trial directory is
+<b>/home/myname/src/zsh</b> and the dynamic name for
+<b>/home/myname/src</b> (which has 16 characters) is
+<b>s</b>, then the function sets</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>reply=(s
+16)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">The directory
+name so returned is compared with possible static names for
+parts of the directory path, as described below; it is used
+if the prefix length matched (16 in the example) is longer
+than that matched by any static name.</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is not a
+requirement that a function implements both <b>n</b> and
+<b>d</b> calls; for example, it might be appropriate for
+certain dynamic forms of expansion not to be contracted to
+names. In that case any call with the first argument
+<b>d</b> should cause a non&minus;zero status to be
+returned.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The completion
+system calls &lsquo;<b>zsh_directory_name c</b>&rsquo;
+followed by equivalent calls to elements of the array
+<b>zsh_directory_name_functions</b>, if it exists, in order
+to complete dynamic names for directories. The code for this
+should be as for any other completion function as described
+in <i>zshcompsys</i>(1).</p>
+
+<p style="margin-left:11%; margin-top: 1em">As a working
+example, here is a function that expands any dynamic names
+beginning with the string <b>p:</b> to directories below
+<b>/home/pws/perforce</b>. In this simple case a static name
+for the directory would be just as effective.</p>
+
+
+<p style="margin-left:22%; margin-top: 1em"><b>zsh_directory_name()
+{ <br>
+emulate &minus;L zsh <br>
+setopt extendedglob <br>
+local &minus;a match mbegin mend <br>
+if [[ $1 = d ]]; then <br>
+# turn the directory into a name <br>
+if [[ $2 = (#b)(/home/pws/perforce/)([^/]##)* ]]; then <br>
+typeset &minus;ga reply <br>
+reply=(p:$match[2] $(( ${#match[1]} + ${#match[2]} )) ) <br>
+else <br>
+return 1 <br>
+fi <br>
+elif [[ $1 = n ]]; then <br>
+# turn the name into a directory <br>
+[[ $2 != (#b)p:(?*) ]] &amp;&amp; return 1 <br>
+typeset &minus;ga reply <br>
+reply=(/home/pws/perforce/$match[1]) <br>
+elif [[ $1 = c ]]; then <br>
+# complete names <br>
+local expl <br>
+local &minus;a dirs <br>
+dirs=(/home/pws/perforce/*(/:t)) <br>
+dirs=(p:${^dirs}) <br>
+_wanted dynamic&minus;dirs expl &rsquo;dynamic
+directory&rsquo; compadd &minus;S\] &minus;a dirs <br>
+return <br>
+else <br>
+return 1 <br>
+fi <br>
+return 0 <br>
+}</b></p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Static named
+directories</b> <br>
+A &lsquo;<b>~</b>&rsquo; followed by anything not already
+covered consisting of any number of alphanumeric characters
+or underscore (&lsquo;<b>_</b>&rsquo;), hyphen
+(&lsquo;<b>&minus;</b>&rsquo;), or dot
+(&lsquo;<b>.</b>&rsquo;) is looked up as a named directory,
+and replaced by the value of that named directory if found.
+Named directories are typically home directories for users
+on the system. They may also be defined if the text after
+the &lsquo;<b>~</b>&rsquo; is the name of a string shell
+parameter whose value begins with a &lsquo;<b>/</b>&rsquo;.
+Note that trailing slashes will be removed from the path to
+the directory (though the original parameter is not
+modified).</p>
+
+<p style="margin-left:11%; margin-top: 1em">It is also
+possible to define directory names using the <b>&minus;d</b>
+option to the <b>hash</b> builtin.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In certain
+circumstances (in prompts, for instance), when the shell
+prints a path, the path is checked to see if it has a named
+directory as its prefix. If so, then the prefix portion is
+replaced with a &lsquo;<b>~</b>&rsquo; followed by the name
+of the directory. The shortest way of referring to the
+directory is used, with ties broken in favour of using a
+named directory, except when the directory is <b>/</b>
+itself. The parameters <b>$PWD</b> and <b>$OLDPWD</b> are
+never abbreviated in this fashion.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&lsquo;=&rsquo;
+expansion</b> <br>
+If a word begins with an unquoted &lsquo;<b>=</b>&rsquo; and
+the <b>EQUALS</b> option is set, the remainder of the word
+is taken as the name of a command. If a command exists by
+that name, the word is replaced by the full pathname of the
+command.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Notes</b>
+<br>
+Filename expansion is performed on the right hand side of a
+parameter assignment, including those appearing after
+commands of the <b>typeset</b> family. In this case, the
+right hand side will be treated as a colon&minus;separated
+list in the manner of the <b>PATH</b> parameter, so that a
+&lsquo;<b>~</b>&rsquo; or an &lsquo;<b>=</b>&rsquo;
+following a &lsquo;<b>:</b>&rsquo; is eligible for
+expansion. All such behaviour can be disabled by quoting the
+&lsquo;<b>~</b>&rsquo;, the &lsquo;<b>=</b>&rsquo;, or the
+whole expression (but not simply the colon); the
+<b>EQUALS</b> option is also respected.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the option
+<b>MAGIC_EQUAL_SUBST</b> is set, any unquoted shell argument
+in the form
+&lsquo;<i>identifier</i><b>=</b><i>expression</i>&rsquo;
+becomes eligible for file expansion as described in the
+previous paragraph. Quoting the first &lsquo;<b>=</b>&rsquo;
+also inhibits this.</p>
+
+<h2>FILENAME GENERATION
+<a name="FILENAME GENERATION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">If a word
+contains an unquoted instance of one of the characters
+&lsquo;<b>*</b>&rsquo;, &lsquo;<b>(</b>&rsquo;,
+&lsquo;<b>|</b>&rsquo;, &lsquo;<b>&lt;</b>&rsquo;,
+&lsquo;<b>[</b>&rsquo;, or &lsquo;<b>?</b>&rsquo;, it is
+regarded as a pattern for filename generation, unless the
+<b>GLOB</b> option is unset. If the <b>EXTENDED_GLOB</b>
+option is set, the &lsquo;<b>^</b>&rsquo; and
+&lsquo;<b>#</b>&rsquo; characters also denote a pattern;
+otherwise they are not treated specially by the shell.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The word is
+replaced with a list of sorted filenames that match the
+pattern. If no matching pattern is found, the shell gives an
+error message, unless the <b>NULL_GLOB</b> option is set, in
+which case the word is deleted; or unless the <b>NOMATCH</b>
+option is unset, in which case the word is left
+unchanged.</p>
+
+<p style="margin-left:11%; margin-top: 1em">In filename
+generation, the character &lsquo;<b>/</b>&rsquo; must be
+matched explicitly; also, a &lsquo;<b>.</b>&rsquo; must be
+matched explicitly at the beginning of a pattern or after a
+&lsquo;<b>/</b>&rsquo;, unless the <b>GLOB_DOTS</b> option
+is set. No filename generation pattern matches the files
+&lsquo;<b>.</b>&rsquo; or &lsquo;<b>..</b>&rsquo;. In other
+instances of pattern matching, the &lsquo;<b>/</b>&rsquo;
+and &lsquo;<b>.</b>&rsquo; are not treated specially.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Glob
+Operators</b></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>*</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>Matches any string, including the null string.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>?</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>Matches any character.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>[</b>...<b>]</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>Matches any of the enclosed characters. Ranges of
+characters can be specified by separating two characters by
+a &lsquo;<b>&minus;</b>&rsquo;. A
+&lsquo;<b>&minus;</b>&rsquo; or &lsquo;<b>]</b>&rsquo; may
+be matched by including it as the first character in the
+list. There are also several named classes of characters, in
+the form &lsquo;<b>[:</b><i>name</i><b>:]</b>&rsquo; with
+the following meanings. The first set use the macros
+provided by the operating system to test for the given
+character combinations, including any modifications due to
+local language settings, see <i>ctype</i>(3):</p></td></tr>
+</table>
+
+<p style="margin-left:22%;"><b>[:alnum:]</b></p>
+
+<p style="margin-left:32%;">The character is
+alphanumeric</p>
+
+<p style="margin-left:22%;"><b>[:alpha:]</b></p>
+
+<p style="margin-left:32%;">The character is alphabetic</p>
+
+<p style="margin-left:22%;"><b>[:ascii:]</b></p>
+
+<p style="margin-left:32%;">The character is 7&minus;bit,
+i.e. is a single&minus;byte character without the top bit
+set.</p>
+
+<p style="margin-left:22%;"><b>[:blank:]</b></p>
+
+<p style="margin-left:32%;">The character is either space
+or tab</p>
+
+<p style="margin-left:22%;"><b>[:cntrl:]</b></p>
+
+<p style="margin-left:32%;">The character is a control
+character</p>
+
+<p style="margin-left:22%;"><b>[:digit:]</b></p>
+
+<p style="margin-left:32%;">The character is a decimal
+digit</p>
+
+<p style="margin-left:22%;"><b>[:graph:]</b></p>
+
+<p style="margin-left:32%;">The character is a printable
+character other than whitespace</p>
+
+<p style="margin-left:22%;"><b>[:lower:]</b></p>
+
+<p style="margin-left:32%;">The character is a lowercase
+letter</p>
+
+<p style="margin-left:22%;"><b>[:print:]</b></p>
+
+<p style="margin-left:32%;">The character is printable</p>
+
+<p style="margin-left:22%;"><b>[:punct:]</b></p>
+
+<p style="margin-left:32%;">The character is printable but
+neither alphanumeric nor whitespace</p>
+
+<p style="margin-left:22%;"><b>[:space:]</b></p>
+
+<p style="margin-left:32%;">The character is whitespace</p>
+
+<p style="margin-left:22%;"><b>[:upper:]</b></p>
+
+<p style="margin-left:32%;">The character is an uppercase
+letter</p>
+
+<p style="margin-left:22%;"><b>[:xdigit:]</b></p>
+
+<p style="margin-left:32%;">The character is a hexadecimal
+digit</p>
+
+<p style="margin-left:22%; margin-top: 1em">Another set of
+named classes is handled internally by the shell and is not
+sensitive to the locale: <b><br>
+[:IDENT:]</b></p>
+
+<p style="margin-left:32%;">The character is allowed to
+form part of a shell identifier, such as a parameter
+name</p>
+
+<p style="margin-left:22%;"><b>[:IFS:]</b></p>
+
+<p style="margin-left:32%;">The character is used as an
+input field separator, i.e. is contained in the <b>IFS</b>
+parameter</p>
+
+<p style="margin-left:22%;"><b>[:IFSSPACE:]</b></p>
+
+<p style="margin-left:32%;">The character is an IFS white
+space character; see the documentation for <b>IFS</b> in the
+<i>zshparam</i>(1) manual page.</p>
+
+<p style="margin-left:22%;"><b>[:WORD:]</b></p>
+
+<p style="margin-left:32%;">The character is treated as
+part of a word; this test is sensitive to the value of the
+<b>WORDCHARS</b> parameter</p>
+
+<p style="margin-left:22%; margin-top: 1em">Note that the
+square brackets are additional to those enclosing the whole
+set of characters, so to test for a single alphanumeric
+character you need &lsquo;<b>[[:alnum:]]</b>&rsquo;. Named
+character sets can be used alongside other types, e.g.
+&lsquo;<b>[[:alpha:]0&minus;9]</b>&rsquo;.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>[^</b>...<b>]</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+</td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>[!</b>...<b>]</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Like <b>[</b>...<b>]</b>, except that it matches any
+character which is not in the given set.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>&lt;</b>[<i>x</i>]<b>&minus;</b>[<i>y</i>]<b>&gt;</b></p>
+
+<p style="margin-left:22%;">Matches any number in the range
+<i>x</i> to <i>y</i>, inclusive. Either of the numbers may
+be omitted to make the range open&minus;ended; hence
+&lsquo;<b>&lt;&minus;&gt;</b>&rsquo; matches any number. To
+match individual digits, the <b>[</b>...<b>]</b> form is
+more efficient.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Be careful when
+using other wildcards adjacent to patterns of this form; for
+example, <b>&lt;0&minus;9&gt;*</b> will actually match any
+number whatsoever at the start of the string, since the
+&lsquo;<b>&lt;0&minus;9&gt;</b>&rsquo; will match the first
+digit, and the &lsquo;<b>*</b>&rsquo; will match any others.
+This is a trap for the unwary, but is in fact an inevitable
+consequence of the rule that the longest possible match
+always succeeds. Expressions such as
+&lsquo;<b>&lt;0&minus;9&gt;[^[:digit:]]*</b>&rsquo; can be
+used instead.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>(</b>...<b>)</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>Matches the enclosed pattern. This is used for grouping.
+If the <b>KSH_GLOB</b> option is set, then a
+&lsquo;<b>@</b>&rsquo;, &lsquo;<b>*</b>&rsquo;,
+&lsquo;<b>+</b>&rsquo;, &lsquo;<b>?</b>&rsquo; or
+&lsquo;<b>!</b>&rsquo; immediately preceding the
+&lsquo;<b>(</b>&rsquo; is treated specially, as detailed
+below. The option <b>SH_GLOB</b> prevents bare parentheses
+from being used in this way, though the <b>KSH_GLOB</b>
+option is still available.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">Note that
+grouping cannot extend over multiple directories: it is an
+error to have a &lsquo;<b>/</b>&rsquo; within a group (this
+only applies for patterns used in filename generation).
+There is one exception: a group of the form
+<b>(</b><i>pat</i><b>/)#</b> appearing as a complete path
+segment can match a sequence of directories. For example,
+<b>foo/(a*/)#bar</b> matches <b>foo/bar</b>,
+<b>foo/any/bar</b>, <b>foo/any/anyother/bar</b>, and so
+on.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p style="margin-top: 1em"><i>x</i><b>|</b><i>y</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Matches either <i>x</i> or
+<i>y</i>. This operator has lower precedence than any other.
+The &lsquo;<b>|</b>&rsquo; character must be within
+parentheses, to avoid interpretation as a pipeline.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>^</b><i>x</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches
+anything except the pattern <i>x</i>. This has a higher
+precedence than &lsquo;<b>/</b>&rsquo;, so
+&lsquo;<b>^foo/bar</b>&rsquo; will search directories in
+&lsquo;<b>.</b>&rsquo; except &lsquo;<b>./foo</b>&rsquo; for
+a file named &lsquo;<b>bar</b>&rsquo;.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>~</b><i>y</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>(Requires <b>EXTENDED_GLOB</b> to be set.) Match
+anything that matches the pattern <i>x</i> but does not
+match <i>y</i>. This has lower precedence than any operator
+except &lsquo;<b>|</b>&rsquo;, so
+&lsquo;<b>*/*~foo/bar</b>&rsquo; will search for all files
+in all directories in &lsquo;<b>.</b>&rsquo; and then
+exclude &lsquo;<b>foo/bar</b>&rsquo; if there was such a
+match. Multiple patterns can be excluded by
+&lsquo;<i>foo</i><b>~</b><i>bar</i><b>~</b><i>baz</i>&rsquo;.
+In the exclusion pattern (<i>y</i>), &lsquo;<b>/</b>&rsquo;
+and &lsquo;<b>.</b>&rsquo; are not treated specially the way
+they usually are in globbing.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>#</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches zero
+or more occurrences of the pattern <i>x</i>. This operator
+has high precedence; &lsquo;<b>12#</b>&rsquo; is equivalent
+to &lsquo;<b>1(2#)</b>&rsquo;, rather than
+&lsquo;<b>(12)#</b>&rsquo;. It is an error for an unquoted
+&lsquo;<b>#</b>&rsquo; to follow something which cannot be
+repeated; this includes an empty string, a pattern already
+followed by &lsquo;<b>##</b>&rsquo;, or parentheses when
+part of a <b>KSH_GLOB</b> pattern (for example,
+&lsquo;<b>!(</b><i>foo</i><b>)#</b>&rsquo; is invalid and
+must be replaced by
+&lsquo;<b>*(!(</b><i>foo</i><b>))</b>&rsquo;).</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><i>x</i><b>##</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches one
+or more occurrences of the pattern <i>x</i>. This operator
+has high precedence; &lsquo;<b>12##</b>&rsquo; is equivalent
+to &lsquo;<b>1(2##)</b>&rsquo;, rather than
+&lsquo;<b>(12)##</b>&rsquo;. No more than two active
+&lsquo;<b>#</b>&rsquo; characters may appear together. (Note
+the potential clash with glob qualifiers in the form
+&lsquo;<b>1(2##)</b>&rsquo; which should therefore be
+avoided.)</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ksh&minus;like
+Glob Operators</b> <br>
+If the <b>KSH_GLOB</b> option is set, the effects of
+parentheses can be modified by a preceding
+&lsquo;<b>@</b>&rsquo;, &lsquo;<b>*</b>&rsquo;,
+&lsquo;<b>+</b>&rsquo;, &lsquo;<b>?</b>&rsquo; or
+&lsquo;<b>!</b>&rsquo;. This character need not be unquoted
+to have special effects, but the &lsquo;<b>(</b>&rsquo; must
+be.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p style="margin-top: 1em"><b>@(</b>...<b>)</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Match the pattern in the
+parentheses. (Like &lsquo;<b>(</b>...<b>)</b>&rsquo;.)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>*(</b>...<b>)</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Match any number of occurrences. (Like
+&lsquo;<b>(</b>...<b>)#</b>&rsquo;.)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>+(</b>...<b>)</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Match at least one occurrence. (Like
+&lsquo;<b>(</b>...<b>)##</b>&rsquo;.)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>?(</b>...<b>)</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Match zero or one occurrence. (Like
+&lsquo;<b>(|</b>...<b>)</b>&rsquo;.)</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="9%">
+
+
+<p><b>!(</b>...<b>)</b></p></td>
+<td width="2%"></td>
+<td width="78%">
+
+
+<p>Match anything but the expression in parentheses. (Like
+&lsquo;<b>(^(</b>...<b>))</b>&rsquo;.)</p> </td></tr>
+</table>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Precedence</b>
+<br>
+The precedence of the operators given above is (highest)
+&lsquo;<b>^</b>&rsquo;, &lsquo;<b>/</b>&rsquo;,
+&lsquo;<b>~</b>&rsquo;, &lsquo;<b>|</b>&rsquo; (lowest); the
+remaining operators are simply treated from left to right as
+part of a string, with &lsquo;<b>#</b>&rsquo; and
+&lsquo;<b>##</b>&rsquo; applying to the shortest possible
+preceding unit (i.e. a character, &lsquo;<b>?</b>&rsquo;,
+&lsquo;<b>[</b>...<b>]</b>&rsquo;,
+&lsquo;<b>&lt;</b>...<b>&gt;</b>&rsquo;, or a parenthesised
+expression). As mentioned above, a &lsquo;<b>/</b>&rsquo;
+used as a directory separator may not appear inside
+parentheses, while a &lsquo;<b>|</b>&rsquo; must do so; in
+patterns used in other contexts than filename generation
+(for example, in <b>case</b> statements and tests within
+&lsquo;<b>[[</b>...<b>]]</b>&rsquo;), a
+&lsquo;<b>/</b>&rsquo; is not special; and
+&lsquo;<b>/</b>&rsquo; is also not special after a
+&lsquo;<b>~</b>&rsquo; appearing outside parentheses in a
+filename pattern.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Globbing
+Flags</b> <br>
+There are various flags which affect any text to their right
+up to the end of the enclosing group or to the end of the
+pattern; they require the <b>EXTENDED_GLOB</b> option. All
+take the form <b>(#</b><i>X</i><b>)</b> where <i>X</i> may
+have one of the following forms:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>i</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Case insensitive: upper or lower
+case characters in the pattern match upper or lower case
+characters.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>l</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Lower case characters in the pattern match upper or
+lower case characters; upper case characters in the pattern
+still only match upper case characters.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>I</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Case sensitive: locally negates the effect of <b>i</b>
+or <b>l</b> from that point on.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>b</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Activate backreferences for parenthesised groups in the
+pattern; this does not work in filename generation. When a
+pattern with a set of active parentheses is matched, the
+strings matched by the groups are stored in the array
+<b>$match</b>, the indices of the beginning of the matched
+parentheses in the array <b>$mbegin</b>, and the indices of
+the end in the array <b>$mend</b>, with the first element of
+each array corresponding to the first parenthesised group,
+and so on. These arrays are not otherwise special to the
+shell. The indices use the same convention as does parameter
+substitution, so that elements of <b>$mend</b> and
+<b>$mbegin</b> may be used in subscripts; the
+<b>KSH_ARRAYS</b> option is respected. Sets of globbing
+flags are not considered parenthesised groups; only the
+first nine active parentheses can be referenced.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">For
+example,</p>
+
+<p style="margin-left:32%; margin-top: 1em"><b>foo=&quot;a
+string with a message&quot; <br>
+if [[ $foo = (a|an)&rsquo; &rsquo;(#b)(*)&rsquo; &rsquo;*
+]]; then <br>
+print ${foo[$mbegin[1],$mend[1]]} <br>
+fi</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">prints
+&lsquo;<b>string with a</b>&rsquo;. Note that the first
+parenthesis is before the <b>(#b)</b> and does not create a
+backreference.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Backreferences
+work with all forms of pattern matching other than filename
+generation, but note that when performing matches on an
+entire array, such as
+<b>${</b><i>array</i><b>#</b><i>pattern</i><b>}</b>, or a
+global substitution, such as
+<b>${</b><i>param</i><b>//</b><i>pat</i><b>/</b><i>repl</i><b>}</b>,
+only the data for the last match remains available. In the
+case of global replacements this may still be useful. See
+the example for the <b>m</b> flag below.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The numbering
+of backreferences strictly follows the order of the opening
+parentheses from left to right in the pattern string,
+although sets of parentheses may be nested. There are
+special rules for parentheses followed by
+&lsquo;<b>#</b>&rsquo; or &lsquo;<b>##</b>&rsquo;. Only the
+last match of the parenthesis is remembered: for example, in
+&lsquo;<b>[[ abab = (#b)([ab])# ]]</b>&rsquo;, only the
+final &lsquo;<b>b</b>&rsquo; is stored in <b>match[1]</b>.
+Thus extra parentheses may be necessary to match the
+complete segment: for example, use
+&lsquo;<b>X((ab|cd)#)Y</b>&rsquo; to match a whole string of
+either &lsquo;<b>ab</b>&rsquo; or &lsquo;<b>cd</b>&rsquo;
+between &lsquo;<b>X</b>&rsquo; and &lsquo;<b>Y</b>&rsquo;,
+using the value of <b>$match[1]</b> rather than
+<b>$match[2]</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If the match
+fails none of the parameters is altered, so in some cases it
+may be necessary to initialise them beforehand. If some of
+the backreferences fail to match &minus;&minus; which
+happens if they are in an alternate branch which fails to
+match, or if they are followed by <b>#</b> and matched zero
+times &minus;&minus; then the matched string is set to the
+empty string, and the start and end indices are set to
+&minus;1.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Pattern
+matching with backreferences is slightly slower than
+without.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p style="margin-top: 1em"><b>B</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Deactivate backreferences,
+negating the effect of the <b>b</b> flag from that point
+on.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>c</b><i>N</i><b>,</b><i>M</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>The flag <b>(#c</b><i>N</i><b>,</b><i>M</i><b>)</b> can
+be used anywhere that the <b>#</b> or <b>##</b> operators
+can be used except in the expressions
+&lsquo;<b>(*/)#</b>&rsquo; and &lsquo;<b>(*/)##</b>&rsquo;
+in filename generation, where &lsquo;<b>/</b>&rsquo; has
+special meaning; it cannot be combined with other globbing
+flags and a bad pattern error occurs if it is misplaced. It
+is equivalent to the form
+<b>{</b><i>N</i><b>,</b><i>M</i><b>}</b> in regular
+expressions. The previous character or group is required to
+match between <i>N</i> and <i>M</i> times, inclusive. The
+form <b>(#c</b><i>N</i><b>)</b> requires exactly <b>N</b>
+matches; <b>(#c,</b><i>M</i><b>)</b> is equivalent to
+specifying <i>N</i> as 0; <b>(#c</b><i>N</i><b>,)</b>
+specifies that there is no maximum limit on the number of
+matches.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>m</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Set references to the match data for the entire string
+matched; this is similar to backreferencing and does not
+work in filename generation. The flag must be in effect at
+the end of the pattern, i.e. not local to a group. The
+parameters <b>$MATCH</b>, <b>$MBEGIN</b> and <b>$MEND</b>
+will be set to the string matched and to the indices of the
+beginning and end of the string, respectively. This is most
+useful in parameter substitutions, as otherwise the string
+matched is obvious.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">For
+example,</p>
+
+<p style="margin-left:32%; margin-top: 1em"><b>arr=(veldt
+jynx grimps waqf zho buck) <br>
+print ${arr//(#m)[aeiou]/${(U)MATCH}}</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">forces all the
+matches (i.e. all vowels) into uppercase, printing
+&lsquo;<b>vEldt jynx grImps wAqf zhO bUck</b>&rsquo;.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Unlike
+backreferences, there is no speed penalty for using match
+references, other than the extra substitutions required for
+the replacement strings in cases such as the example
+shown.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p style="margin-top: 1em"><b>M</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Deactivate the <b>m</b> flag,
+hence no references to match data will be created.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>a</b><i>num</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Approximate matching: <i>num</i> errors are allowed in
+the string matched by the pattern. The rules for this are
+described in the next subsection.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>s</b>, <b>e</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>Unlike the other flags, these have only a local effect,
+and each must appear on its own: &lsquo;<b>(#s)</b>&rsquo;
+and &lsquo;<b>(#e)</b>&rsquo; are the only valid forms. The
+&lsquo;<b>(#s)</b>&rsquo; flag succeeds only at the start of
+the test string, and the &lsquo;<b>(#e)</b>&rsquo; flag
+succeeds only at the end of the test string; they correspond
+to &lsquo;<b>^</b>&rsquo; and &lsquo;<b>$</b>&rsquo; in
+standard regular expressions. They are useful for matching
+path segments in patterns other than those in filename
+generation (where path segments are in any case treated
+separately). For example,
+&lsquo;<b>*((#s)|/)test((#e)|/)*</b>&rsquo; matches a path
+segment &lsquo;<b>test</b>&rsquo; in any of the following
+strings: <b>test</b>, <b>test/at/start</b>,
+<b>at/end/test</b>, <b>in/test/middle</b>.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">Another use is
+in parameter substitution; for example
+&lsquo;<b>${array/(#s)A*Z(#e)}</b>&rsquo; will remove only
+elements of an array which match the complete pattern
+&lsquo;<b>A*Z</b>&rsquo;. There are other ways of performing
+many operations of this type, however the combination of the
+substitution operations &lsquo;<b>/</b>&rsquo; and
+&lsquo;<b>//</b>&rsquo; with the &lsquo;<b>(#s)</b>&rsquo;
+and &lsquo;<b>(#e)</b>&rsquo; flags provides a single simple
+and memorable method.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Note that
+assertions of the form &lsquo;<b>(^(#s))</b>&rsquo; also
+work, i.e. match anywhere except at the start of the string,
+although this actually means &lsquo;anything except a
+zero&minus;length portion at the start of the string&rsquo;;
+you need to use &lsquo;<b>(&quot;&quot;~(#s))</b>&rsquo; to
+match a zero&minus;length portion of the string not at the
+start.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em"><b>q</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">A &lsquo;<b>q</b>&rsquo; and
+everything up to the closing parenthesis of the globbing
+flags are ignored by the pattern matching code. This is
+intended to support the use of glob qualifiers, see below.
+The result is that the pattern
+&lsquo;<b>(#b)(*).c(#q.)</b>&rsquo; can be used both for
+globbing and for matching against a string. In the former
+case, the &lsquo;<b>(#q.)</b>&rsquo; will be treated as a
+glob qualifier and the &lsquo;<b>(#b)</b>&rsquo; will not be
+useful, while in the latter case the
+&lsquo;<b>(#b)</b>&rsquo; is useful for backreferences and
+the &lsquo;<b>(#q.)</b>&rsquo; will be ignored. Note that
+colon modifiers in the glob qualifiers are also not applied
+in ordinary pattern matching.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>u</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>Respect the current locale in determining the presence
+of multibyte characters in a pattern, provided the shell was
+compiled with <b>MULTIBYTE_SUPPORT</b>. This overrides the
+<b>MULTIBYTE</b> option; the default behaviour is taken from
+the option. Compare <b>U</b>. (Mnemonic: typically multibyte
+characters are from Unicode in the UTF&minus;8 encoding,
+although any extension of ASCII supported by the system
+library may be used.)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p><b>U</b></p></td>
+<td width="10%"></td>
+<td width="78%">
+
+
+<p>All characters are considered to be a single byte long.
+The opposite of <b>u</b>. This overrides the
+<b>MULTIBYTE</b> option.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">For example,
+the test string <b>fooxx</b> can be matched by the pattern
+<b>(#i)FOOXX</b>, but not by <b>(#l)FOOXX</b>,
+<b>(#i)FOO(#I)XX</b> or <b>((#i)FOOX)X</b>. The string
+<b>(#ia2)readme</b> specifies case&minus;insensitive
+matching of <b>readme</b> with up to two errors.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using the
+ksh syntax for grouping both <b>KSH_GLOB</b> and
+<b>EXTENDED_GLOB</b> must be set and the left parenthesis
+should be preceded by <b>@</b>. Note also that the flags do
+not affect letters inside <b>[...]</b> groups, in other
+words <b>(#i)[a&minus;z]</b> still matches only lowercase
+letters. Finally, note that when examining whole paths
+case&minus;insensitively every directory must be searched
+for all files which match, so that a pattern of the form
+<b>(#i)/foo/bar/...</b> is potentially slow.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Approximate
+Matching</b> <br>
+When matching approximately, the shell keeps a count of the
+errors found, which cannot exceed the number specified in
+the <b>(#a</b><i>num</i><b>)</b> flags. Four types of error
+are recognised:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em">1.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">Different characters, as in
+<b>fooxbar</b> and <b>fooybar</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>2.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Transposition of characters, as in <b>banana</b> and
+<b>abnana</b>.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>3.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>A character missing in the target string, as with the
+pattern <b>road</b> and target string <b>rod</b>.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p>4.</p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>An extra character appearing in the target string, as
+with <b>stove</b> and <b>strove</b>.</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Thus, the
+pattern <b>(#a3)abcd</b> matches <b>dcba</b>, with the
+errors occurring by using the first rule twice and the
+second once, grouping the string as <b>[d][cb][a]</b> and
+<b>[a][bc][d]</b>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">Non&minus;literal
+parts of the pattern must match exactly, including
+characters in character ranges: hence <b>(#a1)???</b>
+matches strings of length four, by applying rule 4 to an
+empty part of the pattern, but not strings of length two,
+since all the <b>?</b> must match. Other characters which
+must match exactly are initial dots in filenames (unless the
+<b>GLOB_DOTS</b> option is set), and all slashes in
+filenames, so that <b>a/bc</b> is two errors from
+<b>ab/c</b> (the slash cannot be transposed with another
+character). Similarly, errors are counted separately for
+non&minus;contiguous strings in the pattern, so that
+<b>(ab|cd)ef</b> is two errors from <b>aebf</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">When using
+exclusion via the <b>~</b> operator, approximate matching is
+treated entirely separately for the excluded part and must
+be activated separately. Thus, <b>(#a1)README~READ_ME</b>
+matches <b>READ.ME</b> but not <b>READ_ME</b>, as the
+trailing <b>READ_ME</b> is matched without approximation.
+However, <b>(#a1)README~(#a1)READ_ME</b> does not match any
+pattern of the form <b>READ</b><i>?</i><b>ME</b> as all such
+forms are now excluded.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Apart from
+exclusions, there is only one overall error count; however,
+the maximum errors allowed may be altered locally, and this
+can be delimited by grouping. For example,
+<b>(#a1)cat((#a0)dog)fox</b> allows one error in total,
+which may not occur in the <b>dog</b> section, and the
+pattern <b>(#a1)cat(#a0)dog(#a1)fox</b> is equivalent. Note
+that the point at which an error is first found is the
+crucial one for establishing whether to use approximation;
+for example, <b>(#a1)abc(#a0)xyz</b> will not match
+<b>abcdxyz</b>, because the error occurs at the
+&lsquo;<b>x</b>&rsquo;, where approximation is turned
+off.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Entire path
+segments may be matched approximately, so that
+&lsquo;<b>(#a1)/foo/d/is/available/at/the/bar</b>&rsquo;
+allows one error in any path segment. This is much less
+efficient than without the <b>(#a1)</b>, however, since
+every directory in the path must be scanned for a possible
+approximate match. It is best to place the <b>(#a1)</b>
+after any path segments which are known to be correct.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Recursive
+Globbing</b> <br>
+A pathname component of the form
+&lsquo;<b>(</b><i>foo</i><b>/)#</b>&rsquo; matches a path
+consisting of zero or more directories matching the pattern
+<i>foo</i>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">As a shorthand,
+&lsquo;<b>**/</b>&rsquo; is equivalent to
+&lsquo;<b>(*/)#</b>&rsquo;; note that this therefore matches
+files in the current directory as well as subdirectories.
+Thus:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+(*/)#bar</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">or</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+**/bar</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">does a
+recursive directory search for files named
+&lsquo;<b>bar</b>&rsquo; (potentially including the file
+&lsquo;<b>bar</b>&rsquo; in the current directory). This
+form does not follow symbolic links; the alternative form
+&lsquo;<b>***/</b>&rsquo; does, but is otherwise identical.
+Neither of these can be combined with other forms of
+globbing within the same path segment; in that case, the
+&lsquo;<b>*</b>&rsquo; operators revert to their usual
+effect.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Glob
+Qualifiers</b> <br>
+Patterns used for filename generation may end in a list of
+qualifiers enclosed in parentheses. The qualifiers specify
+which filenames that otherwise match the given pattern will
+be inserted in the argument list.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the option
+<b>BARE_GLOB_QUAL</b> is set, then a trailing set of
+parentheses containing no &lsquo;<b>|</b>&rsquo; or
+&lsquo;<b>(</b>&rsquo; characters (or &lsquo;<b>~</b>&rsquo;
+if it is special) is taken as a set of glob qualifiers. A
+glob subexpression that would normally be taken as glob
+qualifiers, for example &lsquo;<b>(^x)</b>&rsquo;, can be
+forced to be treated as part of the glob pattern by doubling
+the parentheses, in this case producing
+&lsquo;<b>((^x))</b>&rsquo;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">If the option
+<b>EXTENDED_GLOB</b> is set, a different syntax for glob
+qualifiers is available, namely &lsquo;<b>(#qx)</b>&rsquo;
+where <b>x</b> is any of the same glob qualifiers used in
+the other format. The qualifiers must still appear at the
+end of the pattern. However, with this syntax multiple glob
+qualifiers may be chained together. They are treated as a
+logical AND of the individual sets of flags. Also, as the
+syntax is unambiguous, the expression will be treated as
+glob qualifiers just as long any parentheses contained
+within it are balanced; appearance of
+&lsquo;<b>|</b>&rsquo;, &lsquo;<b>(</b>&rsquo; or
+&lsquo;<b>~</b>&rsquo; does not negate the effect. Note that
+qualifiers will be recognised in this form even if a bare
+glob qualifier exists at the end of the pattern, for example
+&lsquo;<b>*(#q*)(.)</b>&rsquo; will recognise executable
+regular files if both options are set; however, mixed syntax
+should probably be avoided for the sake of clarity.</p>
+
+<p style="margin-left:11%; margin-top: 1em">A qualifier may
+be any one of the following:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p style="margin-top: 1em"><b>/</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">directories</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>F</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>&lsquo;full&rsquo; (i.e. non&minus;empty) directories.
+Note that the opposite sense <b>(^F)</b> expands to empty
+directories and all non&minus;directories. Use <b>(/^F)</b>
+for empty directories.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>.</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>plain files</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>@</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>symbolic links</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>=</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>sockets</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>p</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>named pipes (FIFOs)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>*</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>executable plain files (0100)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>%</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>device files (character or block special)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>%b</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>block special files</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>%c</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>character special files</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>r</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>owner&minus;readable files (0400)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>w</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>owner&minus;writable files (0200)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>x</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>owner&minus;executable files (0100)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>A</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>group&minus;readable files (0040)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>I</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>group&minus;writable files (0020)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>E</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>group&minus;executable files (0010)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>R</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>world&minus;readable files (0004)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>W</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>world&minus;writable files (0002)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>X</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>world&minus;executable files (0001)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>s</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>setuid files (04000)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>S</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>setgid files (02000)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>t</b></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>files with the sticky bit (01000)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="7%">
+
+
+<p><b>f</b><i>spec</i></p></td>
+<td width="4%"></td>
+<td width="78%">
+
+
+<p>files with access rights matching <i>spec</i>. This
+<i>spec</i> may be a octal number optionally preceded by a
+&lsquo;<b>=</b>&rsquo;, a &lsquo;<b>+</b>&rsquo;, or a
+&lsquo;<b>&minus;</b>&rsquo;. If none of these characters is
+given, the behavior is the same as for
+&lsquo;<b>=</b>&rsquo;. The octal number describes the mode
+bits to be expected, if combined with a
+&lsquo;<b>=</b>&rsquo;, the value given must match the
+file&minus;modes exactly, with a &lsquo;<b>+</b>&rsquo;, at
+least the bits in the given number must be set in the
+file&minus;modes, and with a &lsquo;<b>&minus;</b>&rsquo;,
+the bits in the number must not be set. Giving a
+&lsquo;<b>?</b>&rsquo; instead of a octal digit anywhere in
+the number ensures that the corresponding bits in the
+file&minus;modes are not checked, this is only useful in
+combination with &lsquo;<b>=</b>&rsquo;.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">If the
+qualifier &lsquo;<b>f</b>&rsquo; is followed by any other
+character anything up to the next matching character
+(&lsquo;<b>[</b>&rsquo;, &lsquo;<b>{</b>&rsquo;, and
+&lsquo;<b>&lt;</b>&rsquo; match &lsquo;<b>]</b>&rsquo;,
+&lsquo;<b>}</b>&rsquo;, and &lsquo;<b>&gt;</b>&rsquo;
+respectively, any other character matches itself) is taken
+as a list of comma&minus;separated <i>sub&minus;spec</i>s.
+Each <i>sub&minus;spec</i> may be either an octal number as
+described above or a list of any of the characters
+&lsquo;<b>u</b>&rsquo;, &lsquo;<b>g</b>&rsquo;,
+&lsquo;<b>o</b>&rsquo;, and &lsquo;<b>a</b>&rsquo;, followed
+by a &lsquo;<b>=</b>&rsquo;, a &lsquo;<b>+</b>&rsquo;, or a
+&lsquo;<b>&minus;</b>&rsquo;, followed by a list of any of
+the characters &lsquo;<b>r</b>&rsquo;,
+&lsquo;<b>w</b>&rsquo;, &lsquo;<b>x</b>&rsquo;,
+&lsquo;<b>s</b>&rsquo;, and &lsquo;<b>t</b>&rsquo;, or an
+octal digit. The first list of characters specify which
+access rights are to be checked. If a &lsquo;<b>u</b>&rsquo;
+is given, those for the owner of the file are used, if a
+&lsquo;<b>g</b>&rsquo; is given, those of the group are
+checked, a &lsquo;<b>o</b>&rsquo; means to test those of
+other users, and the &lsquo;<b>a</b>&rsquo; says to test all
+three groups. The &lsquo;<b>=</b>&rsquo;,
+&lsquo;<b>+</b>&rsquo;, and &lsquo;<b>&minus;</b>&rsquo;
+again says how the modes are to be checked and have the same
+meaning as described for the first form above. The second
+list of characters finally says which access rights are to
+be expected: &lsquo;<b>r</b>&rsquo; for read access,
+&lsquo;<b>w</b>&rsquo; for write access,
+&lsquo;<b>x</b>&rsquo; for the right to execute the file (or
+to search a directory), &lsquo;<b>s</b>&rsquo; for the
+setuid and setgid bits, and &lsquo;<b>t</b>&rsquo; for the
+sticky bit.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Thus,
+&lsquo;<b>*(f70?)</b>&rsquo; gives the files for which the
+owner has read, write, and execute permission, and for which
+other group members have no rights, independent of the
+permissions for other users. The pattern
+&lsquo;<b>*(f&minus;100)</b>&rsquo; gives all files for
+which the owner does not have execute permission, and
+&lsquo;<b>*(f:gu+w,o&minus;rx:)</b>&rsquo; gives the files
+for which the owner and the other members of the group have
+at least write permission, and for which other users
+don&rsquo;t have read or execute permission.</p>
+
+<p style="margin-left:11%;"><b>e</b><i>string</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>+</b><i>cmd</i></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>The <i>string</i> will be executed as shell code. The
+filename will be included in the list if and only if the
+code returns a zero status (usually the status of the last
+command).</p> </td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em">In the first
+form, the first character after the &lsquo;<b>e</b>&rsquo;
+will be used as a separator and anything up to the next
+matching separator will be taken as the <i>string</i>;
+&lsquo;<b>[</b>&rsquo;, &lsquo;<b>{</b>&rsquo;, and
+&lsquo;<b>&lt;</b>&rsquo; match &lsquo;<b>]</b>&rsquo;,
+&lsquo;<b>}</b>&rsquo;, and &lsquo;<b>&gt;</b>&rsquo;,
+respectively, while any other character matches itself. Note
+that expansions must be quoted in the <i>string</i> to
+prevent them from being expanded before globbing is done.
+<i>string</i> is then executed as shell code. The string
+<b>globqual</b> is appended to the array
+<b>zsh_eval_context</b> the duration of execution.</p>
+
+<p style="margin-left:22%; margin-top: 1em">During the
+execution of <i>string</i> the filename currently being
+tested is available in the parameter <b>REPLY</b>; the
+parameter may be altered to a string to be inserted into the
+list instead of the original filename. In addition, the
+parameter <b>reply</b> may be set to an array or a string,
+which overrides the value of <b>REPLY</b>. If set to an
+array, the latter is inserted into the command line word by
+word.</p>
+
+<p style="margin-left:22%; margin-top: 1em">For example,
+suppose a directory contains a single file
+&lsquo;<b>lonely</b>&rsquo;. Then the expression
+&lsquo;<b>*(e:&rsquo;reply=(${REPLY}{1,2})&rsquo;:)</b>&rsquo;
+will cause the words &lsquo;<b>lonely1</b>&rsquo; and
+&lsquo;<b>lonely2</b>&rsquo; to be inserted into the command
+line. Note the quoting of <i>string</i>.</p>
+
+<p style="margin-left:22%; margin-top: 1em">The form
+<b>+</b><i>cmd</i> has the same effect, but no delimiters
+appear around <i>cmd</i>. Instead, <i>cmd</i> is taken as
+the longest sequence of characters following the <b>+</b>
+that are alphanumeric or underscore. Typically <i>cmd</i>
+will be the name of a shell function that contains the
+appropriate test. For example,</p>
+
+<p style="margin-left:32%; margin-top: 1em"><b>nt() { [[
+$REPLY &minus;nt $NTREF ]] } <br>
+NTREF=reffile <br>
+ls &minus;l *(+nt)</b></p>
+
+<p style="margin-left:22%; margin-top: 1em">lists all files
+in the directory that have been modified more recently than
+<b>reffile</b>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p style="margin-top: 1em"><b>d</b><i>dev</i></p></td>
+<td width="5%"></td>
+<td width="35%">
+
+
+<p style="margin-top: 1em">files on the device
+<i>dev</i></p> </td>
+<td width="43%">
+</td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>l</b>[<b>&minus;</b>|<b>+</b>]<i>ct</i></p>
+
+<p style="margin-left:22%;">files having a link count less
+than <i>ct</i> (<b>&minus;</b>), greater than <i>ct</i>
+(<b>+</b>), or equal to <i>ct</i></p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>U</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>files owned by the effective user ID</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>G</b></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>files owned by the effective group ID</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>u</b><i>id</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>files owned by user ID <i>id</i> if that is a number.
+Otherwise, <i>id</i> specifies a user name: the character
+after the &lsquo;<b>u</b>&rsquo; will be taken as a
+separator and the string between it and the next matching
+separator will be taken as a user name. The starting
+separators &lsquo;<b>[</b>&rsquo;, &lsquo;<b>{</b>&rsquo;,
+and &lsquo;<b>&lt;</b>&rsquo; match the final separators
+&lsquo;<b>]</b>&rsquo;, &lsquo;<b>}</b>&rsquo;, and
+&lsquo;<b>&gt;</b>&rsquo;, respectively; any other character
+matches itself. The selected files are those owned by this
+user. For example, &lsquo;<b>u:foo:</b>&rsquo; or
+&lsquo;<b>u[foo]</b>&rsquo; selects files owned by user
+&lsquo;<b>foo</b>&rsquo;.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+
+<p><b>g</b><i>id</i></p></td>
+<td width="7%"></td>
+<td width="78%">
+
+
+<p>like <b>u</b><i>id</i> but with group IDs or names</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>a</b>[<b>Mwhms</b>][<b>&minus;</b>|<b>+</b>]<i>n</i></p>
+
+<p style="margin-left:22%;">files accessed exactly <i>n</i>
+days ago. Files accessed within the last <i>n</i> days are
+selected using a negative value for <i>n</i>
+(<b>&minus;</b><i>n</i>). Files accessed more than <i>n</i>
+days ago are selected by a positive <i>n</i> value
+(<b>+</b><i>n</i>). Optional unit specifiers
+&lsquo;<b>M</b>&rsquo;, &lsquo;<b>w</b>&rsquo;,
+&lsquo;<b>h</b>&rsquo;, &lsquo;<b>m</b>&rsquo; or
+&lsquo;<b>s</b>&rsquo; (e.g. &lsquo;<b>ah5</b>&rsquo;) cause
+the check to be performed with months (of 30 days), weeks,
+hours, minutes or seconds instead of days, respectively. An
+explicit &lsquo;<b>d</b>&rsquo; for days is also
+allowed.</p>
+
+<p style="margin-left:22%; margin-top: 1em">Any fractional
+part of the difference between the access time and the
+current part in the appropriate units is ignored in the
+comparison. For instance, &lsquo;<b>echo
+*(ah&minus;5)</b>&rsquo; would echo files accessed within
+the last five hours, while &lsquo;<b>echo *(ah+5)</b>&rsquo;
+would echo files accessed at least six hours ago, as times
+strictly between five and six hours are treated as five
+hours.</p>
+
+
+<p style="margin-left:11%;"><b>m</b>[<b>Mwhms</b>][<b>&minus;</b>|<b>+</b>]<i>n</i></p>
+
+<p style="margin-left:22%;">like the file access qualifier,
+except that it uses the file modification time.</p>
+
+
+<p style="margin-left:11%;"><b>c</b>[<b>Mwhms</b>][<b>&minus;</b>|<b>+</b>]<i>n</i></p>
+
+<p style="margin-left:22%;">like the file access qualifier,
+except that it uses the file inode change time.</p>
+
+
+<p style="margin-left:11%;"><b>L</b>[<b>+</b>|<b>&minus;</b>]<i>n</i></p>
+
+<p style="margin-left:22%;">files less than <i>n</i> bytes
+(<b>&minus;</b>), more than <i>n</i> bytes (<b>+</b>), or
+exactly <i>n</i> bytes in length.</p>
+
+<p style="margin-left:22%; margin-top: 1em">If this flag is
+directly followed by a &lsquo;<b>k</b>&rsquo;
+(&lsquo;<b>K</b>&rsquo;), &lsquo;<b>m</b>&rsquo;
+(&lsquo;<b>M</b>&rsquo;), or &lsquo;<b>p</b>&rsquo;
+(&lsquo;<b>P</b>&rsquo;) (e.g.
+&lsquo;<b>Lk&minus;50</b>&rsquo;) the check is performed
+with kilobytes, megabytes, or blocks (of 512 bytes) instead.
+In this case a file is regarded as &quot;exactly&quot; the
+size if the file size rounded up to the next unit is equal
+to the test size. Hence &lsquo;<b>*(Lm1)</b>&rsquo; matches
+files from 1 byte up to 1 Megabyte inclusive. Note also that
+the set of files &quot;less than&quot; the test size only
+includes files that would not match the equality test; hence
+&lsquo;<b>*(Lm&minus;1)</b>&rsquo; only matches files of
+zero size.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>^</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>negates all qualifiers following it</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>toggles between making the qualifiers work on symbolic
+links (the default) and the files they point to</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>M</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>sets the <b>MARK_DIRS</b> option for the current
+pattern</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>T</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>appends a trailing qualifier mark to the filenames,
+analogous to the <b>LIST_TYPES</b> option, for the current
+pattern (overrides <b>M</b>)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>N</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>sets the <b>NULL_GLOB</b> option for the current
+pattern</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>D</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>sets the <b>GLOB_DOTS</b> option for the current
+pattern</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>n</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>sets the <b>NUMERIC_GLOB_SORT</b> option for the current
+pattern</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>o</b><i>c</i></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>specifies how the names of the files should be sorted.
+If <i>c</i> is <b>n</b> they are sorted by name (the
+default); if it is <b>L</b> they are sorted depending on the
+size (length) of the files; if <b>l</b> they are sorted by
+the number of links; if <b>a</b>, <b>m</b>, or <b>c</b> they
+are sorted by the time of the last access, modification, or
+inode change respectively; if <b>d</b>, files in
+subdirectories appear before those in the current directory
+at each level of the search &minus;&minus; this is best
+combined with other criteria, for example
+&lsquo;<b>odon</b>&rsquo; to sort on names for files within
+the same directory; if <b>N</b>, no sorting is performed.
+Note that <b>a</b>, <b>m</b>, and <b>c</b> compare the age
+against the current time, hence the first name in the list
+is the youngest file. Also note that the modifiers <b>^</b>
+and <b>&minus;</b> are used, so
+&lsquo;<b>*(^&minus;oL)</b>&rsquo; gives a list of all files
+sorted by file size in descending order, following any
+symbolic links. Unless <b>oN</b> is used, multiple order
+specifiers may occur to resolve ties.</p></td></tr>
+</table>
+
+<p style="margin-left:22%; margin-top: 1em"><b>oe</b> and
+<b>o+</b> are special cases; they are each followed by shell
+code, delimited as for the <b>e</b> glob qualifier and the
+<b>+</b> glob qualifier respectively (see above). The code
+is executed for each matched file with the parameter
+<b>REPLY</b> set to the name of the file on entry and
+<b>globsort</b> appended to <b>zsh_eval_context</b>. The
+code should modify the parameter <b>REPLY</b> in some
+fashion. On return, the value of the parameter is used
+instead of the file name as the string on which to sort.
+Unlike other sort operators, <b>oe</b> and <b>o+</b> may be
+repeated, but note that the maximum number of sort operators
+of any kind that may appear in any glob expression is
+12.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p style="margin-top: 1em"><b>O</b><i>c</i></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p style="margin-top: 1em">like &lsquo;<b>o</b>&rsquo;, but
+sorts in descending order; i.e. &lsquo;<b>*(^oc)</b>&rsquo;
+is the same as &lsquo;<b>*(Oc)</b>&rsquo; and
+&lsquo;<b>*(^Oc)</b>&rsquo; is the same as
+&lsquo;<b>*(oc)</b>&rsquo;; &lsquo;<b>Od</b>&rsquo; puts
+files in the current directory before those in
+subdirectories at each level of the search.</p></td></tr>
+</table>
+
+
+<p style="margin-left:11%;"><b>[</b><i>beg</i>[<b>,</b><i>end</i>]<b>]</b></p>
+
+<p style="margin-left:22%;">specifies which of the matched
+filenames should be included in the returned list. The
+syntax is the same as for array subscripts. <i>beg</i> and
+the optional <i>end</i> may be mathematical expressions. As
+in parameter subscripting they may be negative to make them
+count from the last match backward. E.g.:
+&lsquo;<b>*(&minus;OL[1,3])</b>&rsquo; gives a list of the
+names of the three largest files.</p>
+
+<p style="margin-left:11%;"><b>P</b><i>string</i></p>
+
+<p style="margin-left:22%;">The <i>string</i> will be
+prepended to each glob match as a separate word.
+<i>string</i> is delimited in the same way as arguments to
+the <b>e</b> glob qualifier described above. The qualifier
+can be repeated; the words are prepended separately so that
+the resulting command line contains the words in the same
+order they were given in the list of glob qualifiers.</p>
+
+<p style="margin-left:22%; margin-top: 1em">A typical use
+for this is to prepend an option before all occurrences of a
+file name; for example, the pattern
+&lsquo;<b>*(P:&minus;f:)</b>&rsquo; produces the command
+line arguments &lsquo;<b>&minus;f</b> <i>file1</i>
+<b>&minus;f</b> <i>file2</i> ...&rsquo;</p>
+
+<p style="margin-left:11%; margin-top: 1em">More than one
+of these lists can be combined, separated by commas. The
+whole list matches if at least one of the sublists matches
+(they are &lsquo;or&rsquo;ed, the qualifiers in the sublists
+are &lsquo;and&rsquo;ed). Some qualifiers, however, affect
+all matches generated, independent of the sublist in which
+they are given. These are the qualifiers
+&lsquo;<b>M</b>&rsquo;, &lsquo;<b>T</b>&rsquo;,
+&lsquo;<b>N</b>&rsquo;, &lsquo;<b>D</b>&rsquo;,
+&lsquo;<b>n</b>&rsquo;, &lsquo;<b>o</b>&rsquo;,
+&lsquo;<b>O</b>&rsquo; and the subscripts given in brackets
+(&lsquo;<b>[...]</b>&rsquo;).</p>
+
+<p style="margin-left:11%; margin-top: 1em">If a
+&lsquo;<b>:</b>&rsquo; appears in a qualifier list, the
+remainder of the expression in parenthesis is interpreted as
+a modifier (see the section &lsquo;Modifiers&rsquo; in the
+section &lsquo;History Expansion&rsquo;). Each modifier must
+be introduced by a separate &lsquo;<b>:</b>&rsquo;. Note
+also that the result after modification does not have to be
+an existing file. The name of any existing file can be
+followed by a modifier of the form
+&lsquo;<b>(:..)</b>&rsquo; even if no actual filename
+generation is performed, although note that the presence of
+the parentheses causes the entire expression to be subjected
+to any global pattern matching options such as
+<b>NULL_GLOB</b>. Thus:</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+*(&minus;/)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">lists all
+directories and symbolic links that point to directories,
+and</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+*(%W)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">lists all
+world&minus;writable device files in the current directory,
+and</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+*(W,X)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">lists all files
+in the current directory that are world&minus;writable or
+world&minus;executable, and</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>echo
+/tmp/foo*(u0^@:t)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">outputs the
+basename of all root&minus;owned files beginning with the
+string &lsquo;<b>foo</b>&rsquo; in <b>/tmp</b>, ignoring
+symlinks, and</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>ls
+*.*~(lex|parse).[ch](^D^l1)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">lists all files
+having a link count of one whose names contain a dot (but
+not those starting with a dot, since <b>GLOB_DOTS</b> is
+explicitly switched off) except for <b>lex.c</b>,
+<b>lex.h</b>, <b>parse.c</b> and <b>parse.h</b>.</p>
+
+<p style="margin-left:22%; margin-top: 1em"><b>print
+b*.pro(#q:s/pro/shmo/)(#q.:s/builtin/shmiltin/)</b></p>
+
+<p style="margin-left:11%; margin-top: 1em">demonstrates
+how colon modifiers and other qualifiers may be chained
+together. The ordinary qualifier &lsquo;<b>.</b>&rsquo; is
+applied first, then the colon modifiers in order from left
+to right. So if <b>EXTENDED_GLOB</b> is set and the base
+pattern matches the regular file <b>builtin.pro</b>, the
+shell will print &lsquo;<b>shmiltin.shmo</b>&rsquo;.</p>
+<hr>
+</body>
+</html>
