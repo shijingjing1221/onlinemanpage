@@ -1,0 +1,366 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:44:09 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>virt-alignment-scan(1) Virtualization Support
+virt-alignment-scan(1)</p>
+
+<p>NAME virt-alignment-scan - Check alignment of virtual
+machine partitions</p>
+
+<p>SYNOPSIS virt-alignment-scan [--options] -d domname</p>
+
+<p>virt-alignment-scan [--options] -a disk.img [-a disk.img
+...]</p>
+
+<p>virt-alignment-scan [--options]</p>
+
+<p>DESCRIPTION When older operating systems install
+themselves, the partitioning tools place partitions at a
+sector misaligned with the underlying storage (commonly the
+first partition starts on sector 63). Misaligned partitions
+can result in an operating system issuing more I/O than
+should be necessary.</p>
+
+<p>The virt-alignment-scan tool checks the alignment of
+partitions in virtual machines and disk images and warns you
+if there are alignment problems.</p>
+
+<p>Currently there is no virt tool for fixing alignment
+problems. You can only reinstall the guest operating system.
+The following NetApp document summarises the problem and
+possible solutions:
+http://media.netapp.com/documents/tr-3747.pdf</p>
+
+<p>OUTPUT To run this tool on a disk image directly, use
+the -a option:</p>
+
+<p>$ virt-alignment-scan -a winxp.img /dev/sda1 32256 512
+bad (alignment &lt; 4K)</p>
+
+<p>$ virt-alignment-scan -a fedora16.img /dev/sda1 1048576
+1024K ok /dev/sda2 2097152 2048K ok /dev/sda3 526385152
+2048K ok</p>
+
+<p>To run the tool on a guest known to libvirt, use the -d
+option and possibly the -c option:</p>
+
+<p># virt-alignment-scan -d RHEL5 /dev/sda1 32256 512 bad
+(alignment &lt; 4K) /dev/sda2 106928640 512 bad (alignment
+&lt; 4K)</p>
+
+<p>$ virt-alignment-scan -c qemu:///system -d Win7TwoDisks
+/dev/sda1 1048576 1024K ok /dev/sda2 105906176 1024K ok
+/dev/sdb1 65536 64K ok</p>
+
+<p>Run virt-alignment-scan without any -a or -d options to
+scan all libvirt domains.</p>
+
+<p># virt-alignment-scan F16x64:/dev/sda1 1048576 1024K ok
+F16x64:/dev/sda2 2097152 2048K ok F16x64:/dev/sda3 526385152
+2048K ok</p>
+
+<p>The output consists of 4 or more whitespace-separated
+columns. Only the first 4 columns are significant if you
+want to parse this from a program. The columns are:</p>
+
+<p>col 1 The device and partition name (eg.
+&quot;/dev/sda1&quot; meaning the first partition on the
+first block device).</p>
+
+<p>When listing all libvirt domains (no -a or -d option
+given) this column is prefixed by the libvirt name or UUID
+(if --uuid is given). eg: &quot;WinXP:/dev/sda1&quot;</p>
+
+<p>col 2 the start of the partition in bytes</p>
+
+<p>col 3 the alignment in bytes or Kbytes (eg. 512 or
+&quot;4K&quot;)</p>
+
+<p>col 4 &quot;ok&quot; if the alignment is best for
+performance, or &quot;bad&quot; if the alignment can cause
+performance problems</p>
+
+<p>cols 5+ optional free-text explanation.</p>
+
+<p>The exit code from the program changes depending on
+whether poorly aligned partitions were found. See &quot;EXIT
+STATUS&quot; below.</p>
+
+<p>If you just want the exit code with no output, use the
+-q option.</p>
+
+<p>OPTIONS --help Display brief help.</p>
+
+<p>-a file --add file Add file which should be a disk image
+from a virtual machine.</p>
+
+<p>The format of the disk image is auto-detected. To
+override this and force a particular format use the
+--format=.. option.</p>
+
+<p>-c URI --connect URI If using libvirt, connect to the
+given URI. If omitted, then we connect to the default
+libvirt hypervisor.</p>
+
+<p>If you specify guest block devices directly (-a), then
+libvirt is not used at all.</p>
+
+<p>-d guest --domain guest Add all the disks from the named
+libvirt guest. Domain UUIDs can be used instead of
+names.</p>
+
+<p>--format=raw|qcow2|.. --format The default for the -a
+option is to auto-detect the format of the disk image. Using
+this forces the disk format for -a options which follow on
+the command line. Using --format with no argument switches
+back to auto-detection for subsequent -a options.</p>
+
+<p>For example:</p>
+
+<p>virt-alignment-scan --format=raw -a disk.img</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot;.</p>
+
+<p>virt-alignment-scan --format=raw -a disk.img --format -a
+another.img</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot; and reverts to auto-detection for
+&quot;another.img&quot;.</p>
+
+<p>If you have untrusted raw-format guest disk images, you
+should use this option to specify the disk format. This
+avoids a possible security problem with malicious guests
+(CVE-2010-3851).</p>
+
+<p>-q --quiet Dont produce any output. Just set the exit
+code (see &quot;EXIT STATUS&quot; below).</p>
+
+<p>--uuid Print UUIDs instead of names. This is useful for
+following a guest even when the guest is migrated or
+renamed, or when two guests happen to have the same
+name.</p>
+
+<p>This option only applies when listing all libvirt
+domains (when no -a or -d options are specified).</p>
+
+<p>-v --verbose Enable verbose messages for debugging.</p>
+
+<p>-V --version Display version number and exit.</p>
+
+<p>-x Enable tracing of libguestfs API calls.</p>
+
+<p>RECOMMENDED ALIGNMENT Operating systems older than
+Windows 2008 and Linux before ca.2010 place the first sector
+of the first partition at sector 63, with a 512 byte sector
+size. This happens because of a historical accident. Drives
+have to report a cylinder / head / sector (CHS) geometry to
+the BIOS. The geometry is completely meaningless on modern
+drives, but it happens that the geometry reported always has
+63 sectors per track. The operating system therefore places
+the first partition at the start of the second
+&quot;track&quot;, at sector 63.</p>
+
+<p>When the guest OS is virtualized, the host operating
+system and hypervisor may prefer accesses aligned to one
+of:</p>
+
+<p>&middot; 512 bytes</p>
+
+<p>if the host OS uses local storage directly on hard drive
+partitions, and the hard drive has 512 byte physical
+sectors.</p>
+
+<p>&middot; 4 Kbytes</p>
+
+<p>for local storage on new hard drives with 4Kbyte
+physical sectors; for file-backed storage on filesystems
+with 4Kbyte block size; or for some types of
+network-attached storage.</p>
+
+<p>&middot; 64 Kbytes</p>
+
+<p>for high-end network-attached storage. This is the
+optimal block size for some NetApp hardware.</p>
+
+<p>&middot; 1 Mbyte</p>
+
+<p>see &quot;1 MB PARTITION ALIGNMENT&quot; below.</p>
+
+<p>Partitions which are not aligned correctly to the
+underlying storage cause extra I/O. For example:</p>
+
+<p>sect#63 +--------------------------+------ | guest | |
+filesystem block |
+---+------------------+------+-------------------+-----+---
+| host block | host block | | | |
+---+-------------------------+-------------------------+---</p>
+
+<p>In this example, each time a 4K guest block is read, two
+blocks on the host must be accessed (so twice as much I/O is
+done). When a 4K guest block is written, two host blocks
+must first be read, the old and new data combined, and the
+two blocks written back (4x I/O).</p>
+
+<p>LINUX HOST BLOCK AND I/O SIZE New versions of the Linux
+kernel expose the physical and logical block size, and
+minimum and recommended I/O size.</p>
+
+<p>For a typical consumer hard drive with 512 byte
+sectors:</p>
+
+<p>$ cat /sys/block/sda/queue/hw_sector_size 512 $ cat
+/sys/block/sda/queue/physical_block_size 512 $ cat
+/sys/block/sda/queue/logical_block_size 512 $ cat
+/sys/block/sda/queue/minimum_io_size 512 $ cat
+/sys/block/sda/queue/optimal_io_size 0</p>
+
+<p>For a new consumer hard drive with 4Kbyte sectors:</p>
+
+<p>$ cat /sys/block/sda/queue/hw_sector_size 4096 $ cat
+/sys/block/sda/queue/physical_block_size 4096 $ cat
+/sys/block/sda/queue/logical_block_size 4096 $ cat
+/sys/block/sda/queue/minimum_io_size 4096 $ cat
+/sys/block/sda/queue/optimal_io_size 0</p>
+
+<p>For a NetApp LUN:</p>
+
+<p>$ cat /sys/block/sdc/queue/logical_block_size 512 $ cat
+/sys/block/sdc/queue/physical_block_size 512 $ cat
+/sys/block/sdc/queue/minimum_io_size 4096 $ cat
+/sys/block/sdc/queue/optimal_io_size 65536</p>
+
+<p>The NetApp allows 512 byte accesses (but they will be
+very inefficient), prefers a minimum 4K I/O size, but the
+optimal I/O size is 64K.</p>
+
+<p>For detailed information about what these numbers mean,
+see
+http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Storage_Administration_Guide/newstorage-iolimits.html</p>
+
+<p>[Thanks to Matt Booth for providing 4K drive data.
+Thanks to Mike Snitzer for providing NetApp data and
+additional information.]</p>
+
+<p>1 MB PARTITION ALIGNMENT Microsoft picked 1 MB as the
+default alignment for all partitions starting with Windows
+2008 Server, and Linux has followed this.</p>
+
+<p>Assuming 512 byte sectors in the guest, you will now see
+the first partition starting at sector 2048, and subsequent
+partitions (if any) will start at a multiple of 2048
+sectors.</p>
+
+<p>1 MB alignment is compatible with all current alignment
+requirements (4K, 64K) and provides room for future growth
+in physical block sizes.</p>
+
+<p>SETTING ALIGNMENT virt-resize(1) can change the
+alignment of the partitions of some guests. Currently it can
+fully align all the partitions of all Windows guests, and it
+will fix the bootloader where necessary. For Linux guests,
+it can align the second and subsequent partitions, so the
+majority of OS accesses except at boot will be aligned.</p>
+
+<p>Another way to correct partition alignment problems is
+to reinstall your guest operating systems. If you install
+operating systems from templates, ensure these have correct
+partition alignment too.</p>
+
+<p>For older versions of Windows, the following NetApp
+document contains useful information:
+http://media.netapp.com/documents/tr-3747.pdf</p>
+
+<p>For Red Hat Enterprise Linux 5, use a Kickstart script
+that contains an explicit %pre section that creates aligned
+partitions using parted(8). Do not use the Kickstart
+&quot;part&quot; command. The NetApp document above contains
+an example.</p>
+
+<p>SHELL QUOTING Libvirt guest names can contain arbitrary
+characters, some of which have meaning to the shell such as
+&quot;#&quot; and space. You may need to quote or escape
+these characters on the command line. See the shell manual
+page sh(1) for details.</p>
+
+<p>EXIT STATUS This program returns:</p>
+
+<p>&middot; 0</p>
+
+<p>successful exit, all partitions are aligned 64K for best
+performance</p>
+
+<p>&middot; 1</p>
+
+<p>an error scanning the disk image or guest</p>
+
+<p>&middot; 2</p>
+
+<p>successful exit, some partitions have alignment &lt; 64K
+which can result in poor performance on high end network
+storage</p>
+
+<p>&middot; 3</p>
+
+<p>successful exit, some partitions have alignment &lt; 4K
+which can result in poor performance on most hypervisors</p>
+
+<p>SEE ALSO guestfs(3), guestfish(1), virt-filesystems(1),
+virt-rescue(1), virt-resize(1), http://libguestfs.org/.</p>
+
+<p>AUTHOR Richard W.M. Jones
+http://people.redhat.com/~rjones/</p>
+
+<p>COPYRIGHT Copyright (C) 2011 Red Hat Inc.</p>
+
+<p>LICENSE This program is free software; you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your
+option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more
+details.</p>
+
+<p>You should have received a copy of the GNU General
+Public License along with this program; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, MA 02110-1301 USA.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 virt-alignment-scan(1)</p>
+<hr>
+</body>
+</html>

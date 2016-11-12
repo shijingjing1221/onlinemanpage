@@ -1,0 +1,50 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:34:43 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SK_HAS_SLEEPER(9) Linux Networking SK_HAS_SLEEPER(9)</p>
+
+<p>NAME sk_has_sleeper - check if there are any waiting
+processes</p>
+
+<p>SYNOPSIS int sk_has_sleeper(struct sock * sk);</p>
+
+<p>ARGUMENTS sk socket</p>
+
+<p>DESCRIPTION Returns true if socket has waiting
+processes</p>
+
+<p>The purpose of the sk_has_sleeper and sock_poll_wait is
+to wrap the memory barrier call. They were added due to the
+race found within the tcp code.</p>
+
+<p>CONSIDER FOLLOWING TCP CODE PATHS CPU1 CPU2</p>
+
+<p>sys_select receive packet ... ... __add_wait_queue
+update tp-&gt;rcv_nxt ... ... tp-&gt;rcv_nxt check
+sock_def_readable ... { schedule ... if (sk-&gt;sk_sleep
+&amp;&amp; waitqueue_active(sk-&gt;sk_sleep))
+wake_up_interruptible(sk-&gt;sk_sleep) ... }</p>
+
+<p>The race for tcp fires when the __add_wait_queue changes
+done by CPU1 stay in its cache, and so does the
+tp-&gt;rcv_nxt update on CPU2 side. The CPU1 could then
+endup calling schedule and sleep forever if there are no
+more data on the socket.</p>
+
+<p>The sk_has_sleeper is always called right after a call
+to read_lock, so we can use smp_mb__after_lock barrier.</p>
+
+<p>COPYRIGHT Kernel Hackers Manual 2.6. April 2016
+SK_HAS_SLEEPER(9)</p>
+<hr>
+</body>
+</html>

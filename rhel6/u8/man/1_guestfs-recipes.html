@@ -1,0 +1,524 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:18:22 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>guestfs-recipes(1) Virtualization Support
+guestfs-recipes(1)</p>
+
+<p>NAME guestfs-recipes - libguestfs, guestfish and virt
+tools recipes</p>
+
+<p>DESCRIPTION This page contains recipes for and links to
+things you can do using libguestfs, guestfish(1) and the
+virt tools.</p>
+
+<p>Audit a virtual machine for setuid files See:
+&quot;EXAMPLES&quot; in virt-ls(1).</p>
+
+<p>Change the background image in a Windows XP VM The links
+below explain how to use guestfish(1) to change the
+background image for a user of a Windows XP VM.
+Unfortunately the technique appears to be substantially
+different for each version of Windows.</p>
+
+
+<p>https://lists.fedoraproject.org/pipermail/virt/2011-May/002655.html
+https://lists.fedoraproject.org/pipermail/virt/2011-May/002658.html</p>
+
+<p>Checksum a file or device within a disk image To
+checksum a whole device, or a partition, LV etc within a
+disk image:</p>
+
+<p>guestfish --ro -a disk.img run : checksum-device md5
+/dev/sda1</p>
+
+<p>Replace &quot;md5&quot; with the type of checksum you
+want. See &quot;guestfs_checksum_device&quot; in guestfs(3)
+for a list of supported types.</p>
+
+<p>&quot;/dev/sda1&quot; means &quot;the first
+partition&quot;. You could use &quot;/dev/sda&quot; to
+checksum the whole disk image, or the name of a logical
+volume or RAID device.</p>
+
+<p>To checksum a single file:</p>
+
+<p>guestfish --ro -a disk.img -i checksum sha256
+/etc/passwd</p>
+
+<p>or for a Windows guest:</p>
+
+<p>guestfish --ro -a disk.img -i checksum sha256
+&rsquo;win:312gTWARE&rsquo;</p>
+
+<p>Cloning a virtual machine Use a combination of tools
+like cp(1), dd(1), and virt tools like virt-sysprep(1),
+virt-sparsify(1) and virt-resize(1).</p>
+
+<p>For more details, see: &quot;COPYING AND CLONING&quot;
+in virt-sysprep(1).</p>
+
+<p>Convert a CD-ROM / DVD / ISO to a tarball This converts
+input &quot;cd.iso&quot; to output
+&quot;cd.tar.gz&quot;:</p>
+
+<p>guestfish --ro -a cd.iso -m /dev/sda tgz-out /
+cd.tar.gz</p>
+
+<p>To export just a subdirectory, eg. &quot;/files&quot;,
+do:</p>
+
+<p>guestfish --ro -a cd.iso -m /dev/sda tgz-out /files
+cd.tar.gz</p>
+
+<p>Convert from one format/filesystem to another If you
+have a data disk in one format / filesystem / partition /
+volume manager, you can convert it another using this
+technique.</p>
+
+<p>In this example, we start with a data disk that has a
+single partition containing a filesystem, and we want to
+create another disk that contains the same files but on an
+ext3 filesystem embedded in a logical volume on a sparse
+raw-format disk.</p>
+
+<p>First create the formatted-but-empty target disk:</p>
+
+<p>truncate -s 10G target.img virt-format -a target.img
+--partition=mbr --lvm --filesystem=ext3</p>
+
+<p>Now, pipe two guestfish instances together to transfer
+the old data to the new disk:</p>
+
+<p>guestfish --ro -a source.img -m /dev/sda1 -- tar-out / -
+| guestfish --rw -a target.img -m /dev/VG/LV -- tar-in -
+/</p>
+
+<p>To browse the final disk image, do:</p>
+
+<p>guestfish --ro -a target.img -m /dev/VG/LV
+&gt;&lt;fs&gt; ll /</p>
+
+<p>This technique is quite powerful, allowing you for
+example to split up source directories over the target
+filesystems.</p>
+
+<p>Note this wont work (at least, not directly) for
+bootable virtual machine disks because it doesnt copy over
+the boot loader.</p>
+
+<p>Create empty disk images The virt-format(1) tool can do
+this directly.</p>
+
+<p>Use virt-make-fs(1) to create a disk image with content.
+This can also create some standard disk images such as
+virtual floppy devices (VFDs).</p>
+
+<p>You can also use the guestfish(1) -N option to create
+empty disk images. The useful guide below explains the
+options available.</p>
+
+
+<p>https://rwmj.wordpress.com/2010/09/08/new-guestfish-n-options-in-1-5-9/#content</p>
+
+<p>Delete a file (or other simple file operations) Use
+guestfish. To delete a file:</p>
+
+<p>guestfish -a disk.img -i rm /file/to/delete</p>
+
+<p>To touch a file (bring it up to date or create it):</p>
+
+<p>guestfish -a disk.img -i touch /file/to/touch</p>
+
+<p>To stat a file. Since this is a read-only operation, we
+can make it safer by adding the --ro flag.</p>
+
+<p>guestfish --ro -a disk.img -i stat /file/to/stat</p>
+
+<p>There are dozens of these commands. See guestfish(1) or
+the output of &quot;guestfish -h&quot;</p>
+
+<p>Diff two guests; compare a snapshot to the current
+version virt-ls(1) provides a simple way to find the
+differences between two guests (for example if they were
+originally cloned from the same source), or between two
+snapshots from the same guest. See &quot;DIFFERENCES IN
+SNAPSHOTS AND BACKING FILES&quot; in virt-ls(1).</p>
+
+<p>There are also experimental patches on the mailing list
+for a &quot;virt- diff&quot; tool.</p>
+
+<p>Dump raw filesystem content from inside a disk image or
+VM You can use the guestfish(1) &quot;download&quot; command
+to extract the raw filesystem content from any filesystem in
+a disk image or a VM (even one which is encrypted or buried
+inside an LV or RAID device):</p>
+
+<p>guestfish --ro -a disk.img run : download /dev/sda1
+sda1.img</p>
+
+<p>guestfish --ro -d Guest run : download
+/dev/vg_guest/lv_root lv.img</p>
+
+<p>To download to stdout, replace the filename with a
+&quot;-&quot; character:</p>
+
+<p>guestfish --ro -a disk.img run : download /dev/sda1 - |
+gzip &gt; sda1.gz</p>
+
+<p>To list the filesystems in a disk image, use
+virt-filesystems(1).</p>
+
+<p>See also &quot;Uploading raw filesystem
+content&quot;.</p>
+
+<p>Edit grub configuration in a VM You can use this to:</p>
+
+<p>&middot; Fix a virtual machine that does not boot.</p>
+
+<p>&middot; Change which kernel is used to boot the VM.</p>
+
+<p>&middot; Change kernel command line options.</p>
+
+<p>Use virt-edit(1) to edit the grub configuration:</p>
+
+<p>virt-edit -d BrokenGuest /boot/grub2/grub.cfg</p>
+
+<p>or for general tinkering inside an unbootable VM use
+virt-rescue(1) like this:</p>
+
+<p>virt-rescue -d BrokenGuest</p>
+
+<p>Export any directory from a VM To export
+&quot;/home&quot; from a VM into a local directory use
+virt-copy-out(1):</p>
+
+<p>virt-copy-out -d Guest /home .</p>
+
+<p>Notes:</p>
+
+<p>&middot; The final dot of the command is not a printing
+error. It means we want to copy out to the current
+directory.</p>
+
+<p>&middot; This creates a directory called
+&quot;home&quot; under the current directory.</p>
+
+<p>If the guest is a Windows guest then you can use drive
+letters and backslashes, but you must prefix the path with
+&quot;win:&quot; and quote it to protect it from the shell,
+like this:</p>
+
+<p>virt-copy-out -d WinGuest &rsquo;win:c:312g&rsquo; .</p>
+
+<p>To get the output as a compressed tarball, do:</p>
+
+<p>virt-tar-out -d Guest /home - | gzip --best &gt;
+home.tar.gz</p>
+
+<p>Although it sounds tempting, this is usually not a
+reliable way to get a backup from a running guest. See the
+entry in the FAQ: http://libguestfs.org/FAQ.html#backup</p>
+
+<p>Find out which user is using the most space This simple
+script examines a Linux guest to find out which user is
+using the most space in their home directory:</p>
+
+<p>#!/bin/sh -</p>
+
+<p>set -e</p>
+
+<p>vm=&quot;$1&quot; dir=/home</p>
+
+<p>eval $(guestfish --ro -d &quot;$vm&quot; -i
+--listen)</p>
+
+<p>for d in $(guestfish --remote ls &quot;$dir&quot;); do
+echo -n &quot;$dir/$d&quot; echo -ne &rsquo;&rsquo;
+guestfish --remote du &quot;$dir/$d&quot;; done | sort -nr
+-k 2</p>
+
+<p>guestfish --remote exit</p>
+
+<p>Get DHCP address from a VM The link below explains the
+many different possible techniques for getting the last
+assigned DHCP address of a virtual machine.</p>
+
+
+<p>https://rwmj.wordpress.com/2011/03/31/tip-code-for-getting-dhcp-address-from-a-virtual-machine-disk-image/#content</p>
+
+<p>In the libguestfs source examples directory you will
+find the latest version of the
+&quot;virt-dhcp-address.c&quot; program.</p>
+
+<p>Get the operating system product name string Save the
+following script into a file called
+&quot;product-name.sh&quot;:</p>
+
+<p>#!/bin/sh - set -e eval &quot;$(guestfish --ro -d
+&quot;$1&quot; --i --listen)&quot; root=&quot;$(guestfish
+--remote inspect-get-roots)&quot; guestfish --remote
+inspect-get-product-name &quot;$root&quot; guestfish
+--remote exit</p>
+
+<p>Make the script executable and run it on a named
+guest:</p>
+
+<p># product-name.sh RHEL60x64 Red Hat Enterprise Linux
+Server release 6.0 (Santiago)</p>
+
+<p>You can also use an XPath query on the virt-inspector(1)
+XML using the &quot;xpath&quot; command line tool or from
+your favourite programming language:</p>
+
+<p># virt-inspector RHEL60x64 &gt; xml # xpath
+&rsquo;//product_name&rsquo; &lt; xml Found 1 nodes: -- NODE
+-- &lt;product_name&gt;Red Hat Enterprise Linux Server
+release 6.0 (Santiago)&lt;/product_name&gt;</p>
+
+<p>Get the default boot kernel for a Linux VM The link
+below contains a program to print the default boot kernel
+for a Linux VM.</p>
+
+
+<p>https://rwmj.wordpress.com/2010/10/30/tip-use-augeas-to-get-the-default-boot-kernel-for-a-vm/#content</p>
+
+<p>It uses Augeas, and the technique is generally
+applicable for many different tasks, such as:</p>
+
+<p>&middot; listing the user accounts in the guest</p>
+
+<p>&middot; what repositories is it configured to use</p>
+
+<p>&middot; what NTP servers does it connect to</p>
+
+<p>&middot; what were the boot messages last time it
+booted</p>
+
+<p>&middot; listing who was logged in recently</p>
+
+<p>http://augeas.net/</p>
+
+<p>Hanging guests There are various ways to use libguestfs
+to find out why a guest is hanging or unresponsive:</p>
+
+<p>1. Read the log files using virt-cat:</p>
+
+<p>virt-cat Guest /var/log/messages | less</p>
+
+<p>2. Read the Windows Event Log (Windows Vista or later
+only):</p>
+
+
+<p>https://rwmj.wordpress.com/2011/04/17/decoding-the-windows-event-log-using-guestfish/#content</p>
+
+<p>3. Find out which files were last updated in a
+guest:</p>
+
+
+<p>https://rwmj.wordpress.com/2012/02/27/using-libguestfs-to-find-out-why-a-windows-guest-was-hanging/#content</p>
+
+<p>This might give you a clue as to what program is
+running.</p>
+
+<p>Hex-dumping sectors from the guest Hex-dump the boot
+partition:</p>
+
+<p>guestfish --ro -a disk.img run : pread-device /dev/sda
+0x200 0 | hexdump -C</p>
+
+<p>Hex-editing sectors in the guest Hex-edit the first
+sector (boot partition):</p>
+
+<p>guestfish --rw -a disk.img run : hexedit /dev/sda
+0x200</p>
+
+<p>Install RPMs in a guest The link below contains a method
+to install RPMs in a guest. In fact the RPMs are just
+uploaded to the guest along with a &quot;firstboot&quot;
+script that installs them next time the guest is booted. You
+could use this technique to install vital security updates
+in an offline guest.</p>
+
+
+<p>https://rwmj.wordpress.com/2010/12/01/tip-install-rpms-in-a-guest/#content</p>
+
+<p>Since libguestfs 1.20, virt-sysprep(1) has an option for
+installing firstboot scripts in Linux guests.</p>
+
+<p>List applications installed in a VM Save the following
+to a file &quot;list-apps.sh&quot;:</p>
+
+<p>#!/bin/sh - set -e eval &quot;$(guestfish --ro -d
+&quot;$1&quot; --i --listen)&quot; root=&quot;$(guestfish
+--remote inspect-get-roots)&quot; guestfish --remote
+inspect-list-applications &quot;$root&quot; guestfish
+--remote exit</p>
+
+<p>Make the file executable and then you can run it on any
+named virtual machine:</p>
+
+<p># list-apps.sh WinGuest [0] = { app_name: Mozilla
+Firefox (3.6.12) app_display_name: Mozilla Firefox (3.6.12)
+app_epoch: 0 app_version: 3.6.12 (en-GB) app_release:
+app_install_path: C:Program Fileszilla Firefox
+app_trans_path: app_publisher: Mozilla app_url:
+http://www.mozilla.com/en-GB/ app_source_package:
+app_summary: app_description: Mozilla Firefox } [1] = {
+app_name: VLC media player app_display_name: VLC media
+player 1.1.5 app_epoch: 0 app_version: 1.1.5 app_release:
+app_install_path: C:Program FilesdeoLANC app_trans_path:
+app_publisher: VideoLAN app_url: http://www.videolan.org/
+app_source_package: app_summary: app_description: }</p>
+
+<p>If you want to run the script on disk images (instead of
+libvirt virtual machines), change &quot;-d
+&quot;$1&quot;&quot; to &quot;-a &quot;$1&quot;&quot;. See
+also virt-inspector(1).</p>
+
+<p>List files and directories in a VM Use virt-ls(1).</p>
+
+<p>List services in a Windows VM The link below contains a
+script that can be used to list out the services from a
+Windows VM, and whether those services run at boot time or
+are loaded on demand.</p>
+
+
+<p>https://rwmj.wordpress.com/2010/12/10/tip-list-services-in-a-windows-guest/#content</p>
+
+<p>Make a disk image sparse Use virt-sparsify(1).</p>
+
+<p>Monitor disk usage over time You can use virt-df(1) to
+monitor disk usage of your guests over time. The link below
+contains a guide.</p>
+
+<p>http://virt-tools.org/learning/advanced-virt-df/</p>
+
+<p>Reading the Windows Event Log from Windows Vista (or
+later) guestfish(1) plus the tools described in the link
+below can be used to read out the Windows Event Log from any
+virtual machine running Windows Vista or a later
+version.</p>
+
+
+<p>https://rwmj.wordpress.com/2011/04/17/decoding-the-windows-event-log-using-guestfish/#content</p>
+
+<p>Remove root password (Linux) Using the virt-edit(1) -e
+option you can do simple replacements on files. One use is
+to remove the root password from a Linux guest:</p>
+
+<p>virt-edit domname /etc/passwd -e
+&rsquo;s/^root:.*?:/root::/&rsquo;</p>
+
+<p>Remove Administrator password (Windows) The link below
+contains one technique for removing the Administrator
+password from a Windows VM, or to be more precise, it gives
+you a command prompt the next time you log in which you can
+use to bypass any security:</p>
+
+
+<p>https://mdbooth.wordpress.com/2010/10/18/resetting-a-windows-guests-administrator-password-with-guestfish/</p>
+
+<p>Sysprepping a virtual machine (Windows) It is possible
+to do a &quot;sysprep&quot; using libguestfs alone, although
+not straightforward. Currently there is code in the Aeolus
+Oz project which does this (using libguestfs). It is likely
+we will add this to virt-sysprep(1) in future.</p>
+
+<p>https://github.com/clalancette/oz
+https://www.redhat.com/archives/virt-tools-list/2011-May/msg00019.html</p>
+
+<p>Unpack a live CD Linux live CDs often contain multiple
+layers of disk images wrapped like a Russian doll. You can
+use guestfish(1) to look inside these multiple layers, as
+outlined in the guide below.</p>
+
+
+<p>https://rwmj.wordpress.com/2009/07/15/unpack-the-russian-doll-of-a-f11-live-cd/#content</p>
+
+<p>Uploading and downloading files The link below contains
+general tips on uploading (copying in) and downloading
+(copying out) files from VMs.</p>
+
+
+<p>https://rwmj.wordpress.com/2010/12/02/tip-uploading-and-downloading/#content</p>
+
+<p>Uploading raw filesystem content You can use
+guestfish(1) to upload whole filesystems into a VM, even
+into a filesystem which is encrypted or buried inside an LV
+or RAID device:</p>
+
+<p>guestfish --rw -a disk.img run : upload sda1.img
+/dev/sda1</p>
+
+<p>guestfish --rw -d Guest run : upload lv.img
+/dev/vg_guest/lv_root</p>
+
+<p>One common problem is that the filesystem isnt the right
+size for the target. If it is too large, theres not much you
+can do with libguestfs - you have to prepare the filesystem
+differently. But if the filesystem needs to expand into the
+target, you can use guestfish to resize it to the right
+size:</p>
+
+<p>guestfish --rw -d Guest run : upload lv.img
+/dev/vg_guest/lv_root : resize2fs /dev/vg_guest/lv_root</p>
+
+<p>(or use &quot;ntfsresize&quot; if the filesystem is
+NTFS).</p>
+
+<p>Use libguestfs tools on VMware ESX guests The link below
+explains how to use libguestfs, guestfish(1) and the virt
+tools on any VMware ESX guests, by first sharing the VMware
+VMFS over sshfs.</p>
+
+
+<p>https://rwmj.wordpress.com/2011/05/10/tip-use-libguestfs-on-vmware-esx-guests/#content</p>
+
+<p>SEE ALSO guestfs(3), guestfish(1), guestfs-examples(3),
+guestfs-erlang(3), guestfs-java(3), guestfs-lua(3),
+guestfs-ocaml(3), guestfs-perl(3), guestfs-python(3),
+guestfs-ruby(3), http://libguestfs.org/.</p>
+
+<p>AUTHORS Richard W.M. Jones (&quot;rjones at redhat dot
+com&quot;)</p>
+
+<p>COPYRIGHT Copyright (C) 2009-2013 Red Hat Inc.</p>
+
+<p>LICENSE This manual page contains examples which we hope
+you will use in your programs. The examples may be freely
+copied, modified and distributed for any purpose without any
+restrictions.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 guestfs-recipes(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,690 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:44:13 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>virt-resize(1) Virtualization Support virt-resize(1)</p>
+
+<p>NAME virt-resize - Resize a virtual machine disk</p>
+
+<p>SYNOPSIS virt-resize [--resize
+/dev/sdaN=[+/-]&lt;size&gt;[%]] [--expand /dev/sdaN]
+[--shrink /dev/sdaN] [--ignore /dev/sdaN] [--delete
+/dev/sdaN] [...] indisk outdisk</p>
+
+<p>DESCRIPTION Virt-resize is a tool which can resize a
+virtual machine disk, making it larger or smaller overall,
+and resizing or deleting any partitions contained
+within.</p>
+
+<p>Virt-resize cannot resize disk images in-place.
+Virt-resize should not be used on live virtual machines -
+for consistent results, shut the virtual machine down before
+resizing it.</p>
+
+<p>If you are not familiar with the associated tools:
+virt-filesystems(1) and virt-df(1), we recommend you go and
+read those manual pages first.</p>
+
+<p>EXAMPLES 1. Copy &quot;olddisk&quot; to
+&quot;newdisk&quot;, extending one of the guests partitions
+to fill the extra 5GB of space.</p>
+
+<p>virt-filesystems --long -h --all -a olddisk</p>
+
+<p>truncate -r olddisk newdisk truncate -s +5G newdisk</p>
+
+<p># Note &quot;/dev/sda2&quot; is a partition inside the
+&quot;olddisk&quot; file. virt-resize --expand /dev/sda2
+olddisk newdisk</p>
+
+<p>2. As above, but make the /boot partition 200MB bigger,
+while giving the remaining space to /dev/sda2:</p>
+
+<p>virt-resize --resize /dev/sda1=+200M --expand /dev/sda2
+olddisk newdisk</p>
+
+<p>3. As in the first example, but expand a logical volume
+as the final step. This is what you would typically use for
+Linux guests that use LVM:</p>
+
+<p>virt-resize --expand /dev/sda2 --LV-expand
+/dev/vg_guest/lv_root olddisk newdisk</p>
+
+<p>4. As in the first example, but the output format will
+be qcow2 instead of a raw disk:</p>
+
+<p>qemu-img create -f qcow2 newdisk.qcow2 15G virt-resize
+--expand /dev/sda2 olddisk newdisk.qcow2</p>
+
+<p>DETAILED USAGE EXPANDING A VIRTUAL MACHINE DISK 1. Shut
+down the virtual machine 2. Locate input disk image Locate
+the input disk image (ie. the file or device on the host
+containing the guests disk). If the guest is managed by
+libvirt, you can use &quot;virsh dumpxml&quot; like this to
+find the disk image name:</p>
+
+<p># virsh dumpxml guestname | xpath
+/domain/devices/disk/source Found 1 nodes: -- NODE --
+&lt;source dev=&quot;/dev/vg/lv_guest&quot; /&gt;</p>
+
+<p>3. Look at current sizing Use virt-filesystems(1) to
+display the current partitions and sizes:</p>
+
+<p># virt-filesystems --long --parts --blkdevs -h -a
+/dev/vg/lv_guest Name Type Size Parent /dev/sda1 partition
+101M /dev/sda /dev/sda2 partition 7.9G /dev/sda /dev/sda
+device 8.0G -</p>
+
+<p>(This example is a virtual machine with an 8 GB disk
+which we would like to expand up to 10 GB).</p>
+
+<p>4. Create output disk Virt-resize cannot do in-place
+disk modifications. You have to have space to store the
+resized output disk.</p>
+
+<p>To store the resized disk image in a file, create a file
+of a suitable size:</p>
+
+<p># rm -f outdisk # truncate -s 10G outdisk</p>
+
+<p>Or use lvcreate(1) to create a logical volume:</p>
+
+<p># lvcreate -L 10G -n lv_name vg_name</p>
+
+<p>Or use virsh(1) vol-create-as to create a libvirt
+storage volume:</p>
+
+<p># virsh pool-list # virsh vol-create-as poolname newvol
+10G</p>
+
+<p>5. Resize virt-resize takes two mandatory parameters,
+the input disk (eg. device or file) and the output disk. The
+output disk is the one created in the previous step.</p>
+
+<p># virt-resize indisk outdisk</p>
+
+<p>This command just copies disk image &quot;indisk&quot;
+to disk image &quot;outdisk&quot; without resizing or
+changing any existing partitions. If &quot;outdisk&quot; is
+larger, then an extra, empty partition is created at the end
+of the disk covering the extra space. If &quot;outdisk&quot;
+is smaller, then it will give an error.</p>
+
+<p>More realistically you d want to expand existing
+partitions in the disk image by passing extra options (for
+the full list see the &quot;OPTIONS&quot; section
+below).</p>
+
+<p>&quot;--expand&quot; is the most useful option. It
+expands the named partition within the disk to fill any
+extra space:</p>
+
+<p># virt-resize --expand /dev/sda2 indisk outdisk</p>
+
+<p>(In this case, an extra partition is not created at the
+end of the disk, because there will be no unused space).</p>
+
+<p>&quot;--resize&quot; is the other commonly used option.
+The following would increase the size of /dev/sda1 by 200M,
+and expand /dev/sda2 to fill the rest of the available
+space:</p>
+
+<p># virt-resize --resize /dev/sda1=+200M --expand
+/dev/sda2 indisk outdisk</p>
+
+<p>If the expanded partition in the image contains a
+filesystem or LVM PV, then if virt-resize knows how, it will
+resize the contents, the equivalent of calling a command
+such as pvresize(8), resize2fs(8), ntfsresize(8) or
+btrfs(8). However virt-resize does not know how to resize
+some filesystems, so you would have to online resize them
+after booting the guest.</p>
+
+<p>Other options are covered below.</p>
+
+<p>6. Test Thoroughly test the new disk image before
+discarding the old one.</p>
+
+<p>If you are using libvirt, edit the XML to point at the
+new disk:</p>
+
+<p># virsh edit guestname</p>
+
+<p>Change &lt;source ...&gt;, see
+http://libvirt.org/formatdomain.html#elementsDisks</p>
+
+<p>Then start up the domain with the new, resized disk:</p>
+
+<p># virsh start guestname</p>
+
+<p>and check that it still works. See also the
+&quot;NOTES&quot; section below for additional
+information.</p>
+
+<p>7. Resize LVs etc inside the guest (This can also be
+done offline using guestfish(1))</p>
+
+<p>Once the guest has booted you should see the new space
+available, at least for filesystems that virt-resize knows
+how to resize, and for PVs. The user may need to resize LVs
+inside PVs, and also resize filesystem types that
+virt-resize does not know how to expand.</p>
+
+<p>SHRINKING A VIRTUAL MACHINE DISK Shrinking is somewhat
+more complex than expanding, and only an overview is given
+here.</p>
+
+<p>Firstly virt-resize will not attempt to shrink any
+partition content (PVs, filesystems). The user has to shrink
+content before passing the disk image to virt-resize, and
+virt-resize will check that the content has been shrunk
+properly.</p>
+
+<p>(Shrinking can also be done offline using
+guestfish(1))</p>
+
+<p>After shrinking PVs and filesystems, shut down the
+guest, and proceed with steps 3 and 4 above to allocate a
+new disk image.</p>
+
+<p>Then run virt-resize with any of the --shrink and/or
+--resize options.</p>
+
+<p>IGNORING OR DELETING PARTITIONS virt-resize also gives a
+convenient way to ignore or delete partitions when copying
+from the input disk to the output disk. Ignoring a partition
+speeds up the copy where you dont care about the existing
+contents of a partition. Deleting a partition removes it
+completely, but note that it also renumbers any partitions
+after the one which is deleted, which can leave some guests
+unbootable.</p>
+
+<p>QCOW2 AND NON-SPARSE RAW FORMATS If the input disk is in
+qcow2 format, then you may prefer that the output is in
+qcow2 format as well. Alternately, virt-resize can convert
+the format on the fly. The output format is simply
+determined by the format of the empty output container that
+you provide. Thus to create qcow2 output, use:</p>
+
+<p>qemu-img create [-c] -f qcow2 outdisk [size]</p>
+
+<p>instead of the truncate command (use -c for a compressed
+disk).</p>
+
+<p>Similarly, to get non-sparse raw output use:</p>
+
+<p>fallocate -l size outdisk</p>
+
+<p>(on older systems that dont have the fallocate(1)
+command use &quot;dd if=/dev/zero of=outdisk bs=1M
+count=..&quot;)</p>
+
+<p>LOGICAL PARTITIONS Logical partitions (a.k.a.
+&quot;/dev/sda5+&quot; on disks using DOS partition tables)
+cannot be resized.</p>
+
+<p>To understand what is going on, firstly one of the four
+partitions &quot;/dev/sda1-4&quot; will have MBR partition
+type 05 or &quot;0f&quot;. This is called the extended
+partition. Use virt-filesystems(1) to see the MBR partition
+type.</p>
+
+<p>Logical partitions live inside the extended
+partition.</p>
+
+<p>The extended partition can be expanded, but not shrunk
+(unless you force it, which is not advisable). When the
+extended partition is copied across, all the logical
+partitions contained inside are copied over implicitly.
+Virt-resize does not look inside the extended partition, so
+it copies the logical partitions blindly.</p>
+
+<p>You cannot specify a logical partition
+(&quot;/dev/sda5+&quot;) at all on the command line. Doing
+so will give an error.</p>
+
+<p>OPTIONS --help Display help.</p>
+
+<p>--align-first auto --align-first never --align-first
+always Align the first partition for improved performance
+(see also the --alignment option).</p>
+
+<p>The default is --align-first auto which only aligns the
+first partition if it is safe to do so. That is, only when
+we know how to fix the bootloader automatically, and at the
+moment that can only be done for Windows guests.</p>
+
+<p>--align-first never means we never move the first
+partition. This is the safest option. Try this if the guest
+does not boot after resizing.</p>
+
+<p>--align-first always means we always align the first
+partition (if it needs to be aligned). For some guests this
+will break the bootloader, making the guest unbootable.</p>
+
+<p>--alignment N Set the alignment of partitions to
+&quot;N&quot; sectors. The default in virt-resize &lt;
+1.13.19 was 64 sectors, and after that is 128 sectors.</p>
+
+<p>Assuming 512 byte sector size inside the guest, here are
+some suitable values for this:</p>
+
+<p>--alignment 1 (512 bytes) The partitions would be packed
+together as closely as possible, but would be completely
+unaligned. In some cases this can cause very poor
+performance. See virt-alignment-scan(1) for further
+details.</p>
+
+<p>--alignment 8 (4K) This would be the minimum acceptable
+alignment for reasonable performance on modern hosts.</p>
+
+<p>--alignment 128 (64K) This alignment provides good
+performance when the host is using high end network
+storage.</p>
+
+<p>--alignment 2048 (1M) This is the standard alignment
+used by all newly installed guests since around 2008.</p>
+
+<p>-d --debug Enable debugging messages.</p>
+
+<p>--debug-gc Debug garbage collection and memory
+allocation. This is only useful when debugging memory
+problems in virt-resize or the OCaml libguestfs
+bindings.</p>
+
+<p>--delete part Delete the named partition. It would be
+more accurate to describe this as &quot;dont copy it
+over&quot;, since virt-resize doesn t do in-place changes
+and the original disk image is left intact.</p>
+
+<p>Note that when you delete a partition, then anything
+contained in the partition is also deleted. Furthermore,
+this causes any partitions that come after to be renumbered,
+which can easily make your guest unbootable.</p>
+
+<p>You can give this option multiple times.</p>
+
+<p>--expand part Expand the named partition so it uses up
+all extra space (space left over after any other resize
+changes that you request have been done).</p>
+
+<p>If virt-resize knows how, it will expand the direct
+content of the partition. For example, if the partition is
+an LVM PV, it will expand the PV to fit (like calling
+pvresize(8)). Virt-resize leaves any other content it doesnt
+know about alone.</p>
+
+<p>Currently virt-resize can resize:</p>
+
+<p>&middot; ext2, ext3 and ext4 filesystems.</p>
+
+<p>&middot; NTFS filesystems, if libguestfs was compiled
+with support for NTFS.</p>
+
+<p>The filesystem must have been shut down consistently
+last time it was used. Additionally, ntfsresize(8) marks the
+resized filesystem as requiring a consistency check, so at
+the first boot after resizing Windows will check the
+disk.</p>
+
+<p>&middot; LVM PVs (physical volumes). virt-resize does
+not usually resize anything inside the PV, but see the
+--LV-expand option. The user could also resize LVs as
+desired after boot.</p>
+
+<p>&middot; Btrfs filesystems, if libguestfs was compiled
+with support for btrfs.</p>
+
+<p>Note that you cannot use --expand and --shrink
+together.</p>
+
+<p>--format raw Specify the format of the input disk image.
+If this flag is not given then it is auto-detected from the
+image itself.</p>
+
+<p>If working with untrusted raw-format guest disk images,
+you should ensure the format is always specified.</p>
+
+<p>Note that this option does not affect the output format.
+See &quot;QCOW2 AND NON-SPARSE RAW FORMATS&quot;.</p>
+
+<p>--ignore part Ignore the named partition. Effectively
+this means the partition is allocated on the destination
+disk, but the content is not copied across from the source
+disk. The content of the partition will be blank (all zero
+bytes).</p>
+
+<p>You can give this option multiple times.</p>
+
+<p>--LV-expand logvol This takes the logical volume and, as
+a final step, expands it to fill all the space available in
+its volume group. A typical usage, assuming a Linux guest
+with a single PV &quot;/dev/sda2&quot; and a root device
+called &quot;/dev/vg_guest/lv_root&quot; would be:</p>
+
+<p>virt-resize indisk outdisk --expand /dev/sda2
+--LV-expand /dev/vg_guest/lv_root</p>
+
+<p>This would first expand the partition (and PV), and then
+expand the root device to fill the extra space in the
+PV.</p>
+
+<p>The contents of the LV are also resized if virt-resize
+knows how to do that. You can stop virt-resize from trying
+to expand the content by using the option
+--no-expand-content.</p>
+
+<p>Use virt-filesystems(1) to list the filesystems in the
+guest.</p>
+
+<p>You can give this option multiple times, but it doesnt
+make sense to do this unless the logical volumes you specify
+are all in different volume groups.</p>
+
+<p>--machine-readable This option is used to make the
+output more machine friendly when being parsed by other
+programs. See &quot;MACHINE READABLE OUTPUT&quot; below.</p>
+
+<p>-n --dryrun Print a summary of what would be done, but
+dont do anything.</p>
+
+<p>--no-copy-boot-loader By default, virt-resize copies
+over some sectors at the start of the disk (up to the
+beginning of the first partition). Commonly these sectors
+contain the Master Boot Record (MBR) and the boot loader,
+and are required in order for the guest to boot
+correctly.</p>
+
+<p>If you specify this flag, then this initial copy is not
+done. You may need to reinstall the boot loader in this
+case.</p>
+
+<p>--no-extra-partition By default, virt-resize creates an
+extra partition if there is any extra, unused space after
+all resizing has happened. Use this option to prevent the
+extra partition from being created. If you do this then the
+extra space will be inaccessible until you run fdisk,
+parted, or some other partitioning tool in the guest.</p>
+
+<p>Note that if the surplus space is smaller than 10 MB, no
+extra partition will be created.</p>
+
+<p>--no-expand-content By default, virt-resize will try to
+expand the direct contents of partitions, if it knows how
+(see --expand option above).</p>
+
+<p>If you give the --no-expand-content option then
+virt-resize will not attempt this.</p>
+
+<p>--ntfsresize-force Pass the --force option to
+ntfsresize(8), allowing resizing even if the NTFS disk is
+marked as needing a consistency check. You have to use this
+option if you want to resize a Windows guest multiple times
+without booting into Windows between each resize.</p>
+
+<p>--output-format raw Specify the format of the output
+disk image. If this flag is not given then it is
+auto-detected from the image itself.</p>
+
+<p>If working with untrusted raw-format guest disk images,
+you should ensure the format is always specified.</p>
+
+<p>Note that this option does not create the output format.
+This option just tells libguestfs what it is so it doesn t
+try to guess it. You still need to create the output disk
+with the right format. See &quot;QCOW2 AND NON-SPARSE RAW
+FORMATS&quot;.</p>
+
+<p>-q --quiet Dont print the summary.</p>
+
+<p>--resize part=size Resize the named partition (expanding
+or shrinking it) so that it has the given size.</p>
+
+<p>&quot;size&quot; can be expressed as an absolute number
+followed by b/K/M/G to mean bytes, Kilobytes, Megabytes, or
+Gigabytes; or as a percentage of the current size; or as a
+relative number or percentage. For example:</p>
+
+<p>--resize /dev/sda2=10G</p>
+
+<p>--resize /dev/sda4=90%</p>
+
+<p>--resize /dev/sda2=+1G</p>
+
+<p>--resize /dev/sda2=-200M</p>
+
+<p>--resize /dev/sda1=+128K</p>
+
+<p>--resize /dev/sda1=+10%</p>
+
+<p>--resize /dev/sda1=-10%</p>
+
+<p>You can increase the size of any partition. Virt-resize
+will expand the direct content of the partition if it knows
+how (see --expand below).</p>
+
+<p>You can only decrease the size of partitions that
+contain filesystems or PVs which have already been shrunk.
+Virt-resize will check this has been done before proceeding,
+or else will print an error (see also --resize-force).</p>
+
+<p>You can give this option multiple times.</p>
+
+<p>--resize-force part=size This is the same as --resize
+except that it will let you decrease the size of any
+partition. Generally this means you will lose any data which
+was at the end of the partition you shrink, but you may not
+care about that (eg. if shrinking an unused partition, or if
+you can easily recreate it such as a swap partition).</p>
+
+<p>See also the --ignore option.</p>
+
+<p>--shrink part Shrink the named partition until the
+overall disk image fits in the destination. The named
+partition must contain a filesystem or PV which has already
+been shrunk using another tool (eg. guestfish(1) or other
+online tools). Virt-resize will check this and give an error
+if it has not been done.</p>
+
+<p>The amount by which the overall disk must be shrunk
+(after carrying out all other operations requested by the
+user) is called the &quot;deficit&quot;. For example, a
+straight copy (assume no other operations) from a 5GB disk
+image to a 4GB disk image results in a 1GB deficit. In this
+case, virt-resize would give an error unless the user
+specified a partition to shrink and that partition had more
+than a gigabyte of free space.</p>
+
+<p>Note that you cannot use --expand and --shrink
+together.</p>
+
+<p>-V --version Display version number and exit.</p>
+
+<p>MACHINE READABLE OUTPUT The --machine-readable option
+can be used to make the output more machine friendly, which
+is useful when calling virt-resize from other programs, GUIs
+etc.</p>
+
+<p>There are two ways to use this option.</p>
+
+<p>Firstly use the option on its own to query the
+capabilities of the virt-resize binary. Typical output looks
+like this:</p>
+
+<p>$ virt-resize --machine-readable virt-resize
+ntfsresize-force 32bitok ntfs btrfs</p>
+
+<p>A list of features is printed, one per line, and the
+program exits with status 0.</p>
+
+<p>Secondly use the option in conjunction with other
+options to make the regular program output more machine
+friendly.</p>
+
+<p>At the moment this means:</p>
+
+<p>1. Progress bar messages can be parsed from stdout by
+looking for this regular expression:</p>
+
+<p>^[0-9]+/[0-9]+$</p>
+
+<p>2. The calling program should treat messages sent to
+stdout (except for progress bar messages) as status
+messages. They can be logged and/or displayed to the
+user.</p>
+
+<p>3. The calling program should treat messages sent to
+stderr as error messages. In addition, virt-resize exits
+with a non-zero status code if there was a fatal error.</p>
+
+<p>Versions of the program prior to 1.13.9 did not support
+the --machine-readable option and will return an error.</p>
+
+<p>NOTES &quot;Partition 1 does not end on cylinder
+boundary.&quot; Virt-resize aligns partitions to multiples
+of 128 sectors (see the --alignment parameter). Usually this
+means the partitions will not be aligned to the ancient CHS
+geometry. However CHS geometry is meaningless for disks
+manufactured since the early 1990s, and doubly so for
+virtual hard drives. Alignment of partitions to cylinders is
+not required by any modern operating system.</p>
+
+<p>GUEST BOOT STUCK AT &quot;GRUB&quot; If a Linux guest
+does not boot after resizing, and the boot is stuck after
+printing &quot;GRUB&quot; on the console, try reinstalling
+grub.</p>
+
+<p>guestfish -i -a newdisk &gt;&lt;fs&gt; cat
+/boot/grub/device.map # check the contents of this file are
+sensible or # edit the file if necessary &gt;&lt;fs&gt;
+grub-install / /dev/vda &gt;&lt;fs&gt; exit</p>
+
+<p>For more flexible guest reconfiguration, including if
+you need to specify other parameters to grub-install, use
+virt-rescue(1).</p>
+
+<p>RESIZING WINDOWS BOOT PARTITIONS In Windows Vista and
+later versions, Microsoft switched to using a separate boot
+partition. In these VMs, typically &quot;/dev/sda1&quot; is
+the boot partition and &quot;/dev/sda2&quot; is the main
+(C:) drive. Resizing the first (boot) partition causes the
+bootloader to fail with 0xC0000225 error. Resizing the
+second partition (ie. C: drive) should work.</p>
+
+<p>WINDOWS CHKDSK Windows disks which use NTFS must be
+consistent before virt-resize can be used. If the ntfsresize
+operation fails, try booting the original VM and running
+&quot;chkdsk /f&quot; on all NTFS partitions, then shut down
+the VM cleanly. For further information see:
+https://bugzilla.redhat.com/show_bug.cgi?id=975753</p>
+
+<p>After resize Windows may initiate a lengthy
+&quot;chkdsk&quot; on first boot if NTFS partitions have
+been expanded. This is just a safety check and (unless it
+find errors) is nothing to worry about.</p>
+
+<p>WINDOWS UNMOUNTABLE_BOOT_VOLUME BSOD After sysprepping a
+Windows guest and then resizing it with virt- resize, you
+may see the guest fail to boot with an
+&quot;UNMOUNTABLE_BOOT_VOLUME&quot; BSOD. This error is
+caused by having &quot;ExtendOemPartition=1&quot; in the
+sysprep.inf file. Removing this line before sysprepping
+should fix the problem.</p>
+
+<p>WINDOWS 8 Windows 8 &quot;fast startup&quot; can prevent
+virt-resize from resizing NTFS partitions. See &quot;WINDOWS
+HIBERNATION AND WINDOWS 8 FAST STARTUP&quot; in
+guestfs(3).</p>
+
+<p>ALTERNATIVE TOOLS There are several proprietary tools
+for resizing partitions. We wont mention any here.</p>
+
+<p>parted(8) and its graphical shell gparted can do some
+types of resizing operations on disk images. They can resize
+and move partitions, but I don t think they can do anything
+with the contents, and they certainly dont understand
+LVM.</p>
+
+<p>guestfish(1) can do everything that virt-resize can do
+and a lot more, but at a much lower level. You will probably
+end up hand-calculating sector offsets, which is something
+that virt-resize was designed to avoid. If you want to see
+the guestfish-equivalent commands that virt- resize runs,
+use the --debug flag.</p>
+
+<p>dracut(8) includes a module called
+&quot;dracut-modules-growroot&quot; which can be used to
+grow the root partition when the guest first boots up. There
+is documentation for this module in an associated README
+file.</p>
+
+<p>SHELL QUOTING Libvirt guest names can contain arbitrary
+characters, some of which have meaning to the shell such as
+&quot;#&quot; and space. You may need to quote or escape
+these characters on the command line. See the shell manual
+page sh(1) for details.</p>
+
+<p>EXIT STATUS This program returns 0 if successful, or
+non-zero if there was an error.</p>
+
+<p>SEE ALSO virt-filesystems(1), virt-df(1), guestfs(3),
+guestfish(1), lvm(8), pvresize(8), lvresize(8),
+resize2fs(8), ntfsresize(8), btrfs(8), virsh(1), parted(8),
+truncate(1), fallocate(1), grub(8), grub-install(8),
+virt-rescue(1), virt-sparsify(1), virt-alignment-scan(1),
+http://libguestfs.org/.</p>
+
+<p>AUTHOR Richard W.M. Jones
+http://people.redhat.com/~rjones/</p>
+
+<p>COPYRIGHT Copyright (C) 2010-2012 Red Hat Inc.</p>
+
+<p>LICENSE This program is free software; you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your
+option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more
+details.</p>
+
+<p>You should have received a copy of the GNU General
+Public License along with this program; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, MA 02110-1301 USA.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 virt-resize(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:12:17 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>FAKECHROOT(1) FAKECHROOT(1)</p>
+
+<p>NAME fakechroot - gives a fake chroot environment</p>
+
+<p>SYNOPSIS fakechroot [-s|--use-system-libs] [-l|--lib
+library] [--] [command]</p>
+
+<p>DESCRIPTION fakechroot runs a command in an environment
+were is additional possibility to use chroot(8) command
+without root privileges. This is useful for allowing users
+to create own chrooted environment with possibility to
+install another packages without need for root
+privileges.</p>
+
+<p>fakechroot replaces more library functions (chroot(2),
+open(2), etc.) by ones that simulate the effect the real
+library functions would have had, had the user really been
+in chroot. These wrapper functions are in a shared library
+/usr/lib/fakechroot/libfakechroot.so which is loaded through
+the LD_PRELOAD mechanism of the dynamic loader. (See
+ld.so(8))</p>
+
+<p>In fake chroot you can install Debian bootstrap with
+debootstrap --variant=fakechroot command. In this
+environment you can use i.e. apt-get(8) command to install
+another packages from common users account.</p>
+
+<p>In the current version, the fakechroot does not provide
+the fakeroot(1) functionality! You might to call fakechroot
+with fakeroot command, if you want to emulate root
+environment, i.e.:</p>
+
+<p>$ fakeroot fakechroot /usr/sbin/chroot /tmp/debian
+/bin/sh # id uid=0(root) gid=0(root) groups=0(root)</p>
+
+<p>OPTIONS -l library|--lib library Specify an alternative
+wrapper library.</p>
+
+<p>-s|--use-system-libs Use system libraries before chroots
+libraries. This might be a workaround if system dynamic
+linker (/lib/ld-linux.so.2 for Linux) can not load libc.so
+from fake chroot.</p>
+
+<p>Try this setting if you noticed following errors:</p>
+
+<p>$ fakechroot /usr/sbin/chroot /tmp/sarge /bin/true
+/bin/true: relocation error: /srv/sarge/lib/tls/libc.so.6:
+symbol _dl _starting_up, version GLIBC_PRIVATE not defined
+in file ld-linux.so.2 with link time reference</p>
+
+<p>$ fakechroot /usr/sbin/chroot /tmp/centos4 /bin/true
+Segmentation fault</p>
+
+<p>[--] command Any command you want to be ran as
+fakechroot. Use -- if in the command you have other options
+that may confuse fakechroots option parsing.</p>
+
+<p>-h Display help.</p>
+
+<p>-v Display version.</p>
+
+<p>EXAMPLES An example session with fakechroot:</p>
+
+<p>$ export
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
+:/bin:/usr/bin/X11 $ fakeroot -s fakechroot.save fakechroot
+debootstrap --variant=fakech root lenny /tmp/lenny</p>
+
+<p>$ fakeroot -i fakechroot.save fakechroot chroot
+/tmp/lenny /bin/bash # cd / # sh
+/usr/share/doc/fakechroot/examples/savemode.sh # echo deb
+http://ftp.debian.org/debian lenny main contrib non-free
+&gt; /etc/apt/sources.list # echo deb-src
+http://ftp.debian.org/debian lenny main contrib non-fr ee
+&gt;&gt; /etc/apt/sources.list # apt-get update # apt-get
+install adduser whiptail build-essential devscripts #
+adduser --uid 1001 user # cd /tmp # apt-get source hello #
+cd hello-* # debuild --preserve-env -b # exit</p>
+
+<p>SECURITY ASPECTS fakechroot is a regular, non-setuid
+program. It does not enhance a users privileges, or decrease
+the systems security.</p>
+
+<p>FILES /usr/lib/fakechroot/libfakechroot.so The shared
+library containing the wrapper functions.</p>
+
+<p>ENVIRONMENT FAKECHROOT The value is true for fake chroot
+environment.</p>
+
+<p>FAKECHROOT_VERSION The version of current fakechroot
+library.</p>
+
+<p>FAKECHROOT_BASE The root directory for fake chroot
+environment.</p>
+
+<p>FAKECHROOT_EXCLUDE_PATH The list of directories which
+are excluded from being chrooted. The elements of list are
+separated with colon.</p>
+
+<p>FAKECHROOT_CMD_SUBST A list of command substitutions. If
+a program tries to execute one of the commands given (path
+relative to the chroot) then the substitute command runs
+instead (path to substitute command is not chrooted).</p>
+
+<p>For example:</p>
+
+
+<p>FAKECHROOT_CMD_SUBST=/sbin/ldconfig=/tmp/ldconfig-wrapper</p>
+
+<p>will substitute &quot;/tmp/ldconfig-wrapper&quot; for
+&quot;/sbin/ldconfig&quot;.</p>
+
+<p>Give as many substitute commands as you want, separated
+by &quot;:&quot; (colon) characters.</p>
+
+<p>LD_LIBRARY_PATH, LD_PRELOAD Fakechroot is implemented by
+wrapping system calls. This is accomplished by setting
+LD_LIBRARY_PATH=/usr/lib/fakechroot and
+LD_PRELOAD=libfakechroot.so. That library is loaded before
+the system s C library, and so most of the library functions
+are intercepted by it. If you need to set either
+LD_LIBRARY_PATH or LD_PRELOAD from within a fakechroot
+environment, it should be set relative to the given paths,
+as in LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/foo/bar/</p>
+
+<p>LIMITATIONS o /lib/ld-linux.so.2 is always loaded from
+real environment. This path is hardcoded by linker for all
+binaries.</p>
+
+<p>o Every command executed within fakechroot needs to be
+linked to the same version of the C library as fakechroot
+itself. If the libraries in chroot are not compatible, try
+to use --use-system-libs option.</p>
+
+<p>o You can provide symlinks to the outside. The symlink
+have to be created before chroot is called. It can be useful
+for accessing the real /proc and /dev directory. You can
+also set the FAKECHROOT_EXCLUDE_PATH environment
+variable:</p>
+
+<p>$ export
+FAKECHROOT_EXCLUDE_PATH=/tmp:/proc:/dev:/var/run</p>
+
+<p>o Statically linked binaries doesnt work, especially
+ldconfig(8), so you have to wrap this command with dummy
+version and i.e. set the dpkg diversion, see:
+dpkg-divert(8).</p>
+
+<p>o ldd(1) also doesnt work. You have to use &quot;alias
+ldd=&rsquo;LD_TRACE_LOADED_OBJECTS=1&rsquo;&quot; or to use
+a wrapper instead. The example wrapper is available at
+scripts/ directory in fakechroots source package and it is
+located at /usr/share/doc/fakechroot/examples directory.</p>
+
+<p>o The full screen applications hangs up if /dev/tty file
+is not a real device. Link /dev/tty file or whole /dev
+directory to the real one or remove it from fake chroot
+environment.</p>
+
+<p>o lckpwdf() and ulckpwdf() are ignored so passwd(1)
+command should work</p>
+
+<p>o Your real uid should exist in /etc/passwd. Create it
+with adduser --uid realuid realuser.</p>
+
+<p>o debuild(1) cleans environment. Use --preserve-env
+option to prevent this behaviour.</p>
+
+<p>COPYING fakechroot is distributed under the GNU Lesser
+General Public License (LGPL 2.1 or greater).</p>
+
+<p>AUTHORS Copyright (c) 2003-2008 Piotr Roszatycki
+&lt;dexter@debian.org&gt;</p>
+
+<p>Copyright (c) 2006-2007 Lionel Tricon
+&lt;lionel.tricon@free.fr&gt;</p>
+
+<p>Copyright (c) 2007 Mark Eichin
+&lt;eichin@metacarta.com&gt;</p>
+
+<p>SEE ALSO fakeroot(1), dpkg-buildpackage(1), debuild(1),
+debootstrap(8), http://fakechroot.alioth.debian.org/</p>
+
+<p>Debian 17 Jul 2008 FAKECHROOT(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:21:58 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>libtalloc_debugging(3) talloc libtalloc_debugging(3)</p>
+
+<p>NAME libtalloc_debugging - Chapter 6: Debugging Although
+talloc makes memory management significantly easier than the
+C standard library, developers are still only humans and can
+make mistakes.</p>
+
+<p>Therefore, it can be handy to know some tools for the
+inspection of talloc memory usage.</p>
+
+<p>Talloc log and abort We have already encountered the
+abort function in section Dynamic type system. In that case
+it was used when a type mismatch was detected. However,
+talloc calls this abort function in several more
+situations:</p>
+
+<p>&middot; when the provided pointer is not a valid talloc
+context,</p>
+
+<p>&middot; when the meta data is invalid - probably due to
+memory corruption,</p>
+
+<p>&middot; and when an access after free is detected.</p>
+
+<p>The third one is probably the most interesting. It can
+help us with detecting an attempt to double-free a context
+or any other manipulation with it via talloc functions
+(using it as a parent, stealing it, etc.).</p>
+
+<p>Before the context is freed talloc sets a flag in the
+meta data. This is then used to detect the access after
+free. It basically works on the assumption that the memory
+stays unchanged (at least for a while) even when it is
+properly deallocated. This will work even if the memory is
+filled with the value specified in TALLOC_FREE_FILL
+environment variable, because it fills only the data part
+and leaves the meta data intact.</p>
+
+<p>Apart from the abort function, talloc uses a log
+function to provide additional information to the
+aforementioned violations. To enable logging we shall set
+the log function with one of:</p>
+
+<p>&middot; talloc_set_log_fn()</p>
+
+<p>&middot; talloc_set_log_stderr()</p>
+
+<p>The following code is a sample output of accessing a
+context after it has been freed:</p>
+
+<p>talloc_set_log_stderr(); TALLOC_CTX *ctx =
+talloc_new(NULL);</p>
+
+<p>talloc_free(ctx); talloc_free(ctx);</p>
+
+<p>results in: talloc: access after free error - first free
+may be at ../src/main.c:55 Bad talloc magic value - access
+after free</p>
+
+<p>Another example is an invalid context:</p>
+
+<p>talloc_set_log_stderr(); TALLOC_CTX *ctx =
+talloc_new(NULL); char *str = strdup(not a talloc context);
+talloc_steal(ctx, str);</p>
+
+<p>results in: Bad talloc magic value - unknown value</p>
+
+<p>Memory usage reports Talloc can print reports of memory
+usage of a specified talloc context to a file (to stdout or
+stderr). The report can be simple or full. The simple report
+provides information only about the context itself and its
+direct descendants. The full report goes recursively through
+the entire context tree. See:</p>
+
+<p>&middot; talloc_report()</p>
+
+<p>&middot; talloc_report_full()</p>
+
+<p>We will use the following code to retrieve the sample
+report:</p>
+
+<p>struct foo { char *str; };</p>
+
+<p>TALLOC_CTX *ctx = talloc_new(NULL); char *str =
+talloc_strdup(ctx, my string); struct foo *foo =
+talloc_zero(ctx, struct foo); foo-&gt;str =
+talloc_strdup(foo, I am Foo); char *str2 =
+talloc_strdup(foo, Foo is my parent);</p>
+
+<p>/* print full report */ talloc_report_full(ctx,
+stdout);</p>
+
+<p>It will print a full report of ctx to the standard
+output. The message should be similar to:</p>
+
+<p>full talloc report on talloc_new: ../src/main.c:82
+(total 46 bytes in 5 blocks) struct foo contains 34 bytes in
+3 blocks (ref 0) 0x1495130 Foo is my parent contains 17
+bytes in 1 blocks (ref 0) 0x1495200 I am Foo contains 9
+bytes in 1 blocks (ref 0) 0x1495190 my string contains 10
+bytes in 1 blocks (ref 0) 0x14950c0</p>
+
+<p>We can notice in this report that something is wrong
+with the context containing struct foo. We know that the
+structure has only one string element. However, we can see
+in the report that it has two children. This indicates that
+we have either violated the memory hierarchy or forgotten to
+free it as temporary data. Looking into the code, we can see
+that Foo is my parent should be attached to ctx.</p>
+
+<p>See also:</p>
+
+<p>&middot; talloc_enable_null_tracking()</p>
+
+<p>&middot; talloc_disable_null_tracking()</p>
+
+<p>&middot; talloc_enable_leak_report()</p>
+
+<p>&middot; talloc_enable_leak_report_full()</p>
+
+<p>Version 2.0 1 Apr 2016 libtalloc_debugging(3)</p>
+<hr>
+</body>
+</html>

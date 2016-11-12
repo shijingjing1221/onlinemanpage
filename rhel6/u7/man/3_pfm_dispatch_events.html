@@ -1,0 +1,285 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:27:32 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>LIBPFM(3) Linux Programmer s Manual LIBPFM(3)</p>
+
+<p>NAME pfm_dispatch_events - determine PMC registers
+values for a set of events to measure</p>
+
+<p>SYNOPSIS #include &lt;perfmon/pfmlib.h&gt;</p>
+
+<p>int pfm_dispatch_events(pfmlib_input_param_t *p, void
+*mod_in, pfmlib_output_param_t *q,void *mod_out);</p>
+
+<p>DESCRIPTION This function is the central piece of the
+library. It is important to understand that the library does
+not effectively program the PMU, i.e., it does not make the
+operating system calls. The PMU is never actually accessed
+by the library. Instead, the library helps applications pre-
+pare the arguments to pass to the kernel. In particular, it
+sets up the values to program into the PMU configuration
+registers (PMC). The list of used data registers (PMD) is
+also returned.</p>
+
+<p>The input argument are divided into two categories: the
+generic argu- ments in p and the optional PMU model specific
+arguments in mod_in. The same applies for the output
+arguments: q contains the generic out- put arguments and
+mod_out the optional PMU model specific arguments.</p>
+
+<p>An application describes what it wants to measure in the
+in and if it uses some model specific features, such as
+opcode matching on Itanium 2 processors, it must pass a
+pointer to the relevant model-specific input parameters in
+mod_in. The generic output parameters contains the regis-
+ter index and values for the PMC and PMD registers needed to
+make the measurement. The index mapping is guaranteed to
+match the mapping used by the Linux perfmon2 interface. In
+case the library is not used on this system, the hardware
+register addresses or indexes can also be retrieved from the
+output structure.</p>
+
+<p>The pfmlib_input_param_t structure is defined as
+follows:</p>
+
+<p>typedef struct int event; unsigned int plm; unsigned
+long flags; unsigned int
+unit_masks[PFMLIB_MAX_MASKS_PER_EVENT]; unsigned int
+num_masks; } pfmlib_event_t;</p>
+
+<p>typedef struct { unsigned int pfp_event_count; unsigned
+int pfp_dfl_plm; unsigned int pfp_flags; pfmlib_event_t
+pfp_events[PFMLIB_MAX_PMCS]; pfmlib_regmask_t
+pfp_unavail_pmcs; } pfmlib_input_param_t;</p>
+
+<p>The structure mostly contains one table, called
+pfp_events which describes the events to be measured. The
+number of submitted events is indicated by
+pfp_event_count.</p>
+
+<p>Each event is described in the pfp_events table by an
+opaque descriptor stored in the event field. This descriptor
+is obtained with the pfm_find_full_event() or derivative
+functions. For some events, it may be necessary to specify
+at least one unit mask in the unit_masks table. A unit mask
+is yet another opaque descriptor obtained via the
+pfm_find_event_mask() or pfm_find_full_event() functions.
+Typically, if an event supports multiple unit masks, they
+can be combined in which case more than one entry in
+unit_masks must be specified. The actual number of unit mask
+descriptors passed must be indicated in num_masks. When no
+unit mask is used, this field must be set to 0.</p>
+
+<p>A privilege level mask for the event can be provided in
+plm. This is a bitmask where each bit indicates a privilege
+level at which to monitor, more than one bit can be set. The
+library supports up to four levels, but depending on the PMU
+model, some levels may not be available. The levels are as
+follows:</p>
+
+<p>PFM_PLM0 monitor at the privilege level 0. For many
+architectures, this means kernel level</p>
+
+<p>PFM_PLM1 monitor at privilege level 1</p>
+
+<p>PFM_PLM2 monitor at privilege level 2</p>
+
+<p>PFM_PLM3 monitor at the privilege level 3. For many
+architectures, this means user level</p>
+
+<p>Events with a plm value of 0 will use the default
+privilege level mask as indicated by pfp_dfl_plm which must
+be set to any combinations of values described above. It is
+illegal to have a value of 0 for this field.</p>
+
+<p>The pfp_flags field contains a set of flags that affect
+the whole set of events to be monitored. The currently
+defined flags are:</p>
+
+<p>PFMLIB_PFP_SYSTEMWIDE indicates that the monitors are to
+be used in a system-wide mon- itoring session. This could
+influence the way the library sets up some register
+values.</p>
+
+<p>The pfp_unavail_pmcs bitmask can be used by applications
+to communicate to the library the list of PMC registers
+which are not available on the system. Some kernels may
+allocate certain PMC registers (and associ- ated data
+registers) for other purposes. Those registers must not be
+used by the library otherwise the assignment of events to
+PMC registers may be rejected by the kernel. Applications
+must figure out which reg- isters are available using a
+kernel interface at their disposal, the library does not
+provide this service. The library expect the restric- tions
+to be expressed using the Linux perfmon2 PMC register
+mapping.</p>
+
+<p>Refer to the PMU specific manual for a description of
+the model-spe- cific input parameters to be passed in
+mod_in.</p>
+
+<p>The generic output parameters are contained in the
+fBpfmlib_out- put_param_t structure which is defined as:</p>
+
+<p>typedef struct { unsigned long long reg_value; unsigned
+int reg_num; unsigned long reg_addr; } pfmlib_reg_t;</p>
+
+<p>typedef struct { unsigned int pfp_pmc_count; unsigned
+int pfp_pmd_count; pfmlib_reg_t pfp_pmcs[PFMLIB_MAX_PMCS];
+pfmlib_reg_t pfp_pmds[PFMLIB_MAX_PMDS]; }
+pfmlib_output_param_t;</p>
+
+<p>The number of valid entries in the pfp_pmcs table is
+indicated by pfp_pmc_count. The number of valid entries in
+the pfp_pmds table is indicated by pfp_pmd_count. Each entry
+in both tables is of type pfm- lib_reg_t.</p>
+
+<p>In the pfp_pmcs table, the reg_num contains the PMC
+register index (perfmon2 mapping), and the reg_value
+contains a 64-bit value to be used to program the PMC
+register. The reg_addr indicates the hardware address or
+index for the PMC register.</p>
+
+<p>In the pfp_pmds table, the reg_num contains the PMD
+register index (perfmon2 mapping). the reg_value is ignored.
+The reg_addr indicates the hardware address or index for the
+PMC register.</p>
+
+<p>Refer to the PMU specific manual for a description of
+the model-spe- cific output parameters to be returned in
+mod_out.</p>
+
+<p>The current implementation of the pfm_dispatch_events()
+function com- pletely overwrites the pfmlib_output_param
+structure. In other words, results do not accumulate into
+the pfp_pmcs table across multiple calls. Unused fields are
+guaranteed to be zeroed upon successful return.</p>
+
+<p>Depending on the PMU model, there may not always be a
+one to one map- ping between a PMC register and a data
+register. Register dependencies may be more intricate.
+However the pfm_dispatch_events() function guarantees
+certain ordering between the pfp_pmcs and pfp_pmds tables.
+In particular, it guarantees that the pfp_pmds table always
+starts with the counters corresponding, in the same order,
+to the events as pro- vided in the pfp_event table on input.
+There is always one counter per event. Additional PMD
+registers, if any, come after.</p>
+
+<p>EXAMPLE Here is a typical sequence using the perfmon2
+interface: #include &lt;perfmon/pfmlib.h&gt; ...
+pfmlib_input_param_t inp; pfmlib_output_param_t outp;
+pfarg_ctx_t ctx; pfarg_pmd_t pd[1]; pfarg_pmc_t pc[1];
+pfarg_load_t load_arg; int fd, i; int ret;</p>
+
+<p>if (pfm_initialize() != PFMLIB_SUCCESS) {
+fprintf(stderr, &quot;cant initialize library0); exit(1); }
+memset(&amp;ctx,0, sizeof(ctx)); memset(&amp;inp,0,
+sizeof(inp)); memset(&amp;outp,0, sizeof(outp)); memset(pd,
+0, sizeof(pd)); memset(pc, 0, sizeof(pc));
+memset(&amp;load_arg, 0, sizeof(load_arg));</p>
+
+<p>ret = pfm_get_cycle_event(&amp;inp.pfp_events[0]); if
+(ret != PFMLIB_SUCCESS) { fprintf(stderr, &quot;cannot find
+cycle event0); exit(1); } inp.pfp_dfl_plm = PFM_PLM3;
+inp.pfp_event_count = 1;</p>
+
+<p>ret = pfm_dispatch_events(&amp;inp, NULL, &amp;outp,
+NULL); if (ret != PFMLIB_SUCCESS) { fprintf(stderr,
+&quot;cannot dispatch events: %s0, pfm_strerror(ret));
+exit(1); } /* propagate pmc value to perfmon2 structures */
+for(i=0; i &lt; outp.pfp_pmc_count; i++) { pc[i].reg_num =
+outp.pfp_pmcs[i].reg_num; pc[i].reg_value =
+outp.pfp_pmcs[i].reg_value; } for(i=0; i &lt;
+outp.pfp_pmd_count; i++) { pd[i].reg_num =
+outp.pfp_pmds[i].reg_num; pd[i].reg_value = 0; } ... if
+(pfm_create_context(&amp;ctx, NULL, 0) == -1 ) { ... } fd =
+ctx.ctx_fd;</p>
+
+<p>if (pfm_write_pmcs(fd, pc, outp.pfp_pmc_count) == -1) {
+... } if (pfm_write_pmds(fd, pd, outp.pfp_pmd_count) == -1)
+{ ... }</p>
+
+<p>load_arg.load_pid = getpid(); if (pfm_load_context(fd,
+&amp;load_arg) == -1) { ... }</p>
+
+<p>pfm_start(fd, NULL); /* code to monitor */
+pfm_stop(fd);</p>
+
+<p>if (pfm_read_pmds(fd, pd, evt.pfp_event_count) == -1) {
+... } printf(&quot;results: %llu0, pd[0].reg_value); ...
+close(fd); ...</p>
+
+<p>RETURN The function returns whether or not the call was
+successful. A return value of PFMLIB_SUCCESS indicates
+success, otherwise the value is the error code.</p>
+
+<p>ERRORS PFMLIB_ERR_NOINIT The library has not been
+initialized properly.</p>
+
+<p>PFMLIB_ERR_INVAL Some arguments were invalid. For
+instance the value of *count is zero. This can also be due
+to he content of the pfmlib_param_t structure.</p>
+
+<p>PFMLIB_ERR_NOTFOUND No matching event was found.</p>
+
+<p>PFMLIB_ERR_TOOMANY The number of events to monitor
+exceed the number of implemented counters.</p>
+
+<p>PFMLIB_ERR_NOASSIGN The events cannot be dispatched to
+the PMC because events have conflicting constraints.</p>
+
+<p>PFMLIB_ERR_MAGIC The model specific extension does not
+have the right magic num- ber.</p>
+
+<p>PFMLIB_ERR_FEATCOMB The set of events and features
+cannot be combined.</p>
+
+<p>PFMLIB_ERR_EVTMANY An event has been supplied more than
+once and is causing resource (PMC) conflicts.</p>
+
+<p>PFMLIB_ERR_IRRINVAL Invalid code range restriction
+(Itanium, Itanium 2).</p>
+
+<p>PFMLIB_ERR_IRRALIGN Code range has invalid alignment
+(Itanium, Itanium 2).</p>
+
+<p>PFMLIB_ERR_IRRTOOMANY Cannot satisfy all the code ranges
+(Itanium, Itanium 2).</p>
+
+<p>PFMLIB_ERR_DRRTOOMANY Cannot satisfy all the data ranges
+(Itanium, Itanium 2).</p>
+
+<p>PFMLIB_ERR_DRRINVAL Invalid data range restriction
+(Itanium, Itanium 2).</p>
+
+<p>PFMLIB_ERR_EVTSET Some events belong to incompatible
+sets (Itanium 2).</p>
+
+<p>PFMLIB_ERR_EVTINCOMP Some events cannot be measured at
+the same time (Itanium 2).</p>
+
+<p>PFMLIB_ERR_IRRTOOBIG Code range is too big (Itanium
+2).</p>
+
+<p>PFMLIB_ERR_UMASK Invalid or missing unit mask.</p>
+
+<p>SEE ALSO libpfm_itanium(3), libpfm_itanium2(3),
+pfm_regmask_set(3), pfm_reg- mask_clr(3),
+pfm_find_event_code_mask(3)</p>
+
+<p>AUTHOR Stephane Eranian &lt;eranian@hpl.hp.com&gt;</p>
+
+<p>July , 2003 LIBPFM(3)</p>
+<hr>
+</body>
+</html>

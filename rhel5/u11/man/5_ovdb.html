@@ -1,0 +1,310 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Sat Nov 12 05:17:36 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>OVDB(5) InterNetNews Documentation OVDB(5)</p>
+
+<p>NAME ovdb - Overview storage method for INN</p>
+
+<p>DESCRIPTION Ovdb is a storage method that uses the
+BerkeleyDB library to store overview data. It requires
+version 2.6.x or later of the BerkeleyDB library, but has
+mostly been tested with version 3 and 4.</p>
+
+<p>Ovdb makes use of the full transaction/logging/locking
+functionality of the BerkeleyDB environment. BerkeleyDB may
+be downloaded from &lt;http://www.sleepycat.com&gt; and is
+needed to build the ovdb backend.</p>
+
+<p>UPGRADING This is version 2 of ovdb. If you have a
+database created with a pre- vious version of ovdb (such as
+the one shipped with INN 2.3.0) your database will need to
+be upgraded using ovdb_init(8). See the man page
+ovdb_init(8) for upgrade instructions.</p>
+
+<p>INSTALLATION To build ovdb support into INN, specify the
+option &quot;--with-berkeleydb&quot; when running the
+configure script. By default, configure will search for a
+BerkeleyDB tree in several likely locations, and choose the
+high- est version (based on the name of the directory, e.g.,
+BerkeleyDB.3.0) that it finds. There will be a message in
+the configure output indi- cating the chosen pathname.</p>
+
+<p>You can override this pathname by adding a path to the
+option, e.g.,
+&quot;--with-berkeleydb=/usr/BerkeleyDB.3.1&quot;. This
+directory is expected to have subdirectories include and
+lib, containing db.h, and the library itself,
+respectively.</p>
+
+<p>The ovdb database will take up more disk space for a
+given spool than the other overview methods. Plan on needing
+at least 1.1 KB for every article in your spool (not
+counting crossposts). So, if you have 5 million articles,
+youll need at least 5.5 GB of disk space for ovdb. With
+BerkeleyDB 2.x, the db files are grow only; the library will
+not shrink them, even if data is removed. So, reserving
+extra space above the estimate is a good idea. Plus, youll
+need additional space for transaction logs: at least 100 MB.
+By default the transaction logs go in the same directory as
+the database. To improve performance, they can be placed on
+a different disk -- see the DB_CONFIG section.</p>
+
+<p>CONFIGURATION To enable ovdb, set the ovmethod parameter
+in inn.conf to &quot;ovdb&quot;. The ovdb database is stored
+in the directory specified by the pathoverview paramter in
+inn.conf. This is the &quot;DB_HOME&quot; directory. To
+start out, this directory should be empty (other than an
+optional DB_CONFIG file; see DB_CONFIG for details) and innd
+(or makehistory) will create the files as necessary in that
+directory. Make sure the directory is owned by the news
+user.</p>
+
+<p>Other parameters for configuring ovdb are in the
+ovdb.conf(5) configu- ration file. See also the sample
+ovdb.conf.</p>
+
+<p>cachesize Size of the memory pool cache, in kilobytes.
+The cache will have a backing store file in the DB directory
+which will be at least as big. In general, the bigger the
+cache, the better. Use &quot;ovdb_stat -m&quot; to see cache
+hit percentages. To make a change of this parame- ter take
+effect, shut down and restart INN (be sure to kill all of
+the nnrpds when shutting down). Default is 8000, which is
+adequate for small to medium sized servers. Large servers
+will probably need at least 20000.</p>
+
+<p>numdbfiles Overview data is split between this many
+files. Currently, innd will keep all of the files open, so
+dont set this too high or innd may run out of file
+descriptors. nnrpd only opens one at a time, regardless. May
+be set to one, or just a few, but only do that if your OS
+supports large (&gt;2G) files. Changing this parameter has
+no effect on an already-established database. Default is
+32.</p>
+
+<p>txn_nosync If txn_nosync is set to false, BerkeleyDB
+flushes the log after every transaction. This minimizes the
+number of transactions that may be lost in the event of a
+crash, but results in significantly degraded performance.
+Default is true.</p>
+
+<p>useshm If useshm is set to true, BerkeleyDB will use
+shared memory instead of mmap for its environment regions
+(cache, lock, etc). With some platforms, this may improve
+performance. Default is false. This parameter is ignored if
+you have BerkeleyDB 2.x</p>
+
+<p>shmkey Sets the shared memory key used by BerkeleyDB
+when useshm is true. BerkeleyDB will create several (usually
+5) shared memory segments, using sequentially numbered keys
+starting with shmkey. Choose a key that does not conflict
+with any existing shared memory segments on your system.
+Default is 6400. This parameter is only used with BerkeleyDB
+3.1 or newer.</p>
+
+<p>pagesize Sets the page size for the DB files (in bytes).
+Must be a power of 2. Best choices are 4096 or 8192. The
+default is 8192. Changing this parameter has no effect on an
+already-established database.</p>
+
+<p>minkey Sets the minimum number of keys per page. See the
+BerkeleyDB docu- mentation for more info. Default is based
+on page size:</p>
+
+<p>default_minkey = MAX(2, pagesize / 2048 - 1)</p>
+
+<p>The lowest allowed minkey is 2. Setting minkey higher
+than the default is not recommended, as it will cause the
+databases to have a lot of overflow pages. Changing this
+parameter has no effect on an already-established
+database.</p>
+
+<p>maxlocks Sets the BerkeleyDB &quot;lk_max&quot;
+parameter, which is the maxmium number of locks that can
+exist in the database at the same time. Default is 4000.</p>
+
+<p>nocompact The nocompact parameter affects expireovers
+behavior. The expire- over function in ovdb can do its job
+in one of two ways: by simply deleting expired records from
+the database, or by re-writing the overview records into a
+different location leaving out the expired records. The
+first method is faster, but it leaves holes that result in
+space that can not immediately be reused. The second method
+compacts the records by rewriting them.</p>
+
+<p>If this parameter is set to 0, expireover will compact
+all news- groups; if set to 1, expireover will not compact
+any newsgroups; and if set to a value greater than one,
+expireover will only com- pact groups that have less than
+that number of articles.</p>
+
+<p>Experience has shown that compacting has minimal effect
+(other than making expireover take longer) so the default is
+now 1. This parameter will probably be removed in the
+future.</p>
+
+<p>readserver Normally, each nnrpd process directly
+accesses the BerkeleyDB envi- ronment. The process of
+attaching to the database (and detaching when finished) is
+fairly expensive, and can result in high loads in situations
+when there are lots of reader connections of relatively
+short duration.</p>
+
+<p>When the readserver parameter is &quot;true&quot;, the
+nnrpds will access overview via a helper server (ovdb_server
+-- which is started by ovdb_init). This can also result in
+cleaner shutdowns for the database, improving stability and
+avoiding deadlocks and corrupted databases. If you are
+experiencing any instability in ovdb, try setting this
+parameter to true. Default is false.</p>
+
+<p>numrsprocs This parameter is only used when readserver
+is true. It sets the number of ovdb_server processes. As
+each ovdb_server can process only one transaction at a time,
+running more servers can improve reader response times.
+Default is 5.</p>
+
+<p>maxrsconn This parameter is only used when readserver is
+true. It sets a maximum number of readers that a given
+ovdb_server process will serve at one time. This means the
+maximum number of readers for all of the ovdb_server
+processes is (numrsprocs * maxrsconn). Default is 0, which
+means an umlimited number of connections is allowed.</p>
+
+<p>DB_CONFIG A file called DB_CONFIG may be placed in the
+database directory to cus- tomize where the various database
+files and transaction logs are writ- ten. By default, all of
+the files are written in the &quot;DB_HOME&quot; direc-
+tory. One way to improve performance is to put the
+transaction logs on a different disk. To do this, put:</p>
+
+<p>DB_LOG_DIR /path/to/logs</p>
+
+<p>in the DB_CONFIG file. If the pathname you give starts
+with a /, it is treated as an absolute path; otherwise, it
+is relative to the &quot;DB_HOME&quot; directory. Make sure
+that any directories you specify exist and have proper
+ownership/mode before starting INN, because they wont be
+cre- ated automatically. Also, dont change the DB_CONFIG
+file while any- thing that uses ovdb is running.</p>
+
+<p>Another thing that you can do with this file is to split
+the overview database across multiple disks. In the
+DB_CONFIG file, you can list directories that BerkeleyDB
+will search when it goes to open a database.</p>
+
+<p>For example, let s say that you have pathoverview set to
+/mnt/overview and you have four additional file systems
+created on /mnt/ov?. You would create a file
+&quot;/mnt/overview/DB_CONFIG&quot; containing the following
+lines:</p>
+
+<p>set_data_dir /mnt/overview set_data_dir /mnt/ov1
+set_data_dir /mnt/ov2 set_data_dir /mnt/ov3 set_data_dir
+/mnt/ov4</p>
+
+<p>(For BerkeleyDB 2.x, replace &quot;set_data_dir&quot;
+with &quot;DB_DATA_DIR&quot;.)</p>
+
+<p>Distribute your ovNNNNN files into the four filesystems.
+(say, 8 each). When called upon to open a database file, the
+db library will look for it in each of the specified
+directories (in order). If said file is not found, one will
+be created in the first of those directo- ries.</p>
+
+<p>Whenever you change DB_CONFIG or move database files
+around, make sure all news processes that use the database
+are shut down first (including nnrpds).</p>
+
+<p>The DB_CONFIG functionality is part of BerkeleyDB
+itself, rather than something provided by ovdb. See the
+BerkeleyDB documentation for com- plete details for the
+version of BerkeleyDB that youre running.</p>
+
+<p>RUNNING When starting the news system, rc.news will
+invoke ovdb_init. ovdb_init must be run before using the
+database. It performs the fol- lowing tasks:</p>
+
+<p>&middot; Creates the database environment, if
+necessary.</p>
+
+<p>&middot; If the database is idle, it performs a normal
+recovery. The recov- ery will remove stale locks, recreate
+the memory pool cache, and repair any damage caused by a
+system crash or improper shutdown.</p>
+
+<p>&middot; Starts the DB housekeeping processes
+(ovdb_monitor) if theyre not already running.</p>
+
+<p>And when stopping INN, rc.news kills the ovdb_monitor
+processes after the other INN processes have been shut
+down.</p>
+
+<p>DIAGNOSTICS Problems relating to ovdb are logged to
+news.err with &quot;OVDB&quot; in the error message.</p>
+
+<p>INN programs that use overview will fail to start up if
+the ovdb_moni- tor processes aren t running. Be sure to run
+ovdb_init before running anything that accesses
+overview.</p>
+
+<p>Also, INN programs that use overview will fail to start
+up if the user running them is not the &quot;news&quot;
+user.</p>
+
+<p>If a program accessing the database crashes, or
+otherwise exits uncleanly, it might leave a stale lock in
+the database. This lock could cause other processes to
+deadlock on that stale lock. To fix this, shut down all news
+processes (using &quot;kill -9&quot; if necessary) and then
+restart. ovdb_init should perform a recovery operation which
+will remove the locks and repair damage caused by killing
+the deadlocked processes.</p>
+
+<p>FILES inn.conf The ovmethod and pathoverview parameters
+are relevant to ovdb.</p>
+
+<p>ovdb.conf Optional configuration file for tuning. See
+CONFIGURATION above.</p>
+
+<p>pathoverview Directory where the database goes.
+BerkeleyDB calls it the DB_HOME directory.</p>
+
+<p>pathoverview/DB_CONFIG Optional file to configure the
+layout of the database files.</p>
+
+<p>pathrun/ovdb.sem A file that gets locked by every
+process that is accessing the database. This is used by
+ovdb_init to determine whether the database is active or
+quiescent.</p>
+
+<p>pathrun/ovdb_monitor.pid Contains the process ID of
+ovdb_monitor.</p>
+
+<p>TO DO Implement a way to limit how many databases can be
+open at once (to reduce file descriptor usage); maybe using
+something similar to the cache code in ov3.c</p>
+
+<p>HISTORY Written by Heath Kehoe
+&lt;hakehoe@avalon.net&gt; for InterNetNews</p>
+
+<p>SEE ALSO inn.conf(5), innd(8), nnrpd(8), ovdb_init(8),
+ovdb_monitor(8), ovdb_stat(8)</p>
+
+<p>BerkeleyDB documentation: in the docs directory of the
+BerkeleyDB source distribution, or on the Sleepycat web
+page: &lt;http://www.sleepy- cat.com/&gt;.</p>
+
+<p>INN 2.4.2 2004-06-08 OVDB(5)</p>
+<hr>
+</body>
+</html>

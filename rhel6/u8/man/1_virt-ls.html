@@ -1,0 +1,457 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:43:53 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>virt-ls(1) Virtualization Support virt-ls(1)</p>
+
+<p>NAME virt-ls - List files in a virtual machine</p>
+
+<p>SYNOPSIS virt-ls [--options] -d domname directory
+[directory ...]</p>
+
+<p>virt-ls [--options] -a disk.img [-a disk.img ...]
+directory [directory ...]</p>
+
+<p>Old style:</p>
+
+<p>virt-ls [--options] domname directory</p>
+
+<p>virt-ls [--options] disk.img [disk.img ...]
+directory</p>
+
+<p>DESCRIPTION &quot;virt-ls&quot; lists filenames, file
+sizes, checksums, extended attributes and more from a
+virtual machine or disk image.</p>
+
+<p>Multiple directory names can be given, in which case the
+output from each is concatenated.</p>
+
+<p>To list directories from a libvirt guest use the -d
+option to specify the name of the guest. For a disk image,
+use the -a option.</p>
+
+<p>&quot;virt-ls&quot; can do many simple file listings.
+For more complicated cases you may need to use guestfish(1),
+or write a program directly to the guestfs(3) API.</p>
+
+<p>EXAMPLES Get a list of all files and directories in a
+virtual machine:</p>
+
+<p>virt-ls -R -d guest /</p>
+
+<p>List all setuid or setgid programs in a Linux virtual
+machine:</p>
+
+<p>virt-ls -lR -d guest / | grep &rsquo;^- [42]&rsquo;</p>
+
+<p>List all public-writable directories in a Linux virtual
+machine:</p>
+
+<p>virt-ls -lR -d guest / | grep &rsquo;^d ...7&rsquo;</p>
+
+<p>List all Unix domain sockets in a Linux virtual
+machine:</p>
+
+<p>virt-ls -lR -d guest / | grep &rsquo;^s&rsquo;</p>
+
+<p>List all regular files with filenames ending in
+.png:</p>
+
+<p>virt-ls -lR -d guest / | grep -i
+&rsquo;^-.*.png$&rsquo;</p>
+
+<p>To display files larger than 10MB in home
+directories:</p>
+
+<p>virt-ls -lR -d guest /home | awk &rsquo;$3 &gt;
+10*1024*1024&rsquo;</p>
+
+<p>Find everything modified in the last 7 days:</p>
+
+<p>virt-ls -lR -d guest --time-days / | awk &rsquo;$6 &lt;=
+7&rsquo;</p>
+
+<p>Find regular files modified in the last 24 hours:</p>
+
+<p>virt-ls -lR -d guest --time-days / | grep
+&rsquo;^-&rsquo; | awk &rsquo;$6 &lt; 1&rsquo;</p>
+
+<p>DIFFERENCES IN SNAPSHOTS AND BACKING FILES Find the
+differences between files in a guest and an earlier snapshot
+of the same guest.</p>
+
+<p>virt-ls -lR -a snapshot.img / --uids --time-t &gt; old
+virt-ls -lR -a current.img / --uids --time-t &gt; new diff
+-u old new | less</p>
+
+<p>The commands above wont find files where the content has
+changed but the metadata (eg. file size and modification
+date) is the same. To do that, you need to add the
+--checksum parameter to both &quot;virt-ls&quot; commands.
+--checksum can be quite slow since it has to read and
+compute a checksum of every regular file in the virtual
+machine.</p>
+
+<p>OUTPUT MODES &quot;virt-ls&quot; has four output modes,
+controlled by different combinations of the -l and -R
+options.</p>
+
+<p>SIMPLE LISTING A simple listing is like the ordinary
+ls(1) command:</p>
+
+<p>$ virt-ls -d guest / bin boot [etc.]</p>
+
+<p>LONG LISTING With the -l (--long) option, the output is
+like the &quot;ls -l&quot; command (more specifically, like
+the &quot;guestfs_ll&quot; function).</p>
+
+<p>$ virt-ls -l -d guest / total 204 dr-xr-xr-x. 2 root
+root 4096 2009-08-25 19:06 bin dr-xr-xr-x. 5 root root 3072
+2009-08-25 19:06 boot [etc.]</p>
+
+<p>Note that while this is useful for displaying a
+directory, do not try parsing this output in another
+program. Use &quot;RECURSIVE LONG LISTING&quot; instead.</p>
+
+<p>RECURSIVE LISTING With the -R (--recursive) option,
+&quot;virt-ls&quot; lists the names of files and directories
+recursively:</p>
+
+<p>$ virt-ls -R -d guest /tmp foo foo/bar [etc.]</p>
+
+<p>To generate this output, &quot;virt-ls&quot; runs the
+&quot;guestfs_find0&quot; function and converts &quot;
+&quot; characters to &quot;0.</p>
+
+<p>RECURSIVE LONG LISTING Using -lR options together
+changes the output to display directories recursively, with
+file stats, and optionally other features such as checksums
+and extended attributes.</p>
+
+<p>Most of the interesting features of &quot;virt-ls&quot;
+are only available when using -lR mode.</p>
+
+<p>The fields are normally space-separated. Filenames are
+not quoted, so you cannot use the output in another program
+(because filenames can contain spaces and other unsafe
+characters). If the guest was untrusted and someone knew you
+were using &quot;virt-ls&quot; to analyze the guest, they
+could play tricks on you by creating filenames with embedded
+newline characters. To safely parse the output in another
+program, use the --csv (Comma-Separated Values) option.</p>
+
+<p>Note that this output format is completely unrelated to
+the &quot;ls -lR&quot; command.</p>
+
+<p>$ virt-ls -lR -d guest /bin d 0555 4096 /bin - 0755 123
+/bin/alsaunmute - 0755 28328 /bin/arch l 0777 4 /bin/awk
+-&gt; gawk - 0755 27216 /bin/basename - 0755 943360
+/bin/bash [etc.]</p>
+
+<p>These basic fields are always shown:</p>
+
+<p>type The file type, one of: &quot;-&quot; (regular
+file), &quot;d&quot; (directory), &quot;c&quot; (character
+device), &quot;b&quot; (block device), &quot;p&quot; (named
+pipe), &quot;l&quot; (symbolic link), &quot;s&quot; (socket)
+or &quot;u&quot; (unknown).</p>
+
+<p>permissions The Unix permissions, displayed as a 4 digit
+octal number.</p>
+
+<p>size The size of the file. This is shown in bytes unless
+-h or --human-readable option is given, in which case this
+is shown as a human-readable number.</p>
+
+<p>path The full path of the file or directory.</p>
+
+<p>link For symbolic links only, the link target.</p>
+
+<p>In -lR mode, additional command line options enable the
+display of more fields.</p>
+
+<p>With the --uids flag, these additional fields are
+displayed before the path:</p>
+
+<p>uid gid The UID and GID of the owner of the file
+(displayed numerically). Note these only make sense in the
+context of a Unix-like guest.</p>
+
+<p>With the --times flag, these additional fields are
+displayed:</p>
+
+<p>atime The time of last access.</p>
+
+<p>mtime The time of last modification.</p>
+
+<p>ctime The time of last status change.</p>
+
+<p>The time fields are displayed as string dates and times,
+unless one of the --time-t, --time-relative or --time-days
+flags is given.</p>
+
+<p>With the --extra-stats flag, these additional fields are
+displayed:</p>
+
+<p>device The device containing the file (displayed as
+major:minor). This may not match devices as known to the
+guest.</p>
+
+<p>inode The inode number.</p>
+
+<p>nlink The number of hard links.</p>
+
+<p>rdev For block and char special files, the device
+(displayed as major:minor).</p>
+
+<p>blocks The number of 512 byte blocks allocated to the
+file.</p>
+
+<p>With the --checksum flag, the checksum of the file
+contents is shown (only for regular files). Computing file
+checksums can take a considerable amount of time.</p>
+
+<p>OPTIONS --help Display brief help.</p>
+
+<p>-a file --add file Add file which should be a disk image
+from a virtual machine. If the virtual machine has multiple
+block devices, you must supply all of them with separate -a
+options.</p>
+
+<p>The format of the disk image is auto-detected. To
+override this and force a particular format use the
+--format=.. option.</p>
+
+<p>--checksum
+--checksum=crc|md5|sha1|sha224|sha256|sha384|sha512 Display
+checksum over file contents for regular files. With no
+argument, this defaults to using md5. Using an argument, you
+can select the checksum type to use.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>-c URI --connect URI If using libvirt, connect to the
+given URI. If omitted, then we connect to the default
+libvirt hypervisor.</p>
+
+<p>If you specify guest block devices directly (-a), then
+libvirt is not used at all.</p>
+
+<p>--csv Write out the results in CSV format
+(comma-separated values). This format can be imported easily
+into databases and spreadsheets, but read &quot;NOTE ABOUT
+CSV FORMAT&quot; below.</p>
+
+<p>-d guest --domain guest Add all the disks from the named
+libvirt guest. Domain UUIDs can be used instead of
+names.</p>
+
+<p>--echo-keys When prompting for keys and passphrases,
+virt-ls normally turns echoing off so you cannot see what
+you are typing. If you are not worried about Tempest attacks
+and there is no one else in the room you can specify this
+flag to see what you are typing.</p>
+
+<p>--extra-stats Display extra stats.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--format=raw|qcow2|.. --format The default for the -a
+option is to auto-detect the format of the disk image. Using
+this forces the disk format for -a options which follow on
+the command line. Using --format with no argument switches
+back to auto-detection for subsequent -a options.</p>
+
+<p>For example:</p>
+
+<p>virt-ls --format=raw -a disk.img /dir</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot;.</p>
+
+<p>virt-ls --format=raw -a disk.img --format -a another.img
+/dir</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot; and reverts to auto-detection for
+&quot;another.img&quot;.</p>
+
+<p>If you have untrusted raw-format guest disk images, you
+should use this option to specify the disk format. This
+avoids a possible security problem with malicious guests
+(CVE-2010-3851).</p>
+
+<p>-h --human-readable Display file sizes in human-readable
+format.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--keys-from-stdin Read key or passphrase parameters from
+stdin. The default is to try to read passphrases from the
+user by opening &quot;/dev/tty&quot;.</p>
+
+<p>-l --long -R --recursive Select the mode. With neither
+of these options, &quot;virt-ls&quot; produces a simple,
+flat list of the files in the named directory. See
+&quot;SIMPLE LISTING&quot;.</p>
+
+<p>&quot;virt-ls -l&quot; produces a &quot;long
+listing&quot;, which shows more detail. See &quot;LONG
+LISTING&quot;.</p>
+
+<p>&quot;virt-ls -R&quot; produces a recursive list of
+files starting at the named directory. See &quot;RECURSIVE
+LISTING&quot;.</p>
+
+<p>&quot;virt-ls -lR&quot; produces a recursive long
+listing which can be more easily parsed. See &quot;RECURSIVE
+LONG LISTING&quot;.</p>
+
+<p>--times Display time fields.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--time-days Display time fields as days before now
+(negative if in the future).</p>
+
+<p>Note that 0 in output means &quot;up to 1 day before
+now&quot;, or that the age of the file is between 0 and
+86399 seconds.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--time-relative Display time fields as seconds before
+now (negative if in the future).</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--time-t Display time fields as seconds since the Unix
+epoch.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>--uids Display UID and GID fields.</p>
+
+<p>This option only has effect in -lR output mode. See
+&quot;RECURSIVE LONG LISTING&quot; above.</p>
+
+<p>-v --verbose Enable verbose messages for debugging.</p>
+
+<p>-V --version Display version number and exit.</p>
+
+<p>-x Enable tracing of libguestfs API calls.</p>
+
+<p>OLD-STYLE COMMAND LINE ARGUMENTS Previous versions of
+virt-ls allowed you to write either:</p>
+
+<p>virt-ls disk.img [disk.img ...] /dir</p>
+
+<p>or</p>
+
+<p>virt-ls guestname /dir</p>
+
+<p>whereas in this version you should use -a or -d
+respectively to avoid the confusing case where a disk image
+might have the same name as a guest.</p>
+
+<p>For compatibility the old style is still supported.</p>
+
+<p>NOTE ABOUT CSV FORMAT Comma-separated values (CSV) is a
+deceptive format. It seems like it should be easy to parse,
+but it is definitely not easy to parse.</p>
+
+<p>Myth: Just split fields at commas. Reality: This does
+not work reliably. This example has two columns:</p>
+
+<p>&quot;foo,bar&quot;,baz</p>
+
+<p>Myth: Read the file one line at a time. Reality: This
+does not work reliably. This example has one row:</p>
+
+<p>&quot;foo bar&quot;,baz</p>
+
+<p>For shell scripts, use &quot;csvtool&quot;
+(http://merjis.com/developers/csv also packaged in major
+Linux distributions).</p>
+
+<p>For other languages, use a CSV processing library (eg.
+&quot;Text::CSV&quot; for Perl or Pythons built-in csv
+library).</p>
+
+<p>Most spreadsheets and databases can import CSV
+directly.</p>
+
+<p>SHELL QUOTING Libvirt guest names can contain arbitrary
+characters, some of which have meaning to the shell such as
+&quot;#&quot; and space. You may need to quote or escape
+these characters on the command line. See the shell manual
+page sh(1) for details.</p>
+
+<p>EXIT STATUS This program returns 0 if successful, or
+non-zero if there was an error.</p>
+
+<p>SEE ALSO guestfs(3), guestfish(1), virt-cat(1),
+virt-copy-out(1), virt-tar-out(1),
+http://libguestfs.org/.</p>
+
+<p>AUTHOR Richard W.M. Jones
+http://people.redhat.com/~rjones/</p>
+
+<p>COPYRIGHT Copyright (C) 2009-2013 Red Hat Inc.</p>
+
+<p>LICENSE This program is free software; you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your
+option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more
+details.</p>
+
+<p>You should have received a copy of the GNU General
+Public License along with this program; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, MA 02110-1301 USA.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 virt-ls(1)</p>
+<hr>
+</body>
+</html>

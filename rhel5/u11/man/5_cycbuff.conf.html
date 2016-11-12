@@ -1,0 +1,232 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Sat Nov 12 05:08:22 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>CYCBUFF.CONF(5) InterNetNews Documentation
+CYCBUFF.CONF(5)</p>
+
+<p>NAME cycbuff.conf - Configuration file for INN CNFS
+storage method</p>
+
+<p>DESCRIPTION This file defines the cyclical buffers that
+make up the storage pools for CNFS (Cyclic News File
+System). Some options controlling the behavior of the CNFS
+storage system can also be set here. cycbuff.conf is
+required if the CNFS (Cyclic News File System) storage
+method is used. INN will look for it in pathetc (as set in
+inn.conf).</p>
+
+<p>For information about how to configure INN to use CNFS,
+see stor- age.conf(5).</p>
+
+<p>Blank lines and lines beginning with a hash sign
+(&quot;#&quot;) are ignored. All other lines must be of one
+of the following forms:</p>
+
+<p>cycbuffupdate:&lt;interval&gt;
+refreshinterval:&lt;interval&gt;
+cycbuff:&lt;name&gt;:&lt;file&gt;:&lt;size&gt;
+metacycbuff:&lt;name&gt;:&lt;buffer&gt;[,&lt;buffer&gt;,...][:&lt;mode&gt;]</p>
+
+<p>(where items enclosed in [] are optional). Order is
+mostly not signif- icant, but all cycbuff lines must occur
+before all metacycbuff lines. Long lines can be continued on
+the next line by ending the line with a backslash
+(&quot;</p>
+
+<p>cycbuffupdate:&lt;interval&gt; Sets the number of
+articles are written before the cycbuff header is written
+back to disk to &lt;interval&gt;. Under most operating sys-
+tems, the header doesnt have to be written to disk for the
+updated data to be available to other processes on the same
+system that are reading articles out of CNFS, but any
+accesses to the CNFS cycbuffs over NFS will only see the
+data present at the last write of the header. After a system
+crash, all updates since the last write of the CNFS header
+may be lost. The default value, if this line is omitted, is
+25, meaning that the header is written to disk after every
+25 articles stored in that cycbuff.</p>
+
+<p>refreshinterval:&lt;interval&gt; Sets the interval (in
+seconds) between re-reads of the cycbuff header to
+&lt;interval&gt;. This primarily affects nnrpd and controls
+the frequency with which it updates its knowledge of the
+current contents of the CNFS cycbuffs. The default value, if
+this line is omitted, is 30.</p>
+
+<p>cycbuff:&lt;name&gt;:&lt;file&gt;:&lt;size&gt;
+Configures a particular CNFS cycbuff. &lt;name&gt; is a
+symbolic name for the buffer, to be used later in a
+metacycbuff line. It must be no longer than seven
+characters. &lt;file&gt; is the full path to the buffer file
+or block device, and must be no longer than 63 charac- ters.
+&lt;size&gt; is the length of the buffer in kilobytes (1KB
+is 1024 bytes). If &lt;file&gt; is not a block device, it
+should be &lt;size&gt; * 1024 bytes long.</p>
+
+
+<p>metacycbuff:&lt;name&gt;:&lt;buffer&gt;[,&lt;buffer&gt;,...][:&lt;mode&gt;]
+Specifies a collection of CNFS buffers that make up a single
+logi- cal storage location from the perspective of INN.
+Metacycbuffs are referred to in storage.conf as storage
+locations for articles, so in order to actually put articles
+in a cycbuff, it has to be listed as part of some
+metacycbuff which is then referenced in stor- age.conf.</p>
+
+<p>&lt;name&gt; is the symbolic name of the metacycbuff,
+referred to in the options field of cnfs entries in
+storage.conf. &lt;buffer&gt; is the name of a cycbuff (the
+&lt;name&gt; part of a cycbuff line), and any num- ber of
+cycbuffs may be specified, separated by commas.</p>
+
+<p>If there is more than one cycbuff in a metacycbuff,
+there are two ways that INN can distribute articles between
+the cycbuffs. The default mode, INTERLEAVE, stores the
+articles in each cycbuff in a round-robin fashion, one
+article per cycbuff in the order listed. If the cycbuffs are
+of wildly different sizes, this can cause some of them to
+roll over much faster than others, and it may not give the
+best performance depending on your disk layout. The other
+storage mode, SEQUENTIAL, instead writes to each cycbuff in
+turn until that cycbuff is full and then moves on to the
+next one, returning to the first and starting a new cycle
+when the last one is full. To specify a mode rather than
+leaving it at the default, add a colon and the mode
+(INTERLEAVE or SEQUENTIAL) at the end of the metacycbuff
+line.</p>
+
+<p>innd only reads cycbuff.conf on startup, so if you
+change anything in this file and want innd to pick up the
+changes, you have to stop and restart it. &quot;ctlinnd
+reload &quot; is not sufficient.</p>
+
+<p>When articles are stored, the cycbuff into which theyre
+stored is saved as part of the article token. In order for
+INN to retrieve arti- cles from a cycbuff, that cycbuff must
+be listed in cycbuff.conf. How- ever, if INN should not
+write to a cycbuff, it doesnt need to be (and shouldnt be)
+listed in a metacycbuff.</p>
+
+<p>This provides an easy way to retire a cycbuff. Just
+remove it from its metacycbuff, leaving in the cycbuff line,
+and restart innd (with, for example, &quot;ctlinnd xexec
+innd&quot;). No new articles will be put into the cycbuff,
+but neither will any articles expire from it. After you no
+longer need the articles in the cycbuff, just remove it
+entirely from cycbuff.conf. Then all of the articles will
+appear to have been deleted to INN, and the next nightly
+expire run will clean up any remaining references to
+them.</p>
+
+<p>Adding a new cycbuff just requires creating it (see
+below), adding a cycbuff line, adding it to a metacycbuff,
+and then restarting innd.</p>
+
+<p>CREATING CYCBUFFS When creating a new cycbuff, there are
+two different methods for creat- ing the buffers in which
+the articles will be stored.</p>
+
+<p>1. Create a large file on top of a regular file system.
+The easiest way to do this is probably with dd(1), using a
+command like:</p>
+
+<p>dd if=/dev/zero of=/path/to/cycbuff bs=1024
+count=&lt;size&gt;</p>
+
+<p>where &lt;size&gt; is the size from the cycbuff line in
+cycbuff.conf. INSTALL contains a script that will generate
+these commands for you from your cycbuff.conf file.</p>
+
+<p>This is the simplest method, but has the disadvantage
+that very large files on regular file systems can be fairly
+slow to access, particularly at the end of the file, and INN
+incurs unnecessary file system overhead when accessing the
+cycbuff.</p>
+
+<p>2. Use block devices directly. If your operating system
+allows you to call mmap() on block devices (Solaris and
+recent versions of Linux do, FreeBSD at last report does
+not), this is the recommended method since you can avoid all
+of the native file system overhead. Note, however, that each
+cycbuff cannot be larger than 2GB with this method, so if
+you need a lot of spool space, you may have to go back to
+disk files.</p>
+
+<p>Partition the disk to make each partition equal to or
+smaller than 2GB. If youre using Solaris, set up your
+partitions to avoid the first cylinder of the disk (or
+otherwise the cycbuff header will overwrite the disk
+partition table and render the cycbuffs inacces- sible).
+Then, create device files for each block device youre going
+to use.</p>
+
+<p>Its not recommended to use the block device files in
+/dev, since the news system doesn t have permission to write
+to them and chang- ing the permissions of the system device
+files may affect something else. Instead, use mknod(1) to
+create a new set of block devices (in somewhere like
+pathspool/cycbuffs that s only writable by the news user).
+To do this, run &quot;ls -Ll&quot; on the devices in /dev
+that correspond to the block devices that you want to use.
+The major and minor device numbers are in the fifth and
+sixth columns (right before the date), respectively. Then
+run mknod like:</p>
+
+<p>mknod &lt;file&gt; b &lt;major&gt; &lt;minor&gt;</p>
+
+<p>where &lt;file&gt; is the path to the device to create
+(matching the &lt;file&gt; part of the cycbuff line) and
+&lt;major&gt; and &lt;minor&gt; are the major and minor
+device numbers as discovered above.</p>
+
+<p>Heres a short script to do this when given the path to
+the system device file as an argument:</p>
+
+<p>#!/bin/sh base=echo &quot;$1&quot; sed s%.*/%% major=ls
+-Ll &quot;$1&quot; awk {print $5} tr -d , minor=ls -Ll
+&quot;$1&quot; awk {print $6} mkdir -p
+/usr/local/news/spool/cycbuffs mknod
+/usr/local/news/spool/cycbuffs/&quot;$base&quot; b
+&quot;$major&quot; &quot;$minor&quot; chown news:news
+/usr/local/news/spool/cycbuffs/&quot;$base&quot; chmod 644
+/usr/local/news/spool/cycbuffs/&quot;$base&quot;</p>
+
+<p>Make sure that the created files are owned by the news
+user and news group, as specified at configure time (the
+default being &quot;news&quot; for both). Also make sure
+that the permissions on the devices allow the news user to
+read and write, and if you want other users on the system to
+be able to use sm to retrieve arti- cles, make sure theyre
+world-readable.</p>
+
+<p>Once you have everything configured properly and you
+start innd, you should see messages in news.notice that look
+like:</p>
+
+<p>innd: CNFS-sm No magic cookie found for cycbuff ONE,
+initializing</p>
+
+<p>where ONE will be whatever you called your cycbuff.</p>
+
+<p>HISTORY Written by Katsuhiro Kondou
+&lt;kondou@nec.co.jp&gt; for InterNetNews. Rewritten into
+POD by Russ Allbery &lt;rra@stanford.edu&gt;.</p>
+
+<p>$Id: cycbuff.conf.5 6247 2003-02-28 00:05:40Z kondou
+$</p>
+
+<p>SEE ALSO ctlinnd(8), innd(8), nnrpd(8), sm(1),
+storage.conf(5)</p>
+
+<p>INN 2.4.0 2002-12-29 CYCBUFF.CONF(5)</p>
+<hr>
+</body>
+</html>

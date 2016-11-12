@@ -1,0 +1,175 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:28:09 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PMIE_CHECK(1) PMIE_CHECK(1)</p>
+
+<p>NAME pmie_check, pmie_daily - administration of the
+Performance Co-Pilot inference engine</p>
+
+<p>SYNOPSIS $PCP_BINADM_DIR/pmie_check [-CNsV] [-c control]
+$PCP_BINADM_DIR/pmie_daily [-NV] [-c control] [-k discard]
+[-m addresses] [-x compress] [-X program] [-Y regex]</p>
+
+<p>DESCRIPTION This series of shell scripts and associated
+control files may be used to create a customized regime of
+administration and management for the Performance Co-Pilot
+(see PCPintro(1)) inference engine, pmie(1).</p>
+
+<p>pmie_daily is intended to be run once per day,
+preferably in the early morning, as soon after midnight as
+practicable. Its task is to rotate the log files for the
+running pmie processes - these files may grow without bound
+if the print action is used, or any other pme action writes
+to its stdout/stderr streams. After some period, old pmie
+log files are discarded. This period is 14 days by default,
+but may be changed using the -k option. Two special values
+are recognized for the period (discard), namely 0 to keep no
+log files beyond the current one, and forever to prevent any
+log files being discarded.</p>
+
+<p>Log files can optionally be compressed after some period
+(compress), to conserve disk space. This is particularly
+useful for large numbers of pmie processes under the control
+of pmie_check. The -x option speci- fies the number of days
+after which to compress archive data files, and the -X
+option specifies the program to use for compression - by
+default this is xz(1). Use of the -Y option allows a regular
+expression to be specified causing files in the set of files
+matched for compression to be omitted - this allows only the
+data file to be compressed, and also prevents the program
+from attempting to compress it more than once. The default
+regex is
+&quot;.(meta|index|Z|gz|bz2|zip|xz|lzma|lzo|lz4)$&quot; -
+such files are filtered using the -v option to egrep(1).</p>
+
+<p>Use of the -m option causes pmie_daily to construct a
+summary of the log files generated for all monitored hosts
+in the last 24 hours (lines matching OK are culled), and
+e-mail that summary to the set of space-separated
+addresses.</p>
+
+<p>pmie_check may be run at any time, and is intended to
+check that the desired set of pmie(1) processes are running,
+and if not to re-launch any failed inference engines. Use of
+the -s option provides the reverse functionality, allowing
+the set of pmie processes to be cleanly shutdown. Use of the
+-C option queries the system service runlevel information
+for pmie, and uses that to determine whether to start or
+stop processes.</p>
+
+<p>Both pmie_check and pmie_daily are controlled by a PCP
+inference engine control file that specifies the pmie
+instances to be managed. The default control file is
+$PCP_PMIECONTROL_PATH but an alternate may be specified
+using the -c option.</p>
+
+<p>The control file should be customized according to the
+following rules.</p>
+
+<p>1. Lines beginning with a # are comments. 2. Lines
+beginning with a $ are assumed to be assignments to
+environment variables in the style of sh(1), and all text
+fol- lowing the $ will be evaled by the script reading the
+con- trol file, and the corresponding variable exported into
+the environment. This is particularly useful to set and
+export variables into the environment of the administrative
+script, e.g. $ PMCD_CONNECT_TIMEOUT=20 Warning: The
+$PCP_PMIECONTROL_PATH file must not be writable by any user
+other than root. 3. There should be one line in the control
+file for each pmie instance of the form:</p>
+
+<p>host y|n logfile args</p>
+
+<p>4. Fields within a line of the control file are
+separated by one or more spaces or tabs. 5. The first field
+is the name of the host that is the default source of the
+performance metrics for this pmie instance. 6. The second
+field indicates whether this pmie instance needs to be
+started under the control of pmsocks(1) to connect to a pmcd
+through a firewall (y or n). 8. The third field is the name
+of the pmie activity log file. A useful convention is that
+pmie instances monitoring the local host with hostname
+myhost are maintained in the directory
+$PCP_LOG_DIR/pmie/myhost, while activity logs for the remote
+host mumble are maintained in $PCP_LOG_DIR/pmie/mumble. This
+is consistent with the way pmlogger(1) maintains its
+activity logs and archive files. 9. All other fields are
+interpreted as arguments to be passed to pmie(1). Most
+typically this would be the -c option.</p>
+
+<p>The following sample control lines specify one pmie
+instance monitoring the local host (wobbly), and another
+monitoring performance metrics from the host splat.</p>
+
+<p>wobbly n PCP_LOG_DIR/pmie/wobbly -c config.default splat
+n PCP_LOG_DIR/pmie/splat -c splat/cpu.conf</p>
+
+<p>Typical crontab(5) entries for periodic execution of
+pmie_daily and pmie_check are given in
+$PCP_SYSCONF_DIR/pmie/crontab (unless installed by default
+in /etc/cron.d already) and shown below.</p>
+
+<p># daily processing of pmie logs 08 0 * * *
+$PCP_BINADM_DIR/pmie_daily # every 30 minutes, check pmie
+instances are running 28,58 * * * *
+$PCP_BINADM_DIR/pmie_check</p>
+
+<p>The output from the cron(8) execution of the scripts may
+be extended using the -V option to the scripts which will
+enable verbose tracing of their activity. By default the
+scripts generate no output unless some error or warning
+condition is encountered.</p>
+
+<p>The -N option enables a show me mode, where the actions
+are echoed, but not executed, in the style of make -n. Using
+-N in conjunction with -V maximizes the diagnostic
+capabilities for debugging.</p>
+
+<p>FILES $PCP_PMIECONTROL_PATH the default PCP inference
+engine control file Warning: this file must not be writable
+by any user other than root.</p>
+
+<p>$PCP_SYSCONF_DIR/pmie/crontab sample crontab for
+automated script execution by $PCP_USER (or root) - exists
+only if the platform does not support the /etc/cron.d
+mechanism.</p>
+
+<p>$PCP_VAR_DIR/config/pmie/config.default default pmlogger
+configuration file location for a localhost inference
+engine, typically generated automatically by
+pmieconf(1).</p>
+
+<p>$PCP_LOG_DIR/pmie/hostname default location for the pmie
+log file for the host hostname</p>
+
+<p>$PCP_LOG_DIR/pmie/hostname/lock transient lock file to
+guarantee mutual exclusion during pmie administration for
+the host hostname - if present, can be safely removed if
+neither pmie_daily nor pmie_check are run- ning</p>
+
+<p>$PCP_LOG_DIR/NOTICES PCP notices file used by pmie(1)
+and friends</p>
+
+<p>PCP ENVIRONMENT Environment variables with the prefix
+PCP_ are used to parameterize the file and directory names
+used by PCP. On each installation, the file /etc/pcp.conf
+contains the local values for these variables. The $PCP_CONF
+variable may be used to specify an alternative configuration
+file, as described in pcp.conf(5).</p>
+
+<p>SEE ALSO egrep(1), PCPintro(1), pmie(1), pmieconf(1),
+xz(1) and cron(8).</p>
+
+<p>Performance Co-Pilot PCP PMIE_CHECK(1)</p>
+<hr>
+</body>
+</html>

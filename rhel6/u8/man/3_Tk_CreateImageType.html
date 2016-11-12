@@ -1,0 +1,244 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:41:14 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>Tk_CreateImageType(3) Tk Library Procedures
+Tk_CreateImageType(3)</p>
+
+
+<p>______________________________________________________________________________</p>
+
+<p>NAME Tk_CreateImageType, Tk_GetImageMasterData,
+Tk_InitImageArgs - define new kind of image</p>
+
+<p>SYNOPSIS #include &lt;tk.h&gt;</p>
+
+<p>Tk_CreateImageType(typePtr)</p>
+
+<p>ClientData Tk_GetImageMasterData(interp, name,
+typePtrPtr)</p>
+
+<p>Tk_InitImageArgs(interp, argc, argvPtr)</p>
+
+<p>ARGUMENTS Tk_ImageType *typePtr (in) Structure that
+defines the new type of image. Must be static: a pointer to
+this structure is retained by the image code.</p>
+
+<p>Tcl_Interp *interp (in) Interpreter in which image was
+created.</p>
+
+<p>const char *name (in) Name of existing image.</p>
+
+<p>Tk_ImageType **typePtrPtr (out) Points to word in which
+to store a pointer to type information for the given image,
+if it exists.</p>
+
+<p>int argc (in) Number of arguments</p>
+
+<p>char ***argvPtr (in/out) Pointer to argument list
+_________________________________________________________________</p>
+
+<p>DESCRIPTION Tk_CreateImageType is invoked to define a
+new kind of image. An image type corresponds to a particular
+value of the type argument for the image create command.
+There may exist any number of different image types, and new
+types may be defined dynamically by calling Tk_CreateIm-
+ageType. For example, there might be one type for 2-color
+bitmaps, another for multi-color images, another for
+dithered images, another for video, and so on.</p>
+
+<p>The code that implements a new image type is called an
+image manager. It consists of a collection of procedures
+plus three different kinds of data structures. The first
+data structure is a Tk_ImageType structure, which contains
+the name of the image type and pointers to five proce- dures
+provided by the image manager to deal with images of this
+type: typedef struct Tk_ImageType { char *name;
+Tk_ImageCreateProc *createProc; Tk_ImageGetProc *getProc;
+Tk_ImageDisplayProc *displayProc; Tk_ImageFreeProc
+*freeProc; Tk_ImageDeleteProc *deleteProc; } Tk_ImageType;
+The fields of this structure will be described in later
+subsections of this entry.</p>
+
+<p>The second major data structure manipulated by an image
+manager is called an image master; it contains overall
+information about a par- ticular image, such as the values
+of the configuration options speci- fied in an image create
+command. There will usually be one of these structures for
+each invocation of the image create command.</p>
+
+<p>The third data structure related to images is an image
+instance. There will usually be one of these structures for
+each usage of an image in a particular widget. It is
+possible for a single image to appear simul- taneously in
+multiple widgets, or even multiple times in the same wid-
+get. Furthermore, different instances may be on different
+screens or displays. The image instance data structure
+describes things that may vary from instance to instance,
+such as colors and graphics contexts for redisplay. There is
+usually one instance structure for each -image option
+specified for a widget or canvas item.</p>
+
+<p>The following subsections describe the fields of a
+Tk_ImageType in more detail.</p>
+
+<p>NAME typePtr-&gt;name provides a name for the image
+type. Once Tk_CreateIm- ageType returns, this name may be
+used in image create commands to cre- ate images of the new
+type. If there already existed an image type by this name
+then the new image type replaces the old one.</p>
+
+<p>CREATEPROC typePtr-&gt;createProc provides the address
+of a procedure for Tk to call whenever image create is
+invoked to create an image of the new type.
+typePtr-&gt;createProc must match the following prototype:
+typedef int Tk_ImageCreateProc( Tcl_Interp *interp, char
+*name, int objc, Tcl_Obj *const objv[], Tk_ImageType
+*typePtr, Tk_ImageMaster master, ClientData *masterDataPtr);
+The interp argument is the interpreter in which the image
+command was invoked, and name is the name for the new image,
+which was either spec- ified explicitly in the image command
+or generated automatically by the image command. The objc
+and objv arguments describe all the configura- tion options
+for the new image (everything after the name argument to
+image). The master argument is a token that refers to Tks
+information about this image; the image manager must return
+this token to Tk when invoking the Tk_ImageChanged
+procedure. Typically createProc will parse objc and objv and
+create an image master data structure for the new image.
+createProc may store an arbitrary one-word value at *mas-
+terDataPtr, which will be passed back to the image manager
+when other callbacks are invoked. Typically the value is a
+pointer to the master data structure for the image.</p>
+
+<p>If createProc encounters an error, it should leave an
+error message in the interpreter result and return
+TCL_ERROR; otherwise it should return TCL_OK.</p>
+
+<p>createProc should call Tk_ImageChanged in order to set
+the size of the image and request an initial redisplay.</p>
+
+<p>GETPROC typePtr-&gt;getProc is invoked by Tk whenever a
+widget calls Tk_GetImage to use a particular image. This
+procedure must match the following prototype: typedef
+ClientData Tk_ImageGetProc( Tk_Window tkwin, ClientData
+masterData); The tkwin argument identifies the window in
+which the image will be used and masterData is the value
+returned by createProc when the image master was created.
+getProc will usually create a data structure for the new
+instance, including such things as the resources needed to
+dis- play the image in the given window. getProc returns a
+one-word token for the instance, which is typically the
+address of the instance data structure. Tk will pass this
+value back to the image manager when invoking its
+displayProc and freeProc procedures.</p>
+
+<p>DISPLAYPROC typePtr-&gt;displayProc is invoked by Tk
+whenever an image needs to be displayed (i.e., whenever a
+widget calls Tk_RedrawImage). displayProc must match the
+following prototype: typedef void Tk_ImageDisplayProc(
+ClientData instanceData, Display *display, Drawable
+drawable, int imageX, int imageY, int width, int height, int
+drawableX, int drawableY); The instanceData will be the same
+as the value returned by getProc when the instance was
+created. display and drawable indicate where to dis- play
+the image; drawable may be a pixmap rather than the window
+speci- fied to getProc (this is usually the case, since most
+widgets double- buffer their redisplay to get smoother
+visual effects). imageX, imageY, width, and height identify
+the region of the image that must be redisplayed. This
+region will always be within the size of the image as
+specified in the most recent call to Tk_ImageChanged.
+drawableX and drawableY indicate where in drawable the image
+should be displayed; displayProc should display the given
+region of the image so that point (imageX, imageY) in the
+image appears at (drawableX, drawableY) in drawable.</p>
+
+<p>FREEPROC typePtr-&gt;freeProc contains the address of a
+procedure that Tk will invoke when an image instance is
+released (i.e., when Tk_FreeImage is invoked). This can
+happen, for example, when a widget is deleted or a image
+item in a canvas is deleted, or when the image displayed in
+a widget or canvas item is changed. freeProc must match the
+following prototype: typedef void Tk_ImageFreeProc(
+ClientData instanceData, Display *display); The instanceData
+will be the same as the value returned by getProc when the
+instance was created, and display is the display containing
+the window for the instance. freeProc should release any
+resources associ- ated with the image instance, since the
+instance will never be used again.</p>
+
+<p>DELETEPROC typePtr-&gt;deleteProc is a procedure that Tk
+invokes when an image is being deleted (i.e. when the image
+delete command is invoked). Before invoking deleteProc Tk
+will invoke freeProc for each of the images instances.
+deleteProc must match the following prototype: typedef void
+Tk_ImageDeleteProc( ClientData masterData); The masterData
+argument will be the same as the value stored in
+*masterDataPtr by createProc when the image was created.
+deleteProc should release any resources associated with the
+image.</p>
+
+<p>TK_GETIMAGEMASTERDATA The procedure
+Tk_GetImageMasterData may be invoked to retrieve informa-
+tion about an image. For example, an image manager can use
+this proce- dure to locate its image master data for an
+image. If there exists an image named name in the
+interpreter given by interp, then *typePtrPtr is filled in
+with type information for the image (the typePtr value
+passed to Tk_CreateImageType when the image type was
+registered) and the return value is the ClientData value
+returned by the createProc when the image was created (this
+is typically a pointer to the image master data structure).
+If no such image exists then NULL is returned and NULL is
+stored at *typePtrPtr.</p>
+
+<p>LEGACY INTERFACE SUPPORT In Tk 8.2 and earlier, the
+definition of Tk_ImageCreateProc was incom- patibly
+different, with the following prototype: typedef int
+Tk_ImageCreateProc( Tcl_Interp *interp, char *name, int
+argc, char **argv, Tk_ImageType *typePtr, Tk_ImageMaster
+master, ClientData *masterDataPtr); Legacy programs and
+libraries dating from those days may still contain code that
+defines extended Tk image types using the old interface. The
+Tk header file will still support this legacy interface if
+the code is compiled with the macro USE_OLD_IMAGE
+defined.</p>
+
+<p>When the USE_OLD_IMAGE legacy support is enabled, you
+may see the rou- tine Tk_InitImageArgs in use. This was a
+migration tool used to create stub-enabled extensions that
+could be loaded into interps containing all versions of Tk
+8.1 and later. Tk 8.5 no longer provides this rou- tine, but
+uses a macro to convert any attempted calls of this routine
+into an empty comment. Any stub-enabled extension providing
+an extended image type via the legacy interface that is
+compiled against Tk 8.5 headers and linked against the Tk
+8.5 stub library will produce a file that can be loaded only
+into interps with Tk 8.5 or later; that is, the normal
+stub-compatibility rules. If a developer needs to gen- erate
+from such code a file that is loadable into interps with Tk
+8.4 or earlier, they must use Tk 8.4 headers and stub
+libraries to do so.</p>
+
+<p>Any new code written today should not make use of the
+legacy inter- faces. Expect their support to go away in Tk
+9.</p>
+
+<p>SEE ALSO Tk_ImageChanged, Tk_GetImage, Tk_FreeImage,
+Tk_RedrawImage, Tk_Size- OfImage</p>
+
+<p>KEYWORDS image manager, image type, instance, master</p>
+
+<p>Tk 8.5 Tk_CreateImageType(3)</p>
+<hr>
+</body>
+</html>

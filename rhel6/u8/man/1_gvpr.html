@@ -1,0 +1,929 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:18:23 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>GVPR(1) GVPR(1)</p>
+
+<p>NAME gvpr - graph pattern scanning and processing
+language ( previously known as gpr )</p>
+
+<p>SYNOPSIS gvpr [-icqV?] [ -o outfile ] [ -a args ] [
+prog_ | -f progfile ] [ files ]</p>
+
+<p>DESCRIPTION gvpr is a graph stream editor inspired by
+awk. It copies input graphs to its output, possibly
+transforming their structure and attributes, creating new
+graphs, or printing arbitrary information. The graph model
+is that provided by libcgraph(3). In particular, gvpr reads
+and writes graphs using the dot language.</p>
+
+<p>Basically, gvpr traverses each input graph, denoted by
+$G, visiting each node and edge, matching it with the
+predicate-action rules sup- plied in the input program. The
+rules are evaluated in order. For each predicate evaluating
+to true, the corresponding action is per- formed. During the
+traversal, the current node or edge being visited is denoted
+by $.</p>
+
+<p>For each input graph, there is a target subgraph,
+denoted by $T, ini- tially empty and used to accumulate
+chosen entities, and an output graph, $O, used for final
+processing and then written to output. By default, the
+output graph is the target graph. The output graph can be
+set in the program or, in a limited sense, on the command
+line.</p>
+
+<p>OPTIONS The following options are supported:</p>
+
+<p>-a args The string args is split into
+whitespace-separated tokens, with the individual tokens
+available as strings in the gvpr program as
+ARGV[0],...,ARGV[ARGC-1]. Whitespace characters within sin-
+gle or double quoted substrings, or preceded by a backslash,
+are ignored as separators. In general, a backslash character
+turns off any special meaning of the following character.
+Note that the tokens derived from multiple -a flags are
+concatenated.</p>
+
+<p>-c Use the source graph as the output graph.</p>
+
+<p>-i Derive the node-induced subgraph extension of the
+output graph in the context of its root graph.</p>
+
+<p>-o outfile Causes the output stream to be written to the
+specified file; by default, output is written to stdout.</p>
+
+<p>-f progfile Use the contents of the specified file as
+the program to execute on the input. If progfile contains a
+slash character, the name is taken as the pathname of the
+file. Otherwise, gvpr will use the directories specified in
+the environment variable GPRPATH to look for the file. If -f
+is not given, gvpr will use the first non-option argument as
+the program.</p>
+
+<p>-q Turns off warning messages.</p>
+
+<p>-V Causes the program to print version information and
+exit.</p>
+
+<p>-? Causes the program to print usage information and
+exit.</p>
+
+<p>OPERANDS The following operand is supported:</p>
+
+<p>files Names of files containing 1 or more graphs in the
+dot language. If no -f option is given, the first name is
+removed from the list and used as the input program. If the
+list of files is empty, stdin will be used.</p>
+
+<p>PROGRAMS A gvpr program consists of a list of
+predicate-action clauses, having one of the forms:</p>
+
+<p>BEGIN { action }</p>
+
+<p>BEG_G { action }</p>
+
+<p>N [ predicate ] { action }</p>
+
+<p>E [ predicate ] { action }</p>
+
+<p>END_G { action }</p>
+
+<p>END { action }</p>
+
+<p>A program can contain at most one of each of the BEGIN,
+END_G and END clauses. There can be any number of BEG_G, N
+and E statements, the first applied to graphs, the second to
+nodes, the third to edges. These are separated into blocks,
+a block consisting of an optional BEG_G statement and all N
+and E statements up to the next BEG_G state- ment, if any.
+The top-level semantics of a gvpr program are:</p>
+
+<p>Evaluate the BEGIN clause, if any. For each input graph
+G { For each block { Set G as the current graph and current
+object. Evaluate the BEG_G clause, if any. For each node and
+edge in G { Set the node or edge as the current object.
+Evaluate the N or E clauses, as appropriate. } } Set G as
+the current object. Evaluate the END_G clause, if any. }
+Evaluate the END clause, if any.</p>
+
+<p>The actions of the BEGIN, BEG_G, END_G and END clauses
+are performed when the clauses are evaluated. For N or E
+clauses, either the predi- cate or action may be omitted. If
+there is no predicate with an action, the action is
+performed on every node or edge, as appropriate. If there is
+no action and the predicate evaluates to true, the associ-
+ated node or edge is added to the target graph.</p>
+
+<p>The blocks are evaluated in the order in which they
+occur. Within a block, the N clauses (E clauses,
+respectively) are evaluated in the order in which the occur.
+Note, though, that within a block, N or E clauses may be
+interlaced, depending on the traversal order.</p>
+
+<p>Predicates and actions are sequences of statements in
+the C dialect supported by the libexpr(3) library. The only
+difference between pred- icates and actions is that the
+former must have a type that may inter- preted as either
+true or false. Here the usual C convention is fol- lowed, in
+which a non-zero value is considered true. This would
+include non-empty strings and non-empty references to nodes,
+edges, etc. How- ever, if a string can be converted to an
+integer, this value is used.</p>
+
+<p>In addition to the usual C base types (void, int, char,
+float, long, unsigned and double), gvpr provides string as a
+synonym for char*, and the graph-based types node_t, edge_t,
+graph_t and obj_t. The obj_t type can be viewed as a
+supertype of the other 3 concrete types; the correct base
+type is maintained dynamically. Besides these base types,
+the only other supported type expressions are (associative)
+arrays.</p>
+
+<p>Constants follow C syntax, but strings may be quoted
+with either &quot;...&quot; or ... . In certain contexts,
+string values are interpreted as pat- terns for the purpose
+of regular expression matching. Patterns use ksh(1) file
+match pattern syntax. gvpr accepts C++ comments as well as
+cpp-type comments. For the latter, if a line begins with a #
+charac- ter, the rest of the line is ignored.</p>
+
+<p>A statement can be a declaration of a function, a
+variable or an array, or an executable statement. For
+declarations, there is a single scope. Array declarations
+have the form:</p>
+
+<p>type array [ type0 ]</p>
+
+<p>where type0 is optional. If it is supplied, the parser
+will enforce that all array subscripts have the specified
+type. If it is not sup- plied, objects of all types can be
+used as subscripts. As in C, vari- ables and arrays must be
+declared. In particular, an undeclared vari- able will be
+interpreted as the name of an attribute of a node, edge or
+graph, depending on the context.</p>
+
+<p>Executable statements can be one of the following: { [
+statement ... ] } expression // commonly var = expression
+if( expression ) statement [ else statement ] for(
+expression ; expression ; expression ) statement for( array
+[ var ]) statement forr( array [ var ]) statement while(
+expression ) statement switch( expression ) case statements
+break [ expression ] continue [ expression ] return [
+expression ] Items in brackets are optional.</p>
+
+<p>In the second form of the for statement and the forr
+statement, the variable var is set to each value used as an
+index in the specified array and then the associated
+statement is evaluated. For numeric and string indices, the
+indices are returned in increasing (decreasing) numeric or
+lexicographic order for for (forr, respectively). This can
+be used for sorting.</p>
+
+<p>Function definitions can only appear in the BEGIN
+clause.</p>
+
+<p>Expressions include the usual C expressions. String
+comparisons using == and != treat the right hand operand as
+a pattern. gvpr will attempt to use an expression as a
+string or numeric value as appropriate.</p>
+
+<p>Expressions of graphical type (i.e., graph_t, node_t,
+edge_t, obj_t) may be followed by a field reference in the
+form of .name. The result- ing value is the value of the
+attribute named name of the given object. In addition, in
+certain contexts an undeclared, unmodified identifier is
+taken to be an attribute name. Specifically, such
+identifiers denote attributes of the current node or edge,
+respectively, in N and E clauses, and the current graph in
+BEG_G and END_G clauses.</p>
+
+<p>As usual in the libcgraph(3) model, attributes are
+string-valued. In addition, gvpr supports certain
+pseudo-attributes of graph objects, not necessarily
+string-valued. These reflect intrinsic properties of the
+graph objects and cannot be set by the user.</p>
+
+<p>head : node_t the head of an edge.</p>
+
+<p>tail : node_t the tail of an edge.</p>
+
+<p>name : string the name of an edge, node or graph. The
+name of an edge has the form
+&quot;&lt;tail-name&gt;&lt;edge-op&gt;&lt;head-name&gt;[&lt;key&gt;]&quot;,
+where &lt;edge-op&gt; is &quot;-&gt;&quot; or &quot;--&quot;
+depending on whether the graph is directed or not. The
+bracket part [&lt;key&gt;] only appears if the edge has a
+non-trivial key.</p>
+
+<p>indegree : int the indegree of a node.</p>
+
+<p>outdegree : int the outdegree of a node.</p>
+
+<p>degree : int the degree of a node.</p>
+
+<p>root : graph_t the root graph of an object. The root of
+a root graph is itself.</p>
+
+<p>parent : graph_t the parent graph of a subgraph. The
+parent of a root graph is NULL</p>
+
+<p>n_edges : int the number of edges in the graph</p>
+
+<p>n_nodes : int the number of nodes in the graph</p>
+
+<p>directed : int true (non-zero) if the graph is
+directed</p>
+
+<p>strict : int true (non-zero) if the graph is strict</p>
+
+<p>BUILT-IN FUNCTIONS The following functions are built
+into gvpr. Those functions returning references to graph
+objects return NULL in case of failure.</p>
+
+<p>Graphs and subgraph graph(s : string, t : string) :
+graph_t creates a graph whose name is s and whose type is
+specified by the string t. Ignoring case, the characters U,
+D, S, N have the interpretation undirected, directed,
+strict, and non-strict, respectively. If t is empty, a
+directed, non-strict graph is generated.</p>
+
+<p>subg(g : graph_t, s : string) : graph_t creates a
+subgraph in graph g with name s. If the subgraph already
+exists, it is returned.</p>
+
+<p>isSubg(g : graph_t, s : string) : graph_t returns the
+subgraph in graph g with name s, if it exists, or NULL
+otherwise.</p>
+
+<p>fstsubg(g : graph_t) : graph_t returns the first
+subgraph in graph g, or NULL if none exists.</p>
+
+<p>nxtsubg(sg : graph_t) : graph_t returns the next
+subgraph after sg, or NULL.</p>
+
+<p>isDirect(g : graph_t) : int returns true if and only if
+g is directed.</p>
+
+<p>isStrict(g : graph_t) : int returns true if and only if
+g is strict.</p>
+
+<p>nNodes(g : graph_t) : int returns the number of nodes in
+g.</p>
+
+<p>nEdges(g : graph_t) : int returns the number of edges in
+g.</p>
+
+<p>Nodes node(sg : graph_t, s : string) : node_t creates a
+node in graph g of name s. If such a node already exists, it
+is returned.</p>
+
+<p>subnode(sg : graph_t, n : node_t) : node_t inserts the
+node n into the subgraph g. Returns the node.</p>
+
+<p>fstnode(g : graph_t) : node_t returns the first node in
+graph g, or NULL if none exists.</p>
+
+<p>nxtnode(n : node_t) : node_t returns the next node after
+n in the root graph, or NULL.</p>
+
+<p>nxtnode_sg(sg : graph_t, n : node_t) : node_t returns
+the next node after n in sg, or NULL.</p>
+
+<p>isNode(sg : graph_t, s : string) : node_t looks for a
+node in (sub)graph sg of name s. If such a node exists, it
+is returned. Otherwise, NULL is returned.</p>
+
+<p>isSubnode(sg : graph_t, n : node_t) : int returns
+non-zero if node n is in (sub)graph sg, or zero other-
+wise.</p>
+
+<p>indegreeOf(sg : graph_t, n : node_t) : int returns the
+indegree of node n in (sub)graph sg.</p>
+
+<p>outdegreeOf(sg : graph_t, n : node_t) : int returns the
+outdegree of node n in (sub)graph sg.</p>
+
+<p>degreeOf(sg : graph_t, n : node_t) : int returns the
+degree of node n in (sub)graph sg.</p>
+
+<p>Edges edge(t : node_t, h : node_t, s : string) : edge_t
+creates an edge with tail node t, head node h and name s in
+the root graph. If the graph is undirected, the distinction
+between head and tail nodes is unimportant. If such an edge
+already exists, it is returned.</p>
+
+<p>edge_sg(sg : graph_t, t : node_t, h : node_t, s :
+string) : edge_t creates an edge with tail node t, head node
+h and name s in (sub)graph sg (and all parent graphs). If
+the graph is undi- rected, the distinction between head and
+tail nodes is unimpor- tant. If such an edge already exists,
+it is returned.</p>
+
+<p>subedge(g : graph_t, e : edge_t) : edge_t inserts the
+edge e into the subgraph g. Returns the edge.</p>
+
+<p>isEdge(t : node_t, h : node_t, s : string) : edge_t
+looks for an edge with tail node t, head node h and name s.
+If the graph is undirected, the distinction between head and
+tail nodes is unimportant. If such an edge exists, it is
+returned. Otherwise, NULL is returned.</p>
+
+<p>isEdge_sg(sg : graph_t, t : node_t, h : node_t, s :
+string) : edge_t looks for an edge with tail node t, head
+node h and name s in (sub)graph sg. If the graph is
+undirected, the distinction between head and tail nodes is
+unimportant. If such an edge exists, it is returned.
+Otherwise, NULL is returned.</p>
+
+<p>isSubedge(g : graph_t, e : edge_t) : int returns
+non-zero if edge e is in (sub)graph sg, or zero other-
+wise.</p>
+
+<p>fstout(n : node_t) : edge_t returns the first outedge of
+node n in the root graph.</p>
+
+<p>fstout_sg(sg : graph_t, n : node_t) : edge_t returns the
+first outedge of node n in (sub)graph sg.</p>
+
+<p>nxtout(e : edge_t) : edge_t returns the next outedge
+after e in the root graph.</p>
+
+<p>nxtout_sg(sg : graph_t, e : edge_t) : edge_t returns the
+next outedge after e in graph sg.</p>
+
+<p>fstin(n : node_t) : edge_t returns the first inedge of
+node n in the root graph.</p>
+
+<p>fstin_sg(sg : graph_t, n : node_t) : edge_t returns the
+first inedge of node n in graph sg.</p>
+
+<p>nxtin(e : edge_t) : edge_t returns the next inedge after
+e in the root graph.</p>
+
+<p>nxtin_sg(sg : graph_t, e : edge_t) : edge_t returns the
+next inedge after e in graph sg.</p>
+
+<p>fstedge(n : node_t) : edge_t returns the first edge of
+node n in the root graph.</p>
+
+<p>fstedge_sg(sg : graph_t, n : node_t) : edge_t returns
+the first edge of node n in graph sg.</p>
+
+<p>nxtedge(e : edge_t, node_t) : edge_t returns the next
+edge after e in the root graph.</p>
+
+<p>nxtedge_sg(sg : graph_t, e : edge_t, node_t) : edge_t
+returns the next edge after e in the graph sg.</p>
+
+<p>Graph I/O write(g : graph_t) : void prints g in dot
+format onto the output stream.</p>
+
+<p>writeG(g : graph_t, fname : string) : void prints g in
+dot format into the file fname.</p>
+
+<p>fwriteG(g : graph_t, fd : int) : void prints g in dot
+format onto the open stream denoted by the inte- ger fd.</p>
+
+<p>readG(fname : string) : graph_t returns a graph read
+from the file fname. The graph should be in dot format. If
+no graph can be read, NULL is returned.</p>
+
+<p>freadG(fd : int) : graph_t returns the next graph read
+from the open stream fd. Returns NULL at end of file.</p>
+
+<p>Graph miscellany delete(g : graph_t, x : obj_t) : void
+deletes object x from graph g. If g is NULL, the function
+uses the root graph of x. If x is a graph or subgraph, it is
+closed unless x is locked.</p>
+
+<p>isIn(g : graph_t, x : obj_t) : int returns true if x is
+in subgraph g.</p>
+
+<p>clone(g : graph_t, x : obj_t) : obj_t creates a clone of
+object x in graph g. In particular, the new object has the
+same name/value attributes and structure as the original
+object. If an object with the same key as x already exists,
+its attributes are overlaid by those of x and the object is
+returned. If an edge is cloned, both endpoints are
+implicitly cloned. If a graph is cloned, all nodes, edges
+and subgraphs are implicitly cloned. If x is a graph, g may
+be NULL, in which case the cloned object will be a new root
+graph.</p>
+
+<p>copy(g : graph_t, x : obj_t) : obj_t creates a copy of
+object x in graph g, where the new object has the same
+name/value attributes as the original object. If an object
+with the same key as x already exists, its attributes are
+overlaid by those of x and the object is returned. Note that
+this is a shallow copy. If x is a graph, none of its nodes,
+edges or subgraphs are copied into the new graph. If x is an
+edge, the endpoints are created if necessary, but they are
+not cloned. If x is a graph, g may be NULL, in which case
+the cloned object will be a new root graph.</p>
+
+<p>copyA(src : obj_t, tgt : obj_t) : int copies the
+attributes of object src to object tgt, overwriting any
+attribute values tgt may initially have.</p>
+
+<p>induce(g : graph_t) : void extends g to its node-induced
+subgraph extension in its root graph.</p>
+
+<p>hasAttr(src : obj_t, name : string) : int returns
+non-zero if object src has an attribute whose name is name.
+It returns 0 otherwise.</p>
+
+<p>isAttr(g : graph_t, kind : string, name : string) : int
+returns non-zero if an attribute name has been defined in g
+for objects of the given kind. For nodes, edges, and graphs,
+kind should be &quot;N&quot;, &quot;E&quot;, and
+&quot;G&quot;, respectively. It returns 0 other- wise.</p>
+
+<p>aget(src : obj_t, name : string) : string returns the
+value of attribute name in object src. This is use- ful for
+those cases when name conflicts with one of the keywords
+such as &quot;head&quot; or &quot;root&quot;. If the
+attribute has not been declared in the graph, the function
+will initialize it with a default value of &quot;&quot;. To
+avoid this, one should use the hasAttr or isAttr function to
+check that the attribute exists.</p>
+
+<p>aset(src : obj_t, name : string, value : string) : int
+sets the value of attribute name in object src to value.
+Returns 0 on success, non-zero on failure. See aget
+above.</p>
+
+<p>getDflt(g : graph_t, kind : string, name : string) :
+string returns the default value of attribute name in
+objects in g of the given kind. For nodes, edges, and
+graphs, kind should be &quot;N&quot;, &quot;E&quot;, and
+&quot;G&quot;, respectively. If the attribute has not been
+declared in the graph, the function will initialize it with
+a default value of &quot;&quot;. To avoid this, one should
+use the isAttr function to check that the attribute
+exists.</p>
+
+<p>setDflt(g : graph_t, kind : string, name : string, value
+: string) : int sets the default value of attribute name to
+value in objects in g of the given kind. For nodes, edges,
+and graphs, kind should be &quot;N&quot;, &quot;E&quot;, and
+&quot;G&quot;, respectively. Returns 0 on success, non-zero
+on failure. See getDflt above.</p>
+
+<p>fstAttr(g : graph_t, kind : string) : string returns the
+name of the first attribute of objects in g of the given
+kind. For nodes, edges, and graphs, kind should be
+&quot;N&quot;, &quot;E&quot;, and &quot;G&quot;,
+respectively. If there are no attributes, the string
+&quot;&quot; is returned.</p>
+
+<p>nxtAttr(g : graph_t, kind : string, name : string) :
+string returns the name of the next attribute of objects in
+g of the given kind after the attribute name. The argument
+name must be the name of an existing attribute; it will
+typically be the return value of an previous call to fstAttr
+or nxtAttr. For nodes, edges, and graphs, kind should be
+&quot;N&quot;, &quot;E&quot;, and &quot;G&quot;,
+respectively. If there are no attributes left, the string
+&quot;&quot; is returned.</p>
+
+<p>compOf(g : graph_t, n : node_t) : graph_t returns the
+connected component of the graph g containing node n, as a
+subgraph of g. The subgraph only contains the nodes. One can
+use induce to add the edges. The function fails and returns
+NULL if n is not in g. Connectivity is based on the
+underlying undirected graph of g.</p>
+
+<p>kindOf(obj : obj_t) : string returns an indication of
+what kind of graph object is the argu- ment. For nodes,
+edges, and graphs, it returns should be &quot;N&quot;,
+&quot;E&quot;, and &quot;G&quot;, respectively.</p>
+
+<p>lock(g : graph_t, v : int) : int implements graph
+locking on root graphs. If the integer v is positive, the
+graph is set so that future calls to delete have no
+immediate effect. If v is zero, the graph is unlocked. If
+there has been a call to delete the graph while it was
+locked, the graph is closed. If v is negative, nothing is
+done. In all cases, the previous lock value is returned.</p>
+
+<p>Strings sprintf(fmt : string, ...) : string returns the
+string resulting from formatting the values of the
+expressions occurring after fmt according to the printf(3)
+for- mat fmt</p>
+
+<p>gsub(str : string, pat : string) : string</p>
+
+<p>gsub(str : string, pat : string, repl : string) : string
+returns str with all substrings matching pat deleted or
+replaced by repl, respectively.</p>
+
+<p>sub(str : string, pat : string) : string</p>
+
+<p>sub(str : string, pat : string, repl : string) : string
+returns str with the leftmost substring matching pat deleted
+or replaced by repl, respectively. The characters ^ and $
+may be used at the beginning and end, respectively, of pat
+to anchor the pattern to the beginning or end of str.</p>
+
+<p>substr(str : string, idx : int) : string</p>
+
+<p>substr(str : string, idx : int, len : int) : string
+returns the substring of str starting at position idx to the
+end of the string or of length len, respectively. Indexing
+starts at 0. If idx is negative or idx is greater than the
+length of str, a fatal error occurs. Similarly, in the
+second case, if len is negative or idx + len is greater than
+the length of str, a fatal error occurs.</p>
+
+<p>length(s : string) : int returns the length of the
+string s.</p>
+
+<p>index(s : string, t : string) : int</p>
+
+<p>rindex(s : string, t : string) : int returns the index
+of the character in string s where the left- most
+(rightmost) copy of string t can be found, or -1 if t is not
+a substring of s.</p>
+
+<p>match(s : string, p : string) : int returns the index of
+the character in string s where the left- most match of
+pattern p can be found, or -1 if no substring of s matches
+p.</p>
+
+<p>toupper(s : string) : string returns a version of s with
+the alphabetic characters converted to upper-case.</p>
+
+<p>tolower(s : string) : string returns a version of s with
+the alphabetic characters converted to lower-case.</p>
+
+<p>canon(s : string) : string returns a version of s
+appropriate to be used as an identifier in a dot file.</p>
+
+<p>xOf(s : string) : string returns the string
+&quot;x&quot; if s has the form &quot;x,y&quot;, where both
+x and y are numeric.</p>
+
+<p>yOf(s : string) : string returns the string
+&quot;y&quot; if s has the form &quot;x,y&quot;, where both
+x and y are numeric.</p>
+
+<p>llOf(s : string) : string returns the string
+&quot;llx,lly&quot; if s has the form
+&quot;llx,lly,urx,ury&quot;, where all of llx, lly, urx, and
+ury are numeric.</p>
+
+<p>urOf(s) urOf(s : string) : string returns the string
+&quot;urx,ury&quot; if s has the form
+&quot;llx,lly,urx,ury&quot;, where all of llx, lly, urx, and
+ury are numeric.</p>
+
+<p>sscanf(s : string, fmt : string, ...) : int scans the
+string s, extracting values according to the sscanf(3)
+format fmt. The values are stored in the addresses following
+fmt, addresses having the form &amp;v, where v is some
+declared variable of the correct type. Returns the number of
+items suc- cessfully scanned.</p>
+
+<p>split(s : string, arr : array, seps : string) : int</p>
+
+<p>split(s : string, arr : array) : int</p>
+
+<p>tokens(s : string, arr : array, seps : string) : int</p>
+
+<p>tokens(s : string, arr : array) : int The split function
+breaks the string s into fields, while the tokens function
+breaks the string into tokens. A field consists of all
+non-separator characters between two separator characters or
+the beginning or end of the string. Thus, a field may be the
+empty string. A token is a maximal, non-empty substring not
+con- taining a separator character. The separator characters
+are those given in the seps argument. If seps is not
+provided, the default value is &quot; 0. The functions
+return the number of fields or tokens.</p>
+
+<p>The fields and tokens are stored in the argument array.
+The array must be string-valued and, if an index type is
+specified, it must be int. The entries are indexed by
+consecutive integers, starting at 0. Any values already
+stored in the array will be either overwritten, or still be
+present after the function returns.</p>
+
+<p>I/O print(...) : void print( expr, ... ) prints a string
+representation of each argu- ment in turn onto stdout,
+followed by a newline.</p>
+
+<p>printf(fmt : string, ...) : int</p>
+
+<p>printf(fd : int, fmt : string, ...) : int prints the
+string resulting from formatting the values of the
+expressions following fmt according to the printf(3) format
+fmt. Returns 0 on success. By default, it prints on stdout.
+If the optional integer fd is given, output is written on
+the open stream associated with fd.</p>
+
+<p>scanf(fmt : string, ...) : int</p>
+
+<p>scanf(fd : int, fmt : string, ...) : int scans in values
+from an input stream according to the scanf(3) format fmt.
+The values are stored in the addresses following fmt,
+addresses having the form &amp;v, where v is some declared
+variable of the correct type. By default, it reads from
+stdin. If the optional integer fd is given, input is read
+from the open stream associated with fd. Returns the number
+of items success- fully scanned.</p>
+
+<p>openF(s : string, t : string) : int opens the file s as
+an I/O stream. The string argument t speci- fies how the
+file is opened. The arguments are the same as for the C
+function fopen(3). It returns an integer denoting the
+stream, or -1 on error.</p>
+
+<p>As usual, streams 0, 1 and 2 are already open as stdin,
+stdout, and stderr, respectively. Since gvpr may use stdin
+to read the input graphs, the user should avoid using this
+stream.</p>
+
+<p>closeF(fd : int) : int closes the open stream denoted by
+the integer fd. Streams 0, 1 and 2 cannot be closed. Returns
+0 on success.</p>
+
+<p>readL(fd : int) : string returns the next line read from
+the input stream fd. It returns the empty string
+&quot;&quot; on end of file. Note that the newline char-
+acter is left in the returned string.</p>
+
+<p>Math exp(d : double) : double returns e to the dth
+power.</p>
+
+<p>log(d : double) : double returns the natural log of
+d.</p>
+
+<p>sqrt(d : double) : double returns the square root of the
+double d.</p>
+
+<p>pow(d : double, x : double) : double returns d raised to
+the xth power.</p>
+
+<p>cos(d : double) : double returns the cosine of d.</p>
+
+<p>sin(d : double) : double returns the sine of d.</p>
+
+<p>atan2(y : double, x : double) : double returns the
+arctangent of y/x in the range -pi to pi.</p>
+
+<p>MIN(y : double, x : double) : double returns the minimum
+of y and x.</p>
+
+<p>MAX(y : double, x : double) : double returns the maximum
+of y and x.</p>
+
+<p>Associative Arrays # arr : int returns the number of
+elements in the array arr.</p>
+
+<p>idx in arr : int returns 1 if a value has been set for
+index idx in the array arr. It returns 0 otherwise.</p>
+
+<p>unset(v : array, IidxP) : int removes the item indexed
+by idx. It returns 1 if the item existed, 0 otherwise.</p>
+
+<p>unset(v : array) : void re-initializes the array.</p>
+
+<p>Miscellaneous exit(v : int) : void causes gvpr to exit
+with the exit code v.</p>
+
+<p>system(cmd : string) : int provides the standard C
+function system(3). It executes cmd if the user s shell
+environment, and returns the exit status of the shell.</p>
+
+<p>rand() : double returns a pseudo-random double between 0
+and 1.</p>
+
+<p>srand() : int</p>
+
+<p>srand(v : int) : int sets a seed for the random number
+generator. The optional argu- ment gives the seed; if it is
+omitted, the current time is used. The previous seed value
+is returned. srand should be called before any calls to
+rand.</p>
+
+<p>colorx(color : string, fmt : string) : string translates
+a color from one format to another. The color argu- ment
+should be a color in one of the recognized string represen-
+tations. The fmt value should be one of &quot;RGB&quot;,
+&quot;RGBA&quot;, &quot;HSV&quot;, &quot;HSVA&quot;, or
+&quot;CMYK&quot;. An empty string is returned on error.</p>
+
+<p>BUILT-IN VARIABLES gvpr provides certain special,
+built-in variables, whose values are set automatically by
+gvpr depending on the context. Except as noted, the user
+cannot modify their values.</p>
+
+<p>$ : obj_t denotes the current object (node, edge, graph)
+depending on the context. It is not available in BEGIN or
+END clauses.</p>
+
+<p>$F : string is the name of the current input file.</p>
+
+<p>$G : graph_t denotes the current graph being processed.
+It is not available in BEGIN or END clauses.</p>
+
+<p>$O : graph_t denotes the output graph. Before graph
+traversal, it is initial- ized to the target graph. After
+traversal and any END_G actions, if it refers to a non-empty
+graph, that graph is printed onto the output stream. It is
+only valid in N, E and END_G clauses. The output graph may
+be set by the user.</p>
+
+<p>$T : graph_t denotes the current target graph. It is a
+subgraph of $G and is available only in N, E and END_G
+clauses.</p>
+
+<p>$tgtname : string denotes the name of the target graph.
+By default, it is set to &quot;gvpr_result&quot;. If used
+multiple times during the execution of gvpr, the name will
+be appended with an integer. This variable may be set by the
+user.</p>
+
+<p>$tvroot : node_t indicates the starting node for a
+(directed or undirected) depth-first traversal of the graph
+(cf. $tvtype below). The default value is NULL for each
+input graph.</p>
+
+<p>$tvedge : edge_t For BFS and DFS traversals, this is set
+to the edge used to arrive at the current node or edge. At
+the beginning of a traversal, or for other traversal types,
+the value is NULL.</p>
+
+<p>$tvtype : tvtype_t indicates how gvpr traverses a graph.
+It can only take one of the constant values with the previx
+&quot;TV_&quot; described below. TV_flat is the default.</p>
+
+<p>In the underlying graph library cgraph(3), edges in
+undirected graphs are given an arbitrary direction. This is
+used for traversals, such as TV_fwd, requiring directed
+edges.</p>
+
+<p>ARGC : int denotes the number of arguments specified by
+the -a args com- mand-line argument.</p>
+
+<p>ARGV : string array denotes the array of arguments
+specified by the -a args com- mand-line argument. The ith
+argument is given by ARGV[i].</p>
+
+<p>BUILT-IN CONSTANTS There are several symbolic constants
+defined by gvpr.</p>
+
+<p>NULL : obj_t a null object reference, equivalent to
+0.</p>
+
+<p>TV_flat : tvtype_t a simple, flat traversal, with graph
+objects visited in seem- ingly arbitrary order.</p>
+
+<p>TV_ne : tvtype_t a traversal which first visits all of
+the nodes, then all of the edges.</p>
+
+<p>TV_en : tvtype_t a traversal which first visits all of
+the edges, then all of the nodes.</p>
+
+<p>TV_dfs : tvtype_t TV_postdfs : tvtype_t TV_prepostdfs :
+tvtype_t a traversal of the graph using a depth-first search
+on the underlying undirected graph. To do the traversal,
+gvpr will check the value of $tvroot. If this has the same
+value that it had previously (at the start, the previous
+value is initialized to NULL.), gvpr will simply look for
+some unvisited node and traverse its connected component. On
+the other hand, if $tvroot has changed, its connected
+component will be toured, assuming it has not been
+previously visited or, if $tvroot is NULL, the traversal
+will stop. Note that using TV_dfs and $tvroot, it is
+possible to create an infinite loop.</p>
+
+<p>By default, the traversal is done in pre-order. That is,
+a node is visited before all of its unvisited edges. For
+TV_postdfs, all of a nodes unvisited edges are visited
+before the node. For TV_prepostdfs, a node is visited twice,
+before and after all of its unvisited edges.</p>
+
+<p>TV_fwd : tvtype_t TV_postfwd : tvtype_t TV_prepostfwd :
+tvtype_t A traversal of the graph using a depth-first search
+on the graph following only forward arcs. The choice of
+roots for the traversal is the same as described for TV_dfs
+above. The dif- ferent order of visitation specified by
+TV_fwd, TV_postfwd and TV_prepostfwd are the same as those
+specified by the analogous traversals TV_dfs, TV_postdfs and
+TV_prepostdfs.</p>
+
+<p>TV_rev : tvtype_t TV_postrev : tvtype_t TV_prepostrev :
+tvtype_t A traversal of the graph using a depth-first search
+on the graph following only reverse arcs. The choice of
+roots for the traversal is the same as described for TV_dfs
+above. The dif- ferent order of visitation specified by
+TV_rev, TV_postrev and TV_prepostrev are the same as those
+specified by the analogous traversals TV_dfs, TV_postdfs and
+TV_prepostdfs.</p>
+
+<p>TV_bfs : tvtype_t A traversal of the graph using a
+bread-first search on the graph ignoring edge directions.
+See the item on TV_dfs above for the role of $tvroot.</p>
+
+<p>EXAMPLES gvpr -iN[color==&quot;blue&quot;]file.dot</p>
+
+<p>Generate the node-induced subgraph of all nodes with
+color blue.</p>
+
+<p>gvpr -cN[color==&quot;blue&quot;]{color =
+&quot;red&quot;}file.dot</p>
+
+<p>Make all blue nodes red.</p>
+
+<p>BEGIN { int n, e; int tot_n = 0; int tot_e = 0; } BEG_G
+{ n = nNodes($G); e = nEdges($G); printf (&quot;%d nodes %d
+edges %s0, n, e, $G.name); tot_n += n; tot_e += e; } END {
+printf (&quot;%d nodes %d edges total0, tot_n, tot_e) }</p>
+
+<p>Version of the program gc.</p>
+
+<p>gvpr -c &quot;&quot;</p>
+
+<p>Equivalent to nop.</p>
+
+<p>BEG_G { graph_t g = graph (&quot;merge&quot;,
+&quot;S&quot;); } E { node_t h = clone(g,$.head); node_t t =
+clone(g,$.tail); edge_t e = edge(t,h,&quot;&quot;); e.weight
+= e.weight + 1; } END_G { $O = g; }</p>
+
+<p>Produces a strict version of the input graph, where the
+weight attribute of an edge indicates how many edges from
+the input graph the edge represents.</p>
+
+<p>BEGIN {node_t n; int deg[]} E{deg[head]++; deg[tail]++;
+} END_G { for (deg[n]) { printf (&quot;deg[%s] = %d0,
+n.name, deg[n]); } }</p>
+
+<p>Computes the degrees of nodes with edges.</p>
+
+<p>ENVIRONMENT GPRPATH Colon-separated list of directories
+to be searched to find the file specified by the -f
+option.</p>
+
+<p>BUGS AND WARNINGS When the program is given as a command
+line argument, the usual shell interpretation takes place,
+which may affect some of the special names in gvpr. To avoid
+this, it is best to wrap the program in single quotes.</p>
+
+<p>As of 24 April 2008, gvpr switched to using a new,
+underlying graph library, which uses the simpler model that
+there is only one copy of a node, not one copy for each
+subgraph logically containing it. This means that iterators
+such as InxtnodeP cannot traverse a subgraph using just a
+node argument. For this reason, subgraph traversal requires
+new functions ending in &quot;_sg&quot;, which also take a
+subgraph argument. The versions without that suffix will
+always traverse the root graph.</p>
+
+<p>There is a single global scope, except for formal
+function parameters, and even these can interfere with the
+type system. Also, the extent of all variables is the entire
+life of the program. It might be prefer- able for scope to
+reflect the natural nesting of the clauses, or for the
+program to at least reset locally declared variables. For
+now, it is advisable to use distinct names for all
+variables.</p>
+
+<p>If a function ends with a complex statement, such as an
+IF statement, with each branch doing a return, type checking
+may fail. Functions should use a return at the end.</p>
+
+<p>The expr library does not support string values of
+(char*)0. This means we cant distinguish between
+&quot;&quot; and (char*)0 edge keys. For the purposes of
+looking up and creating edges, we translate &quot;&quot; to
+be (char*)0, since this latter value is necessary in order
+to look up any edge with a matching head and tail.</p>
+
+<p>Related to this, strings converted to integers act like
+char pointers, getting the value 0 or 1 depending on whether
+the string consists solely of zeroes or not. Thus, the
+((int)&quot;2&quot;) evaluates to 1.</p>
+
+<p>The language inherits the usual C problems such as
+dangling references and the confusion between = and ==.</p>
+
+<p>AUTHOR Emden R. Gansner &lt;erg@research.att.com&gt;</p>
+
+<p>SEE ALSO awk(1), gc(1), dot(1), nop(1), libexpr(3),
+libcgraph(3)</p>
+
+<p>3 July 2009 GVPR(1)</p>
+<hr>
+</body>
+</html>

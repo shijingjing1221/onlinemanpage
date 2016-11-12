@@ -1,0 +1,193 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:28:13 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PMSOCKS(1) PMSOCKS(1)</p>
+
+<p>NAME pmsocks - shell wrapper for performance monitoring
+across firewalls</p>
+
+<p>SYNOPSYS pmsocks path [args ...]</p>
+
+<p>DESCRIPTION pmsocks allows Performance Co-Pilot (PCP)
+clients running on hosts located on the internal side of a
+TCP/IP firewall to monitor remote hosts on the other side of
+the firewall. This assumes the firewall has been configured
+with a compliant sockd daemon and the necessary access
+controls are satisfied.</p>
+
+<p>CONFIGURATION pmsocks uses the tsocks(5) library, which
+is not included with PCP. You can get tsocks from
+http://www.progsoc.uts.edu.au/~delius/.</p>
+
+<p>IRIX CONFIGURATION On IRIX, pmsocks is simply a shell
+wrapper that sets the appropriate environment variables and
+then executes the path program with args arguments (if any).
+pmsocks works by setting the _RLD_LIST environment variable
+(see rld(1)) to load a dynamic shared library (see dso(5))
+containing stubs for socksified network library functions;
+This socksified library is installed at
+/usr/pcp/lib/libpcp_socks.so.</p>
+
+<p>There are a number of conditions required for this to be
+successful and the user is strongly advised to read this
+whole manual page (in partic- ular the CAVEAT section below)
+before attempting to use pmsocks.</p>
+
+<p>When pmsocks is installed, the /etc/pcp_socks.conf
+configuration file is also installed with minimum default
+settings. These settings spec- ify that socket connections
+to the local host should be made directly, without
+contacting any socks server daemon. This is necessary so
+that PCP clients will be able to establish a local
+connection to the X(1) server, and use PCP connections,
+possibly via a sockd daemon, to moni- tor remote hosts. In
+the present implementation of pmsocks, non-direct
+connections to the X(1) server do not work, hence if the
+display is remote, then the remote host must be on the same
+side of the firewall and /etc/pcp_socks.conf must be
+configured to connect directly to that host.</p>
+
+<p>The format of /etc/pcp_socks.conf is identical to
+/etc/socks.conf as documented in the CSTC-4.2 socks
+distribution. This distribution may be obtained via
+information contained in the socks FAQ at
+ftp://coast.cs.purdue.edu/pub/tools/unix/socks/</p>
+
+<p>If other socks clients are being used, then it is
+generally safe to remove /etc/pcp_socks.conf and instead
+make a symbolic link to /etc/socks.conf. The file formats
+are identical.</p>
+
+<p>The default configuration should be customized to suit
+the local envi- ronment so that connections to hosts located
+on the same side of the firewall as the local host do not
+use the socks daemon unnecessarily. The default
+configuration is</p>
+
+<p>direct LOCALHOSTNAME 255.255.255.255 # direct localhost
+sockd 0.0.0.0 0.0.0.0 # contact sockd everywhere else</p>
+
+<p>Note that the string LOCALHOSTNAME is dynamically
+substituted at run time with the name of the local host, as
+obtained by a call to gethost- name(2). Assuming the real IP
+address of the local host is 1.2.3.4 and that a normal
+class-c subnet is used locally, the most common
+customization would be to specify direct connections for all
+hosts on the local subnet, by inserting another direct line
+as follows:</p>
+
+<p>direct LOCALHOSTNAME 255.255.255.255 # direct localhost
+direct 1.2.3.0 255.255.255.0 # direct on local subnet sockd
+0.0.0.0 0.0.0.0 # contact sockd everywhere else</p>
+
+<p>The order of lines is important - the first line
+matching the requested destination IP address during a
+connect(2) call (after the requested IP address has been
+masked by the third parameter of the /etc/pcp_socks.conf
+line), specifies via the first parameter whether to contact
+the socks daemon or whether to attempt a direct
+connection.</p>
+
+<p>IRIX ENVIRONMENT VARIABLES There are several environment
+variables used by pmsocks as follows:</p>
+
+<p>SOCKS_SERVER Specifies the host name or IP address of
+the host running the sockd daemon. Usually this is the name
+of the firewall host.</p>
+
+<p>SOCKS_PORT The TCP/IP port to use when contacting sockd
+on the SOCKS_SERVER host. The default is 1080.</p>
+
+<p>SOCKS_NS The host name of the name server to use,
+usually to resolve the IP address of SOCKS_SERVER.</p>
+
+<p>SOCKS_DEBUG If present in the environment, libpcp_socks
+will print debug- ging information to the stderr stream.
+There are only two levels of debugging, on or off. This is
+only really useful for the developers because the debugging
+information assumes knowledge of the libpcp_socks source
+code.</p>
+
+<p>SOCKS_BANNER If this is set, whenever a client calls
+libpcp_socks it will echo a message to stdout containing
+version information. This can be useful to check
+libpcp_socks is working in the absence of verbose
+logging.</p>
+
+<p>_RLD_LIST pmsocks sets this to exactly
+/usr/pcp/lib/libpcp_socks.so:DEFAULT It is strongly
+recommended this NOT be set in the environment of
+interactive shells.</p>
+
+<p>PMCD_CONNECT_TIMEOUT Specifies the time-out, in seconds,
+for connections to pmcd(1). When using pmsocks, this may
+need to be increased from the default (5 seconds) due to the
+additional delays introduced as a result of using sockd. See
+PMAPI(3) for fur- ther details about this variable.</p>
+
+<p>CAVEAT The following notes should be considered
+carefully:</p>
+
+<p>0) Because sockd can only handle TCP/IP sockets, pmsocks
+never attempts to use sockd for sockets of type SOCK_DGRAM
+or if the domain parameter in a call to socket(2) is PF_UNIX
+(unix domain sockets should never need to use sockd
+anyway).</p>
+
+<p>1) Some firewall products do not support socksified
+applications, and in these cases, pmsocks cannot be used. In
+this case, it will be necessary to configure the firewall to
+allow connections through the firewall for the PMCD
+communications port, typically tcp/4321.</p>
+
+<p>2) The PCP protocol is TPC/IP-based and works with the
+socks proto- col, but connections which use UDP/DATAGRAM
+sockets or remote X11 connections via sockd may not work. If
+the remote display host is on the same side of the firewall
+as the application, this may be circumvented by configuring
+the remote display host to use direct connections - see
+above. Also, using X11 display options which use shared
+memory may hang the X server when used with pmsocks.</p>
+
+<p>3) If the pmsocks configuration file is not present,
+then pmsocks will exit with an error message.</p>
+
+<p>4) pmsocks uses the locally configured name server or
+resolver (see resolver(5)) to resolve host names to IP
+addresses. This may or may not be capable of resolving host
+names on the other side of the firewall.</p>
+
+<p>5) When used over a WAN, often the sockd daemon will be
+a long way from the application. This may result in PCP
+client connections timing out before connecting to the
+remote pmcd. If this is occurring, set the environment
+variable PMCD_CONNECT_TIMEOUT to a higher value than the
+default (5 seconds). Refer to PMAPI(3) for further details
+about this variable.</p>
+
+<p>6) When using pmsocks to connect to pmcd(1), but
+Connection Refused__ error messages are returned, it is not
+immediately obvi- ous whether pmcd(1) is returning the error
+or sockd.</p>
+
+<p>COPYRIGHT NOTICE tsocks is covered by the GPL license
+and is copyright Shaun Clowes (delius@progsoc.org).</p>
+
+<p>FILES /etc/tsocks.conf configuration file</p>
+
+<p>SEE ALSO pmcd(1), pminfo(1), pmlogger(1), pmval(1),
+X(1), PMAPI(3), resolver(5), and tsocks(5).</p>
+
+<p>Performance Co-Pilot PCP PMSOCKS(1)</p>
+<hr>
+</body>
+</html>

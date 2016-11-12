@@ -1,0 +1,872 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:44:13 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>virt-sysprep(1) Virtualization Support
+virt-sysprep(1)</p>
+
+<p>NAME virt-sysprep - Reset, unconfigure or customize a
+virtual machine so clones can be made</p>
+
+<p>SYNOPSIS virt-sysprep [--options] -d domname</p>
+
+<p>virt-sysprep [--options] -a disk.img [-a disk.img
+...]</p>
+
+<p>DESCRIPTION Virt-sysprep can reset or unconfigure a
+virtual machine so that clones can be made from it. Steps in
+this process include removing SSH host keys, removing
+persistent network MAC configuration, and removing user
+accounts. Virt-sysprep can also customize a virtual machine,
+for instance by adding SSH keys, users or logos. Each step
+can be enabled or disabled as required.</p>
+
+<p>Virt-sysprep modifies the guest or disk image in place.
+The guest must be shut down. If you want to preserve the
+existing contents of the guest, you must snapshot, copy or
+clone the disk first. See &quot;COPYING AND CLONING&quot;
+below.</p>
+
+<p>You do not need to run virt-sysprep as root. In fact wed
+generally recommend that you dont. The time you might want
+to run it as root is when you need root in order to access
+the disk image, but even in this case it would be better to
+change the permissions on the disk image to be writable as
+the non-root user running virt-sysprep.</p>
+
+<p>&quot;Sysprep&quot; stands for &quot;system
+preparation&quot; tool. The name comes from the Microsoft
+program &quot;sysprep.exe&quot; which is used to unconfigure
+Windows machines in preparation for cloning them. Having
+said that, virt-sysprep does not currently work on Microsoft
+Windows guests. We plan to support Windows sysprepping in a
+future version, and we already have code to do it.</p>
+
+<p>OPTIONS --help Display brief help.</p>
+
+<p>-a file --add file Add file which should be a disk image
+from a virtual machine.</p>
+
+<p>The format of the disk image is auto-detected. To
+override this and force a particular format use the --format
+option.</p>
+
+<p>-c URI --connect URI If using libvirt, connect to the
+given URI. If omitted, then we connect to the default
+libvirt hypervisor.</p>
+
+<p>If you specify guest block devices directly (-a), then
+libvirt is not used at all.</p>
+
+<p>-d guest --domain guest Add all the disks from the named
+libvirt guest. Domain UUIDs can be used instead of
+names.</p>
+
+<p>-n --dry-run Perform a read-only &quot;dry run&quot; on
+the guest. This runs the sysprep operation, but throws away
+any changes to the disk at the end.</p>
+
+<p>--enable operations Choose which sysprep operations to
+perform. Give a comma-separated list of operations, for
+example:</p>
+
+<p>--enable ssh-hostkeys,udev-persistent-net</p>
+
+<p>would enable ONLY &quot;ssh-hostkeys&quot; and
+&quot;udev-persistent-net&quot; operations.</p>
+
+<p>If the --enable option is not given, then we default to
+trying most sysprep operations (see --list-operations to
+show which are enabled).</p>
+
+<p>Regardless of the --enable option, sysprep operations
+are skipped for some guest types.</p>
+
+<p>Use --list-operations to list operations supported by a
+particular version of virt-sysprep.</p>
+
+<p>See &quot;OPERATIONS&quot; below for a list and an
+explanation of each operation.</p>
+
+<p>--format raw|qcow2|.. --format auto The default for the
+-a option is to auto-detect the format of the disk image.
+Using this forces the disk format for -a options which
+follow on the command line. Using --format auto switches
+back to auto-detection for subsequent -a options.</p>
+
+<p>For example:</p>
+
+<p>virt-sysprep --format raw -a disk.img</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot;.</p>
+
+<p>virt-sysprep --format raw -a disk.img --format auto -a
+another.img</p>
+
+<p>forces raw format (no auto-detection) for
+&quot;disk.img&quot; and reverts to auto-detection for
+&quot;another.img&quot;.</p>
+
+<p>If you have untrusted raw-format guest disk images, you
+should use this option to specify the disk format. This
+avoids a possible security problem with malicious guests
+(CVE-2010-3851).</p>
+
+<p>--list-operations List the operations supported by the
+virt-sysprep program.</p>
+
+<p>These are listed one per line, with one or more
+single-space- separated fields, eg:</p>
+
+<p>$ virt-sysprep --list-operations bash-history * Remove
+the bash history in the guest cron-spool * Remove user
+at-jobs and cron-jobs dhcp-client-state * Remove DHCP client
+leases dhcp-server-state * Remove DHCP server leases
+[etc]</p>
+
+<p>The first field is the operation name, which can be
+supplied to --enable. The second field is a &quot;*&quot;
+character if the operation is enabled by default or blank if
+not. Subsequent fields on the same line are the description
+of the operation.</p>
+
+<p>Before libguestfs 1.17.33 only the first (operation
+name) field was shown and all operations were enabled by
+default.</p>
+
+<p>-q --quiet Dont print log messages.</p>
+
+<p>To enable detailed logging of individual file
+operations, use -x.</p>
+
+<p>--selinux-relabel --no-selinux-relabel --selinux-relabel
+forces SELinux relabelling next time the guest boots.
+--no-selinux-relabel disables relabelling.</p>
+
+<p>The default is to try to detect if SELinux relabelling
+is required. See &quot;SELINUX RELABELLING&quot; below for
+more details.</p>
+
+<p>-v --verbose Enable verbose messages for debugging.</p>
+
+<p>-V --version Display version number and exit.</p>
+
+<p>-x Enable tracing of libguestfs API calls.</p>
+
+<p>--delete PATHNAME (see &quot;delete&quot; below) Delete
+(recursively) the specified &quot;PATHNAME&quot; in the
+guest.</p>
+
+<p>--firstboot SCRIPT (see &quot;firstboot&quot; below) Run
+script(s) once next time the guest boots. You can supply the
+--firstboot option as many times as needed.</p>
+
+<p>--hostname HOSTNAME (see &quot;hostname&quot; below)
+Change the hostname. If not given, defaults to
+&quot;localhost.localdomain&quot;.</p>
+
+<p>--password USERNAME:SELECTOR (see &quot;password&quot;
+below) Set a user password. The user must exist already
+(this option does not create users).</p>
+
+<p>The --password option takes
+&quot;USERNAME:SELECTOR&quot;. The --root-password option
+takes just the &quot;SELECTOR&quot;. The format of the
+&quot;SELECTOR&quot; is described below:</p>
+
+<p>--password USERNAME:file:FILENAME --root-password
+file:FILENAME Read the password from &quot;FILENAME&quot;.
+The whole first line of this file is the replacement
+password. Any other lines are ignored. You should create the
+file with mode 0600 to ensure no one else can read it.</p>
+
+<p>--password USERNAME:password:PASSWORD --root-password
+password:PASSWORD Set the password to the literal string
+&quot;PASSWORD&quot;.</p>
+
+<p>Note: this is not secure since any user on the same
+machine can see the cleartext password using ps(1).</p>
+
+<p>--password USERNAME:random --root-password random Choose
+a random password, which is printed on stdout. The password
+has approximately 120 bits of randomness.</p>
+
+<p>--password USERNAME:disabled --root-password disabled
+The account password is disabled. This is like putting
+&quot;*&quot; in the password field.</p>
+
+<p>--password USERNAME:locked:file:FILENAME --password
+USERNAME:locked:password:PASSWORD --password
+USERNAME:locked:random --root-password locked:file:FILENAME
+--root-password locked:password:PASSWORD --root-password
+locked:random The account is locked, but a password is
+placed on the account. If first unlocked (using &quot;passwd
+-u&quot;) then logins will use the given password.</p>
+
+<p>--password USERNAME:locked --password
+USERNAME:locked:disabled --root-password locked
+--root-password locked:disabled The account is locked and
+password is disabled.</p>
+
+<p>--password-crypto md5|sha256|sha512 (see
+&quot;password&quot; below) Set the password encryption to
+&quot;md5&quot;, &quot;sha256&quot; or
+&quot;sha512&quot;.</p>
+
+<p>&quot;sha256&quot; and &quot;sha512&quot; require glibc
+2.7 (check crypt(3) inside the guest).</p>
+
+<p>&quot;md5&quot; will work with relatively old Linux
+guests (eg. RHEL 3), but is not secure against modern
+attacks.</p>
+
+<p>The default is &quot;sha512&quot; unless libguestfs
+detects an old guest that didnt have support for SHA-512, in
+which case it will use &quot;md5&quot;. You can override
+libguestfs by specifying this option.</p>
+
+<p>--root-password SELECTOR (see &quot;password&quot;
+below) Set the root password. See --password above for the
+format of &quot;SELECTOR&quot;.</p>
+
+<p>--script SCRIPT (see &quot;script&quot; below) Run the
+named &quot;SCRIPT&quot; (a shell script or program) against
+the guest. The script can be any program on the host. The
+scripts current directory will be the guests root
+directory.</p>
+
+<p>Note: If the script is not on the $PATH, then you must
+give the full absolute path to the script.</p>
+
+<p>--scriptdir SCRIPTDIR (see &quot;script&quot; below) The
+mount point (an empty directory on the host) used when the
+&quot;script&quot; operation is enabled and one or more
+scripts are specified using --script parameter(s).</p>
+
+<p>Note: &quot;SCRIPTDIR&quot; must be an absolute
+path.</p>
+
+<p>If --scriptdir is not specified then a temporary
+mountpoint will be created.</p>
+
+<p>OPERATIONS If the --enable option is not given, then
+most sysprep operations are enabled.</p>
+
+<p>Use &quot;virt-sysprep --list-operations&quot; to list
+all operations for your virt-sysprep binary. The ones which
+are enabled by default are marked with a &quot;*&quot;
+character. Regardless of the --enable option, sysprep
+operations are skipped for some guest types.</p>
+
+<p>Operations can be individually enabled using the
+--enable option. Use a comma-separated list, for
+example:</p>
+
+<p>virt-sysprep --enable=ssh-hostkeys,udev-persistent-net
+[etc..]</p>
+
+<p>Future versions of virt-sysprep may add more operations.
+If you are using virt-sysprep and want predictable
+behaviour, specify only the operations that you want to have
+enabled.</p>
+
+<p>&quot;*&quot; = enabled by default when no --enable
+option is given.</p>
+
+<p>abrt-data * Remove the crash data generated by ABRT.</p>
+
+<p>Remove the automatically generated ABRT crash data in
+&quot;/var/spool/abrt/&quot;.</p>
+
+<p>bash-history * Remove the bash history in the guest.</p>
+
+<p>Remove the bash history of user &quot;root&quot; and any
+other users who have a &quot;.bash_history&quot; file in
+their home directory.</p>
+
+<p>Notes on bash-history</p>
+
+<p>Currently this only looks in &quot;/root&quot; and
+&quot;/home/*&quot; for home directories, so users with home
+directories in other locations wont have the bash history
+removed.</p>
+
+<p>blkid-tab * Remove blkid tab in the guest.</p>
+
+<p>ca-certificates Remove CA certificates in the guest.</p>
+
+<p>crash-data * Remove the crash data generated by
+kexec-tools.</p>
+
+<p>Remove the automatically generated kdump kernel crash
+data.</p>
+
+<p>cron-spool * Remove user at-jobs and cron-jobs.</p>
+
+<p>delete * Delete specified files or directories.</p>
+
+<p>Delete specified files or directories.</p>
+
+<p>Use the --delete option to specify a path to remove.</p>
+
+<p>You can use shell glob characters in the specified path;
+note that such metacharacters might require proper escape.
+For example:</p>
+
+<p>virt-sysprep --delete &rsquo;/var/log/*.log&rsquo;.</p>
+
+<p>dhcp-client-state * Remove DHCP client leases.</p>
+
+<p>dhcp-server-state * Remove DHCP server leases.</p>
+
+<p>dovecot-data * Remove Dovecot (mail server) data.</p>
+
+<p>firewall-rules Remove the firewall rules.</p>
+
+<p>This removes custom firewall rules by removing
+&quot;/etc/sysconfig/iptables&quot; or custom firewalld
+configuration in &quot;/etc/firewalld/*/*&quot;.</p>
+
+<p>Note this is not enabled by default since it may expose
+guests to exploits. Use with care.</p>
+
+<p>firstboot * Add scripts to run once at next boot.</p>
+
+<p>Supply one of more shell scripts (using the --firstboot
+option).</p>
+
+<p>These are run the first time the guest boots, and then
+are deleted. So these are useful for performing last minute
+configuration that must run in the context of the guest
+operating system, for example &quot;yum update&quot;.</p>
+
+<p>Output or errors from the scripts are written to
+&quot;~root/virt-sysprep-firstboot.log&quot; (in the
+guest).</p>
+
+<p>Notes on firstboot</p>
+
+<p>Currently this is only implemented for Linux guests
+using either SysVinit-style scripts, Upstart or systemd.</p>
+
+<p>flag-reconfiguration Flag the system for
+reconfiguration.</p>
+
+<p>Note that this may require user intervention when the
+guest is booted.</p>
+
+<p>hostname * Change the hostname of the guest.</p>
+
+<p>This operation changes the hostname of the guest to the
+value given in the --hostname parameter.</p>
+
+<p>If the --hostname parameter is not given, then the
+hostname is changed to
+&quot;localhost.localdomain&quot;.</p>
+
+<p>Notes on hostname</p>
+
+<p>Currently this can only set the hostname on Linux
+guests.</p>
+
+<p>kerberos-data Remove Kerberos data in the guest.</p>
+
+<p>logfiles * Remove many log files from the guest.</p>
+
+<p>On Linux the following files are removed:</p>
+
+<p>/root/anaconda-ks.cfg /root/install.log
+/root/install.log.syslog /var/cache/fontconfig/*
+/var/cache/gdm/* /var/cache/man/*
+/var/lib/AccountService/users/* /var/lib/fprint/*
+/var/lib/logrotate.status /var/log/*.log*
+/var/log/BackupPC/LOG /var/log/apache2/*_log
+/var/log/apache2/*_log-* /var/log/audit/* /var/log/btmp*
+/var/log/ceph/*.log /var/log/chrony/*.log /var/log/cron*
+/var/log/cups/*_log /var/log/dmesg* /var/log/gdm/*
+/var/log/glusterfs/*glusterd.vol.log
+/var/log/glusterfs/glusterfs.log /var/log/httpd/*log
+/var/log/jetty/jetty-console.log /var/log/lastlog*
+/var/log/libvirt/libvirtd.log /var/log/libvirt/lxc/*.log
+/var/log/libvirt/qemu/*.log /var/log/libvirt/uml/*.log
+/var/log/mail/* /var/log/maillog* /var/log/messages*
+/var/log/ntp /var/log/ntpstats/* /var/log/ppp/connect-errors
+/var/log/sa/* /var/log/secure* /var/log/setroubleshoot/*.log
+/var/log/spooler* /var/log/squid/*.log /var/log/tallylog*
+/var/log/wtmp* /var/named/data/named.run</p>
+
+<p>lvm-uuids * Change LVM2 PV and VG UUIDs.</p>
+
+<p>On Linux guests that have LVM2 physical volumes (PVs) or
+volume groups (VGs), new random UUIDs are generated and
+assigned to those PVs and VGs.</p>
+
+<p>machine-id * Remove the local machine ID.</p>
+
+<p>The machine ID is usually generated from a random source
+during system installation and stays constant for all
+subsequent boots. Optionally, for stateless systems it is
+generated during runtime at boot if it is found to be
+empty.</p>
+
+<p>mail-spool * Remove email from the local mail spool
+directory.</p>
+
+<p>net-hostname * Remove HOSTNAME in network interface
+configuration.</p>
+
+<p>For Fedora and Red Hat Enterprise Linux, this is removed
+from &quot;ifcfg-*&quot; files.</p>
+
+<p>net-hwaddr * Remove HWADDR (hard-coded MAC address)
+configuration.</p>
+
+<p>For Fedora and Red Hat Enterprise Linux, this is removed
+from &quot;ifcfg-*&quot; files.</p>
+
+<p>pacct-log * Remove the process accounting log files.</p>
+
+<p>The system wide process accounting will store to the
+pacct log files if the process accounting is on.</p>
+
+<p>package-manager-cache * Remove package manager
+cache.</p>
+
+<p>pam-data * Remove the PAM data in the guest.</p>
+
+<p>password * Set root or user password.</p>
+
+<p>Set root or another users password.</p>
+
+<p>Use the --root-password option to specify a replacement
+root password for the guest. You can only use this option
+once.</p>
+
+<p>Use the --password option to specify replacement user
+password(s). You can use this option as many times as you
+want.</p>
+
+<p>Use --password-crypto to change the password encryption
+used.</p>
+
+<p>See &quot;OPTIONS&quot; above for details of these
+options.</p>
+
+<p>This operation is enabled by default, but it only does
+something if there is at least one --root-password or
+--password argument given.</p>
+
+<p>Notes on password</p>
+
+<p>Currently this only works for glibc-based Linux guests
+that use shadow passwords.</p>
+
+<p>puppet-data-log * Remove the data and log files of
+puppet.</p>
+
+<p>random-seed * Generate random seed for guest.</p>
+
+<p>Write some random bytes from the host into the random
+seed file of the guest.</p>
+
+<p>See &quot;RANDOM SEED&quot; below.</p>
+
+<p>rhn-systemid * Remove the RHN system ID.</p>
+
+<p>rpm-db * Remove host-specific RPM database files.</p>
+
+<p>Remove host-specific RPM database files and locks. RPM
+will recreate these files automatically if needed.</p>
+
+<p>samba-db-log * Remove the database and log files of
+Samba.</p>
+
+<p>script * Run arbitrary scripts against the guest.</p>
+
+<p>The &quot;script&quot; module lets you run arbitrary
+shell scripts or programs against the guest.</p>
+
+<p>Note this feature requires FUSE support. You may have to
+enable this in your host, for example by adding the current
+user to the &quot;fuse&quot; group, or by loading a kernel
+module.</p>
+
+<p>Use one or more --script parameters to specify scripts
+or programs that will be run against the guest.</p>
+
+<p>The script or program is run with its current directory
+being the guest s root directory, so relative paths should
+be used. For example: &quot;rm etc/resolv.conf&quot; in the
+script would remove a Linux guests DNS configuration file,
+but &quot;rm /etc/resolv.conf&quot; would (try to) remove
+the hosts file.</p>
+
+<p>Normally a temporary mount point for the guest is used,
+but you can choose a specific one by using the --scriptdir
+parameter.</p>
+
+<p>Note: This is different from --firstboot scripts (which
+run in the context of the guest when it is booting first
+time). --script scripts run on the host, not in the
+guest.</p>
+
+<p>smolt-uuid * Remove the Smolt hardware UUID.</p>
+
+<p>ssh-hostkeys * Remove the SSH host keys in the
+guest.</p>
+
+<p>The SSH host keys are regenerated (differently) next
+time the guest is booted.</p>
+
+<p>If, after cloning, the guest gets the same IP address,
+ssh will give you a stark warning about the host key
+changing:</p>
+
+
+<p>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!</p>
+
+<p>ssh-userdir * Remove &quot;.ssh&quot; directories in the
+guest.</p>
+
+<p>Remove the &quot;.ssh&quot; directory of user
+&quot;root&quot; and any other users who have a
+&quot;.ssh&quot; directory in their home directory.</p>
+
+<p>Notes on ssh-userdir</p>
+
+<p>Currently this only looks in &quot;/root&quot; and
+&quot;/home/*&quot; for home directories, so users with home
+directories in other locations wont have the ssh files
+removed.</p>
+
+<p>sssd-db-log * Remove the database and log files of
+sssd.</p>
+
+<p>tmp-files * Remove temporary files.</p>
+
+<p>This removes temporary files under &quot;/tmp&quot; and
+&quot;/var/tmp&quot;.</p>
+
+<p>udev-persistent-net * Remove udev persistent net
+rules.</p>
+
+<p>Remove udev persistent net rules which map the guests
+existing MAC address to a fixed ethernet device (eg.
+eth0).</p>
+
+<p>After a guest is cloned, the MAC address usually
+changes. Since the old MAC address occupies the old name
+(eg. eth0), this means the fresh MAC address is assigned to
+a new name (eg. eth1) and this is usually undesirable.
+Erasing the udev persistent net rules avoids this.</p>
+
+<p>user-account Remove the user accounts in the guest.</p>
+
+<p>Remove all the user accounts and their home directories.
+The &quot;root&quot; account is not removed.</p>
+
+<p>utmp * Remove the utmp file.</p>
+
+<p>This file records who is currently logged in on a
+machine. In modern Linux distros it is stored in a ramdisk
+and hence not part of the virtual machines disk, but it was
+stored on disk in older distros.</p>
+
+<p>yum-uuid * Remove the yum UUID.</p>
+
+<p>Yum creates a fresh UUID the next time it runs when it
+notices that the original UUID has been erased.</p>
+
+<p>COPYING AND CLONING Virt-sysprep can be used as part of
+a process of cloning guests, or to prepare a template from
+which guests can be cloned. There are many different ways to
+achieve this using the virt tools, and this section is just
+an introduction.</p>
+
+<p>A virtual machine (when switched off) consists of two
+parts:</p>
+
+<p>configuration The configuration or description of the
+guest. eg. The libvirt XML (see &quot;virsh dumpxml&quot;),
+the running configuration of the guest, or another external
+format like OVF.</p>
+
+<p>Some configuration items that might need to be
+changed:</p>
+
+<p>&middot; name</p>
+
+<p>&middot; UUID</p>
+
+<p>&middot; path to block device(s)</p>
+
+<p>&middot; network card MAC address</p>
+
+<p>block device(s) One or more hard disk images, themselves
+containing files, directories, applications, kernels,
+configuration, etc.</p>
+
+<p>Some things inside the block devices that might need to
+be changed:</p>
+
+<p>&middot; hostname and other net configuration</p>
+
+<p>&middot; UUID</p>
+
+<p>&middot; SSH host keys</p>
+
+<p>&middot; Windows unique security ID (SID)</p>
+
+<p>&middot; Puppet registration</p>
+
+<p>COPYING THE BLOCK DEVICE Starting with an original
+guest, you probably wish to copy the guest block device and
+its configuration to make a template. Then once you are
+happy with the template, you will want to make many clones
+from it.</p>
+
+<p>virt-sysprep | v original guest --------&gt; template
+----------&gt; &minus;-----&gt; cloned &minus;----&gt;
+guests &minus;---&gt;</p>
+
+<p>You can, of course, just copy the block device on the
+host using cp(1) or dd(1).</p>
+
+<p>dd dd original guest --------&gt; template
+----------&gt; &minus;-----&gt; cloned &minus;----&gt;
+guests &minus;---&gt;</p>
+
+<p>There are some smarter (and faster) ways too:</p>
+
+<p>snapshot template ----------&gt; &minus;-----&gt; cloned
+&minus;----&gt; guests &minus;---&gt;</p>
+
+<p>You may want to run virt-sysprep twice, once to reset
+the guest (to make a template) and a second time to
+customize the guest for a specific user:</p>
+
+<p>virt-sysprep virt-sysprep (reset) (add user, keys,
+logos) | | dd v dd v original guest ----&gt; template
+---------&gt; copied ------&gt; custom template guest</p>
+
+<p>&middot; Create a snapshot using qemu-img:</p>
+
+<p>qemu-img create -f qcow2 -o backing_file=original
+snapshot.qcow</p>
+
+<p>The advantage is that you don t need to copy the
+original (very fast) and only changes are stored (less
+storage required).</p>
+
+<p>Note that writing to the backing file once you have
+created guests on top of it is not possible: you will
+corrupt the guests.</p>
+
+<p>&middot; Create a snapshot using &quot;lvcreate
+--snapshot&quot;.</p>
+
+<p>&middot; Other ways to create snapshots include using
+filesystems-level tools (for filesystems such as btrfs).</p>
+
+<p>Most Network Attached Storage (NAS) devices can also
+create cheap snapshots from files or LUNs.</p>
+
+<p>&middot; Get your NAS to duplicate the LUN. Most NAS
+devices can also duplicate LUNs very cheaply (they copy them
+on-demand in the background).</p>
+
+<p>&middot; Prepare your template using virt-sparsify(1).
+See below.</p>
+
+<p>VIRT-CLONE A separate tool, virt-clone(1), can be used
+to duplicate the block device and/or modify the external
+libvirt configuration of a guest. It will reset the name,
+UUID and MAC address of the guest in the libvirt XML.</p>
+
+<p>virt-clone(1) does not use libguestfs and cannot look
+inside the disk image. This was the original motivation to
+write virt-sysprep.</p>
+
+<p>SPARSIFY virt-sparsify original guest --------&gt;
+template</p>
+
+<p>virt-sparsify(1) can be used to make the cloning
+template smaller, making it easier to compress and/or faster
+to copy.</p>
+
+<p>Notice that since virt-sparsify also copies the image,
+you can use it to make the initial copy (instead of
+&quot;dd&quot;).</p>
+
+<p>RESIZE virt-resize template ----------&gt;
+&minus;-----&gt; cloned &minus;----&gt; guests
+&minus;---&gt;</p>
+
+<p>If you want to give people cloned guests, but let them
+pick the size of the guest themselves (eg. depending on how
+much they are prepared to pay for disk space), then instead
+of copying the template, you can run virt-resize(1).
+Virt-resize performs a copy and resize, and thus is ideal
+for cloning guests from a template.</p>
+
+<p>FIRSTBOOT VS SCRIPT The two options --firstboot and
+--script both supply shell scripts that are run against the
+guest. However these two options are significantly
+different.</p>
+
+<p>--firstboot script uploads the file &quot;script&quot;
+into the guest and arranges that it will run, in the guest,
+when the guest is next booted. (The script will only run
+once, at the &quot;first boot&quot;).</p>
+
+<p>--script script runs the shell &quot;script&quot; on the
+host, with its current directory inside the guest
+filesystem.</p>
+
+<p>If you needed, for example, to &quot;yum install&quot;
+new packages, then you must not use --script for this, since
+that would (a) run the &quot;yum&quot; command on the host
+and (b) wouldnt have access to the same resources
+(repositories, keys, etc.) as the guest. Any command that
+needs to run on the guest must be run via --firstboot.</p>
+
+<p>On the other hand if you need to make adjustments to the
+guest filesystem (eg. copying in files), then --script is
+ideal since (a) it has access to the host filesystem and (b)
+you will get immediate feedback on errors.</p>
+
+<p>Either or both options can be used multiple times on the
+command line.</p>
+
+<p>SECURITY Although virt-sysprep removes some sensitive
+information from the guest, it does not pretend to remove
+all of it. You should examine the &quot;OPERATIONS&quot;
+above and the guest afterwards.</p>
+
+<p>Sensitive files are simply removed. The data they
+contained may still exist on the disk, easily recovered with
+a hex editor or undelete tool. Use virt-sparsify(1) as one
+way to remove this content. See also the scrub(1) command to
+get rid of deleted content in directory entries and
+inodes.</p>
+
+<p>RANDOM SEED (This section applies to Linux guests
+only)</p>
+
+<p>The virt-sysprep &quot;random-seed&quot; operation
+writes a few bytes of randomness from the host into the
+guests random seed file.</p>
+
+<p>If this is just done once and the guest is cloned from
+the same template, then each guest will start with the same
+entropy, and things like SSH host keys and TCP sequence
+numbers may be predictable.</p>
+
+<p>Therefore you should arrange to add more randomness
+after cloning from a template too, which can be done by just
+enabling the &quot;random-seed&quot; operation:</p>
+
+<p>cp template.img newguest.img virt-sysprep --enable
+random-seed -a newguest.img</p>
+
+<p>SELINUX RELABELLING (This section applies to Linux
+guests using SELinux only)</p>
+
+<p>If any new files are created by virt-sysprep, then
+virt-sysprep touches &quot;/.autorelabel&quot; so that these
+will be correctly labelled by SELinux the next time the
+guest is booted. This process interrupts boot and can take
+some time.</p>
+
+<p>You can force relabelling for all guests by supplying
+the --selinux-relabel option.</p>
+
+<p>You can disable relabelling entirely by supplying the
+--no-selinux-relabel option.</p>
+
+<p>Please note that if your guest uses SELinux, and you are
+doing operations on it which might create new files or
+change existing ones, you are recommended to use
+--selinux-relabel. This will help in making sure that files
+have the right SELinux labels.</p>
+
+<p>WINDOWS 8 Windows 8 &quot;fast startup&quot; can prevent
+virt-sysprep from working. See &quot;WINDOWS HIBERNATION AND
+WINDOWS 8 FAST STARTUP&quot; in guestfs(3).</p>
+
+<p>SHELL QUOTING Libvirt guest names can contain arbitrary
+characters, some of which have meaning to the shell such as
+&quot;#&quot; and space. You may need to quote or escape
+these characters on the command line. See the shell manual
+page sh(1) for details.</p>
+
+<p>EXIT STATUS This program returns 0 on success, or 1 if
+there was an error.</p>
+
+<p>SEE ALSO guestfs(3), guestfish(1), virt-clone(1),
+virt-rescue(1), virt-resize(1), virt-sparsify(1), virsh(1),
+lvcreate(8), qemu-img(1), scrub(1), http://libguestfs.org/,
+http://libvirt.org/.</p>
+
+<p>AUTHORS Richard W.M. Jones
+http://people.redhat.com/~rjones/</p>
+
+<p>Wanlong Gao, Fujitsu Ltd.</p>
+
+<p>COPYRIGHT Copyright (C) 2011-2012 Red Hat Inc.</p>
+
+<p>Copyright (C) 2012 Fujitsu Ltd.</p>
+
+<p>LICENSE This program is free software; you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your
+option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more
+details.</p>
+
+<p>You should have received a copy of the GNU General
+Public License along with this program; if not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, MA 02110-1301 USA.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 virt-sysprep(1)</p>
+<hr>
+</body>
+</html>

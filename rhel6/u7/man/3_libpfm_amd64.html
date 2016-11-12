@@ -1,0 +1,159 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:21:30 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>LIBPFM(3) Linux Programmer s Manual LIBPFM(3)</p>
+
+<p>NAME libpfm_amd64 - support for AMD64 processors</p>
+
+<p>SYNOPSIS #include &lt;perfmon/pfmlib.h&gt; #include
+&lt;perfmon/pfmlib_amd64.h&gt;</p>
+
+<p>DESCRIPTION The libpfm library provides full support for
+the AMD64 processor fami- lies 0Fh and 10H (K8, Barcelona,
+Phenom) when running in either 32-bit or 64-bit mode. The
+interface is defined in pfmlib_amd64.h. It consists of a set
+of functions and structures which describe and allow access
+to the AMD64 specific PMU features. Note that it only
+supports AMD proces- sors.</p>
+
+<p>When AMD64 processor-specific features are needed to
+support a measure- ment, their descriptions must be passed
+as model-specific input argu- ments to the
+pfm_dispatch_events() function. The AMD64 processor-spe-
+cific input arguments are described in the
+pfmlib_amd64_input_param_t structure and the output
+parameters in pfmlib_amd64_output_param_t. They are defined
+as follows:</p>
+
+<p>typedef struct { uint32_t cnt_mask; uint32_t flags; }
+pfmlib_amd64_counter_t;</p>
+
+<p>typedef struct { unsigned int maxcnt; unsigned int
+options; } ibs_param_t;</p>
+
+<p>typedef struct { pfmlib_amd64_counter_t
+pfp_amd64_counters[PMU_AMD64_MAX_COUNTERS]; uint32_t flags;
+uint32_t reserved1; ibs_param_t ibsfetch; ibs_param_t ibsop;
+uint64_t reserved2; } pfmlib_amd64_input_param_t;</p>
+
+<p>typedef struct { uint32_t ibsfetch_base; uint32_t
+ibsop_base; uint64_t reserved[7]; }
+pfmlib_amd64_output_param_t;</p>
+
+<p>The flags field of pfmlib_amd64_input_param_t describes
+which features of the PMU to use. Following use flags
+exist:</p>
+
+<p>PFMLIB_AMD64_USE_IBSFETCH Profile IBS fetch performance
+(see below under INSTRUCTION BASED SAMPLING)</p>
+
+<p>PFMLIB_AMD64_USE_IBSOP Profile IBS execution performance
+(see below under INSTRUCTION BASED SAMPLING)</p>
+
+<p>Multiple features can be selected. Note that there are
+no use flags needed for ADDITIONAL PER-EVENT FEATURES.</p>
+
+<p>Various typedefs for MSR encoding and decoding are
+available. See pfm- lib_amd64.h for details.</p>
+
+<p>ADDITIONAL PER-EVENT FEATURES AMD64 processors provide a
+few additional per-event features for coun- ters:
+thresholding, inversion, edge detection, virtualization.
+They can be set using the pfp_amd64_counters data structure
+for each event. The flags field of pfmlib_amd64_counter_t
+can be initialized as follows:</p>
+
+<p>PFMLIB_AMD64_SEL_INV Inverse the results of the cnt_mask
+comparison when set</p>
+
+<p>PFMLIB_AMD64_SEL_EDGE Enables edge detection of
+events.</p>
+
+<p>PFMLIB_AMD64_SEL_GUEST On AMD64 Family 10h processors
+only. Event is only measured when processor is in guest
+mode.</p>
+
+<p>PFMLIB_AMD64_SEL_HOST On AMD64 Family 10h processors
+only. Event is only measured when processor is in host
+mode.</p>
+
+<p>The cnt_mask field is used to set the event threshold.
+The value of the counter is incremented each time the number
+of occurrences per cycle of the event is greater or equal to
+the value of the field. When zero all occurrences are
+counted.</p>
+
+<p>INSTRUCTION BASED SAMPLING (IBS) The libpfm_amd64
+provides access to the model specific feature Instruc- tion
+Based Sampling (IBS). IBS has been introduced with family
+10h.</p>
+
+<p>The IBS setup is using the structures
+pfmlib_amd64_input_param_t and pfmlib_amd64_output_param_t
+with its members flags, ibsfetch, ibsop, ibsfetch_base,
+ibsop_base. The input arguments ibsop and ibsfetch can be
+set in inp_mod (type pfmlib_amd64_input_param_t). The
+corresponding flags must be set to enable a feature.</p>
+
+<p>Both, IBS execution profiling and IBS fetch profiling,
+require a maxi- mum count value of the periodic counter
+(maxcnt) as parameter. This is a 20 bit value, bits 3:0 are
+always set to zero. Additionally, there is an option
+(options) to enable randomization (IBS_OPTIONS_RANDEN) for
+IBS fetch profiling.</p>
+
+<p>The IBS registers IbsFetchCtl (0xC0011030) and IbsOpCtl
+(0xC0011033) are available as PMC and PMD in Perfmon. The
+function pfm_dis- patch_events() initializes these registers
+according to the input parameters in
+pfmlib_amd64_input_param_t.</p>
+
+<p>Also, pfm_dispatch_events() passes back the index in
+pfp_pmds[] of the IbsOpCtl and IbsFetchCtl register. For
+this there are the entries ibs- fetch_base and ibsop_base in
+pfmlib_amd64_output_param_t. The index may vary depending on
+other PMU settings, especially counter settings. If using
+the PMU with only one IBS feature and no counters, the index
+of the base register is 0.</p>
+
+<p>Example code:</p>
+
+<p>/* initialize IBS */ inp_mod.ibsop.maxcnt = 0xFFFF0;
+inp_mod.flags |= PFMLIB_AMD64_USE_IBSOP; ret =
+pfm_dispatch_events(NULL, &amp;inp_mod, &amp;outp,
+&amp;outp_mod); if (ret != PFMLIB_SUCCESS) { ... }</p>
+
+<p>/* setup PMU */ /* PMC_IBSOPCTL */ pc[0].reg_num =
+outp.pfp_pmcs[0].reg_num; pc[0].reg_value =
+outp.pfp_pmcs[0].reg_value; /* PMD_IBSOPCTL */ pd[0].reg_num
+= outp.pfp_pmds[0].reg_num; pd[0].reg_value = 0;</p>
+
+<p>/* setup sampling */ pd[0].reg_flags =
+PFM_REGFL_OVFL_NOTIFY; /* add range check here */
+pd[0].reg_smpl_pmds[0] = ((1UL &lt;&lt; PMD_IBSOP_NUM) - 1)
+&lt;&lt; outp.pfp_pmds[0].reg_num;</p>
+
+<p>/* write pc and pd to PMU */ ...</p>
+
+<p>ERRORS Refer to the description of the
+pfm_dispatch_events() function for errors.</p>
+
+<p>SEE ALSO pfm_dispatch_events(3) and set of examples
+shipped with the library</p>
+
+<p>AUTHORS Stephane Eranian &lt;eranian@gmail.com&gt;
+Robert Richter &lt;robert.richter@amd.com&gt;</p>
+
+<p>April, 2008 LIBPFM(3)</p>
+<hr>
+</body>
+</html>

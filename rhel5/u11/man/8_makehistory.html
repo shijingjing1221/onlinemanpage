@@ -1,0 +1,192 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Sat Nov 12 05:15:51 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>MAKEHISTORY(8) InterNetNews Documentation
+MAKEHISTORY(8)</p>
+
+<p>NAME makehistory - Initialize or rebuild INN history
+database</p>
+
+<p>SYNOPSIS makehistory [-abeFIOx] [-f filename] [-l count]
+[-T tmpdir] [-s size]</p>
+
+<p>DESCRIPTION makehistory rebuilds the history(5) text
+file, which contains a list of Message-IDs of articles
+already seen by the server. It can also be used to rebuild
+the overview database. Note that the dbz(3) indexes for the
+history file are rebuilt by makedbz(8), not by makehistory
+as in earlier versions of INN.</p>
+
+<p>The default location of the history text file is
+pathdb/history; to specify an alternate location, use the -f
+flag.</p>
+
+<p>By default, makehistory will scan the entire spool,
+using the storage manager, and write a history line for
+every article. To also generate overview information, use
+the -O flag.</p>
+
+<p>WARNING: If youre trying to rebuild the overview
+database, be sure to stop innd(8) and delete or zero out the
+existing database before you start for the best results. An
+overview rebuild should not be done while the server is
+running. Unless the existing overview is deleted, you may
+end up with problems like out-of-order overview entries,
+exces- sively large overview buffers, and the like.</p>
+
+<p>If ovmethod in inn.conf is &quot;ovdb&quot;, you must
+have the ovdb processes running while rebuilding overview.
+ovdb needs them available while writing overview entries.
+You can start them by hand separate from the rest of the
+server by running ovdb_init; see ovdb_init(8) for more
+details.</p>
+
+<p>OPTIONS -a Append to the history file rather than
+generating a new one. If you append to the main history
+file, make sure innd(8) is throttled or not running, or you
+can corrupt the history.</p>
+
+<p>-b Delete any messages found in the spool that do not
+have valid Mes- sage-ID headers in them.</p>
+
+<p>-e Compute Bytes headers which is used for overview
+data. This option is valid only if -O flag is specified and
+overview.fmt includes &quot;Bytes:&quot;.</p>
+
+<p>-f filename Rather than writing directly to
+pathdb/history, instead write to filename.</p>
+
+<p>-F Fork a separate process to flush overview data to
+disk rather than doing it directly. The advantage of this is
+that it allows make- history to continue to collect more
+data from the spool while the first batch of data is being
+written to the overview database. The disadvantage is that
+up to twice as much temporary disk space will be used for
+the generated overview data. This option only makes sense in
+combination with -O. With &quot;buffindexed&quot;, the
+&quot;overchan&quot; program is invoked to write
+overview.</p>
+
+<p>-I Dont store overview data for articles numbered lower
+than the low- est article number in active. This is useful
+if there are for whatever reason old articles on disk that
+shouldnt be available to readers or put into the overview
+database.</p>
+
+<p>-l count This option specifies how many articles to
+process before writing the accumulated overview information
+out to the overview database. The default is 10000. Since
+overview write performance is faster with sorted data, each
+&quot;batch&quot; gets sorted. Increasing the batch size
+with this option may further improve write performance, at
+the cost of longer sort times. Also, temporary space will be
+needed to store the overview batches. At a rough estimate,
+about 300 * count bytes of temporary space will be required
+(not counting temp files created by sort(1)). See the
+description of the -T option for how to specify the
+temporary storage location. This option has no effect with
+&quot;buffindexed&quot;, because &quot;buffindexed&quot;
+does not need sorted overview and no batching is done.</p>
+
+<p>-s size Size the history database for approximately size
+pairs. Accurately specifying the size is an optimization
+that will create a more efficient database. (The size should
+be the estimated eventual size of the history file,
+typically the size of the old file, in lines.)</p>
+
+<p>-O Create the overview database as well as the history
+file. Overview information is only required if the server
+supports readers; it is not needed for a transit-only server
+(see enableoverview in inn.conf(5)). If you are using the
+&quot;buffindexed&quot; overview storage method, erase all
+of your overview buffers before running makehis- tory with
+-O.</p>
+
+<p>-T tmpdir If -O is given, makehistory needs a location
+to write temporary overview data. By default, it uses
+pathtmp, set in inn.conf, but if this option is given, the
+provided tmpdir is used instead. This is also used for
+temporary files created by sort(1) (which is invoked in the
+process of writing overview information since sorted
+overview information writes faster). By default, sort
+usually uses your system temporary directory; see the
+sort(1) man page on your system to be sure.</p>
+
+<p>-x If this option is given, makehistory won t write out
+history file entries. This is useful mostly for building
+overview without gen- erating a new history file.</p>
+
+<p>EXAMPLES Heres a typical example of rebuilding the
+entire history and overview database, removing broken
+articles in the news spool. This uses the default temporary
+file locations and should be done while innd isnt running
+(or is throttled).</p>
+
+<p>makehistory -b -f history.n -O -l 30000 -I</p>
+
+<p>This will rebuild the overview (if using
+&quot;buffindexed&quot;, erase the existing overview buffers
+before running this command) and leave a new history file as
+&quot;history.n&quot; in pathdb. To preserve all of the
+history entries from the old history file that correspond to
+rejected articles or expired articles, follow the above
+command with:</p>
+
+<p>cd /usr/local/news/db awk NF == 2 { print } &lt; history
+&gt;&gt; history.n</p>
+
+<p>(replacing the path with your pathdb, if it isnt the
+default). Then look over the new history file for problems
+and run:</p>
+
+<p>makedbz -s wc -l &lt; history -f history.n</p>
+
+<p>Then rename all of the files matching
+&quot;history.n.*&quot; to &quot;history.*&quot;, replacing
+the current history database and indexes. After that, its
+safe to unthrottle innd.</p>
+
+<p>For a simpler example:</p>
+
+<p>makehistory -b -f history.n -I -O</p>
+
+<p>will scan the spool, removing broken articles and
+generating history and overview entries for articles missing
+from history.</p>
+
+<p>To just rebuild overview:</p>
+
+<p>makehistory -O -x -F</p>
+
+<p>FILES inn.conf Read for pathdb, pathtmp, and other
+settings.</p>
+
+<p>pathdb/history This is the default output file for
+makehistory.</p>
+
+<p>pathtmp Where temporary files are written unless -T is
+given.</p>
+
+<p>HISTORY Originally written by Rich $alz
+&lt;rsalz@uunet.uu.net&gt; for InterNetNews and updated by
+various other people since.</p>
+
+<p>$Id: makehistory.8 6400 2003-07-12 19:26:58Z rra $</p>
+
+<p>SEE ALSO dbz(3), active(5), history(5), inn.conf(5),
+ctlinnd(8), innd(8), makedbz(8), ovdb_init(8),
+overview.fmt(5).</p>
+
+<p>INN 2.4.1 2003-07-05 MAKEHISTORY(8)</p>
+<hr>
+</body>
+</html>

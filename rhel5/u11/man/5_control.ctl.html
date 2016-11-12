@@ -1,0 +1,208 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Sat Nov 12 05:07:58 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>CONTROL.CTL(5) InterNetNews Documentation
+CONTROL.CTL(5)</p>
+
+<p>NAME control.ctl - Specify handling of Usenet control
+messages</p>
+
+<p>DESCRIPTION control.ctl in pathetc is used to determine
+what action is taken when a control message is received. It
+is read by controlchan, which is nor- mally invoked as a
+channel program by innd. When control.ctl is modi- fied,
+controlchan notices this automatically and reloads it.</p>
+
+<p>Blank lines and lines beginning with a number sign
+(&quot;#&quot;) are ignored. All other lines should consist
+of four fields separated by colons:</p>
+
+
+<p>&lt;type&gt;:&lt;from&gt;:&lt;newsgroups&gt;:&lt;action&gt;</p>
+
+<p>The first field, &lt;type&gt;, is the type of control
+message for which this line is valid. It should either be
+the name of a control message or the word &quot;all&quot; to
+indicate that it applies to all control messages.</p>
+
+<p>The second field, &lt;from&gt;, is a shell-style pattern
+that matches the e-mail address of the person posting the
+message (with the address first converted to lowercase). The
+matching is done with rules equiva- lent to those of the
+shells case statement; see sh(1) for more details.</p>
+
+<p>If the control message is a newgroup or rmgroup, the
+third field, &lt;newsgroups&gt;, is a shell-style pattern
+matching the newsgroup affected by the control message. If
+the control message is a checkgroups, the third field is a
+shell-style pattern matching the newsgroups that should be
+processed for checking. If the control message is of any
+other type, the third field is ignored.</p>
+
+<p>The fourth field, &lt;action&gt;, specifies what action
+to take with control messages that match this line. The
+following actions are understood:</p>
+
+<p>doit The action requested by the control message should
+be performed. In some cases, the control script will also
+send mail to the news administrator (the argument to
+--with-news-master given at config- ure time,
+&quot;usenet&quot; by default), but if notification of the
+action should always be sent, use &quot;doit=mail&quot;
+instead (see below).</p>
+
+<p>doifarg If the control message has an argument, this is
+equivalent to doit. If it does not have an argument, this is
+equivalent to mail. This is only useful for entries for
+sendsys control messages, allowing a site to request its own
+newsfeeds entry by posting a &quot;sendsys mysite&quot;
+control message, but not allowing the entire newsfeeds file
+to be sent. This was intended to partially counter so-called
+&quot;sendsys bombs,&quot; where forged sendsys control
+messages were used to mailbomb people.</p>
+
+<p>Processing sendsys control messages is not recommended
+even with this work-around unless they are authenticated in
+some fashion. The risk of having news servers turned into
+anonymous mail bombing services is too high.</p>
+
+<p>doit=file The action is performed as in doit, and
+additionally a log entry is written to the specified log
+file file. If file is the word &quot;mail&quot;, the log
+entry is mailed to the news administrator instead. An empty
+string is equivalent to /dev/null and says to log
+nothing.</p>
+
+<p>If file starts with a slash, it is taken as the absolute
+filename to use for the log file. Otherwise, the filename is
+formed by prepending pathlog and a slash and appending
+&quot;.log&quot;. In other words, an action of
+&quot;doit=newgroup&quot; will log to pathlog/new-
+group.log.</p>
+
+<p>drop No action is taken and the message is ignored.</p>
+
+<p>verify-* If the action starts with the string
+&quot;verify-&quot;, as in:</p>
+
+<p>verify-news.announce.newgroups</p>
+
+<p>then PGP verification of the control message will be
+done and the user ID of the key of the authenticated signer
+will be checked against the expected identity defined by the
+rest of the string (&quot;news.announce.newgroups&quot; in
+the above example. This verification is done via pgpverify;
+see pgpverify(8) for more details.</p>
+
+<p>If no logging is specified (with =file as mentioned
+below), notifi- cation of successful newgroup and rmgroup
+control messages and the output of checkgroups messages will
+be mailed to the news adminis- trator.</p>
+
+<p>verify-*=file PGP verification is done as for the
+verify-* action described above, and a log entry is written
+to the specified file as described in doit=file above. (In
+the case of checkgroups mes- sages, this means that the
+shell script output of the checkgroups message will be
+written to that file.)</p>
+
+<p>log A one-line log message is sent to standard error.
+innd normally directs this to pathlog/errlog.</p>
+
+<p>log=file A log entry is written to the specified log
+file, which is inter- preted as in doit=file described
+above.</p>
+
+<p>mail A mail message is sent to the news
+administrator.</p>
+
+<p>Processing of a checkgroups message will never actually
+change the active file (the list of groups carried by the
+server). The difference between a doit or verify action and
+a mail action for a checkgroups control message lies only in
+what e-mail is sent; doit or verify will mail the news
+administrator a shell script to create, delete, or modify
+newsgroups to match the checkgroups message, whereas mail
+will just mail the entire message. In either case, the news
+administrator will have to take action to implement the
+checkgroups message, and if that mail is ignored, nothing
+will be changed.</p>
+
+<p>Lines are matched in order and the last matching line in
+the file will be used.</p>
+
+<p>Use of the verify action for processing newgroup,
+rmgroup, and check- groups messages is STRONGLY recommended.
+Abuse of control messages is rampant, and authentication via
+PGP signature is currently the only reliable way to be sure
+that a control message comes from who it claims to be from.
+Most major hierarchies are now issuing PGP-authenticated
+control messages.</p>
+
+<p>In order to use verify actions, the PGP key ring of the
+news user must be populated with the PGP keys of the
+hierarchy maintainers whose con- trol messages you want to
+honor. For more details on PGP-authenticated control
+messages and the URL for downloading the PGP keys of major
+hierarchies, see pgpverify(8).</p>
+
+<p>Control messages of type cancel are handled internally
+by innd and can- not be affected by any of the mechanisms
+described here.</p>
+
+<p>EXAMPLE With the following three lines in
+control.ctl:</p>
+
+<p>newgroup:*:*:drop
+newgroup:group-admin@isc.org:comp.*:verify-news.announce.newgroups
+newgroup:kre@munnari.oz.au:aus.*:mail</p>
+
+<p>a newgroup coming from &quot;group-admin@isc.org&quot;
+will be honored if it is for a newsgroup in the comp.*
+hierarchy and if it has a valid signature corresponding to
+the PGP key with a user ID of &quot;news.announce.new-
+groups&quot;. If any newgroup claiming to be from
+&quot;kre@munnari.oz.au&quot; for a newsgroup in the aus.*
+hierarchy is received, it too will be honored. All other
+newgroup messages will be ignored.</p>
+
+<p>WARNINGS The third argument for a line affecting
+checkgroups does not affect whether the line matches. It is
+only used after a matching line is found, to filter out
+which newsgroups listed in the checkgroups will be
+processed. This means that a line like:</p>
+
+<p>checkgroups:*:*binaries*:drop</p>
+
+<p>will cause all checkgroups control messages to be
+dropped unless they match a line after this one in
+control.ctl, not just ignore newsgroups containing
+&quot;binaries&quot; in the name. The general rule is to
+never use &quot;*&quot; in the second field for a line
+matching checkgroups messages. There is unfortunately no way
+to do what the author of a line like the above probably
+intended to do (yet).</p>
+
+<p>HISTORY Written by Rich $alz &lt;rsalz@uunet.uu.net&gt;
+for InterNetNews. Rewritten in POD by Russ Allbery
+&lt;rra@stanford.edu&gt;.</p>
+
+<p>$Id: control.ctl.5 5912 2002-12-03 05:31:11Z vinocur
+$</p>
+
+<p>SEE ALSO controlchan(8), inn.conf(5), innd(8),
+newsfeeds(5), pgpverify(8), sh(1).</p>
+
+<p>INN 2.4.0 2002-12-03 CONTROL.CTL(5)</p>
+<hr>
+</body>
+</html>

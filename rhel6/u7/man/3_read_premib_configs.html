@@ -1,0 +1,250 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:30:59 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>CONFIG_API(3) Net-SNMP CONFIG_API(3)</p>
+
+<p>NAME register_config_handler, register_premib_handler
+unregister_config_han- dler, register_mib_handlers,
+read_configs, read_premib_configs, con- fig_perror,
+config_pwarn - config_api functions</p>
+
+<p>SYNOPSIS #include &lt;net-snmp/config_api.h&gt;</p>
+
+<p>struct config_line * register_config_handler(const char
+*filePrefix, const char *token, void (*parser)(const char *,
+char *), void (*releaser)(void), const char *usageLine);</p>
+
+<p>struct config_line * register_premib_handler(const char
+*filePrefix, const char *token, void (*parser)(const char *,
+char *), void (*releaser)(void), const char *usageLine);</p>
+
+<p>void register_mib_handlers(void);</p>
+
+<p>void unregister_config_handler(const char *filePrefix,
+const char *token);</p>
+
+<p>void unregister_all_config_handlers(void);</p>
+
+<p>Application Handlers struct config_line *
+register_app_config_handler(const char *token, void
+(*parser)(const char *, char *), void (*releaser)(void),
+const char *usageLine);</p>
+
+<p>struct config_line * register_app_premib_handler(const
+char *token, void (*parser)(const char *, char *), void
+(*releaser)(void), const char *usageLine);</p>
+
+<p>void unregister_app_config_handler(const char
+*token);</p>
+
+<p>Reading Configuration Files void
+read_premib_configs(void); void read_configs(void);</p>
+
+<p>Help Strings and Errors void
+read_config_print_usage(char *lead); void config_pwarn(const
+char *string); void config_perror(const char *string);</p>
+
+<p>DESCRIPTION The functions are a fairly extensible system
+of parsing various config- uration files at the run time of
+an application. The configuration file flow is broken into
+the following phases:</p>
+
+<p>1. Registration of handlers.</p>
+
+<p>2. Reading of the configuration files for pre-MIB
+parsing require- ments.</p>
+
+<p>3. Reading and parsing of the textual MIB files.</p>
+
+<p>4. Reading of the configuration files for configuration
+direc- tives.</p>
+
+<p>5. Optionally re-reading the configuration files at a
+future date.</p>
+
+<p>The idea is that the calling application is able to
+register handlers for certain tokens specified in certain
+named configuration files. The read_configs() function can
+then be called to look for all relevant configuration files,
+match the first word on each line against the list of
+registered tokens and pass the remainder of the line to the
+appro- priate registered handler.</p>
+
+<p>REGISTERING A HANDLER register_config_handler()
+Registers a configuration handler routine, which should be
+called to process configuration directives starting with the
+specified token. For example:</p>
+
+<p>register_config_handler(&quot;snmp&quot;,
+&quot;exampleToken&quot;, exam- ple_handler, NULL,
+&quot;ARG1 [ARG2]&quot;);</p>
+
+<p>would register the example_handler() function so that it
+will get called every time the first word of a line in the
+snmp.conf configuration file(s) matches
+&quot;exampleToken&quot;. Calling the appropriate handlers
+to process the configuration file directives is the
+responsibility of read_configs() (see below).</p>
+
+<p>register_premib_handler() Similar to the
+register_config_handler() function, but the reg- istered
+handler routine will be called before the textual MIBs are
+read in. This is typically used for tokens that will affect
+the configuration of the MIB parser, and will normally only
+be used within the SNMP library itself.</p>
+
+<p>register_mib_handlers() Initialisation routine to
+register the internal SNMP library configuration
+handlers.</p>
+
+<p>unregister_config_handler() Removes the registered
+configuration handler for the specified filePrefix and
+token.</p>
+
+<p>unregister_all_config_handlers() Removes all registered
+configuration handlers.</p>
+
+<p>Token Handlers Handler functions should have the
+following signature:</p>
+
+<p>void handler(const char *token, char *line);</p>
+
+<p>The function will be called with two arguments, the
+first being the token that triggered the call to this
+function (i.e. the token used when registering the handler),
+and the second being the remainder of the configuration file
+line (i.e. everything following the white space following
+the matched token).</p>
+
+<p>Freeing Handlers If the token handler function
+dynamically allocates resources when pro- cessing a
+configuration entry, then these may need to be released
+before re-reading the configuration files. If the fourth
+parameter ( releaser ) passed to register_config_handler is
+non-NULL, then this specifies a function to be called before
+re-reading the configuration files. This function should
+free any resources allocated by the token handler function
+and reset its notion of the configuration to its default.
+The token handler function can then safely be called again.
+No arguments are passed to the resource freeing handler.
+Note that this function is not called when the handler is
+unregistered individually (but is called as part of
+unregister_all_config_handlers() ).</p>
+
+<p>Application Handlers register_app_config_handler()</p>
+
+<p>register_app_premib_handler()</p>
+
+<p>unregister_app_config_handler() These functions are
+analagous to register_config_handler(), reg-
+ister_premib_handler() and unregister_config_handler() but
+do not require the file type argument (which is filled in by
+the application). It is intended that MIB modules written
+for the agent use these functions to allow the agent to have
+more con- trol over which configuration files are read
+(typically the snmpd.conf files).</p>
+
+<p>READING CONFIGURATION FILES read_premib_configs()</p>
+
+<p>read_configs() These routines process the configuration
+files found in the con- figuration search path (see below).
+For each entry, the handler registered for that
+configuration token is called.</p>
+
+<p>read_premib_configs() is run before the MIB files are
+read in, and pro- cesses those configuration tokens
+registered using register_premib_han- dler() (or
+register_app_premib_handler() ). All other entries are
+ignored.</p>
+
+<p>read_configs() is run after the MIB files have been read
+in, and pro- cesses those configuration tokens registered
+using register_config_han- dler() (or
+register_app_config_handler() ). If it encounters a config-
+uration token for which no handler has been registered
+(either pre- or post-mib), then it will display a warning
+message, and continue pro- cessing with the next line of the
+configuration file.</p>
+
+<p>Configuration Search Path The configuration files to be
+read are found by searching a list of configuration
+directories for appropriately named files. In each such
+directory, the library will look for files named snmp.conf,
+snmp.local.conf, app.conf, app.local.conf, (where app is the
+appica- tion-specific filePrefix used to register
+configuration handlers). It is not necessary for any or all
+of these files to be present in each directory. Missing
+files will be silently skipped. The idea behind the two
+different suffixes is that the first file can be shared (via
+rdist or an NFS mount) across a large number of machines and
+the second file can be used to configure local settings for
+one particular machine.</p>
+
+<p>The default list of directories to search is /etc/snmp,
+followed by /usr/share/snmp, followed by /usr/lib(64)/snmp,
+followed by $HOME/.snmp. This list can be changed by setting
+the environmental variable SNMPCONFPATH to be a (colon
+separated) list of directories to search.</p>
+
+<p>init_snmp() The normal mode of operation would be to
+register the application-spe- cific configuration handlers,
+and then invoke init_snmp(). This would call the routines
+listed above to register the internal library config-
+uration handlers, process any configuration tokens
+registered with reg- ister_premib_handler(), read in the
+textual MIB files using init_mib(), and finally parse the
+configuration file tokens registered with regis-
+ter_config_handler().</p>
+
+<p>If the init_snmp() function is used, none of these
+functions need to be explicitly called by the
+application.</p>
+
+<p>HELP STRINGS AND ERRORS The usageLine parameter passed
+to register_config_handler() and similar calls, is used to
+display help information when the read_con-
+fig_print_usage() function is called. This function is used
+by all of the applications when the -H flag is passed on the
+command line. It prints a summary of all of the
+configuration file lines, and the asso- ciated files, that
+the configuration system understands. The usageLine
+parameter should be a list of arguments expected after the
+token, and not a lengthy description (which should go into a
+manual page instead). The lead prefix will be prepended to
+each line that the function prints to stderr, where it
+displays its output.</p>
+
+<p>The init_snmp() function should be called before the
+read_con- fig_print_usage() function is called, so that the
+library can register its configuration file directives as
+well for the read_con- fig_print_usage() function to
+display.</p>
+
+<p>Error Handling Functions The two functions
+config_pwarn() and config_perror() both take an error string
+as an argument and print it to stderr along with the file
+and line number that caused the error. A call to the second
+function will also force read_configs() to eventually return
+with an error code indi- cating to its calling function that
+it should abort the operation of the application.</p>
+
+<p>ENVIRONMENT VARIABLES SNMPCONFPATH A colon separated
+list of directories to search for configu- ration files in.
+Default:
+/etc/snmp:/usr/share/snmp:/usr/lib(64)/snmp:$HOME/.snmp</p>
+
+<p>SEE ALSO mib_api(3), snmp_api(3)</p>
+
+<p>4.2 Berkeley Distribution 07 Mar 2002 CONFIG_API(3)</p>
+<hr>
+</body>
+</html>

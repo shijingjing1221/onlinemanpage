@@ -1,0 +1,197 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 06:17:56 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>guestfs-python(3) Virtualization Support
+guestfs-python(3)</p>
+
+<p>NAME guestfs-python - How to use libguestfs from
+Python</p>
+
+<p>SYNOPSIS import guestfs g = guestfs.GuestFS
+(python_return_dict=True) g.add_drive_opts
+(&quot;disk.img&quot;, format=&quot;raw&quot;, readonly=1)
+g.launch ()</p>
+
+<p>DESCRIPTION This manual page documents how to call
+libguestfs from the Python programming language. This page
+just documents the differences from the C API and gives some
+examples. If you are not familiar with using libguestfs, you
+also need to read guestfs(3).</p>
+
+<p>python_return_dict=True All new code should construct
+the handle using:</p>
+
+<p>g = guestfs.GuestFS (python_return_dict=True)</p>
+
+<p>This indicates that your program wants to receive Python
+dicts for methods in the API that return hashtables.</p>
+
+<p>In a future version of libguestfs, this will become the
+default.</p>
+
+<p>EXCEPTIONS Errors from libguestfs functions are mapped
+into &quot;RuntimeException&quot; with a single string
+argument which is the error message.</p>
+
+<p>MORE DOCUMENTATION Type:</p>
+
+<p>$ python &gt;&gt;&gt; import guestfs &gt;&gt;&gt; help
+(guestfs)</p>
+
+<p>EXAMPLE 1: CREATE A DISK IMAGE # Example showing how to
+create a disk image.</p>
+
+<p>import os import guestfs</p>
+
+<p>output = &quot;disk.img&quot;</p>
+
+<p># All new Python code should pass
+python_return_dict=True # to the constructor. It indicates
+that your program wants # to receive Python dicts for
+methods in the API that return # hashtables. g =
+guestfs.GuestFS (python_return_dict=True)</p>
+
+<p># Create a raw-format sparse disk image, 512 MB in size.
+f = open (output, &quot;w&quot;) f.truncate (512 * 1024 *
+1024) f.close ()</p>
+
+<p># Set the trace flag so that we can see each libguestfs
+call. g.set_trace (1)</p>
+
+<p># Attach the disk image to libguestfs. g.add_drive_opts
+(output, format = &quot;raw&quot;, readonly = 0)</p>
+
+<p># Run the libguestfs back-end. g.launch ()</p>
+
+<p># Get the list of devices. Because we only added one
+drive # above, we expect that this list should contain a
+single # element. devices = g.list_devices () assert (len
+(devices) == 1)</p>
+
+<p># Partition the disk as one single MBR partition.
+g.part_disk (devices[0], &quot;mbr&quot;)</p>
+
+<p># Get the list of partitions. We expect a single
+element, which # is the partition we have just created.
+partitions = g.list_partitions () assert (len (partitions)
+== 1)</p>
+
+<p># Create a filesystem on the partition. g.mkfs
+(&quot;ext4&quot;, partitions[0])</p>
+
+<p># Now mount the filesystem so that we can add files.
+g.mount (partitions[0], &quot;/&quot;)</p>
+
+<p># Create some files and directories. g.touch
+(&quot;/empty&quot;) message = &quot;Hello, world0 g.write
+(&quot;/hello&quot;, message) g.mkdir (&quot;/foo&quot;)</p>
+
+<p># This one uploads the local file /etc/resolv.conf into
+# the disk image. g.upload (&quot;/etc/resolv.conf&quot;,
+&quot;/foo/resolv.conf&quot;)</p>
+
+<p># Because we wrote to the disk and we want to detect
+write # errors, call g.shutdown. You don&rsquo;t need to do
+this: # g.close will do it implicitly. g.shutdown ()</p>
+
+<p># Note also that handles are automatically closed if
+they are # reaped by reference counting. You only need to
+call close # if you want to close the handle right away.
+g.close ()</p>
+
+<p>EXAMPLE 2: INSPECT A VIRTUAL MACHINE DISK IMAGE #
+Example showing how to inspect a virtual machine disk.</p>
+
+<p>import sys import guestfs</p>
+
+<p>assert (len (sys.argv) == 2) disk = sys.argv[1]</p>
+
+<p># All new Python code should pass
+python_return_dict=True # to the constructor. It indicates
+that your program wants # to receive Python dicts for
+methods in the API that return # hashtables. g =
+guestfs.GuestFS (python_return_dict=True)</p>
+
+<p># Attach the disk image read-only to libguestfs.
+g.add_drive_opts (disk, readonly=1)</p>
+
+<p># Run the libguestfs back-end. g.launch ()</p>
+
+<p># Ask libguestfs to inspect for operating systems. roots
+= g.inspect_os () if len (roots) == 0: raise (Error
+(&quot;inspect_vm: no operating systems found&quot;))</p>
+
+<p>for root in roots: print &quot;Root device: %s&quot; %
+root</p>
+
+<p># Print basic information about the operating system.
+print &quot; Product name: %s&quot; %
+(g.inspect_get_product_name (root)) print &quot; Version:
+%d.%d&quot; % (g.inspect_get_major_version (root),
+g.inspect_get_minor_version (root)) print &quot; Type:
+%s&quot; % (g.inspect_get_type (root)) print &quot; Distro:
+%s&quot; % (g.inspect_get_distro (root))</p>
+
+<p># Mount up the disks, like guestfish -i. # # Sort keys
+by length, shortest first, so that we end up # mounting the
+filesystems in the correct order. mps =
+g.inspect_get_mountpoints (root) def compare (a, b): return
+len(a) - len(b) for device in sorted (mps.keys(), compare):
+try: g.mount_ro (mps[device], device) except RuntimeError as
+msg: print &quot;%s (ignored)&quot; % msg</p>
+
+<p># If /etc/issue.net file exists, print up to 3 lines.
+filename = &quot;/etc/issue.net&quot; if g.is_file
+(filename): print &quot;--- %s ---&quot; % filename lines =
+g.head_n (3, filename) for line in lines: print line</p>
+
+<p># Unmount everything. g.umount_all ()</p>
+
+<p>SEE ALSO guestfs(3), guestfs-examples(3),
+guestfs-erlang(3), guestfs-java(3), guestfs-lua(3),
+guestfs-ocaml(3), guestfs-perl(3), guestfs-recipes(1),
+guestfs-ruby(3), http://libguestfs.org/.</p>
+
+<p>AUTHORS Richard W.M. Jones (&quot;rjones at redhat dot
+com&quot;)</p>
+
+<p>COPYRIGHT Copyright (C) 2010-2012 Red Hat Inc.</p>
+
+<p>LICENSE This manual page contains examples which we hope
+you will use in your programs. The examples may be freely
+copied, modified and distributed for any purpose without any
+restrictions.</p>
+
+<p>BUGS To get a list of bugs against libguestfs, use this
+link:
+https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>To report a new bug against libguestfs, use this link:
+https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+
+<p>When reporting a bug, please supply:</p>
+
+<p>&middot; The version of libguestfs.</p>
+
+<p>&middot; Where you got libguestfs (eg. which Linux
+distro, compiled from source, etc)</p>
+
+<p>&middot; Describe the bug accurately and give a way to
+reproduce it.</p>
+
+<p>&middot; Run libguestfs-test-tool(1) and paste the
+complete, unedited output into the bug report.</p>
+
+<p>libguestfs-1.20.11 2013-08-27 guestfs-python(3)</p>
+<hr>
+</body>
+</html>
