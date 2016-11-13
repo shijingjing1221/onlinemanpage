@@ -1,0 +1,244 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:59:33 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>FEBOOTSTRAP(8) Virtualization Support FEBOOTSTRAP(8)</p>
+
+<p>NAME febootstrap - Bootstrap a basic Fedora system (like
+Debian debootstrap)</p>
+
+<p>SYNOPSIS febootstrap [--options] REPO TARGET
+[MIRROR]</p>
+
+<p>EXAMPLES febootstrap fedora-10 /tmp/f10 febootstrap
+rawhide /tmp/rawhide febootstrap rawhide /tmp/rawhide
+http://mymirror/rawhide/x86_64/os febootstrap
+--groupinstall=&quot;Mail Server&quot; fedora-10
+/tmp/mailserver</p>
+
+<p>DESCRIPTION febootstrap creates a Fedora root
+filesystem, based on the Fedora version specified by REPO
+under the directory specified by TARGET. Optionally MIRROR
+can point to a local mirror (otherwise the public Fedora
+mirrors are used). REPO names are &quot;fedora-VERSION&quot;
+(eg. &quot;fedora-10&quot;) or &quot;rawhide&quot;.</p>
+
+<p>febootstrap does not need to be run as root. If for some
+reason you do run it as root, then it works slightly
+differently and may have side effects such as stopping or
+starting system daemons.</p>
+
+<p>For more advanced needs, take a look at mock(1),
+&quot;livecd-creator&quot; and thincrust.nets
+&quot;appliance-creator&quot;.</p>
+
+<p>The normal output is a root directory located at TARGET
+and a fakeroot logfile at
+&quot;TARGET/fakeroot.log&quot;.</p>
+
+<p>OPTIONS -i package --install=package -g
+&quot;group&quot; --groupinstall=&quot;group&quot; Specify
+the package or group to install. To list multiple packages
+or groups, you must give multiple &quot;-i&quot; or
+&quot;-g&quot; options. Group names can contain spaces, so
+use quotes where necessary.</p>
+
+<p>These are passed directly to &quot;yum install&quot; or
+&quot;yum groupinstall&quot; commands, and thus any
+dependencies are also resolved by yum. You can also use
+shell globs and filenames here, as with ordinary yum.</p>
+
+<p>If no packages or groups are given, then we install the
+&quot;Core&quot; group which is a small working Fedora
+installation (but by no means minimal). Use &quot;yum
+groupinfo Core&quot; to list the packages currently in the
+&quot;Core&quot; group.</p>
+
+<p>--no-clean Normally febootstrap will clean up the yum
+repository (&quot;/var/cache/yum&quot; inside the image).
+This contains the downloaded RPMs and metadata. However if
+you give the &quot;--no-clean&quot; option, then the yum
+repository is left. This is useful if you want to run
+further yum commands inside the filesystem by hand.</p>
+
+<p>-p &quot;proxyurl&quot; --proxy=&quot;proxyurl&quot; URL
+to the proxy server that yum should use.</p>
+
+<p>-u source --updates=source Pull in updates from an
+additional updates repository. The possible sources are:</p>
+
+<p>-u &quot;http://...&quot; (a URL) Get updates from the
+specific URL.</p>
+
+<p>-u &quot;updates-released-fN&quot; (an updates
+repository name) Get updates from the public mirrors of the
+named repository (eg. &quot;updates-released-f10&quot;). See
+REPOSITORIES below.</p>
+
+<p>-u &quot;none&quot; (default) Dont add an updates
+repository. This is the default.</p>
+
+<p>REPOSITORIES You can list available repositories by
+visiting this URL:</p>
+
+
+<p>&lt;http://mirrors.fedoraproject.org/mirrorlist?repo=help&amp;arch=i386&gt;</p>
+
+<p>(If necessary replace &quot;i386&quot; with your
+architecture, but it seems unlikely that this list will
+change based on architecture).</p>
+
+<p>RUNNING EXTRA COMMANDS IN THE ROOT FILESYSTEM If you
+want to run further commands inside the root filesystem, for
+example additional &quot;yum&quot; installs, then use
+&quot;febootstrap-run&quot;. See the febootstrap-run(8)
+manual page for more details.</p>
+
+<p>You have to be careful about modifying files in the root
+filesystem directly (without using
+&quot;febootstrap-run&quot;). Its easy to confuse fakeroot
+and end up with the wrong permissions on files (see FAKEROOT
+LOGFILE below).</p>
+
+<p>&quot;febootstrap-run&quot; runs the command inside the
+root filesystem, which means it wont normally have access to
+files outside the root. You can use
+&quot;FAKECHROOT_EXCLUDE_PATH&quot; environment variable
+(see fakechroot(1)) or copy files into the root first.</p>
+
+<p>FAKEROOT LOGFILE When febootstrap is run as non-root
+(the normal case) we use fakeroot so that yum thinks it is
+running as root. Fakeroot keeps track of &quot;real&quot;
+file permissions in a log file which is saved into the
+target directory as &quot;TARGET/fakeroot.log&quot;.</p>
+
+<p>This logfile is indexed by inode number, which makes
+certain operations safe and other operations unsafe. Files
+should be replaced only by doing:</p>
+
+<p>echo updated-content &gt; old-file</p>
+
+<p>(since that preserves the original inode).</p>
+
+<p>Deleting files and then creating new ones (even with a
+different name) is usually unsafe, because the new files
+might reuse inodes claimed by the old files, and so appear
+with peculiar permissions (eg. unreadable, or as a symbolic
+link).</p>
+
+<p>Deleting files is also usually unsafe, although the
+reasons are more subtle. If you just use &quot;rm&quot; then
+the inode number is not deleted from
+&quot;fakeroot.log&quot; which means it can be reused by
+another file later on.</p>
+
+<p>In most cases its usually safest to use
+&quot;febootstrap-run&quot;.</p>
+
+<p>You can use the fakeroot logfile in a number of
+ways:</p>
+
+<p>&middot; Use febootstrap-run(8) to run a command with
+the faked file permissions.</p>
+
+<p>&middot; Use febootstrap-install(8) to install a file
+with permissions in the root filesystem.</p>
+
+<p>&middot; Generate an initramfs (compressed cpio) file
+containing the correct permissions using the tool
+&quot;febootstrap-to-initramfs&quot;.</p>
+
+<p>&middot; Generate a supermin appliance using the tool
+&quot;febootstrap-to-supermin&quot;.</p>
+
+<p>&middot; Apply the permissions to the target directory
+using the forthcoming tool &quot;febootstrap-fix-root&quot;
+(requires root).</p>
+
+<p>RUNNING FEBOOTSTRAP AS ROOT There is some rudimentary
+support for running &quot;febootstrap&quot; as root. However
+it is not well-tested and generally not recommended.</p>
+
+<p>COMPARISON TO DEBOOTSTRAP febootstrap cannot do
+cross-architecture installs (&quot;debootstrap
+--foreign&quot;). The reason is that %pre and %post scripts
+cannot run. It may be possible to defer running of
+scriptlets (which is basically how debootstrap works), and
+patches to do this are welcomed.</p>
+
+<p>febootstrap cannot do 32-on-64 bit installs. The reason
+is that fakeroot and fakechroot do not load the correct
+preload library. This is really a bug in
+fakeroot/fakechroot, which we think would be easy to fix.
+(debootstrap deals with this case the same as for
+&quot;--foreign&quot; installs - see previous point).</p>
+
+<p>OTHER RESTRICTIONS AND BUGS The following programs are
+not run during %post scriptlets (because they are all
+statically linked, and fakechroot cannot run statically
+linked programs).</p>
+
+<p>&quot;/sbin/ldconfig&quot; (from many packages)
+&quot;/usr/sbin/glibc_post_upgrade&quot; (from
+&quot;glibc&quot;)
+&quot;/usr/sbin/build-locale-archive&quot; (from
+&quot;glibc-common&quot;)
+&quot;/usr/sbin/libgcc_post_upgrade&quot; (from
+&quot;libgcc&quot;)</p>
+
+<p>If you wish, you can run them the first time you boot
+into the new machine.</p>
+
+<p>febootstrap recreates the repository anew each time, and
+this causes yum to download all the RPMs every time. This is
+very wasteful, and we should provide a way to cache the
+repository.</p>
+
+<p>HOME PAGE
+&lt;http://people.redhat.com/~rjones/febootstrap&gt;</p>
+
+<p>SEE ALSO febootstrap-to-initramfs(8),
+febootstrap-minimize(8), febootstrap-run(8),
+febootstrap-install(8), febootstrap-to-supermin(8),
+fakeroot(1), fakechroot(1), yum(8), rpm(8).</p>
+
+<p>ALTERNATIVES mock(1),
+&lt;http://fedoraproject.org/wiki/FedoraLiveCD/LiveCDHowTo&gt;,
+&lt;http://thincrust.net/&gt;, debootstrap(8),
+&quot;ubuntu-vm-builder&quot;.</p>
+
+<p>AUTHORS Richard W.M. Jones &lt;rjones @ redhat .
+com&gt;</p>
+
+<p>COPYRIGHT (C) Copyright 2009 Red Hat Inc.,
+&lt;http://people.redhat.com/~rjones/febootstrap&gt;.</p>
+
+<p>This program is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later
+version.</p>
+
+<p>This program is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more
+details.</p>
+
+<p>You should have received a copy of the GNU General
+Public License along with this program; if not, write to the
+Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA
+02139, USA.</p>
+
+<p>febootstrap-2.7 2010-05-14 FEBOOTSTRAP(8)</p>
+<hr>
+</body>
+</html>

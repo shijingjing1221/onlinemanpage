@@ -1,0 +1,373 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:23:49 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>TUX(2) System calls TUX(2)</p>
+
+<p>NAME tux - interact with the TUX kernel subsystem</p>
+
+<p>SYNOPSIS #include &lt;sys/tuxmodule.h&gt;</p>
+
+<p>int tux (unsigned int action, user_req_t * req);</p>
+
+<p>DESCRIPTION The tux() system call calls the kernel to
+perform an action on behalf of the currently executing
+user-space TUX module.</p>
+
+<p>action can be one of: enum tux_actions {
+TUX_ACTION_STARTUP = 1, TUX_ACTION_SHUTDOWN = 2,
+TUX_ACTION_STARTTHREAD = 3, TUX_ACTION_STOPTHREAD = 4,
+TUX_ACTION_EVENTLOOP = 5, TUX_ACTION_GET_OBJECT = 6,
+TUX_ACTION_SEND_OBJECT = 7, TUX_ACTION_READ_OBJECT = 8,
+TUX_ACTION_FINISH_REQ = 9, TUX_ACTION_FINISH_CLOSE_REQ = 10,
+TUX_ACTION_REGISTER_MODULE = 11,
+TUX_ACTION_UNREGISTER_MODULE = 12, TUX_ACTION_CURRENT_DATE =
+13, TUX_ACTION_REGISTER_MIMETYPE = 14,
+TUX_ACTION_READ_HEADERS = 15, TUX_ACTION_POSTPONE_REQ = 16,
+TUX_ACTION_CONTINUE_REQ = 17, TUX_ACTION_REDIRECT_REQ = 18,
+TUX_ACTION_READ_POST_DATA = 19, TUX_ACTION_SEND_BUFFER = 20,
+TUX_ACTION_WATCH_PROXY_SOCKET = 21,
+TUX_ACTION_WAIT_PROXY_SOCKET = 22, TUX_ACTION_QUERY_VERSION
+= 23, MAX_TUX_ACTION };</p>
+
+<p>The first action values listed below are administrative
+and are nor- mally used only in the tux program.</p>
+
+<p>TUX_ACTION_STARTUP starts the tux subsystem, and takes a
+NULL req. TODO: Only root can use TUX_ACTION_STARTUP.</p>
+
+<p>TUX_ACTION_SHUTDOWN stops the tux subsystem, and takes
+any req, even a zero-filled req.</p>
+
+<p>TUX_ACTION_STARTTHREAD is called once per thread with a
+req-&gt;thread_nr element monotonically increasing from
+0.</p>
+
+<p>TUX_ACTION_STOPTHREAD is not currently used by the tux
+daemon because all threads are automatically stopped on
+TUX_ACTION_SHUTDOWN. It remains available because it may be
+useful in circumstances that the tux daemon does not yet
+handle.</p>
+
+<p>TUX_ACTION_REGISTER_MODULE Register a user-space module
+identified by the req-&gt;modulename string. One VFS name
+can be registered only once.</p>
+
+<p>req-&gt;version_major, req-&gt;version_minor, and
+req-&gt;version_patch have to be set appropriately from
+TUX_MAJOR_VERSION, TUX_MINOR_VERSION, and
+TUX_PATCHLEVEL_VERSION, respectively; the kernel will
+sanity-check binary compatibility of the module.</p>
+
+<p>TUX_ACTION_UNREGISTER_MODULE Unregister a user-space
+module identified by the req-&gt;modulename string. Only
+registered modules can be unregis- tered.</p>
+
+<p>TUX_ACTION_CURRENT_DATE Set the current date string to
+req-&gt;new_date. The date string must be RFC 1123-compliant
+and increase monotonically. The tux daemon normally calls
+this once per second.</p>
+
+<p>TUX_ACTION_REGISTER_MIMETYPE Sets the extension
+req-&gt;objectname to map to mimetype req-&gt;object_addr.
+The tux daemon normally registers the mime types in
+/etc/tux.mime.types, but modules could conceivably create
+their own mimetype mappings.</p>
+
+<p>TUX_ACTION_QUERY_VERSION Return the major version, minor
+version, and patchlevel of the kernel TUX subsystem, encoded
+in the return value as (TUX_MAJOR_VERSION &lt;&lt; 24) |
+(TUX_MINOR_VERSION &lt;&lt; 16) | TUX_PATCHLEVEL_VERSION If
+the system call sets errno to EINVAL, assume major version
+2, minor version 1.</p>
+
+<p>The rest of the action values are used to respond to TUX
+events. The general architecture is that TUXs event loop is
+invoked to catch HTTP events, and then responses are
+generated in response to those events.</p>
+
+<p>TUX_ACTION_EVENTLOOP invokes the TUX event loop the TUX
+subsystem will either immediately return with a new request
+req, or will wait for new requests to arrive.</p>
+
+<p>TUX_ACTION_GET_OBJECT issues a request for the URL
+object named in req-&gt;objectname. If the object is not
+immediately available then the currently handled request is
+suspended, and a new request is returned, or the TUX
+subsystem waits for new requests.</p>
+
+<p>A URL object is a data stream that is accessed via a URL
+and is directly associated with a file pointed to by that
+URL. (In the future, we may extend the concept of a URL
+object.)</p>
+
+<p>TUX_ACTION_SEND_OBJECT sends the current URL object to
+the client.</p>
+
+<p>TUX_ACTION_READ_OBJECT reads the current URL object into
+the address specified by req-&gt;object_addr.
+TUX_ACTION_READ_OBJECT must not be called unless
+req-&gt;objectlen &gt;= 0.</p>
+
+<p>TUX_ACTION_READ_HEADERS reads a non-zero-delimited
+string into req-&gt;object_addr, with the length of the
+string kept in req-&gt;objectlen. This is a workaround used
+to read fields that tux does not currently parse; if you
+need it, report it as a bug so that more fields can be added
+to user_req (unless your use is so specialized that it will
+be of no general utility).</p>
+
+<p>TUX_ACTION_POSTPONE_REQ postpones the request, meaning
+that no tux sys- tem calls will return data for this request
+until TUX_ACTION_CON- TINUE_REQ is called.</p>
+
+<p>TUX_ACTION_CONTINUE_REQ continues a postponed request.
+Unlike a normal TUX_ACTION, it takes as its argument the
+socket descriptor (this allows it to be called from a
+program that is unrelated to the program that called
+TUX_ACTION_POSTPONE_REQ if necessary). It is called like
+this: ret = tux(TUX_ACTION_CONTINUE_REQ, (user_req_t
+*)socket);</p>
+
+<p>TUX_ACTION_READ_POST_DATA is an atomic action (it will
+always return with the same request, no need to handle a new
+request) that puts the non-zero-delimited POST data, up to
+the maximum set in req-&gt;objectlen (and limited by
+/proc/sys/net/tux/max_header_len), into req-&gt;object_addr,
+ands resets req-&gt;objectlen to the length.</p>
+
+<p>TUX_ACTION_REDIRECT_REQ causes the request to be
+redirected to the sec- ondary server. (No need to call
+TUX_ACTION_FINISH_REQ.)</p>
+
+<p>TUX_ACTION_FINISH_REQ finishes and logs the request.</p>
+
+<p>TUX_ACTION_FINISH_CLOSE_REQ is like
+TUX_ACTION_FINISH_REQ except that it also closes HTTP 1.1
+keepalive connections.</p>
+
+<p>TUX_ACTION_SEND_BUFFER is like TUX_ACTION_SEND_OBJECT
+except that it sends whatever is in the req-&gt;object_addr
+buffer. This can be used as a generic output buffer.</p>
+
+<p>TUX_ACTION_WATCH_PROXY_SOCKET sets up a non-TUX socket
+to be used with TUX_ACTION_WAIT_PROXY_SOCKET. The socket
+must be a network socket. The function is atomic. Repeated
+calls to this action will replace the pre- vious proxy
+socket, so there is no need to deinitialize it. The socket
+file descriptor must be put into req-&gt;object_addr.</p>
+
+<p>TUX_ACTION_WAIT_PROXY_SOCKET postpones the current
+request until there are input packets on the socket that was
+set up via TUX_ACTION_WATCH_PROXY_SOCKET. The proxy socket
+has a keepalive timer running. The request will be resumed
+once there is input activity on the socket - the module can
+use nonblocking recv() on the socket to process input
+packets.</p>
+
+<p>user_req_t req is the request returned by the TUX
+subsystem. Defined fields depend on the version. For major
+version 2, they are: typedef struct user_req_s { int
+version_major; int version_minor; int version_patch;</p>
+
+<p>int http_version; int http_method;</p>
+
+<p>int sock; int event; int thread_nr; void *id; void
+*priv;</p>
+
+<p>int http_status; int bytes_sent; char *object_addr; int
+module_index; char modulename[MAX_MODULENAME_LEN];</p>
+
+<p>unsigned int client_host; unsigned int objectlen; char
+query[MAX_URI_LEN]; char objectname[MAX_URI_LEN];</p>
+
+<p>unsigned int cookies_len; char
+cookies[MAX_COOKIE_LEN];</p>
+
+<p>char content_type[MAX_FIELD_LEN]; char
+user_agent[MAX_FIELD_LEN]; char accept[MAX_FIELD_LEN]; char
+accept_charset[MAX_FIELD_LEN]; char
+accept_encoding[MAX_FIELD_LEN]; char
+accept_language[MAX_FIELD_LEN]; char
+cache_control[MAX_FIELD_LEN]; char
+if_modified_since[MAX_FIELD_LEN]; char
+negotiate[MAX_FIELD_LEN]; char pragma[MAX_FIELD_LEN]; char
+referer[MAX_FIELD_LEN];</p>
+
+<p>char *post_data; char new_date[DATE_LEN]; int
+keep_alive; } user_req_t; For major version 3, they are:
+typedef struct user_req_s { uint32_t version_major; uint32_t
+version_minor; uint32_t version_patch; uint32_t
+http_version; uint32_t http_method; uint32_t
+http_status;</p>
+
+<p>uint32_t sock; uint32_t event; uint32_t error; uint32_t
+thread_nr; uint32_t bytes_sent; uint32_t client_host;
+uint32_t objectlen; uint32_t module_index; uint32_t
+keep_alive; uint32_t cookies_len;</p>
+
+<p>uint64_t id; uint64_t priv; uint64_t object_addr;</p>
+
+<p>uint8_t query[MAX_URI_LEN]; uint8_t
+objectname[MAX_URI_LEN]; uint8_t cookies[MAX_COOKIE_LEN];
+uint8_t content_type[MAX_FIELD_LEN]; uint8_t
+user_agent[MAX_FIELD_LEN]; uint8_t accept[MAX_FIELD_LEN];
+uint8_t accept_charset[MAX_FIELD_LEN]; uint8_t
+accept_encoding[MAX_FIELD_LEN]; uint8_t
+accept_language[MAX_FIELD_LEN]; uint8_t
+cache_control[MAX_FIELD_LEN]; uint8_t
+if_modified_since[MAX_FIELD_LEN]; uint8_t
+negotiate[MAX_FIELD_LEN]; uint8_t pragma[MAX_FIELD_LEN];
+uint8_t referer[MAX_FIELD_LEN]; uint8_t new_date[DATE_LEN];
+} user_req_t;</p>
+
+<p>version_major Always set to TUX_MAJOR_VERSION, used to
+flag binary incompati- bility.</p>
+
+<p>version_minor Always set to TUX_MINOR_VERSION, used to
+flag binary incompati- bility.</p>
+
+<p>version_patch Always set to TUX_PATCHLEVEL_VERSION, used
+to flag binary incom- patibility.</p>
+
+<p>http_version One of HTTP_1_0 or HTTP_1_1</p>
+
+<p>http_method One of METHOD_NONE, METHOD_GET, METHOD_HEAD,
+METHOD_POST, or METHOD_PUT</p>
+
+<p>sock Socket file descriptor; writing to this will send
+data to the connected client associated with this request.
+Do not read from this socket file descriptor; you could
+potentially confuse the HTTP engine.</p>
+
+<p>event Private, per-request state for use in tux modules.
+The system will preserve this value as long as a request is
+active.</p>
+
+<p>thread_nr Thread index; see discussion of
+TUX_ACTION_STARTTHREAD.</p>
+
+<p>id A tux-daemon-internal value that is used to multiplex
+requests to the correct modules.</p>
+
+<p>priv Works just like event, except that it is a pointer
+to private data instead of an integer.</p>
+
+<p>http_status Set the error status as an integer for error
+reporting. The status is good by default, so it should not
+be modified except to report errors.</p>
+
+<p>bytes_sent When you write to sock, you must set
+bytes_sent to the total number of bytes sent since the last
+tux() operation on this req, or the log entry s bytes sent
+counter will be incorrect. (This may change or disappear in
+future versions of tux.)</p>
+
+<p>object_addr Set to an address for a buffer of at least
+req-&gt;objectlen size into which to read an object from the
+URL cache with the TUX_ACTION_READ_OBJECT action.
+TUX_ACTION_READ_OBJECT must not be called unless
+req-&gt;objectlen &gt;= 0, and TUX implicitly relies on
+req-&gt;object_addr being at least req-&gt;objectlen in
+size.</p>
+
+<p>module_index Used by the tux(8) daemon to determine
+which loadable module to associate with a req.</p>
+
+<p>modulename The name of the module as set by
+TUX_ACTION_REGISTER_MODULE; private data to the tux
+daemon.</p>
+
+<p>client_host The IP address of the host to which sock is
+connected.</p>
+
+<p>objectlen The size of a file that satisfies the current
+request and which is currently living in the URL cache. This
+is set if a request returns after TUX_ACTION_GET_OBJECT. A
+module should make sure that the buffer at
+req-&gt;object_addr is at least req-&gt;objectlen in size
+before calling TUX_ACTION_READ_OBJECT.</p>
+
+<p>query The full query string sent from the client.</p>
+
+<p>objectname Specifies the name of a URL to get with the
+TUX_ACTION_GET_OBJECT action. If the URL is not immediately
+available (that is, is not in the URL cache), the request is
+queued and the tux subsystem may go on to other ready
+requests while waiting.</p>
+
+<p>cookies_len If cookies are in the request header,
+cookies_len contains the length of the cookies string</p>
+
+<p>cookies If cookies are in the request header, cookies is
+the string in which the cookies are passed to the
+module.</p>
+
+<p>content_type The Content-Type header value for the
+request</p>
+
+<p>user_agent The User-Agent header value for the
+request</p>
+
+<p>accept The Accept header value for the request</p>
+
+<p>accept_charset The Accept-Charset header value for the
+request</p>
+
+<p>accept_encoding The Accept-Encoding header value for the
+request</p>
+
+<p>accept_language The Accept-Language header value for the
+request</p>
+
+<p>cache_control The Cache-Control header value for the
+request</p>
+
+<p>if_modified_since The If-Modified-Since header value for
+the request</p>
+
+<p>negotiate The Negotiate header value for the request</p>
+
+<p>pragma The Pragma header value for the request</p>
+
+<p>referer The Referer header value for the request</p>
+
+<p>post_data For POST requests, the incoming data is placed
+in post_data.</p>
+
+<p>new_date Returns the current date/time</p>
+
+<p>keep_alive The KeepAlive header value for the
+request</p>
+
+<p>RETURN VALUE tux() returns the following values: enum
+tux_reactions { TUX_RETURN_USERSPACE_REQUEST = 0,
+TUX_RETURN_EXIT = 1, TUX_RETURN_SIGNAL = 2, };</p>
+
+<p>TUX_RETURN_USERSPACE_REQUEST means that the kernel has
+put a new request into req; the request must be responded to
+with one of TUX_ACTION_GET_OBJECT, TUX_ACTION_SEND_OBJECT,
+TUX_ACTION_READ_OBJECT, or TUX_ACTION_FINISH_REQ.</p>
+
+<p>TUX_RETURN_EXIT means that TUX has been stopped.</p>
+
+<p>TUX_RETURN_SIGNAL means that a signal has occured. No
+new request is scheduled.</p>
+
+<p>ERRORS Any negative value (such as -EFAULT, -EINVAL) is
+an indication of an error.</p>
+
+<p>BUGS This man page is incomplete.</p>
+
+<p>Linux 8 May 2003 TUX(2)</p>
+<hr>
+</body>
+</html>

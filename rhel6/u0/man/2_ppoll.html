@@ -1,0 +1,193 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:11:22 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>POLL(2) Linux Programmer s Manual POLL(2)</p>
+
+<p>NAME poll, ppoll - wait for some event on a file
+descriptor</p>
+
+<p>SYNOPSIS #include &lt;poll.h&gt;</p>
+
+<p>int poll(struct pollfd *fds, nfds_t nfds, int
+timeout);</p>
+
+<p>#define _GNU_SOURCE #include &lt;poll.h&gt;</p>
+
+<p>int ppoll(struct pollfd *fds, nfds_t nfds, const struct
+timespec *timeout, const sigset_t *sigmask);</p>
+
+<p>DESCRIPTION poll() performs a similar task to select(2):
+it waits for one of a set of file descriptors to become
+ready to perform I/O.</p>
+
+<p>The set of file descriptors to be monitored is specified
+in the fds argument, which is an array of nfds structures of
+the following form:</p>
+
+<p>struct pollfd { int fd; /* file descriptor */ short
+events; /* requested events */ short revents; /* returned
+events */ };</p>
+
+<p>The field fd contains a file descriptor for an open
+file.</p>
+
+<p>The field events is an input parameter, a bit mask
+specifying the events the application is interested in.</p>
+
+<p>The field revents is an output parameter, filled by the
+kernel with the events that actually occurred. The bits
+returned in revents can include any of those specified in
+events, or one of the values POLLERR, POLLHUP, or POLLNVAL.
+(These three bits are meaningless in the events field, and
+will be set in the revents field whenever the corresponding
+condition is true.)</p>
+
+<p>If none of the events requested (and no error) has
+occurred for any of the file descriptors, then poll() blocks
+until one of the events occurs.</p>
+
+<p>The timeout argument specifies an upper limit on the
+time for which poll() will block, in milliseconds.
+Specifying a negative value in timeout means an infinite
+timeout.</p>
+
+<p>The bits that may be set/returned in events and revents
+are defined in &lt;poll.h&gt;:</p>
+
+<p>POLLIN There is data to read.</p>
+
+<p>POLLPRI There is urgent data to read (e.g., out-of-band
+data on TCP socket; pseudo-terminal master in packet mode
+has seen state change in slave).</p>
+
+<p>POLLOUT Writing now will not block.</p>
+
+<p>POLLRDHUP (since Linux 2.6.17) Stream socket peer closed
+connection, or shut down writ- ing half of connection. The
+_GNU_SOURCE feature test macro must be defined in order to
+obtain this definition.</p>
+
+<p>POLLERR Error condition (output only).</p>
+
+<p>POLLHUP Hang up (output only).</p>
+
+<p>POLLNVAL Invalid request: fd not open (output only).</p>
+
+<p>When compiling with _XOPEN_SOURCE defined, one also has
+the following, which convey no further information beyond
+the bits listed above:</p>
+
+<p>POLLRDNORM Equivalent to POLLIN.</p>
+
+<p>POLLRDBAND Priority band data can be read (generally
+unused on Linux).</p>
+
+<p>POLLWRNORM Equivalent to POLLOUT.</p>
+
+<p>POLLWRBAND Priority data may be written.</p>
+
+<p>Linux also knows about, but does not use POLLMSG.</p>
+
+<p>ppoll() The relationship between poll() and ppoll() is
+analogous to the rela- tionship between select(2) and
+pselect(2): like pselect(2), ppoll() allows an application
+to safely wait until either a file descriptor becomes ready
+or until a signal is caught.</p>
+
+<p>Other than the difference in the timeout argument, the
+following ppoll() call:</p>
+
+<p>ready = ppoll(&amp;fds, nfds, timeout,
+&amp;sigmask);</p>
+
+<p>is equivalent to atomically executing the following
+calls:</p>
+
+<p>sigset_t origmask;</p>
+
+<p>sigprocmask(SIG_SETMASK, &amp;sigmask, &amp;origmask);
+ready = poll(&amp;fds, nfds, timeout);
+sigprocmask(SIG_SETMASK, &amp;origmask, NULL);</p>
+
+<p>See the description of pselect(2) for an explanation of
+why ppoll() is necessary.</p>
+
+<p>If the sigmask argument is specified as NULL, then no
+signal mask manipulation is performed (and thus ppoll()
+differs from poll() only in the precision of the timeout
+argument).</p>
+
+<p>The timeout argument specifies an upper limit on the
+amount of time that ppoll() will block. This argument is a
+pointer to a structure of the following form:</p>
+
+<p>struct timespec { long tv_sec; /* seconds */ long
+tv_nsec; /* nanoseconds */ };</p>
+
+<p>If timeout is specified as NULL, then ppoll() can block
+indefinitely.</p>
+
+<p>RETURN VALUE On success, a positive number is returned;
+this is the number of struc- tures which have non-zero
+revents fields (in other words, those descriptors with
+events or errors reported). A value of 0 indicates that the
+call timed out and no file descriptors were ready. On error,
+-1 is returned, and errno is set appropriately.</p>
+
+<p>ERRORS EFAULT The array given as argument was not
+contained in the calling programs address space.</p>
+
+<p>EINTR A signal occurred before any requested event; see
+signal(7).</p>
+
+<p>EINVAL The nfds value exceeds the RLIMIT_NOFILE
+value.</p>
+
+<p>ENOMEM There was no space to allocate file descriptor
+tables.</p>
+
+<p>VERSIONS The poll() system call was introduced in Linux
+2.1.23. The poll() library call was introduced in libc
+5.4.28 (and provides emulation using select(2) if your
+kernel does not have a poll() system call).</p>
+
+<p>The ppoll() system call was added to Linux in kernel
+2.6.16. The ppoll() library call was added in glibc 2.4.</p>
+
+<p>CONFORMING TO poll() conforms to POSIX.1-2001. ppoll()
+is Linux-specific.</p>
+
+<p>NOTES Some implementations define the non-standard
+constant INFTIM with the value -1 for use as a timeout. This
+constant is not provided in glibc.</p>
+
+<p>Linux Notes The Linux ppoll() system call modifies its
+timeout argument. However, the glibc wrapper function hides
+this behavior by using a local vari- able for the timeout
+argument that is passed to the system call. Thus, the glibc
+ppoll() function does not modify its timeout argument.</p>
+
+<p>BUGS See the discussion of spurious readiness
+notifications under the BUGS section of select(2).</p>
+
+<p>SEE ALSO select(2), select_tut(2),
+feature_test_macros(7), time(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-06-02 POLL(2)</p>
+<hr>
+</body>
+</html>

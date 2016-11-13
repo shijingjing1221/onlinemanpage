@@ -1,0 +1,277 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:12:06 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PTHREAD_CREATE(3) Linux Programmer s Manual
+PTHREAD_CREATE(3)</p>
+
+<p>NAME pthread_create - create a new thread</p>
+
+<p>SYNOPSIS #include &lt;pthread.h&gt;</p>
+
+<p>int pthread_create(pthread_t *thread, const
+pthread_attr_t *attr, void *(*start_routine) (void *), void
+*arg);</p>
+
+<p>Compile and link with -pthread.</p>
+
+<p>DESCRIPTION The pthread_create() function starts a new
+thread in the calling pro- cess. The new thread starts
+execution by invoking start_routine(); arg is passed as the
+sole argument of start_routine().</p>
+
+<p>The new thread terminates in one of the following
+ways:</p>
+
+<p>* It calls pthread_exit(3), specifying an exit status
+value that is available to another thread in the same
+process that calls pthread_join(3).</p>
+
+<p>* It returns from start_routine(). This is equivalent to
+calling pthread_exit(3) with the value supplied in the
+return statement.</p>
+
+<p>* It is canceled (see pthread_cancel(3)).</p>
+
+<p>* Any of the threads in the process calls exit(3), or
+the main thread performs a return from main(). This causes
+the termination of all threads in the process.</p>
+
+<p>The attr argument points to a pthread_attr_t structure
+whose contents are used at thread creation time to determine
+attributes for the new thread; this structure is initialized
+using pthread_attr_init(3) and related functions. If attr is
+NULL, then the thread is created with default
+attributes.</p>
+
+<p>Before returning, a successful call to pthread_create()
+stores the ID of the new thread in the buffer pointed to by
+thread; this identifier is used to refer to the thread in
+subsequent calls to other pthreads functions.</p>
+
+<p>The new thread inherits a copy of the creating threads
+signal mask (pthread_sigmask(3)). The set of pending signals
+for the new thread is empty (sigpending(2)). The new thread
+does not inherit the creating threads alternate signal stack
+(sigaltstack(2)).</p>
+
+<p>The new thread inherits the calling threads
+floating-point environment (fenv(3)).</p>
+
+<p>The initial value of the new threads CPU-time clock is 0
+(see pthread_getcpuclockid(3)).</p>
+
+<p>Linux-specific details The new thread inherits copies of
+the calling thread s capability sets (see capabilities(7))
+and CPU affinity mask (see sched_setaffinity(2)).</p>
+
+<p>RETURN VALUE On success, pthread_create() returns 0; on
+error, it returns an error number, and the contents of
+*thread are undefined.</p>
+
+<p>ERRORS EAGAIN Insufficient resources to create another
+thread, or a system- imposed limit on the number of threads
+was encountered. The latter case may occur in two ways: the
+RLIMIT_NPROC soft resource limit (set via setrlimit(2)),
+which limits the number of process for a real user ID, was
+reached; or the kernels sys- tem-wide limit on the number of
+threads, /proc/sys/ker- nel/threads-max, was reached.</p>
+
+<p>EINVAL Invalid settings in attr.</p>
+
+<p>EPERM No permission to set the scheduling policy and
+parameters speci- fied in attr.</p>
+
+<p>CONFORMING TO POSIX.1-2001.</p>
+
+<p>NOTES See pthread_self(3) for further information on the
+thread ID returned in *thread by pthread_create(). Unless
+real-time scheduling policies are being employed, after a
+call to pthread_create(), it is indetermi- nate which thread
+the caller or the new threadwill next execute.</p>
+
+<p>A thread may either be joinable or detached. If a thread
+is joinable, then another thread can call pthread_join(3) to
+wait for the thread to terminate and fetch its exit status.
+Only when a terminated joinable thread has been joined are
+the last of its resources released back to the system. When
+a detached thread terminates, its resources are auto-
+matically released back to the system: it is not possible to
+join with the thread in order to obtain its exit status.
+Making a thread detached is useful for some types of daemon
+threads whose exit status the application does not need to
+care about. By default, a new thread is created in a
+joinable state, unless attr was set to create the thread in
+a detached state (using pthread_attr_setdetachstate(3)).</p>
+
+<p>On Linux/x86-32, the default stack size for a new thread
+is 2 megabytes. Under the NPTL threading implementation, if
+the RLIMIT_STACK soft resource limit at the time the program
+started has any value other than &quot;unlimited&quot;, then
+it determines the default stack size of new threads. Using
+pthread_attr_setstacksize(3), the stack size attribute can
+be explicitly set in the attr argument used to cre- ate a
+thread, in order to obtain a stack size other than the
+default.</p>
+
+<p>EXAMPLE The program below demonstrates the use of
+pthread_create(), as well as a number of other functions in
+the pthreads API.</p>
+
+<p>In the following run, on a system providing the NPTL
+threading imple- mentation, the stack size defaults to the
+value given by the &quot;stack size&quot; resource
+limit:</p>
+
+<p>$ ulimit -s 8192 # The stack size limit is 8 MB (0x80000
+bytes) $ ./a.out hola salut servus Thread 1: top of stack
+near 0xb7dd03b8; argv_string=hola Thread 2: top of stack
+near 0xb75cf3b8; argv_string=salut Thread 3: top of stack
+near 0xb6dce3b8; argv_string=servus Joined with thread 1;
+returned value was HOLA Joined with thread 2; returned value
+was SALUT Joined with thread 3; returned value was
+SERVUS</p>
+
+<p>In the next run, the program explicitly sets a stack
+size of 1MB (using pthread_attr_setstacksize(3)) for the
+created threads:</p>
+
+<p>$ ./a.out -s 0x100000 hola salut servus Thread 1: top of
+stack near 0xb7d723b8; argv_string=hola Thread 2: top of
+stack near 0xb7c713b8; argv_string=salut Thread 3: top of
+stack near 0xb7b703b8; argv_string=servus Joined with thread
+1; returned value was HOLA Joined with thread 2; returned
+value was SALUT Joined with thread 3; returned value was
+SERVUS</p>
+
+<p>Program source</p>
+
+<p>#include &lt;pthread.h&gt; #include &lt;string.h&gt;
+#include &lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;unistd.h&gt; #include &lt;errno.h&gt; #include
+&lt;ctype.h&gt;</p>
+
+<p>#define handle_error_en(en, msg) do { errno = en;
+perror(msg); exit(EXIT_FAILURE); } while (0)</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>struct thread_info { /* Used as argument to
+thread_start() */ pthread_t thread_id; /* ID returned by
+pthread_create() */ int thread_num; /* Application-defined
+thread # */ char *argv_string; /* From command-line argument
+*/ };</p>
+
+<p>/* Thread start function: display address near top of
+our stack, and return upper-cased copy of argv_string */</p>
+
+<p>static void * thread_start(void *arg) { struct
+thread_info *tinfo = (struct thread_info *) arg; char
+*uargv, *p;</p>
+
+<p>printf(&quot;Thread %d: top of stack near %p;
+argv_string=%s0, tinfo-&gt;thread_num, &amp;p,
+tinfo-&gt;argv_string);</p>
+
+<p>uargv = strdup(tinfo-&gt;argv_string); if (uargv ==
+NULL) handle_error(&quot;strdup&quot;);</p>
+
+<p>for (p = uargv; *p != &rsquo; &rsquo;; p++) *p =
+toupper(*p);</p>
+
+<p>return uargv; }</p>
+
+<p>int main(int argc, char *argv[]) { int s, tnum, opt,
+num_threads; struct thread_info *tinfo; pthread_attr_t attr;
+int stack_size; void *res;</p>
+
+<p>/* The &quot;-s&quot; option specifies a stack size for
+our threads */</p>
+
+<p>stack_size = -1; while ((opt = getopt(argc, argv,
+&quot;s:&quot;)) != -1) { switch (opt) { case
+&rsquo;s&rsquo;: stack_size = strtoul(optarg, NULL, 0);
+break;</p>
+
+<p>default: fprintf(stderr, &quot;Usage: %s [-s stack-size]
+arg...0, argv[0]); exit(EXIT_FAILURE); } }</p>
+
+<p>num_threads = argc - optind;</p>
+
+<p>/* Initialize thread creation attributes */</p>
+
+<p>s = pthread_attr_init(&amp;attr); if (s != 0)
+handle_error_en(s, &quot;pthread_attr_init&quot;);</p>
+
+<p>if (stack_size &gt; 0) { s =
+pthread_attr_setstacksize(&amp;attr, stack_size); if (s !=
+0) handle_error_en(s,
+&quot;pthread_attr_setstacksize&quot;); }</p>
+
+<p>/* Allocate memory for pthread_create() arguments */</p>
+
+<p>tinfo = calloc(num_threads, sizeof(struct thread_info));
+if (tinfo == NULL) handle_error(&quot;calloc&quot;);</p>
+
+<p>/* Create one thread for each command-line argument
+*/</p>
+
+<p>for (tnum = 0; tnum &lt; num_threads; tnum++) {
+tinfo[tnum].thread_num = tnum + 1; tinfo[tnum].argv_string =
+argv[optind + tnum];</p>
+
+<p>/* The pthread_create() call stores the thread ID into
+corresponding element of tinfo[] */</p>
+
+<p>s = pthread_create(&amp;tinfo[tnum].thread_id,
+&amp;attr, &amp;thread_start, &amp;tinfo[tnum]); if (s != 0)
+handle_error_en(s, &quot;pthread_create&quot;); }</p>
+
+<p>/* Destroy the thread attributes object, since it is no
+longer needed */</p>
+
+<p>s = pthread_attr_destroy(&amp;attr); if (s != 0)
+handle_error_en(s, &quot;pthread_attr_destroy&quot;);</p>
+
+<p>/* Now join with each thread, and display its returned
+value */</p>
+
+<p>for (tnum = 0; tnum &lt; num_threads; tnum++) { s =
+pthread_join(tinfo[tnum].thread_id, &amp;res); if (s != 0)
+handle_error_en(s, &quot;pthread_join&quot;);</p>
+
+<p>printf(&quot;Joined with thread %d; returned value was
+%s0, tinfo[tnum].thread_num, (char *) res); free(res); /*
+Free memory allocated by thread */ }</p>
+
+<p>free(tinfo); exit(EXIT_SUCCESS); }</p>
+
+<p>BUGS In the obsolete LinuxThreads implementation, each
+of the threads in a process has a different process ID. This
+is in violation of the POSIX threads specification, and is
+the source of many other non-conformances to the standard;
+see pthreads(7).</p>
+
+<p>SEE ALSO getrlimit(2), pthread_attr_init(3),
+pthread_cancel(3), pthread_detach(3), pthread_equal(3),
+pthread_exit(3), pthread_getattr_np(3), pthread_join(3),
+pthread_self(3), pthreads(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-11-11 PTHREAD_CREATE(3)</p>
+<hr>
+</body>
+</html>

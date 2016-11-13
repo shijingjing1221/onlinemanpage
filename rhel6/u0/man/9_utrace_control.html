@@ -1,0 +1,153 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:24:36 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>UTRACE_CONTROL(9) utrace core API UTRACE_CONTROL(9)</p>
+
+<p>NAME utrace_control - control a thread being traced by a
+tracing engine</p>
+
+<p>SYNOPSIS int utrace_control(struct task_struct * target,
+struct utrace_engine * engine, enum utrace_resume_action
+action);</p>
+
+<p>ARGUMENTS target thread to affect</p>
+
+<p>engine attached engine to affect</p>
+
+<p>action</p>
+
+<p>enum utrace_resume_action for thread to do</p>
+
+<p>DESCRIPTION This is how a tracing engine asks a traced
+thread to do something. This call is controlled by the
+action argument, which has the same meaning as the enum
+utrace_resume_action value returned by event reporting
+callbacks.</p>
+
+<p>If target is already dead (target-&gt;exit_state
+nonzero), all actions except UTRACE_DETACH fail with
+-ESRCH.</p>
+
+<p>The following sections describe each option for the
+action argument.</p>
+
+<p>UTRACE_DETACH After this, the engine data structure is
+no longer accessible, and the thread might be reaped. The
+thread will start running again if it was stopped and no
+longer has any attached engines that want it stopped.</p>
+
+<p>If the report_reap callback may already have begun, this
+fails with -ESRCH. If the report_death callback may already
+have begun, this fails with -EALREADY.</p>
+
+<p>If target is not already stopped, then a callback to
+this engine might be in progress or about to start on
+another CPU. If so, then this returns -EINPROGRESS; the
+detach happens as soon as the pending callback is finished.
+To synchronize after an -EINPROGRESS return, see
+utrace_barrier.</p>
+
+<p>If target is properly stopped before utrace_control is
+called, then after successful return it&acute;s guaranteed
+that no more callbacks to the engine-&gt;ops vector will be
+made.</p>
+
+<p>The only exception is SIGKILL (and exec or group-exit by
+another thread in the group), which can cause asynchronous
+report_death and/or report_reap callbacks even when
+UTRACE_STOP was used. (In that event, this fails with -ESRCH
+or -EALREADY, see above.)</p>
+
+<p>UTRACE_STOP This asks that target stop running. This
+returns 0 only if target is already stopped, either for
+tracing or for job control. Then target will remain stopped
+until another utrace_control call is made on engine; target
+can be woken only by SIGKILL (or equivalent, such as exec or
+termination by another thread in the same thread group).</p>
+
+<p>This returns -EINPROGRESS if target is not already
+stopped. Then the effect is like UTRACE_REPORT. A
+report_quiesce or report_signal callback will be made soon.
+Your callback can then return UTRACE_STOP to keep target
+stopped.</p>
+
+<p>This does not interrupt system calls in progress,
+including ones that sleep for a long time. For that, use
+UTRACE_INTERRUPT. To interrupt system calls and then keep
+target stopped, your report_signal callback can return
+UTRACE_STOP.</p>
+
+<p>UTRACE_RESUME Just let target continue running normally,
+reversing the effect of a previous UTRACE_STOP. If another
+engine is keeping target stopped, then it remains stopped
+until all engines let it resume. If target was not stopped,
+this has no effect.</p>
+
+<p>UTRACE_REPORT This is like UTRACE_RESUME, but also
+ensures that there will be a report_quiesce or report_signal
+callback made soon. If target had been stopped, then there
+will be a callback before it resumes running normally. If
+another engine is keeping target stopped, then there might
+be no callbacks until all engines let it resume.</p>
+
+<p>Since this is meaningless unless report_quiesce
+callbacks will be made, it returns -EINVAL if engine lacks
+UTRACE_EVENT(QUIESCE).</p>
+
+<p>UTRACE_INTERRUPT This is like UTRACE_REPORT, but ensures
+that target will make a report_signal callback before it
+resumes or delivers signals. If target was in a system call
+or about to enter one, work in progress will be interrupted
+as if by SIGSTOP. If another engine is keeping target
+stopped, then there might be no callbacks until all engines
+let it resume.</p>
+
+<p>This gives engine an opportunity to introduce a forced
+signal disposition via its report_signal callback.</p>
+
+<p>UTRACE_SINGLESTEP It&acute;s invalid to use this unless
+arch_has_single_step returned true. This is like
+UTRACE_RESUME, but resumes for one user instruction
+only.</p>
+
+<p>Note that passing UTRACE_SINGLESTEP or UTRACE_BLOCKSTEP
+to utrace_control or returning it from an event callback
+alone does not necessarily ensure that stepping will be
+enabled. If there are more callbacks made to any engine
+before returning to user mode, then the resume action is
+chosen only by the last set of callbacks. To be sure, enable
+UTRACE_EVENT(QUIESCE) and look for the report_quiesce
+callback with a zero event mask, or the report_signal
+callback with UTRACE_SIGNAL_REPORT.</p>
+
+<p>Since this is not robust unless report_quiesce callbacks
+will be made, it returns -EINVAL if engine lacks
+UTRACE_EVENT(QUIESCE).</p>
+
+<p>UTRACE_BLOCKSTEP It&acute;s invalid to use this unless
+arch_has_block_step returned true. This is like
+UTRACE_SINGLESTEP, but resumes for one whole basic block of
+user instructions.</p>
+
+<p>Since this is not robust unless report_quiesce callbacks
+will be made, it returns -EINVAL if engine lacks
+UTRACE_EVENT(QUIESCE).</p>
+
+<p>UTRACE_BLOCKSTEP devolves to UTRACE_SINGLESTEP when
+another tracing engine is using UTRACE_SINGLESTEP at the
+same time.</p>
+
+<p>Kernel Hackers Manual 2.6. September 2010
+UTRACE_CONTROL(9)</p>
+<hr>
+</body>
+</html>

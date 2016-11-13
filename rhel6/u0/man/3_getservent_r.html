@@ -1,0 +1,160 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:01:21 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>GETSERVENT_R(3) Linux Programmer s Manual
+GETSERVENT_R(3)</p>
+
+<p>NAME getservent_r, getservbyname_r, getservbyport_r -
+get service entry (reentrant)</p>
+
+<p>SYNOPSIS #include &lt;netdb.h&gt;</p>
+
+<p>int getservent_r(struct servent *result_buf, char *buf,
+size_t buflen, struct servent **result);</p>
+
+<p>int getservbyname_r(const char *name, const char *proto,
+struct servent *result_buf, char *buf, size_t buflen, struct
+servent **result);</p>
+
+<p>int getservbyport_r(int port, const char *proto, struct
+servent *result_buf, char *buf, size_t buflen, struct
+servent **result);</p>
+
+<p>Feature Test Macro Requirements for glibc (see
+feature_test_macros(7)):</p>
+
+<p>getservent_r(), getservbyname_r(), getservbyport_r():
+_BSD_SOURCE || _SVID_SOURCE</p>
+
+<p>DESCRIPTION The getservent_r(), getservbyname_r(), and
+getservbyport_r() functions are the reentrant equivalents
+of, respectively, getservent(3), get- servbyname(3), and
+getservbyport(3). They differ in the way that the servent
+structure is returned, and in the function calling signature
+and return value. This manual page describes just the
+differences from the non-reentrant functions.</p>
+
+<p>Instead of returning a pointer to a statically allocated
+servent struc- ture as the function result, these functions
+copy the structure into the location pointed to by
+result_buf.</p>
+
+<p>The buf array is used to store the string fields pointed
+to by the returned servent structure. (The non-reentrant
+functions allocate these strings in static storage.) The
+size of this array is specified in buflen. If buf is too
+small, the call fails with the error ERANGE, and the caller
+must try again with a larger buffer. (A buffer of length
+1024 bytes should be sufficient for most applications.)</p>
+
+<p>If the function call successfully obtains a service
+record, then *result is set pointing to result_buf;
+otherwise, *result is set to NULL.</p>
+
+<p>RETURN VALUE On success, these functions return 0. On
+error, a positive error num- ber is returned.</p>
+
+<p>On error, record not found (getservbyname_r(),
+getservbyport_r()), or end of input (getservent_r()) result
+is set to NULL.</p>
+
+<p>ERRORS ENOENT (getservent_r()) No more records in
+database.</p>
+
+<p>ERANGE buf is too small. Try again with a larger buffer
+(and increased buflen).</p>
+
+<p>CONFORMING TO These functions are GNU extensions.
+Functions with similar names exist on some other systems,
+though typically with different calling signatures.</p>
+
+<p>EXAMPLE The program below uses getservbyport_r() to
+retrieve the service record for the port and protocol named
+in its first command-line argument. If a third (integer)
+command-line argument is supplied, it is used as the initial
+value for buflen; if getservbyport_r() fails with the error
+ERANGE, the program retries with larger buffer sizes. The
+following shell session shows a couple of sample runs:</p>
+
+<p>$ ./a.out 7 tcp 1 ERANGE! Retrying with larger buffer
+getservbyport_r() returned: 0 (success) (buflen=87)
+s_name=echo; s_proto=tcp; s_port=7; aliases= $ ./a.out 77777
+tcp getservbyport_r() returned: 0 (success) (buflen=1024)
+Call failed/record not found</p>
+
+<p>Program source</p>
+
+<p>#define _GNU_SOURCE #include &lt;ctype.h&gt; #include
+&lt;netdb.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;stdio.h&gt; #include &lt;errno.h&gt; #include
+&lt;string.h&gt;</p>
+
+<p>#define MAX_BUF 10000</p>
+
+<p>int main(int argc, char *argv[]) { int buflen,
+erange_cnt, port, s; struct servent result_buf; struct
+servent *result; char buf[MAX_BUF]; char *protop; char
+**p;</p>
+
+<p>if (argc &lt; 3) { printf(&quot;Usage: %s port-num
+proto-name [buflen]0, argv[0]); exit(EXIT_FAILURE); }</p>
+
+<p>port = htons(atoi(argv[1])); protop = (strcmp(argv[2],
+&quot;null&quot;) == 0 || strcmp(argv[2], &quot;NULL&quot;)
+== 0) ? NULL : argv[2];</p>
+
+<p>buflen = 1024; if (argc &gt; 3) buflen =
+atoi(argv[3]);</p>
+
+<p>if (buflen &gt; MAX_BUF) { printf(&quot;Exceeded buffer
+limit (%d)0, MAX_BUF); exit(EXIT_FAILURE); }</p>
+
+<p>erange_cnt = 0; do { s = getservbyport_r(port, protop,
+&amp;result_buf, buf, buflen, &amp;result); if (s == ERANGE)
+{ if (erange_cnt == 0) printf(&quot;ERANGE! Retrying with
+larger buffer0); erange_cnt++;</p>
+
+<p>/* Increment a byte at a time so we can see exactly what
+size buffer was required */</p>
+
+<p>buflen++;</p>
+
+<p>if (buflen &gt; MAX_BUF) { printf(&quot;Exceeded buffer
+limit (%d)0, MAX_BUF); exit(EXIT_FAILURE); } } } while (s ==
+ERANGE);</p>
+
+<p>printf(&quot;getservbyport_r() returned: %s
+(buflen=%d)0, (s == 0) ? &quot;0 (success)&quot; : (s ==
+ENOENT) ? &quot;ENOENT&quot; : strerror(s), buflen);</p>
+
+<p>if (s != 0 || result == NULL) { printf(&quot;Call
+failed/record not found0); exit(EXIT_FAILURE); }</p>
+
+<p>printf(&quot;s_name=%s; s_proto=%s; s_port=%d;
+aliases=&quot;, result_buf.s_name, result_buf.s_proto,
+ntohs(result_buf.s_port)); for (p = result_buf.s_aliases; *p
+!= NULL; p++) printf(&quot;%s &quot;, *p);
+printf(&quot;0);</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO getservent(3), services(5)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>GNU 2008-08-19 GETSERVENT_R(3)</p>
+<hr>
+</body>
+</html>

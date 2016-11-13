@@ -1,0 +1,180 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:14:54 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SEMGET(3P) POSIX Programmer s Manual SEMGET(3P)</p>
+
+<p>PROLOG This manual page is part of the POSIX Programmer
+s Manual. The Linux implementation of this interface may
+differ (consult the corresponding Linux manual page for
+details of Linux behavior), or the interface may not be
+implemented on Linux.</p>
+
+<p>NAME semget - get set of XSI semaphores</p>
+
+<p>SYNOPSIS #include &lt;sys/sem.h&gt;</p>
+
+<p>int semget(key_t key, int nsems, int semflg);</p>
+
+<p>DESCRIPTION The semget() function operates on XSI
+semaphores (see the Base Defini- tions volume of IEEE Std
+1003.1-2001, Section 4.15, Semaphore). It is unspecified
+whether this function interoperates with the realtime
+interprocess communication facilities defined in Realtime
+.</p>
+
+<p>The semget() function shall return the semaphore
+identifier associated with key.</p>
+
+<p>A semaphore identifier with its associated semid_ds data
+structure and its associated set of nsems semaphores (see
+&lt;sys/sem.h&gt;) is created for key if one of the
+following is true:</p>
+
+<p>* The argument key is equal to IPC_PRIVATE.</p>
+
+<p>* The argument key does not already have a semaphore
+identifier asso- ciated with it and (semflg &amp;IPC_CREAT)
+is non-zero.</p>
+
+<p>Upon creation, the semid_ds data structure associated
+with the new semaphore identifier is initialized as
+follows:</p>
+
+<p>* In the operation permissions structure sem_perm.cuid,
+sem_perm.uid, sem_perm.cgid, and sem_perm.gid shall be set
+equal to the effective user ID and effective group ID,
+respectively, of the calling pro- cess.</p>
+
+<p>* The low-order 9 bits of sem_perm.mode shall be set
+equal to the low- order 9 bits of semflg.</p>
+
+<p>* The variable sem_nsems shall be set equal to the value
+of nsems.</p>
+
+<p>* The variable sem_otime shall be set equal to 0 and
+sem_ctime shall be set equal to the current time.</p>
+
+<p>* The data structure associated with each semaphore in
+the set shall not be initialized. The semctl() function with
+the command SETVAL or SETALL can be used to initialize each
+semaphore.</p>
+
+<p>RETURN VALUE Upon successful completion, semget() shall
+return a non-negative inte- ger, namely a semaphore
+identifier; otherwise, it shall return -1 and set errno to
+indicate the error.</p>
+
+<p>ERRORS The semget() function shall fail if:</p>
+
+<p>EACCES A semaphore identifier exists for key, but
+operation permission as specified by the low-order 9 bits of
+semflg would not be granted; see XSI Interprocess
+Communication .</p>
+
+<p>EEXIST A semaphore identifier exists for the argument
+key but ((semflg &amp;IPC_CREAT) &amp;&amp;(semflg
+&amp;IPC_EXCL)) is non-zero.</p>
+
+<p>EINVAL The value of nsems is either less than or equal
+to 0 or greater than the system-imposed limit, or a
+semaphore identifier exists for the argument key, but the
+number of semaphores in the set associated with it is less
+than nsems and nsems is not equal to 0.</p>
+
+<p>ENOENT A semaphore identifier does not exist for the
+argument key and (semflg &amp;IPC_CREAT) is equal to 0.</p>
+
+<p>ENOSPC A semaphore identifier is to be created but the
+system-imposed limit on the maximum number of allowed
+semaphores system-wide would be exceeded.</p>
+
+<p>The following sections are informative.</p>
+
+<p>EXAMPLES Creating a Semaphore Identifier The following
+example gets a unique semaphore key using the ftok()
+function, then gets a semaphore ID associated with that key
+using the semget() function (the first call also tests to
+make sure the semaphore exists). If the semaphore does not
+exist, the program creates it, as shown by the second call
+to semget(). In creating the semaphore for the queuing
+process, the program attempts to create one semaphore with
+read/write permission for all. It also uses the IPC_EXCL
+flag, which forces semget() to fail if the semaphore already
+exists.</p>
+
+<p>After creating the semaphore, the program uses a call to
+semop() to initialize it to the values in the sbuf array.
+The number of processes that can execute concurrently
+without queuing is initially set to 2. The final call to
+semget() creates a semaphore identifier that can be used
+later in the program.</p>
+
+<p>#include &lt;sys/types.h&gt; #include &lt;stdio.h&gt;
+#include &lt;sys/ipc.h&gt; #include &lt;sys/sem.h&gt;
+#include &lt;sys/stat.h&gt; #include &lt;errno.h&gt;
+#include &lt;unistd.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;pwd.h&gt; #include &lt;fcntl.h&gt; #include
+&lt;limits.h&gt; ... key_t semkey; int semid, pfd, fv;
+struct sembuf sbuf; char *lgn; char filename[PATH_MAX+1];
+struct stat outstat; struct passwd *pw; ... /* Get unique
+key for semaphore. */ if ((semkey = ftok(&quot;/tmp&quot;,))
+== (key_t) -1) { perror(&quot;IPC error: ftok&quot;);
+exit(1); }</p>
+
+<p>/* Get semaphore ID associated with this key. */ if
+((semid = semget(semkey, 0, 0)) == -1) {</p>
+
+<p>/* Semaphore does not exist - Create. */ if ((semid =
+semget(semkey, 1, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR |
+S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)) != -1) { /*
+Initialize the semaphore. */ sbuf.sem_num = 0; sbuf.sem_op =
+2; /* This is the number of runs without queuing. */
+sbuf.sem_flg = 0; if (semop(semid, &amp;sbuf, 1) == -1) {
+perror(&quot;IPC error: semop&quot;); exit(1); } } else if
+(errno == EEXIST) { if ((semid = semget(semkey, 0, 0)) ==
+-1) { perror(&quot;IPC error 1: semget&quot;); exit(1); } }
+else { perror(&quot;IPC error 2: semget&quot;); exit(1); } }
+...</p>
+
+<p>APPLICATION USAGE The POSIX Realtime Extension defines
+alternative interfaces for inter- process communication.
+Application developers who need to use IPC should design
+their applications so that modules using the IPC routines
+described in XSI Interprocess Communication can be easily
+modified to use the alternative interfaces.</p>
+
+<p>RATIONALE None.</p>
+
+<p>FUTURE DIRECTIONS None.</p>
+
+<p>SEE ALSO XSI Interprocess Communication, Realtime,
+semctl(), semop(), sem_close(), sem_destroy(),
+sem_getvalue(), sem_init(), sem_open(), sem_post(),
+sem_unlink(), sem_wait(), the Base Definitions volume of
+IEEE Std 1003.1-2001, &lt;sys/sem.h&gt;</p>
+
+<p>COPYRIGHT Portions of this text are reprinted and
+reproduced in electronic form from IEEE Std 1003.1, 2003
+Edition, Standard for Information Technology -- Portable
+Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the
+Institute of Electrical and Electronics Engineers, Inc and
+The Open Group. In the event of any discrepancy between this
+version and the original IEEE and The Open Group Standard,
+the original IEEE and The Open Group Standard is the referee
+document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .</p>
+
+<p>IEEE/The Open Group 2003 SEMGET(3P)</p>
+<hr>
+</body>
+</html>

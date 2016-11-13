@@ -1,0 +1,392 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:03:26 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>HEADER_CHECKS(5) HEADER_CHECKS(5)</p>
+
+<p>NAME header_checks - Postfix built-in content
+inspection</p>
+
+<p>SYNOPSIS header_checks = pcre:/etc/postfix/header_checks
+mime_header_checks = pcre:/etc/postfix/mime_header_checks
+nested_header_checks =
+pcre:/etc/postfix/nested_header_checks body_checks =
+pcre:/etc/postfix/body_checks</p>
+
+<p>postmap -q &quot;string&quot; pcre:/etc/postfix/filename
+postmap -q - pcre:/etc/postfix/filename &lt;inputfile</p>
+
+<p>DESCRIPTION This document describes access control on
+the content of message head- ers and message body lines; it
+is implemented by the Postfix cleanup(8) server before mail
+is queued. See access(5) for access control on remote SMTP
+client information.</p>
+
+<p>Each message header or message body line is compared
+against a list of patterns. When a match is found the
+corresponding action is executed, and the matching process
+is repeated for the next message header or message body
+line.</p>
+
+<p>For examples, see the EXAMPLES section at the end of
+this manual page.</p>
+
+<p>Postfix header or body_checks are designed to stop a
+flood of mail from worms or viruses; they do not decode
+attachments, and they do not unzip archives. See the
+documents referenced below in the README FILES sec- tion if
+you need more sophisticated content analysis.</p>
+
+<p>Postfix supports four built-in content inspection
+classes:</p>
+
+<p>header_checks These are applied to initial message
+headers (except for the headers that are processed with
+mime_header_checks).</p>
+
+<p>mime_header_checks (default: $header_checks) These are
+applied to MIME related message headers only.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>nested_header_checks (default: $header_checks) These are
+applied to message headers of attached email messages
+(except for the headers that are processed with
+mime_header_checks).</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>body_checks These are applied to all other content,
+including multi-part message boundaries.</p>
+
+<p>With Postfix versions before 2.0, all content after the
+initial message headers is treated as body content.</p>
+
+<p>Note: message headers are examined one logical header at
+a time, even when a message header spans multiple lines.
+Body lines are always exam- ined one line at a time.</p>
+
+<p>COMPATIBILITY With Postfix version 2.2 and earlier
+specify &quot;postmap -fq&quot; to query a table that
+contains case sensitive patterns. By default, regexp: and
+pcre: patterns are case insensitive.</p>
+
+<p>TABLE FORMAT This document assumes that header and
+body_checks rules are specified in the form of Postfix
+regular expression lookup tables. Usually the best
+performance is obtained with pcre (Perl Compatible Regular
+Expres- sion) tables, but the slower regexp (POSIX regular
+expressions) support is more widely available. Use the
+command &quot;postconf -m&quot; to find out what lookup
+table types your Postfix system supports.</p>
+
+<p>The general format of Postfix regular expression tables
+is given below. For a discussion of specific pattern or
+flags syntax, see pcre_table(5) or regexp_table(5),
+respectively.</p>
+
+<p>/pattern/flags action When /pattern/ matches the input
+string, execute the correspond- ing action. See below for a
+list of possible actions.</p>
+
+<p>!/pattern/flags action When /pattern/ does not match the
+input string, execute the cor- responding action.</p>
+
+<p>if /pattern/flags</p>
+
+<p>endif Match the input string against the patterns
+between if and endif, if and only if the same input string
+also matches /pat- tern/. The if..endif can nest.</p>
+
+<p>Note: do not prepend whitespace to patterns inside
+if..endif.</p>
+
+<p>if !/pattern/flags</p>
+
+<p>endif Match the input string against the patterns
+between if and endif, if and only if the same input string
+does not match /pat- tern/. The if..endif can nest.</p>
+
+<p>blank lines and comments Empty lines and whitespace-only
+lines are ignored, as are lines whose first non-whitespace
+character is a #.</p>
+
+<p>multi-line text A pattern/action line starts with
+non-whitespace text. A line that starts with whitespace
+continues a logical line.</p>
+
+<p>TABLE SEARCH ORDER For each line of message input, the
+patterns are applied in the order as specified in the table.
+When a pattern is found that matches the input line, the
+corresponding action is executed and then the next input
+line is inspected.</p>
+
+<p>TEXT SUBSTITUTION Substitution of substrings from the
+matched expression into the action string is possible using
+the conventional Perl syntax ($1, $2, etc.). The macros in
+the result string may need to be written as ${n} or $(n) if
+they arent followed by whitespace.</p>
+
+<p>Note: since negated patterns (those preceded by !)
+return a result when the expression does not match,
+substitutions are not available for negated patterns.</p>
+
+<p>ACTIONS Action names are case insensitive. They are
+shown in upper case for consistency with other Postfix
+documentation.</p>
+
+<p>DISCARD optional text... Claim successful delivery and
+silently discard the message. Log the optional text if
+specified, otherwise log a generic message.</p>
+
+<p>Note: this action disables further header or body_checks
+inspec- tion of the current message and affects all
+recipients. To dis- card only one recipient without
+discarding the entire message, use the transport(5) table to
+direct mail to the discard(8) ser- vice.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>DUNNO Pretend that the input line did not match any
+pattern, and inspect the next input line. This action can be
+used to shorten the table search.</p>
+
+<p>For backwards compatibility reasons, Postfix also
+accepts OK but it is (and always has been) treated as
+DUNNO.</p>
+
+<p>This feature is available in Postfix 2.1 and later.</p>
+
+<p>FILTER transport:destination Write a content filter
+request to the queue file, and inspect the next input line.
+After the complete message is received it will be sent
+through the specified external content filter. More
+information about external content filters is in the Post-
+fix FILTER_README file.</p>
+
+<p>Note: this action overrides the content_filter setting,
+and affects all recipients of the message. In the case that
+multiple FILTER actions fire, only the last one is
+executed.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>HOLD optional text... Arrange for the message to be
+placed on the hold queue, and inspect the next input line.
+The message remains on hold until someone either deletes it
+or releases it for delivery. Log the optional text if
+specified, otherwise log a generic message.</p>
+
+<p>Mail that is placed on hold can be examined with the
+postcat(1) command, and can be destroyed or released with
+the postsuper(1) command.</p>
+
+<p>Note: use &quot;postsuper -r&quot; to release mail that
+was kept on hold for a significant fraction of
+$maximal_queue_lifetime or $bounce_queue_lifetime, or
+longer. Use &quot;postsuper -H&quot; only for mail that will
+not expire within a few delivery attempts.</p>
+
+<p>Note: this action affects all recipients of the
+message.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>IGNORE Delete the current line from the input, and
+inspect the next input line.</p>
+
+<p>PREPEND text... Prepend one line with the specified
+text, and inspect the next input line.</p>
+
+<p>Notes:</p>
+
+<p>&middot; The prepended text is output on a separate
+line, immedi- ately before the input that triggered the
+PREPEND action.</p>
+
+<p>&middot; The prepended text is not considered part of
+the input stream: it is not subject to header/body checks or
+address rewriting, and it does not affect the way that
+Postfix adds missing message headers.</p>
+
+<p>&middot; When prepending text before a message header
+line, the prepended text must begin with a valid message
+header label.</p>
+
+<p>&middot; This action cannot be used to prepend
+multi-line text.</p>
+
+<p>This feature is available in Postfix 2.1 and later.</p>
+
+<p>REDIRECT user@domain Write a message redirection request
+to the queue file, and inspect the next input line. After
+the message is queued, it will be sent to the specified
+address instead of the intended recipient(s).</p>
+
+<p>Note: this action overrides the FILTER action, and
+affects all recipients of the message. If multiple REDIRECT
+actions fire, only the last one is executed.</p>
+
+<p>This feature is available in Postfix 2.1 and later.</p>
+
+<p>REPLACE text... Replace the current line with the
+specified text, and inspect the next input line.</p>
+
+<p>This feature is available in Postfix 2.2 and later. The
+descrip- tion below applies to Postfix 2.2.2 and later.</p>
+
+<p>Notes:</p>
+
+<p>&middot; When replacing a message header line, the
+replacement text must begin with a valid header label.</p>
+
+<p>&middot; The replaced text remains part of the input
+stream. Unlike the result from the PREPEND action, a
+replaced message header may be subject to address rewriting
+and may affect the way that Postfix adds missing message
+headers.</p>
+
+<p>REJECT optional text... Reject the entire message. Reply
+with optional text... when the optional text is specified,
+otherwise reply with a generic error message.</p>
+
+<p>Note: this action disables further header or body_checks
+inspec- tion of the current message and affects all
+recipients.</p>
+
+<p>Postfix version 2.3 and later support enhanced status
+codes. When no code is specified at the beginning of
+optional text..., Postfix inserts a default enhanced status
+code of &quot;5.7.1&quot;.</p>
+
+<p>WARN optional text... Log a warning with the optional
+text... (or log a generic mes- sage), and inspect the next
+input line. This action is useful for debugging and for
+testing a pattern before applying more drastic actions.</p>
+
+<p>BUGS Empty lines never match, because some map types
+mis-behave when given a zero-length search string. This
+limitation may be removed for regular expression tables in a
+future release.</p>
+
+<p>Many people overlook the main limitations of header and
+body_checks rules.</p>
+
+<p>&middot; These rules operate on one logical message
+header or one body line at a time. A decision made for one
+line is not carried over to the next line.</p>
+
+<p>&middot; If text in the message body is encoded (RFC
+2045) then the rules need to be specified for the encoded
+form.</p>
+
+<p>&middot; Likewise, when message headers are encoded (RFC
+2047) then the rules need to be specified for the encoded
+form.</p>
+
+<p>Message headers added by the cleanup(8) daemon itself
+are excluded from inspection. Examples of such message
+headers are From:, To:, Message- ID:, Date:.</p>
+
+<p>Message headers deleted by the cleanup(8) daemon will be
+examined before they are deleted. Examples are: Bcc:,
+Content-Length:, Return- Path:.</p>
+
+<p>CONFIGURATION PARAMETERS body_checks Lookup tables with
+content filter rules for message body lines. These filters
+see one physical line at a time, in chunks of at most
+$line_length_limit bytes.</p>
+
+<p>body_checks_size_limit The amount of content per message
+body segment (attachment) that is subjected to $body_checks
+filtering.</p>
+
+<p>header_checks</p>
+
+<p>mime_header_checks (default: $header_checks)</p>
+
+<p>nested_header_checks (default: $header_checks) Lookup
+tables with content filter rules for message header lines:
+respectively, these are applied to the initial message
+headers (not including MIME headers), to the MIME headers
+any- where in the message, and to the initial headers of
+attached messages.</p>
+
+<p>Note: these filters see one logical message header at a
+time, even when a message header spans multiple lines.
+Message headers that are longer than $header_size_limit
+characters are trun- cated.</p>
+
+<p>disable_mime_input_processing While receiving mail, give
+no special treatment to MIME related message headers; all
+text after the initial message headers is considered to be
+part of the message body. This means that header_checks is
+applied to all the initial message headers, and that
+body_checks is applied to the remainder of the message.</p>
+
+<p>Note: when used in this manner, body_checks will process
+a multi-line message header one line at a time.</p>
+
+<p>EXAMPLES Header pattern to block attachments with bad
+file name extensions. For convenience, the PCRE /x flag is
+specified, so that there is no need to collapse the pattern
+into a single line of text. The purpose of the [[:xdigit:]]
+sub-expressions is to recognize Windows CLSID strings.</p>
+
+<p>/etc/postfix/main.cf: header_checks =
+pcre:/etc/postfix/header_checks.pcre</p>
+
+<p>/etc/postfix/header_checks.pcre:
+/^Content-(Disposition|Type).*name=&quot;?(.*(.|=2E)(
+ade|adp|asp|bas|bat|chm|cmd|com|cpl|crt|dll|exe| hlp|ht[at]|
+inf|ins|isp|jse?|lnk|md[betw]|ms[cipt]|nws|
+[[:xdigit:]]{8}(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}|
+ops|pcd|pif|prf|reg|sc[frt]|sh[bsm]|swf|
+vb[esx]?|vxd|ws[cfh]))( REJECT Attachment name
+&quot;$2&quot; may not end with &quot;.$4&quot;</p>
+
+<p>Body pattern to stop a specific HTML browser
+vulnerability exploit.</p>
+
+<p>/etc/postfix/main.cf: body_checks =
+regexp:/etc/postfix/body_checks</p>
+
+<p>/etc/postfix/body_checks: /^&lt;iframe src=(3D)?cid:.*
+height=(3D)?0 width=(3D)?0&gt;$/ REJECT IFRAME vulnerability
+exploit</p>
+
+<p>SEE ALSO cleanup(8), canonicalize and enqueue Postfix
+message pcre_table(5), format of PCRE lookup tables
+regexp_table(5), format of POSIX regular expression tables
+postconf(1), Postfix configuration utility postmap(1),
+Postfix lookup table management postsuper(1), Postfix
+janitor postcat(1), show Postfix queue file contents RFC
+2045, base64 and quoted-printable encoding rules RFC 2047,
+message header encoding for non-ASCII text</p>
+
+<p>README FILES Use &quot;postconf readme_directory&quot;
+or &quot;postconf html_directory&quot; to locate this
+information. DATABASE_README, Postfix lookup table overview
+CONTENT_INSPECTION_README, Postfix content inspection
+overview BUILTIN_FILTER_README, Postfix built-in content
+inspection BACKSCATTER_README, blocking returned forged
+mail</p>
+
+<p>LICENSE The Secure Mailer license must be distributed
+with this software.</p>
+
+<p>AUTHOR(S) Wietse Venema IBM T.J. Watson Research P.O.
+Box 704 Yorktown Heights, NY 10598, USA</p>
+
+<p>HEADER_CHECKS(5)</p>
+<hr>
+</body>
+</html>

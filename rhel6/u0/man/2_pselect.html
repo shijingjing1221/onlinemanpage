@@ -1,0 +1,292 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:11:55 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SELECT(2) Linux Programmer s Manual SELECT(2)</p>
+
+<p>NAME select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO
+- synchronous I/O multiplexing</p>
+
+<p>SYNOPSIS /* According to POSIX.1-2001 */ #include
+&lt;sys/select.h&gt;</p>
+
+<p>/* According to earlier standards */ #include
+&lt;sys/time.h&gt; #include &lt;sys/types.h&gt; #include
+&lt;unistd.h&gt;</p>
+
+<p>int select(int nfds, fd_set *readfds, fd_set *writefds,
+fd_set *exceptfds, struct timeval *timeout);</p>
+
+<p>void FD_CLR(int fd, fd_set *set); int FD_ISSET(int fd,
+fd_set *set); void FD_SET(int fd, fd_set *set); void
+FD_ZERO(fd_set *set);</p>
+
+<p>#include &lt;sys/select.h&gt;</p>
+
+<p>int pselect(int nfds, fd_set *readfds, fd_set *writefds,
+fd_set *exceptfds, const struct timespec *timeout, const
+sigset_t *sigmask);</p>
+
+<p>Feature Test Macro Requirements for glibc (see
+feature_test_macros(7)):</p>
+
+<p>pselect(): _POSIX_C_SOURCE &gt;= 200112L ||
+_XOPEN_SOURCE &gt;= 600</p>
+
+<p>DESCRIPTION select() and pselect() allow a program to
+monitor multiple file descriptors, waiting until one or more
+of the file descriptors become &quot;ready&quot; for some
+class of I/O operation (e.g., input possible). A file
+descriptor is considered ready if it is possible to perform
+the corre- sponding I/O operation (e.g., read(2)) without
+blocking.</p>
+
+<p>The operation of select() and pselect() is identical,
+with three dif- ferences:</p>
+
+<p>(i) select() uses a timeout that is a struct timeval
+(with seconds and microseconds), while pselect() uses a
+struct timespec (with seconds and nanoseconds).</p>
+
+<p>(ii) select() may update the timeout argument to
+indicate how much time was left. pselect() does not change
+this argument.</p>
+
+<p>(iii) select() has no sigmask argument, and behaves as
+pselect() called with NULL sigmask.</p>
+
+<p>Three independent sets of file descriptors are watched.
+Those listed in readfds will be watched to see if characters
+become available for reading (more precisely, to see if a
+read will not block; in particu- lar, a file descriptor is
+also ready on end-of-file), those in writefds will be
+watched to see if a write will not block, and those in
+exceptfds will be watched for exceptions. On exit, the sets
+are modi- fied in place to indicate which file descriptors
+actually changed sta- tus. Each of the three file descriptor
+sets may be specified as NULL if no file descriptors are to
+be watched for the corresponding class of events.</p>
+
+<p>Four macros are provided to manipulate the sets.
+FD_ZERO() clears a set. FD_SET() and FD_CLR() respectively
+add and remove a given file descriptor from a set.
+FD_ISSET() tests to see if a file descriptor is part of the
+set; this is useful after select() returns.</p>
+
+<p>nfds is the highest-numbered file descriptor in any of
+the three sets, plus 1.</p>
+
+<p>timeout is an upper bound on the amount of time elapsed
+before select() returns. If both fields of the timeval
+stucture are zero, then select() returns immediately. (This
+is useful for polling.) If time- out is NULL (no timeout),
+select() can block indefinitely.</p>
+
+<p>sigmask is a pointer to a signal mask (see
+sigprocmask(2)); if it is not NULL, then pselect() first
+replaces the current signal mask by the one pointed to by
+sigmask, then does the &quot;select&quot; function, and then
+restores the original signal mask.</p>
+
+<p>Other than the difference in the precision of the
+timeout argument, the following pselect() call:</p>
+
+<p>ready = pselect(nfds, &amp;readfds, &amp;writefds,
+&amp;exceptfds, timeout, &amp;sigmask);</p>
+
+<p>is equivalent to atomically executing the following
+calls:</p>
+
+<p>sigset_t origmask;</p>
+
+<p>sigprocmask(SIG_SETMASK, &amp;sigmask, &amp;origmask);
+ready = select(nfds, &amp;readfds, &amp;writefds,
+&amp;exceptfds, timeout); sigprocmask(SIG_SETMASK,
+&amp;origmask, NULL);</p>
+
+<p>The reason that pselect() is needed is that if one wants
+to wait for either a signal or for a file descriptor to
+become ready, then an atomic test is needed to prevent race
+conditions. (Suppose the signal handler sets a global flag
+and returns. Then a test of this global flag followed by a
+call of select() could hang indefinitely if the sig- nal
+arrived just after the test but just before the call. By
+contrast, pselect() allows one to first block signals,
+handle the signals that have come in, then call pselect()
+with the desired sigmask, avoiding the race.)</p>
+
+<p>The timeout The time structures involved are defined in
+&lt;sys/time.h&gt; and look like</p>
+
+<p>struct timeval { long tv_sec; /* seconds */ long
+tv_usec; /* microseconds */ };</p>
+
+<p>and</p>
+
+<p>struct timespec { long tv_sec; /* seconds */ long
+tv_nsec; /* nanoseconds */ };</p>
+
+<p>(However, see below on the POSIX.1-2001 versions.)</p>
+
+<p>Some code calls select() with all three sets empty, nfds
+zero, and a non-NULL timeout as a fairly portable way to
+sleep with subsecond pre- cision.</p>
+
+<p>On Linux, select() modifies timeout to reflect the
+amount of time not slept; most other implementations do not
+do this. (POSIX.1-2001 per- mits either behavior.) This
+causes problems both when Linux code which reads timeout is
+ported to other operating systems, and when code is ported
+to Linux that reuses a struct timeval for multiple select()s
+in a loop without reinitializing it. Consider timeout to be
+undefined after select() returns.</p>
+
+<p>RETURN VALUE On success, select() and pselect() return
+the number of file descrip- tors contained in the three
+returned descriptor sets (that is, the total number of bits
+that are set in readfds, writefds, exceptfds) which may be
+zero if the timeout expires before anything interesting
+happens. On error, -1 is returned, and errno is set
+appropriately; the sets and timeout become undefined, so do
+not rely on their contents after an error.</p>
+
+<p>ERRORS EBADF An invalid file descriptor was given in one
+of the sets. (Per- haps a file descriptor that was already
+closed, or one on which an error has occurred.)</p>
+
+<p>EINTR A signal was caught; see signal(7).</p>
+
+<p>EINVAL nfds is negative or the value contained within
+timeout is invalid.</p>
+
+<p>ENOMEM unable to allocate memory for internal
+tables.</p>
+
+<p>VERSIONS pselect() was added to Linux in kernel 2.6.16.
+Prior to this, pse- lect() was emulated in glibc (but see
+BUGS).</p>
+
+<p>CONFORMING TO select() conforms to POSIX.1-2001 and
+4.4BSD (select() first appeared in 4.2BSD). Generally
+portable to/from non-BSD systems supporting clones of the
+BSD socket layer (including System V variants). However,
+note that the System V variant typically sets the timeout
+variable before exit, but the BSD variant does not.</p>
+
+<p>pselect() is defined in POSIX.1g, and in
+POSIX.1-2001.</p>
+
+<p>NOTES An fd_set is a fixed size buffer. Executing
+FD_CLR() or FD_SET() with a value of fd that is negative or
+is equal to or larger than FD_SETSIZE will result in
+undefined behavior. Moreover, POSIX requires fd to be a
+valid file descriptor.</p>
+
+<p>Concerning the types involved, the classical situation
+is that the two fields of a timeval structure are typed as
+long (as shown above), and the structure is defined in
+&lt;sys/time.h&gt;. The POSIX.1-2001 situation is</p>
+
+<p>struct timeval { time_t tv_sec; /* seconds */
+suseconds_t tv_usec; /* microseconds */ };</p>
+
+<p>where the structure is defined in &lt;sys/select.h&gt;
+and the data types time_t and suseconds_t are defined in
+&lt;sys/types.h&gt;.</p>
+
+<p>Concerning prototypes, the classical situation is that
+one should include &lt;time.h&gt; for select(). The
+POSIX.1-2001 situation is that one should include
+&lt;sys/select.h&gt; for select() and pselect().</p>
+
+<p>Libc4 and libc5 do not have a &lt;sys/select.h&gt;
+header; under glibc 2.0 and later this header exists. Under
+glibc 2.0 it unconditionally gives the wrong prototype for
+pselect(). Under glibc 2.1 to 2.2.1 it gives pselect() when
+_GNU_SOURCE is defined. Since glibc 2.2.2 the requirements
+are as shown in the SYNOPSIS.</p>
+
+<p>Linux Notes The Linux pselect() system call modifies its
+timeout argument. How- ever, the glibc wrapper function
+hides this behavior by using a local variable for the
+timeout argument that is passed to the system call. Thus,
+the glibc pselect() function does not modify its timeout
+argu- ment; this is the behavior required by
+POSIX.1-2001.</p>
+
+<p>BUGS Glibc 2.0 provided a version of pselect() that did
+not take a sigmask argument.</p>
+
+<p>Since version 2.1, glibc has provided an emulation of
+pselect() that is implemented using sigprocmask(2) and
+select(). This implementation remains vulnerable to the very
+race condition that pselect() was designed to prevent. On
+systems that lack pselect(), reliable (and more portable)
+signal trapping can be achieved using the self-pipe trick
+(where a signal handler writes a byte to a pipe whose other
+end is monitored by select() in the main program.)</p>
+
+<p>Under Linux, select() may report a socket file
+descriptor as &quot;ready for reading&quot;, while
+nevertheless a subsequent read blocks. This could for
+example happen when data has arrived but upon examination
+has wrong checksum and is discarded. There may be other
+circumstances in which a file descriptor is spuriously
+reported as ready. Thus it may be safer to use O_NONBLOCK on
+sockets that should not block.</p>
+
+<p>On Linux, select() also modifies timeout if the call is
+interrupted by a signal handler (i.e., the EINTR error
+return). This is not permitted by POSIX.1-2001. The Linux
+pselect() system call has the same behav- ior, but the glibc
+wrapper hides this behavior by internally copying the
+timeout to a local variable and passing that variable to the
+system call.</p>
+
+<p>EXAMPLE #include &lt;stdio.h&gt; #include
+&lt;stdlib.h&gt; #include &lt;sys/time.h&gt; #include
+&lt;sys/types.h&gt; #include &lt;unistd.h&gt;</p>
+
+<p>int main(void) { fd_set rfds; struct timeval tv; int
+retval;</p>
+
+<p>/* Watch stdin (fd 0) to see when it has input. */
+FD_ZERO(&amp;rfds); FD_SET(0, &amp;rfds);</p>
+
+<p>/* Wait up to five seconds. */ tv.tv_sec = 5; tv.tv_usec
+= 0;</p>
+
+<p>retval = select(1, &amp;rfds, NULL, NULL, &amp;tv); /*
+Dont rely on the value of tv now! */</p>
+
+<p>if (retval == -1) perror(&quot;select()&quot;); else if
+(retval) printf(&quot;Data is available now.0); /*
+FD_ISSET(0, &amp;rfds) will be true. */ else printf(&quot;No
+data within five seconds.0);</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO For a tutorial with discussion and examples,
+see select_tut(2).</p>
+
+<p>For vaguely related stuff, see accept(2), connect(2),
+poll(2), read(2), recv(2), send(2), sigprocmask(2),
+write(2), epoll(7), time(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-12-05 SELECT(2)</p>
+<hr>
+</body>
+</html>

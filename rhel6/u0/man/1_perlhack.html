@@ -1,0 +1,3177 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:10:08 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERLHACK(1) Perl Programmers Reference Guide
+PERLHACK(1)</p>
+
+<p>NAME perlhack - How to hack at the Perl internals</p>
+
+<p>DESCRIPTION This document attempts to explain how Perl
+development takes place, and ends with some suggestions for
+people wanting to become bona fide porters.</p>
+
+<p>The perl5-porters mailing list is where the Perl
+standard distribution is maintained and developed. The list
+can get anywhere from 10 to 150 messages a day, depending on
+the heatedness of the debate. Most days there are two or
+three patches, extensions, features, or bugs being discussed
+at a time.</p>
+
+<p>A searchable archive of the list is at either:</p>
+
+
+<p>http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/</p>
+
+<p>or</p>
+
+
+<p>http://archive.develooper.com/perl5-porters@perl.org/</p>
+
+<p>List subscribers (the porters themselves) come in
+several flavours. Some are quiet curious lurkers, who rarely
+pitch in and instead watch the ongoing development to ensure
+theyre forewarned of new changes or features in Perl. Some
+are representatives of vendors, who are there to make sure
+that Perl continues to compile and work on their platforms.
+Some patch any reported bug that they know how to fix, some
+are actively patching their pet area (threads, Win32, the
+regexp engine), while others seem to do nothing but
+complain. In other words, its your usual mix of technical
+people.</p>
+
+<p>Over this group of porters presides Larry Wall. He has
+the final word in what does and does not change in the Perl
+language. Various releases of Perl are shepherded by a
+&quot;pumpking&quot;, a porter responsible for gathering
+patches, deciding on a patch-by-patch, feature-by-feature
+basis what will and will not go into the release. For
+instance, Gurusamy Sarathy was the pumpking for the 5.6
+release of Perl, and Jarkko Hietaniemi was the pumpking for
+the 5.8 release, and Rafael Garcia-Suarez holds the pumpking
+crown for the 5.10 release.</p>
+
+<p>In addition, various people are pumpkings for different
+things. For instance, Andy Dougherty and Jarkko Hietaniemi
+did a grand job as the Configure pumpkin up till the 5.8
+release. For the 5.10 release H.Merijn Brand took over.</p>
+
+<p>Larry sees Perl development along the lines of the US
+government: theres the Legislature (the porters), the
+Executive branch (the pumpkings), and the Supreme Court
+(Larry). The legislature can discuss and submit patches to
+the executive branch all they like, but the executive branch
+is free to veto them. Rarely, the Supreme Court will side
+with the executive branch over the legislature, or the
+legislature over the executive branch. Mostly, however, the
+legislature and the executive branch are supposed to get
+along and work out their differences without impeachment or
+court cases.</p>
+
+<p>You might sometimes see reference to Rule 1 and Rule 2.
+Larrys power as Supreme Court is expressed in The Rules:</p>
+
+<p>1. Larry is always by definition right about how Perl
+should behave. This means he has final veto power on the
+core functionality.</p>
+
+<p>2. Larry is allowed to change his mind about any matter
+at a later date, regardless of whether he previously invoked
+Rule 1.</p>
+
+<p>Got that? Larry is always right, even when he was wrong.
+Its rare to see either Rule exercised, but they are often
+alluded to.</p>
+
+<p>New features and extensions to the language are
+contentious, because the criteria used by the pumpkings,
+Larry, and other porters to decide which features should be
+implemented and incorporated are not codified in a few small
+design goals as with some other languages. Instead, the
+heuristics are flexible and often difficult to fathom. Here
+is one persons list, roughly in decreasing order of
+importance, of heuristics that new features have to be
+weighed against:</p>
+
+<p>Does concept match the general goals of Perl? These
+haven t been written anywhere in stone, but one
+approximation is:</p>
+
+<p>1. Keep it fast, simple, and useful. 2. Keep
+features/concepts as orthogonal as possible. 3. No arbitrary
+limits (platforms, data sizes, cultures). 4. Keep it open
+and exciting to use/patch/advocate Perl everywhere. 5.
+Either assimilate new technologies, or build bridges to
+them.</p>
+
+<p>Where is the implementation? All the talk in the world
+is useless without an implementation. In almost every case,
+the person or people who argue for a new feature will be
+expected to be the ones who implement it. Porters capable of
+coding new features have their own agendas, and are not
+available to implement your (possibly good) idea.</p>
+
+<p>Backwards compatibility Its a cardinal sin to break
+existing Perl programs. New warnings are contentious--some
+say that a program that emits warnings is not broken, while
+others say it is. Adding keywords has the potential to break
+programs, changing the meaning of existing token sequences
+or functions might break programs.</p>
+
+<p>Could it be a module instead? Perl 5 has extension
+mechanisms, modules and XS, specifically to avoid the need
+to keep changing the Perl interpreter. You can write modules
+that export functions, you can give those functions
+prototypes so they can be called like built-in functions,
+you can even write XS code to mess with the runtime data
+structures of the Perl interpreter if you want to implement
+really complicated things. If it can be done in a module
+instead of in the core, its highly unlikely to be added.</p>
+
+<p>Is the feature generic enough? Is this something that
+only the submitter wants added to the language, or would it
+be broadly useful? Sometimes, instead of adding a feature
+with a tight focus, the porters might decide to wait until
+someone implements the more generalized feature. For
+instance, instead of implementing a &quot;delayed
+evaluation&quot; feature, the porters are waiting for a
+macro system that would permit delayed evaluation and much
+more.</p>
+
+<p>Does it potentially introduce new bugs? Radical rewrites
+of large chunks of the Perl interpreter have the potential
+to introduce new bugs. The smaller and more localized the
+change, the better.</p>
+
+<p>Does it preclude other desirable features? A patch is
+likely to be rejected if it closes off future avenues of
+development. For instance, a patch that placed a true and
+final interpretation on prototypes is likely to be rejected
+because there are still options for the future of prototypes
+that havent been addressed.</p>
+
+<p>Is the implementation robust? Good patches (tight code,
+complete, correct) stand more chance of going in. Sloppy or
+incorrect patches might be placed on the back burner until
+the pumpking has time to fix, or might be discarded
+altogether without further notice.</p>
+
+<p>Is the implementation generic enough to be portable? The
+worst patches make use of a system-specific features. Its
+highly unlikely that non-portable additions to the Perl
+language will be accepted.</p>
+
+<p>Is the implementation tested? Patches which change
+behaviour (fixing bugs or introducing new features) must
+include regression tests to verify that everything works as
+expected. Without tests provided by the original author, how
+can anyone else changing perl in the future be sure that
+they havent unwittingly broken the behaviour the patch
+implements? And without tests, how can the patchs author be
+confident that his/her hard work put into the patch won t be
+accidentally thrown away by someone in the future?</p>
+
+<p>Is there enough documentation? Patches without
+documentation are probably ill-thought out or incomplete.
+Nothing can be added without documentation, so submitting a
+patch for the appropriate manpages as well as the source
+code is always a good idea.</p>
+
+<p>Is there another way to do it? Larry said &quot;Although
+the Perl Slogan is There_s More Than One Way to Do It, I
+hesitate to make 10 ways to do something&quot;. This is a
+tricky heuristic to navigate, though--one man s essential
+addition is another mans pointless cruft.</p>
+
+<p>Does it create too much work? Work for the pumpking,
+work for Perl programmers, work for module authors, ... Perl
+is supposed to be easy.</p>
+
+<p>Patches speak louder than words Working code is always
+preferred to pie-in-the-sky ideas. A patch to add a feature
+stands a much higher chance of making it to the language
+than does a random feature request, no matter how fervently
+argued the request might be. This ties into &quot;Will it be
+useful?&quot;, as the fact that someone took the time to
+make the patch demonstrates a strong desire for the
+feature.</p>
+
+<p>If you re on the list, you might hear the word
+&quot;core&quot; bandied around. It refers to the standard
+distribution. &quot;Hacking on the core&quot; means you re
+changing the C source code to the Perl interpreter. &quot;A
+core module&quot; is one that ships with Perl.</p>
+
+<p>Keeping in sync The source code to the Perl interpreter,
+in its different versions, is kept in a repository managed
+by the git revision control system. The pumpkings and a few
+others have write access to the repository to check in
+changes.</p>
+
+<p>How to clone and use the git perl repository is
+described in perlrepository.</p>
+
+<p>You can also choose to use rsync to get a copy of the
+current source tree for the bleadperl branch and all
+maintenance branches :</p>
+
+<p>$ rsync -avz rsync://perl5.git.perl.org/APC/perl-current
+. $ rsync -avz rsync://perl5.git.perl.org/APC/perl-5.10.x .
+$ rsync -avz rsync://perl5.git.perl.org/APC/perl-5.8.x . $
+rsync -avz rsync://perl5.git.perl.org/APC/perl-5.6.x . $
+rsync -avz rsync://perl5.git.perl.org/APC/perl-5.005xx .</p>
+
+<p>(Add the &quot;--delete&quot; option to remove leftover
+files)</p>
+
+<p>You may also want to subscribe to the perl5-changes
+mailing list to receive a copy of each patch that gets
+submitted to the maintenance and development
+&quot;branches&quot; of the perl repository. See
+http://lists.perl.org/ for subscription information.</p>
+
+<p>If you are a member of the perl5-porters mailing list,
+it is a good thing to keep in touch with the most recent
+changes. If not only to verify if what you would have posted
+as a bug report isnt already solved in the most recent
+available perl development branch, also known as
+perl-current, bleading edge perl, bleedperl or
+bleadperl.</p>
+
+<p>Needless to say, the source code in perl-current is
+usually in a perpetual state of evolution. You should expect
+it to be very buggy. Do not use it for any purpose other
+than testing and development.</p>
+
+<p>Perlbug administration There is a single remote
+administrative interface for modifying bug status, category,
+open issues etc. using the RT bugtracker system, maintained
+by Robert Spier. Become an administrator, and close any bugs
+you can get your sticky mitts on:</p>
+
+<p>http://bugs.perl.org/</p>
+
+<p>To email the bug system administrators:</p>
+
+<p>&quot;perlbug-admin&quot;
+&lt;perlbug-admin@perl.org&gt;</p>
+
+<p>Submitting patches Always submit patches to
+perl5-porters@perl.org. If youre patching a core module and
+theres an author listed, send the author a copy (see
+&quot;Patching a core module&quot;). This lets other porters
+review your patch, which catches a surprising number of
+errors in patches. Please patch against the latest
+development version. (e.g., even if you re fixing a bug in
+the 5.8 track, patch against the &quot;blead&quot; branch in
+the git repository.)</p>
+
+<p>If changes are accepted, they are applied to the
+development branch. Then the maintenance pumpking decides
+which of those patches is to be backported to the maint
+branch. Only patches that survive the heat of the
+development branch get applied to maintenance versions.</p>
+
+<p>Your patch should update the documentation and test
+suite. See &quot;Writing a test&quot;. If you have added or
+removed files in the distribution, edit the MANIFEST file
+accordingly, sort the MANIFEST file using &quot;make
+manisort&quot;, and include those changes as part of your
+patch.</p>
+
+<p>Patching documentation also follows the same order: if
+accepted, a patch is first applied to development, and if
+relevant then its backported to maintenance. (With an
+exception for some patches that document behaviour that only
+appears in the maintenance branch, but which has changed in
+the development version.)</p>
+
+<p>To report a bug in Perl, use the program perlbug which
+comes with Perl (if you cant get Perl to work, send mail to
+the address perlbug@perl.org or perlbug@perl.com). Reporting
+bugs through perlbug feeds into the automated bug-tracking
+system, access to which is provided through the web at
+http://rt.perl.org/rt3/ . It often pays to check the
+archives of the perl5-porters mailing list to see whether
+the bug you re reporting has been reported before, and if so
+whether it was considered a bug. See above for the location
+of the searchable archives.</p>
+
+<p>The CPAN testers ( http://testers.cpan.org/ ) are a
+group of volunteers who test CPAN modules on a variety of
+platforms. Perl Smokers (
+http://www.nntp.perl.org/group/perl.daily-build and
+http://www.nntp.perl.org/group/perl.daily-build.reports/ )
+automatically test Perl source releases on platforms with
+various configurations. Both efforts welcome volunteers. In
+order to get involved in smoke testing of the perl itself
+visit &lt;http://search.cpan.org/dist/Test-Smoke&gt;. In
+order to start smoke testing CPAN modules visit
+&lt;http://search.cpan.org/dist/CPAN-YACSmoke/&gt; or
+&lt;http://search.cpan.org/dist/POE-Component-CPAN-YACSmoke/&gt;
+or &lt;http://search.cpan.org/dist/CPAN-Reporter/&gt;.</p>
+
+<p>It s a good idea to read and lurk for a while before
+chipping in. That way youll get to see the dynamic of the
+conversations, learn the personalities of the players, and
+hopefully be better prepared to make a useful contribution
+when do you speak up.</p>
+
+<p>If after all this you still think you want to join the
+perl5-porters mailing list, send mail to
+perl5-porters-subscribe@perl.org. To unsubscribe, send mail
+to perl5-porters-unsubscribe@perl.org.</p>
+
+<p>To hack on the Perl guts, youll need to read the
+following things:</p>
+
+<p>perlguts This is of paramount importance, since it s the
+documentation of what goes where in the Perl source. Read it
+over a couple of times and it might start to make sense -
+don t worry if it doesnt yet, because the best way to study
+it is to read it in conjunction with poking at Perl source,
+and well do that later on.</p>
+
+<p>Gisle Aas s illustrated perlguts (aka: illguts) is
+wonderful, although a little out of date wrt some size
+details; the various SV structures have since been reworked
+for smaller memory footprint. The fundamentals are right
+however, and the pictures are very helpful.</p>
+
+
+<p>http://www.perl.org/tpc/1998/Perl_Language_and_Modules/Perl%20Illustrated/</p>
+
+<p>perlxstut and perlxs A working knowledge of XSUB
+programming is incredibly useful for core hacking; XSUBs use
+techniques drawn from the PP code, the portion of the guts
+that actually executes a Perl program. Its a lot gentler to
+learn those techniques from simple examples and explanation
+than from the core itself.</p>
+
+<p>perlapi The documentation for the Perl API explains what
+some of the internal functions do, as well as the many
+macros used in the source.</p>
+
+<p>Porting/pumpkin.pod This is a collection of words of
+wisdom for a Perl porter; some of it is only useful to the
+pumpkin holder, but most of it applies to anyone wanting to
+go about Perl development.</p>
+
+<p>The perl5-porters FAQ This should be available from
+http://dev.perl.org/perl5/docs/p5p-faq.html . It contains
+hints on reading perl5-porters, information on how
+perl5-porters works and how Perl development in general
+works.</p>
+
+<p>Finding Your Way Around Perl maintenance can be split
+into a number of areas, and certain people (pumpkins) will
+have responsibility for each area. These areas sometimes
+correspond to files or directories in the source kit. Among
+the areas are:</p>
+
+<p>Core modules Modules shipped as part of the Perl core
+live in the lib/ and ext/ subdirectories: lib/ is for the
+pure-Perl modules, and ext/ contains the core XS
+modules.</p>
+
+<p>Tests There are tests for nearly all the modules,
+built-ins and major bits of functionality. Test files all
+have a .t suffix. Module tests live in the lib/ and ext/
+directories next to the module being tested. Others live in
+t/. See &quot;Writing a test&quot;</p>
+
+<p>Documentation Documentation maintenance includes looking
+after everything in the pod/ directory, (as well as
+contributing new documentation) and the documentation to the
+modules in core.</p>
+
+<p>Configure The configure process is the way we make Perl
+portable across the myriad of operating systems it supports.
+Responsibility for the configure, build and installation
+process, as well as the overall portability of the core code
+rests with the configure pumpkin - others help out with
+individual operating systems.</p>
+
+<p>The files involved are the operating system directories,
+(win32/, os2/, vms/ and so on) the shell scripts which
+generate config.h and Makefile, as well as the metaconfig
+files which generate Configure. (metaconfig isnt included in
+the core distribution.)</p>
+
+<p>Interpreter And of course, theres the core of the Perl
+interpreter itself. Lets have a look at that in a little
+more detail.</p>
+
+<p>Before we leave looking at the layout, though, dont
+forget that MANIFEST contains not only the file names in the
+Perl distribution, but short descriptions of whats in them,
+too. For an overview of the important files, try this:</p>
+
+<p>perl -lne &rsquo;print if /^[^]+.[ch]&rsquo;
+MANIFEST</p>
+
+<p>Elements of the interpreter The work of the interpreter
+has two main stages: compiling the code into the internal
+representation, or bytecode, and then executing it.
+&quot;Compiled code&quot; in perlguts explains exactly how
+the compilation stage happens.</p>
+
+<p>Here is a short breakdown of perls operation:</p>
+
+<p>Startup The action begins in perlmain.c. (or
+miniperlmain.c for miniperl) This is very high-level code,
+enough to fit on a single screen, and it resembles the code
+found in perlembed; most of the real action takes place in
+perl.c</p>
+
+<p>perlmain.c is generated by writemain from miniperlmain.c
+at make time, so you should make perl to follow this
+along.</p>
+
+<p>First, perlmain.c allocates some memory and constructs a
+Perl interpreter, along these lines:</p>
+
+<p>1 PERL_SYS_INIT3(&amp;argc,&amp;argv,&amp;env); 2 3 if
+(!PL_do_undump) { 4 my_perl = perl_alloc(); 5 if (!my_perl)
+6 exit(1); 7 perl_construct(my_perl); 8
+PL_perl_destruct_level = 0; 9 }</p>
+
+<p>Line 1 is a macro, and its definition is dependent on
+your operating system. Line 3 references
+&quot;PL_do_undump&quot;, a global variable - all global
+variables in Perl start with &quot;PL_&quot;. This tells you
+whether the current running program was created with the
+&quot;-u&quot; flag to perl and then undump, which means its
+going to be false in any sane context.</p>
+
+<p>Line 4 calls a function in perl.c to allocate memory for
+a Perl interpreter. Its quite a simple function, and the
+guts of it looks like this:</p>
+
+<p>my_perl =
+(PerlInterpreter*)PerlMem_malloc(sizeof(PerlInterpreter));</p>
+
+<p>Here you see an example of Perl s system abstraction,
+which well see later: &quot;PerlMem_malloc&quot; is either
+your systems &quot;malloc&quot;, or Perls own
+&quot;malloc&quot; as defined in malloc.c if you selected
+that option at configure time.</p>
+
+<p>Next, in line 7, we construct the interpreter using
+perl_construct, also in perl.c; this sets up all the special
+variables that Perl needs, the stacks, and so on.</p>
+
+<p>Now we pass Perl the command line options, and tell it
+to go:</p>
+
+<p>exitstatus = perl_parse(my_perl, xs_init, argc, argv,
+(char **)NULL); if (!exitstatus) perl_run(my_perl);</p>
+
+<p>exitstatus = perl_destruct(my_perl);</p>
+
+<p>perl_free(my_perl);</p>
+
+<p>&quot;perl_parse&quot; is actually a wrapper around
+&quot;S_parse_body&quot;, as defined in perl.c, which
+processes the command line options, sets up any statically
+linked XS modules, opens the program and calls
+&quot;yyparse&quot; to parse it.</p>
+
+<p>Parsing The aim of this stage is to take the Perl
+source, and turn it into an op tree. We ll see what one of
+those looks like later. Strictly speaking, theres three
+things going on here.</p>
+
+<p>&quot;yyparse&quot;, the parser, lives in perly.c,
+although youre better off reading the original YACC input in
+perly.y. (Yes, Virginia, there is a YACC grammar for Perl!)
+The job of the parser is to take your code and
+&quot;understand&quot; it, splitting it into sentences,
+deciding which operands go with which operators and so
+on.</p>
+
+<p>The parser is nobly assisted by the lexer, which chunks
+up your input into tokens, and decides what type of thing
+each token is: a variable name, an operator, a bareword, a
+subroutine, a core function, and so on. The main point of
+entry to the lexer is &quot;yylex&quot;, and that and its
+associated routines can be found in toke.c. Perl isnt much
+like other computer languages; its highly context sensitive
+at times, it can be tricky to work out what sort of token
+something is, or where a token ends. As such, theres a lot
+of interplay between the tokeniser and the parser, which can
+get pretty frightening if youre not used to it.</p>
+
+<p>As the parser understands a Perl program, it builds up a
+tree of operations for the interpreter to perform during
+execution. The routines which construct and link together
+the various operations are to be found in op.c, and will be
+examined later.</p>
+
+<p>Optimization Now the parsing stage is complete, and the
+finished tree represents the operations that the Perl
+interpreter needs to perform to execute our program. Next,
+Perl does a dry run over the tree looking for optimisations:
+constant expressions such as &quot;3 + 4&quot; will be
+computed now, and the optimizer will also see if any
+multiple operations can be replaced with a single one. For
+instance, to fetch the variable $foo, instead of grabbing
+the glob *foo and looking at the scalar component, the
+optimizer fiddles the op tree to use a function which
+directly looks up the scalar in question. The main optimizer
+is &quot;peep&quot; in op.c, and many ops have their own
+optimizing functions.</p>
+
+<p>Running Now were finally ready to go: we have compiled
+Perl byte code, and all thats left to do is run it. The
+actual execution is done by the &quot;runops_standard&quot;
+function in run.c; more specifically, its done by these
+three innocent looking lines:</p>
+
+<p>while ((PL_op = CALL_FPTR(PL_op-&gt;op_ppaddr)(aTHX))) {
+PERL_ASYNC_CHECK(); }</p>
+
+<p>You may be more comfortable with the Perl version of
+that:</p>
+
+<p>PERL_ASYNC_CHECK() while $Perl::op =
+&amp;{$Perl::op-&gt;{function}};</p>
+
+<p>Well, maybe not. Anyway, each op contains a function
+pointer, which stipulates the function which will actually
+carry out the operation. This function will return the next
+op in the sequence - this allows for things like
+&quot;if&quot; which choose the next op dynamically at run
+time. The &quot;PERL_ASYNC_CHECK&quot; makes sure that
+things like signals interrupt execution if required.</p>
+
+<p>The actual functions called are known as PP code, and
+theyre spread between four files: pp_hot.c contains the
+&quot;hot&quot; code, which is most often used and highly
+optimized, pp_sys.c contains all the system- specific
+functions, pp_ctl.c contains the functions which implement
+control structures (&quot;if&quot;, &quot;while&quot; and
+the like) and pp.c contains everything else. These are, if
+you like, the C code for Perls built-in functions and
+operators.</p>
+
+<p>Note that each &quot;pp_&quot; function is expected to
+return a pointer to the next op. Calls to perl subs (and
+eval blocks) are handled within the same runops loop, and do
+not consume extra space on the C stack. For example,
+&quot;pp_entersub&quot; and &quot;pp_entertry&quot; just
+push a &quot;CxSUB&quot; or &quot;CxEVAL&quot; block struct
+onto the context stack which contain the address of the op
+following the sub call or eval. They then return the first
+op of that sub or eval block, and so execution continues of
+that sub or block. Later, a &quot;pp_leavesub&quot; or
+&quot;pp_leavetry&quot; op pops the &quot;CxSUB&quot; or
+&quot;CxEVAL&quot;, retrieves the return op from it, and
+returns it.</p>
+
+<p>Exception handing Perls exception handing (i.e.
+&quot;die&quot; etc.) is built on top of the low-level
+&quot;setjmp()&quot;/&quot;longjmp()&quot; C-library
+functions. These basically provide a way to capture the
+current PC and SP registers and later restore them; i.e. a
+&quot;longjmp()&quot; continues at the point in code where a
+previous &quot;setjmp()&quot; was done, with anything
+further up on the C stack being lost. This is why code
+should always save values using &quot;SAVE_FOO&quot; rather
+than in auto variables.</p>
+
+<p>The perl core wraps &quot;setjmp()&quot; etc in the
+macros &quot;JMPENV_PUSH&quot; and &quot;JMPENV_JUMP&quot;.
+The basic rule of perl exceptions is that &quot;exit&quot;,
+and &quot;die&quot; (in the absence of &quot;eval&quot;)
+perform a JMPENV_JUMP(2), while &quot;die&quot; within
+&quot;eval&quot; does a JMPENV_JUMP(3).</p>
+
+<p>At entry points to perl, such as
+&quot;perl_parse()&quot;, &quot;perl_run()&quot; and
+&quot;call_sv(cv, G_EVAL)&quot; each does a
+&quot;JMPENV_PUSH&quot;, then enter a runops loop or
+whatever, and handle possible exception returns. For a 2
+return, final cleanup is performed, such as popping stacks
+and calling &quot;CHECK&quot; or &quot;END&quot; blocks.
+Amongst other things, this is how scope cleanup still occurs
+during an &quot;exit&quot;.</p>
+
+<p>If a &quot;die&quot; can find a &quot;CxEVAL&quot; block
+on the context stack, then the stack is popped to that level
+and the return op in that block is assigned to
+&quot;PL_restartop&quot;; then a JMPENV_JUMP(3) is
+performed. This normally passes control back to the guard.
+In the case of &quot;perl_run&quot; and &quot;call_sv&quot;,
+a non-null &quot;PL_restartop&quot; triggers re- entry to
+the runops loop. The is the normal way that &quot;die&quot;
+or &quot;croak&quot; is handled within an
+&quot;eval&quot;.</p>
+
+<p>Sometimes ops are executed within an inner runops loop,
+such as tie, sort or overload code. In this case, something
+like</p>
+
+<p>sub FETCH { eval { die } }</p>
+
+<p>would cause a longjmp right back to the guard in
+&quot;perl_run&quot;, popping both runops loops, which is
+clearly incorrect. One way to avoid this is for the tie code
+to do a &quot;JMPENV_PUSH&quot; before executing
+&quot;FETCH&quot; in the inner runops loop, but for
+efficiency reasons, perl in fact just sets a flag, using
+&quot;CATCH_SET(TRUE)&quot;. The &quot;pp_require&quot;,
+&quot;pp_entereval&quot; and &quot;pp_entertry&quot; ops
+check this flag, and if true, they call &quot;docatch&quot;,
+which does a &quot;JMPENV_PUSH&quot; and starts a new runops
+level to execute the code, rather than doing it on the
+current loop.</p>
+
+<p>As a further optimisation, on exit from the eval block
+in the &quot;FETCH&quot;, execution of the code following
+the block is still carried on in the inner loop. When an
+exception is raised, &quot;docatch&quot; compares the
+&quot;JMPENV&quot; level of the &quot;CxEVAL&quot; with
+&quot;PL_top_env&quot; and if they differ, just re-throws
+the exception. In this way any inner loops get popped.</p>
+
+<p>Heres an example.</p>
+
+<p>1: eval { tie @a, &rsquo;A&rsquo; }; 2: sub A::TIEARRAY
+{ 3: eval { die }; 4: die; 5: }</p>
+
+<p>To run this code, &quot;perl_run&quot; is called, which
+does a &quot;JMPENV_PUSH&quot; then enters a runops loop.
+This loop executes the eval and tie ops on line 1, with the
+eval pushing a &quot;CxEVAL&quot; onto the context
+stack.</p>
+
+<p>The &quot;pp_tie&quot; does a
+&quot;CATCH_SET(TRUE)&quot;, then starts a second runops
+loop to execute the body of &quot;TIEARRAY&quot;. When it
+executes the entertry op on line 3, &quot;CATCH_GET&quot; is
+true, so &quot;pp_entertry&quot; calls &quot;docatch&quot;
+which does a &quot;JMPENV_PUSH&quot; and starts a third
+runops loop, which then executes the die op. At this point
+the C call stack looks like this:</p>
+
+<p>Perl_pp_die Perl_runops # third loop S_docatch_body
+S_docatch Perl_pp_entertry Perl_runops # second loop
+S_call_body Perl_call_sv Perl_pp_tie Perl_runops # first
+loop S_run_body perl_run main</p>
+
+<p>and the context and data stacks, as shown by
+&quot;-Dstv&quot;, look like:</p>
+
+<p>STACK 0: MAIN CX 0: BLOCK =&gt; CX 1: EVAL =&gt; AV()
+PV(&quot;A&quot; ) retop=leave STACK 1: MAGIC CX 0: SUB
+=&gt; retop=(null) CX 1: EVAL =&gt; * retop=nextstate</p>
+
+<p>The die pops the first &quot;CxEVAL&quot; off the
+context stack, sets &quot;PL_restartop&quot; from it, does a
+JMPENV_JUMP(3), and control returns to the top
+&quot;docatch&quot;. This then starts another third-level
+runops level, which executes the nextstate, pushmark and die
+ops on line 4. At the point that the second
+&quot;pp_die&quot; is called, the C call stack looks exactly
+like that above, even though we are no longer within an
+inner eval; this is because of the optimization mentioned
+earlier. However, the context stack now looks like this, ie
+with the top CxEVAL popped:</p>
+
+<p>STACK 0: MAIN CX 0: BLOCK =&gt; CX 1: EVAL =&gt; AV()
+PV(&quot;A&quot; ) retop=leave STACK 1: MAGIC CX 0: SUB
+=&gt; retop=(null)</p>
+
+<p>The die on line 4 pops the context stack back down to
+the CxEVAL, leaving it as:</p>
+
+<p>STACK 0: MAIN CX 0: BLOCK =&gt;</p>
+
+<p>As usual, &quot;PL_restartop&quot; is extracted from the
+&quot;CxEVAL&quot;, and a JMPENV_JUMP(3) done, which pops
+the C stack back to the docatch:</p>
+
+<p>S_docatch Perl_pp_entertry Perl_runops # second loop
+S_call_body Perl_call_sv Perl_pp_tie Perl_runops # first
+loop S_run_body perl_run main</p>
+
+<p>In this case, because the &quot;JMPENV&quot; level
+recorded in the &quot;CxEVAL&quot; differs from the current
+one, &quot;docatch&quot; just does a JMPENV_JUMP(3) and the
+C stack unwinds to:</p>
+
+<p>perl_run main</p>
+
+<p>Because &quot;PL_restartop&quot; is non-null,
+&quot;run_body&quot; starts a new runops loop and execution
+continues.</p>
+
+<p>Internal Variable Types You should by now have had a
+look at perlguts, which tells you about Perls internal
+variable types: SVs, HVs, AVs and the rest. If not, do that
+now.</p>
+
+<p>These variables are used not only to represent
+Perl-space variables, but also any constants in the code, as
+well as some structures completely internal to Perl. The
+symbol table, for instance, is an ordinary Perl hash. Your
+code is represented by an SV as its read into the parser;
+any program files you call are opened via ordinary Perl
+filehandles, and so on.</p>
+
+<p>The core Devel::Peek module lets us examine SVs from a
+Perl program. Lets see, for instance, how Perl treats the
+constant &quot;hello&quot;.</p>
+
+<p>% perl -MDevel::Peek -e
+&rsquo;Dump(&quot;hello&quot;)&rsquo; 1 SV = PV(0xa041450)
+at 0xa04ecbc 2 REFCNT = 1 3 FLAGS = (POK,READONLY,pPOK) 4 PV
+= 0xa0484e0 &quot;hello&quot; 5 CUR = 5 6 LEN = 6</p>
+
+<p>Reading &quot;Devel::Peek&quot; output takes a bit of
+practise, so lets go through it line by line.</p>
+
+<p>Line 1 tells us were looking at an SV which lives at
+0xa04ecbc in memory. SVs themselves are very simple
+structures, but they contain a pointer to a more complex
+structure. In this case, it s a PV, a structure which holds
+a string value, at location 0xa041450. Line 2 is the
+reference count; there are no other references to this data,
+so its 1.</p>
+
+<p>Line 3 are the flags for this SV - its OK to use it as a
+PV, its a read-only SV (because its a constant) and the data
+is a PV internally. Next we ve got the contents of the
+string, starting at location 0xa0484e0.</p>
+
+<p>Line 5 gives us the current length of the string - note
+that this does not include the null terminator. Line 6 is
+not the length of the string, but the length of the
+currently allocated buffer; as the string grows, Perl
+automatically extends the available storage via a routine
+called &quot;SvGROW&quot;.</p>
+
+<p>You can get at any of these quantities from C very
+easily; just add &quot;Sv&quot; to the name of the field
+shown in the snippet, and youve got a macro which will
+return the value: &quot;SvCUR(sv)&quot; returns the current
+length of the string, &quot;SvREFCOUNT(sv)&quot; returns the
+reference count, &quot;SvPV(sv, len)&quot; returns the
+string itself with its length, and so on. More macros to
+manipulate these properties can be found in perlguts.</p>
+
+<p>Let s take an example of manipulating a PV, from
+&quot;sv_catpvn&quot;, in sv.c</p>
+
+<p>1 void 2 Perl_sv_catpvn(pTHX_ register SV *sv, register
+const char *ptr, register STRLEN len) 3 { 4 STRLEN tlen; 5
+char *junk;</p>
+
+<p>6 junk = SvPV_force(sv, tlen); 7 SvGROW(sv, tlen + len +
+1); 8 if (ptr == junk) 9 ptr = SvPVX(sv); 10
+Move(ptr,SvPVX(sv)+tlen,len,char); 11 SvCUR(sv) += len; 12
+*SvEND(sv) = &rsquo; &rsquo;; 13 (void)SvPOK_only_UTF8(sv);
+/* validate pointer */ 14 SvTAINT(sv); 15 }</p>
+
+<p>This is a function which adds a string, &quot;ptr&quot;,
+of length &quot;len&quot; onto the end of the PV stored in
+&quot;sv&quot;. The first thing we do in line 6 is make sure
+that the SV has a valid PV, by calling the
+&quot;SvPV_force&quot; macro to force a PV. As a side
+effect, &quot;tlen&quot; gets set to the current value of
+the PV, and the PV itself is returned to
+&quot;junk&quot;.</p>
+
+<p>In line 7, we make sure that the SV will have enough
+room to accommodate the old string, the new string and the
+null terminator. If &quot;LEN&quot; isnt big enough,
+&quot;SvGROW&quot; will reallocate space for us.</p>
+
+<p>Now, if &quot;junk&quot; is the same as the string we re
+trying to add, we can grab the string directly from the SV;
+&quot;SvPVX&quot; is the address of the PV in the SV.</p>
+
+<p>Line 10 does the actual catenation: the &quot;Move&quot;
+macro moves a chunk of memory around: we move the string
+&quot;ptr&quot; to the end of the PV - thats the start of
+the PV plus its current length. We re moving &quot;len&quot;
+bytes of type &quot;char&quot;. After doing so, we need to
+tell Perl weve extended the string, by altering
+&quot;CUR&quot; to reflect the new length. &quot;SvEND&quot;
+is a macro which gives us the end of the string, so that
+needs to be a &quot; &quot;.</p>
+
+<p>Line 13 manipulates the flags; since weve changed the
+PV, any IV or NV values will no longer be valid: if we have
+&quot;$a=10; $a.=&quot;6&quot;;&quot; we dont want to use
+the old IV of 10. &quot;SvPOK_only_utf8&quot; is a special
+UTF-8-aware version of &quot;SvPOK_only&quot;, a macro which
+turns off the IOK and NOK flags and turns on POK. The final
+&quot;SvTAINT&quot; is a macro which launders tainted data
+if taint mode is turned on.</p>
+
+<p>AVs and HVs are more complicated, but SVs are by far the
+most common variable type being thrown around. Having seen
+something of how we manipulate these, lets go on and look at
+how the op tree is constructed.</p>
+
+<p>Op Trees First, what is the op tree, anyway? The op tree
+is the parsed representation of your program, as we saw in
+our section on parsing, and its the sequence of operations
+that Perl goes through to execute your program, as we saw in
+&quot;Running&quot;.</p>
+
+<p>An op is a fundamental operation that Perl can perform:
+all the built- in functions and operators are ops, and there
+are a series of ops which deal with concepts the interpreter
+needs internally - entering and leaving a block, ending a
+statement, fetching a variable, and so on.</p>
+
+<p>The op tree is connected in two ways: you can imagine
+that there are two &quot;routes&quot; through it, two orders
+in which you can traverse the tree. First, parse order
+reflects how the parser understood the code, and secondly,
+execution order tells perl what order to perform the
+operations in.</p>
+
+<p>The easiest way to examine the op tree is to stop Perl
+after it has finished parsing, and get it to dump out the
+tree. This is exactly what the compiler backends B::Terse,
+B::Concise and B::Debug do.</p>
+
+<p>Lets have a look at how Perl sees &quot;$a = $b +
+$c&quot;:</p>
+
+<p>% perl -MO=Terse -e &rsquo;$a=$b+$c&rsquo; 1 LISTOP
+(0x8179888) leave 2 OP (0x81798b0) enter 3 COP (0x8179850)
+nextstate 4 BINOP (0x8179828) sassign 5 BINOP (0x8179800)
+add [1] 6 UNOP (0x81796e0) null [15] 7 SVOP (0x80fafe0) gvsv
+GV (0x80fa4cc) *b 8 UNOP (0x81797e0) null [15] 9 SVOP
+(0x8179700) gvsv GV (0x80efeb0) *c 10 UNOP (0x816b4f0) null
+[15] 11 SVOP (0x816dcf0) gvsv GV (0x80fa460) *a</p>
+
+<p>Let s start in the middle, at line 4. This is a BINOP, a
+binary operator, which is at location 0x8179828. The
+specific operator in question is &quot;sassign&quot; -
+scalar assignment - and you can find the code which
+implements it in the function &quot;pp_sassign&quot; in
+pp_hot.c. As a binary operator, it has two children: the add
+operator, providing the result of &quot;$b+$c&quot;, is
+uppermost on line 5, and the left hand side is on line
+10.</p>
+
+<p>Line 10 is the null op: this does exactly nothing. What
+is that doing there? If you see the null op, its a sign that
+something has been optimized away after parsing. As we
+mentioned in &quot;Optimization&quot;, the optimization
+stage sometimes converts two operations into one, for
+example when fetching a scalar variable. When this happens,
+instead of rewriting the op tree and cleaning up the
+dangling pointers, its easier just to replace the redundant
+operation with the null op. Originally, the tree would have
+looked like this:</p>
+
+<p>10 SVOP (0x816b4f0) rv2sv [15] 11 SVOP (0x816dcf0) gv GV
+(0x80fa460) *a</p>
+
+<p>That is, fetch the &quot;a&quot; entry from the main
+symbol table, and then look at the scalar component of it:
+&quot;gvsv&quot; (&quot;pp_gvsv&quot; into pp_hot.c) happens
+to do both these things.</p>
+
+<p>The right hand side, starting at line 5 is similar to
+what weve just seen: we have the &quot;add&quot; op
+(&quot;pp_add&quot; also in pp_hot.c) add together two
+&quot;gvsv&quot;s.</p>
+
+<p>Now, whats this about?</p>
+
+<p>1 LISTOP (0x8179888) leave 2 OP (0x81798b0) enter 3 COP
+(0x8179850) nextstate</p>
+
+<p>&quot;enter&quot; and &quot;leave&quot; are scoping ops,
+and their job is to perform any housekeeping every time you
+enter and leave a block: lexical variables are tidied up,
+unreferenced variables are destroyed, and so on. Every
+program will have those first three lines: &quot;leave&quot;
+is a list, and its children are all the statements in the
+block. Statements are delimited by &quot;nextstate&quot;, so
+a block is a collection of &quot;nextstate&quot; ops, with
+the ops to be performed for each statement being the
+children of &quot;nextstate&quot;. &quot;enter&quot; is a
+single op which functions as a marker.</p>
+
+<p>Thats how Perl parsed the program, from top to
+bottom:</p>
+
+<p>Program | Statement | = / / $a + / $b $c</p>
+
+<p>However, its impossible to perform the operations in
+this order: you have to find the values of $b and $c before
+you add them together, for instance. So, the other thread
+that runs through the op tree is the execution order: each
+op has a field &quot;op_next&quot; which points to the next
+op to be run, so following these pointers tells us how perl
+executes the code. We can traverse the tree in this order
+using the &quot;exec&quot; option to
+&quot;B::Terse&quot;:</p>
+
+<p>% perl -MO=Terse,exec -e &rsquo;$a=$b+$c&rsquo; 1 OP
+(0x8179928) enter 2 COP (0x81798c8) nextstate 3 SVOP
+(0x81796c8) gvsv GV (0x80fa4d4) *b 4 SVOP (0x8179798) gvsv
+GV (0x80efeb0) *c 5 BINOP (0x8179878) add [1] 6 SVOP
+(0x816dd38) gvsv GV (0x80fa468) *a 7 BINOP (0x81798a0)
+sassign 8 LISTOP (0x8179900) leave</p>
+
+<p>This probably makes more sense for a human: enter a
+block, start a statement. Get the values of $b and $c, and
+add them together. Find $a, and assign one to the other.
+Then leave.</p>
+
+<p>The way Perl builds up these op trees in the parsing
+process can be unravelled by examining perly.y, the YACC
+grammar. Let s take the piece we need to construct the tree
+for &quot;$a = $b + $c&quot;</p>
+
+<p>1 term : term ASSIGNOP term 2 { $$ =
+newASSIGNOP(OPf_STACKED, $1, $2, $3); } 3 | term ADDOP term
+4 { $$ = newBINOP($2, 0, scalar($1), scalar($3)); }</p>
+
+<p>If youre not used to reading BNF grammars, this is how
+it works: Youre fed certain things by the tokeniser, which
+generally end up in upper case. Here, &quot;ADDOP&quot;, is
+provided when the tokeniser sees &quot;+&quot; in your code.
+&quot;ASSIGNOP&quot; is provided when &quot;=&quot; is used
+for assigning. These are &quot;terminal symbols&quot;,
+because you cant get any simpler than them.</p>
+
+<p>The grammar, lines one and three of the snippet above,
+tells you how to build up more complex forms. These complex
+forms, &quot;non-terminal symbols&quot; are generally placed
+in lower case. &quot;term&quot; here is a non- terminal
+symbol, representing a single expression.</p>
+
+<p>The grammar gives you the following rule: you can make
+the thing on the left of the colon if you see all the things
+on the right in sequence. This is called a
+&quot;reduction&quot;, and the aim of parsing is to
+completely reduce the input. There are several different
+ways you can perform a reduction, separated by vertical
+bars: so, &quot;term&quot; followed by &quot;=&quot;
+followed by &quot;term&quot; makes a &quot;term&quot;, and
+&quot;term&quot; followed by &quot;+&quot; followed by
+&quot;term&quot; can also make a &quot;term&quot;.</p>
+
+<p>So, if you see two terms with an &quot;=&quot; or
+&quot;+&quot;, between them, you can turn them into a single
+expression. When you do this, you execute the code in the
+block on the next line: if you see &quot;=&quot;, youll do
+the code in line 2. If you see &quot;+&quot;, youll do the
+code in line 4. It s this code which contributes to the op
+tree.</p>
+
+<p>| term ADDOP term { $$ = newBINOP($2, 0, scalar($1),
+scalar($3)); }</p>
+
+<p>What this does is creates a new binary op, and feeds it
+a number of variables. The variables refer to the tokens: $1
+is the first token in the input, $2 the second, and so on -
+think regular expression backreferences. $$ is the op
+returned from this reduction. So, we call
+&quot;newBINOP&quot; to create a new binary operator. The
+first parameter to &quot;newBINOP&quot;, a function in op.c,
+is the op type. Its an addition operator, so we want the
+type to be &quot;ADDOP&quot;. We could specify this
+directly, but its right there as the second token in the
+input, so we use $2. The second parameter is the op s flags:
+0 means &quot;nothing special&quot;. Then the things to add:
+the left and right hand side of our expression, in scalar
+context.</p>
+
+<p>Stacks When perl executes something like
+&quot;addop&quot;, how does it pass on its results to the
+next op? The answer is, through the use of stacks. Perl has
+a number of stacks to store things it s currently working
+on, and well look at the three most important ones here.</p>
+
+<p>Argument stack Arguments are passed to PP code and
+returned from PP code using the argument stack,
+&quot;ST&quot;. The typical way to handle arguments is to
+pop them off the stack, deal with them how you wish, and
+then push the result back onto the stack. This is how, for
+instance, the cosine operator works:</p>
+
+<p>NV value; value = POPn; value = Perl_cos(value);
+XPUSHn(value);</p>
+
+<p>Well see a more tricky example of this when we consider
+Perls macros below. &quot;POPn&quot; gives you the NV
+(floating point value) of the top SV on the stack: the $x in
+&quot;cos($x)&quot;. Then we compute the cosine, and push
+the result back as an NV. The &quot;X&quot; in
+&quot;XPUSHn&quot; means that the stack should be extended
+if necessary - it can t be necessary here, because we know
+there s room for one more item on the stack, since weve just
+removed one! The &quot;XPUSH*&quot; macros at least
+guarantee safety.</p>
+
+<p>Alternatively, you can fiddle with the stack directly:
+&quot;SP&quot; gives you the first element in your portion
+of the stack, and &quot;TOP*&quot; gives you the top
+SV/IV/NV/etc. on the stack. So, for instance, to do unary
+negation of an integer:</p>
+
+<p>SETi(-TOPi);</p>
+
+<p>Just set the integer value of the top stack entry to its
+negation.</p>
+
+<p>Argument stack manipulation in the core is exactly the
+same as it is in XSUBs - see perlxstut, perlxs and perlguts
+for a longer description of the macros used in stack
+manipulation.</p>
+
+<p>Mark stack I say &quot;your portion of the stack&quot;
+above because PP code doesnt necessarily get the whole stack
+to itself: if your function calls another function, you ll
+only want to expose the arguments aimed for the called
+function, and not (necessarily) let it get at your own data.
+The way we do this is to have a &quot;virtual&quot;
+bottom-of-stack, exposed to each function. The mark stack
+keeps bookmarks to locations in the argument stack usable by
+each function. For instance, when dealing with a tied
+variable, (internally, something with &quot;P&quot; magic)
+Perl has to call methods for accesses to the tied variables.
+However, we need to separate the arguments exposed to the
+method to the argument exposed to the original function -
+the store or fetch or whatever it may be. Heres roughly how
+the tied &quot;push&quot; is implemented; see
+&quot;av_push&quot; in av.c:</p>
+
+<p>1 PUSHMARK(SP); 2 EXTEND(SP,2); 3
+PUSHs(SvTIED_obj((SV*)av, mg)); 4 PUSHs(val); 5 PUTBACK; 6
+ENTER; 7 call_method(&quot;PUSH&quot;, G_SCALAR|G_DISCARD);
+8 LEAVE;</p>
+
+<p>Lets examine the whole implementation, for practice:</p>
+
+<p>1 PUSHMARK(SP);</p>
+
+<p>Push the current state of the stack pointer onto the
+mark stack. This is so that when weve finished adding items
+to the argument stack, Perl knows how many things weve added
+recently.</p>
+
+<p>2 EXTEND(SP,2); 3 PUSHs(SvTIED_obj((SV*)av, mg)); 4
+PUSHs(val);</p>
+
+<p>We re going to add two more items onto the argument
+stack: when you have a tied array, the &quot;PUSH&quot;
+subroutine receives the object and the value to be pushed,
+and thats exactly what we have here - the tied object,
+retrieved with &quot;SvTIED_obj&quot;, and the value, the SV
+&quot;val&quot;.</p>
+
+<p>5 PUTBACK;</p>
+
+<p>Next we tell Perl to update the global stack pointer
+from our internal variable: &quot;dSP&quot; only gave us a
+local copy, not a reference to the global.</p>
+
+<p>6 ENTER; 7 call_method(&quot;PUSH&quot;,
+G_SCALAR|G_DISCARD); 8 LEAVE;</p>
+
+<p>&quot;ENTER&quot; and &quot;LEAVE&quot; localise a block
+of code - they make sure that all variables are tidied up,
+everything that has been localised gets its previous value
+returned, and so on. Think of them as the &quot;{&quot; and
+&quot;}&quot; of a Perl block.</p>
+
+<p>To actually do the magic method call, we have to call a
+subroutine in Perl space: &quot;call_method&quot; takes care
+of that, and it s described in perlcall. We call the
+&quot;PUSH&quot; method in scalar context, and were going to
+discard its return value. The call_method() function removes
+the top element of the mark stack, so there is nothing for
+the caller to clean up.</p>
+
+<p>Save stack C doesn t have a concept of local scope, so
+perl provides one. Weve seen that &quot;ENTER&quot; and
+&quot;LEAVE&quot; are used as scoping braces; the save stack
+implements the C equivalent of, for example:</p>
+
+<p>{ local $foo = 42; ... }</p>
+
+<p>See &quot;Localising Changes&quot; in perlguts for how
+to use the save stack.</p>
+
+<p>Millions of Macros One thing youll notice about the Perl
+source is that it s full of macros. Some have called the
+pervasive use of macros the hardest thing to understand,
+others find it adds to clarity. Let s take an example, the
+code which implements the addition operator:</p>
+
+<p>1 PP(pp_add) 2 { 3 dSP; dATARGET;
+tryAMAGICbin(add,opASSIGN); 4 { 5 dPOPTOPnnrl_ul; 6 SETn(
+left + right ); 7 RETURN; 8 } 9 }</p>
+
+<p>Every line here (apart from the braces, of course)
+contains a macro. The first line sets up the function
+declaration as Perl expects for PP code; line 3 sets up
+variable declarations for the argument stack and the target,
+the return value of the operation. Finally, it tries to see
+if the addition operation is overloaded; if so, the
+appropriate subroutine is called.</p>
+
+<p>Line 5 is another variable declaration - all variable
+declarations start with &quot;d&quot; - which pops from the
+top of the argument stack two NVs (hence &quot;nn&quot;) and
+puts them into the variables &quot;right&quot; and
+&quot;left&quot;, hence the &quot;rl&quot;. These are the
+two operands to the addition operator. Next, we call
+&quot;SETn&quot; to set the NV of the return value to the
+result of adding the two values. This done, we return - the
+&quot;RETURN&quot; macro makes sure that our return value is
+properly handled, and we pass the next operator to run back
+to the main run loop.</p>
+
+<p>Most of these macros are explained in perlapi, and some
+of the more important ones are explained in perlxs as well.
+Pay special attention to &quot;Background and
+PERL_IMPLICIT_CONTEXT&quot; in perlguts for information on
+the &quot;[pad]THX_?&quot; macros.</p>
+
+<p>The .i Targets You can expand the macros in a foo.c file
+by saying</p>
+
+<p>make foo.i</p>
+
+<p>which will expand the macros using cpp. Dont be scared
+by the results.</p>
+
+<p>SOURCE CODE STATIC ANALYSIS Various tools exist for
+analysing C source code statically, as opposed to
+dynamically, that is, without executing the code. It is
+possible to detect resource leaks, undefined behaviour, type
+mismatches, portability problems, code paths that would
+cause illegal memory accesses, and other similar problems by
+just parsing the C code and looking at the resulting graph,
+what does it tell about the execution and data flows. As a
+matter of fact, this is exactly how C compilers know to give
+warnings about dubious code.</p>
+
+<p>lint, splint The good old C code quality inspector,
+&quot;lint&quot;, is available in several platforms, but
+please be aware that there are several different
+implementations of it by different vendors, which means that
+the flags are not identical across different platforms.</p>
+
+<p>There is a lint variant called &quot;splint&quot;
+(Secure Programming Lint) available from
+http://www.splint.org/ that should compile on any Unix- like
+platform.</p>
+
+<p>There are &quot;lint&quot; and &lt;splint&gt; targets in
+Makefile, but you may have to diddle with the flags (see
+above).</p>
+
+<p>Coverity Coverity (http://www.coverity.com/) is a
+product similar to lint and as a testbed for their product
+they periodically check several open source projects, and
+they give out accounts to open source developers to the
+defect databases.</p>
+
+<p>cpd (cut-and-paste detector) The cpd tool detects
+cut-and-paste coding. If one instance of the cut- and-pasted
+code changes, all the other spots should probably be
+changed, too. Therefore such code should probably be turned
+into a subroutine or a macro.</p>
+
+<p>cpd (http://pmd.sourceforge.net/cpd.html) is part of the
+pmd project (http://pmd.sourceforge.net/). pmd was
+originally written for static analysis of Java code, but
+later the cpd part of it was extended to parse also C and
+C++.</p>
+
+<p>Download the pmd-bin-X.Y.zip () from the SourceForge
+site, extract the pmd-X.Y.jar from it, and then run that on
+source code thusly:</p>
+
+<p>java -cp pmd-X.Y.jar net.sourceforge.pmd.cpd.CPD
+--minimum-tokens 100 --files /some/where/src --language c
+&gt; cpd.txt</p>
+
+<p>You may run into memory limits, in which case you should
+use the -Xmx option:</p>
+
+<p>java -Xmx512M ...</p>
+
+<p>gcc warnings Though much can be written about the
+inconsistency and coverage problems of gcc warnings (like
+&quot;-Wall&quot; not meaning &quot;all the warnings&quot;,
+or some common portability problems not being covered by
+&quot;-Wall&quot;, or &quot;-ansi&quot; and
+&quot;-pedantic&quot; both being a poorly defined collection
+of warnings, and so forth), gcc is still a useful tool in
+keeping our coding nose clean.</p>
+
+<p>The &quot;-Wall&quot; is by default on.</p>
+
+<p>The &quot;-ansi&quot; (and its sidekick,
+&quot;-pedantic&quot;) would be nice to be on always, but
+unfortunately they are not safe on all platforms, they can
+for example cause fatal conflicts with the system headers
+(Solaris being a prime example). If Configure
+&quot;-Dgccansipedantic&quot; is used, the
+&quot;cflags&quot; frontend selects &quot;-ansi
+-pedantic&quot; for the platforms where they are known to be
+safe.</p>
+
+<p>Starting from Perl 5.9.4 the following extra flags are
+added:</p>
+
+<p>&middot; &quot;-Wendif-labels&quot;</p>
+
+<p>&middot; &quot;-Wextra&quot;</p>
+
+<p>&middot; &quot;-Wdeclaration-after-statement&quot;</p>
+
+<p>The following flags would be nice to have but they would
+first need their own Augean stablemaster:</p>
+
+<p>&middot; &quot;-Wpointer-arith&quot;</p>
+
+<p>&middot; &quot;-Wshadow&quot;</p>
+
+<p>&middot; &quot;-Wstrict-prototypes&quot;</p>
+
+<p>The &quot;-Wtraditional&quot; is another example of the
+annoying tendency of gcc to bundle a lot of warnings under
+one switch -- it would be impossible to deploy in practice
+because it would complain a lot -- but it does contain some
+warnings that would be beneficial to have available on their
+own, such as the warning about string constants inside
+macros containing the macro arguments: this behaved
+differently pre-ANSI than it does in ANSI, and some C
+compilers are still in transition, AIX being an example.</p>
+
+<p>Warnings of other C compilers Other C compilers (yes,
+there are other C compilers than gcc) often have their
+&quot;strict ANSI&quot; or &quot;strict ANSI with some
+portability extensions&quot; modes on, like for example the
+Sun Workshop has its &quot;-Xa&quot; mode on (though
+implicitly), or the DEC (these days, HP...) has its
+&quot;-std1&quot; mode on.</p>
+
+<p>DEBUGGING You can compile a special debugging version of
+Perl, which allows you to use the &quot;-D&quot; option of
+Perl to tell more about what Perl is doing. But sometimes
+there is no alternative than to dive in with a debugger,
+either to see the stack trace of a core dump (very useful in
+a bug report), or trying to figure out what went wrong
+before the core dump happened, or how did we end up having
+wrong or unexpected results.</p>
+
+<p>Poking at Perl To really poke around with Perl, youll
+probably want to build Perl for debugging, like this:</p>
+
+<p>./Configure -d -D optimize=-g make</p>
+
+<p>&quot;-g&quot; is a flag to the C compiler to have it
+produce debugging information which will allow us to step
+through a running program, and to see in which C function we
+are at (without the debugging information we might see only
+the numerical addresses of the functions, which is not very
+helpful).</p>
+
+<p>Configure will also turn on the &quot;DEBUGGING&quot;
+compilation symbol which enables all the internal debugging
+code in Perl. There are a whole bunch of things you can
+debug with this: perlrun lists them all, and the best way to
+find out about them is to play about with them. The most
+useful options are probably</p>
+
+<p>l Context (loop) stack processing t Trace execution o
+Method and overloading resolution c String/numeric
+conversions</p>
+
+<p>Some of the functionality of the debugging code can be
+achieved using XS modules.</p>
+
+<p>-Dr =&gt; use re &rsquo;debug&rsquo; -Dx =&gt; use O
+&rsquo;Debug&rsquo;</p>
+
+<p>Using a source-level debugger If the debugging output of
+&quot;-D&quot; doesnt help you, its time to step through
+perls execution with a source-level debugger.</p>
+
+<p>&middot; Well use &quot;gdb&quot; for our examples here;
+the principles will apply to any debugger (many vendors call
+their debugger &quot;dbx&quot;), but check the manual of the
+one youre using.</p>
+
+<p>To fire up the debugger, type</p>
+
+<p>gdb ./perl</p>
+
+<p>Or if you have a core dump:</p>
+
+<p>gdb ./perl core</p>
+
+<p>Youll want to do that in your Perl source tree so the
+debugger can read the source code. You should see the
+copyright message, followed by the prompt.</p>
+
+<p>(gdb)</p>
+
+<p>&quot;help&quot; will get you into the documentation,
+but here are the most useful commands:</p>
+
+<p>run [args] Run the program with the given arguments.</p>
+
+<p>break function_name break source.c:xxx Tells the
+debugger that well want to pause execution when we reach
+either the named function (but see &quot;Internal
+Functions&quot; in perlguts!) or the given line in the named
+source file.</p>
+
+<p>step Steps through the program a line at a time.</p>
+
+<p>next Steps through the program a line at a time, without
+descending into functions.</p>
+
+<p>continue Run until the next breakpoint.</p>
+
+<p>finish Run until the end of the current function, then
+stop again.</p>
+
+<p>enter Just pressing Enter will do the most recent
+operation again - its a blessing when stepping through miles
+of source code.</p>
+
+<p>print Execute the given C code and print its results.
+WARNING: Perl makes heavy use of macros, and gdb does not
+necessarily support macros (see later &quot;gdb macro
+support&quot;). You ll have to substitute them yourself, or
+to invoke cpp on the source code files (see &quot;The .i
+Targets&quot;) So, for instance, you cant say</p>
+
+<p>print SvPV_nolen(sv)</p>
+
+<p>but you have to say</p>
+
+<p>print Perl_sv_2pv_nolen(sv)</p>
+
+<p>You may find it helpful to have a &quot;macro
+dictionary&quot;, which you can produce by saying &quot;cpp
+-dM perl.c | sort&quot;. Even then, cpp wont recursively
+apply those macros for you.</p>
+
+<p>gdb macro support Recent versions of gdb have fairly
+good macro support, but in order to use it youll need to
+compile perl with macro definitions included in the
+debugging information. Using gcc version 3.1, this means
+configuring with &quot;-Doptimize=-g3&quot;. Other compilers
+might use a different switch (if they support debugging
+macros at all).</p>
+
+<p>Dumping Perl Data Structures One way to get around this
+macro hell is to use the dumping functions in dump.c; these
+work a little like an internal Devel::Peek, but they also
+cover OPs and other structures that you cant get at from
+Perl. Let s take an example. Well use the &quot;$a = $b +
+$c&quot; we used before, but give it a bit of context:
+&quot;$b = &quot;6XXXX&quot;; $c = 2.3;&quot;. Where s a
+good place to stop and poke around?</p>
+
+<p>What about &quot;pp_add&quot;, the function we examined
+earlier to implement the &quot;+&quot; operator:</p>
+
+<p>(gdb) break Perl_pp_add Breakpoint 1 at 0x46249f: file
+pp_hot.c, line 309.</p>
+
+<p>Notice we use &quot;Perl_pp_add&quot; and not
+&quot;pp_add&quot; - see &quot;Internal Functions&quot; in
+perlguts. With the breakpoint in place, we can run our
+program:</p>
+
+<p>(gdb) run -e &rsquo;$b = &quot;6XXXX&quot;; $c = 2.3; $a
+= $b + $c&rsquo;</p>
+
+<p>Lots of junk will go past as gdb reads in the relevant
+source files and libraries, and then:</p>
+
+<p>Breakpoint 1, Perl_pp_add () at pp_hot.c:309 309 dSP;
+dATARGET; tryAMAGICbin(add,opASSIGN); (gdb) step 311
+dPOPTOPnnrl_ul; (gdb)</p>
+
+<p>We looked at this bit of code before, and we said that
+&quot;dPOPTOPnnrl_ul&quot; arranges for two &quot;NV&quot;s
+to be placed into &quot;left&quot; and &quot;right&quot; -
+lets slightly expand it:</p>
+
+<p>#define dPOPTOPnnrl_ul NV right = POPn; SV *leftsv =
+TOPs; NV left = USE_LEFT(leftsv) ? SvNV(leftsv) : 0.0</p>
+
+<p>&quot;POPn&quot; takes the SV from the top of the stack
+and obtains its NV either directly (if &quot;SvNOK&quot; is
+set) or by calling the &quot;sv_2nv&quot; function.
+&quot;TOPs&quot; takes the next SV from the top of the stack
+- yes, &quot;POPn&quot; uses &quot;TOPs&quot; - but doesnt
+remove it. We then use &quot;SvNV&quot; to get the NV from
+&quot;leftsv&quot; in the same way as before - yes,
+&quot;POPn&quot; uses &quot;SvNV&quot;.</p>
+
+<p>Since we dont have an NV for $b, well have to use
+&quot;sv_2nv&quot; to convert it. If we step again, well
+find ourselves there:</p>
+
+<p>Perl_sv_2nv (sv=0xa0675d0) at sv.c:1669 1669 if (!sv)
+(gdb)</p>
+
+<p>We can now use &quot;Perl_sv_dump&quot; to investigate
+the SV:</p>
+
+<p>SV = PV(0xa057cc0) at 0xa0675d0 REFCNT = 1 FLAGS =
+(POK,pPOK) PV = 0xa06a510 &quot;6XXXX&quot; CUR = 5 LEN = 6
+$1 = void</p>
+
+<p>We know were going to get 6 from this, so lets finish
+the subroutine:</p>
+
+<p>(gdb) finish Run till exit from #0 Perl_sv_2nv
+(sv=0xa0675d0) at sv.c:1671 0x462669 in Perl_pp_add () at
+pp_hot.c:311 311 dPOPTOPnnrl_ul;</p>
+
+<p>We can also dump out this op: the current op is always
+stored in &quot;PL_op&quot;, and we can dump it with
+&quot;Perl_op_dump&quot;. Thisll give us similar output to
+B::Debug.</p>
+
+<p>{ 13 TYPE = add ===&gt; 14 TARG = 1 FLAGS =
+(SCALAR,KIDS) { TYPE = null ===&gt; (12) (was rv2sv) FLAGS =
+(SCALAR,KIDS) { 11 TYPE = gvsv ===&gt; 12 FLAGS = (SCALAR)
+GV = main::b } }</p>
+
+<p># finish this later #</p>
+
+<p>Patching All right, weve now had a look at how to
+navigate the Perl sources and some things you ll need to
+know when fiddling with them. Lets now get on and create a
+simple patch. Here s something Larry suggested: if a
+&quot;U&quot; is the first active format during a
+&quot;pack&quot;, (for example, &quot;pack &quot;U3C8&quot;,
+@stuff&quot;) then the resulting string should be treated as
+UTF-8 encoded.</p>
+
+<p>How do we prepare to fix this up? First we locate the
+code in question - the &quot;pack&quot; happens at runtime,
+so its going to be in one of the pp files. Sure enough,
+&quot;pp_pack&quot; is in pp.c. Since were going to be
+altering this file, lets copy it to pp.c~.</p>
+
+<p>[Well, it was in pp.c when this tutorial was written. It
+has now been split off with &quot;pp_unpack&quot; to its own
+file, pp_pack.c]</p>
+
+<p>Now let s look over &quot;pp_pack&quot;: we take a
+pattern into &quot;pat&quot;, and then loop over the
+pattern, taking each format character in turn into
+&quot;datum_type&quot;. Then for each possible format
+character, we swallow up the other arguments in the pattern
+(a field width, an asterisk, and so on) and convert the next
+chunk input into the specified format, adding it onto the
+output SV &quot;cat&quot;.</p>
+
+<p>How do we know if the &quot;U&quot; is the first format
+in the &quot;pat&quot;? Well, if we have a pointer to the
+start of &quot;pat&quot; then, if we see a &quot;U&quot; we
+can test whether were still at the start of the string. So,
+here s where &quot;pat&quot; is set up:</p>
+
+<p>STRLEN fromlen; register char *pat = SvPVx(*++MARK,
+fromlen); register char *patend = pat + fromlen; register
+I32 len; I32 datumtype; SV *fromstr;</p>
+
+<p>Well have another string pointer in there:</p>
+
+<p>STRLEN fromlen; register char *pat = SvPVx(*++MARK,
+fromlen); register char *patend = pat + fromlen; + char
+*patcopy; register I32 len; I32 datumtype; SV *fromstr;</p>
+
+<p>And just before we start the loop, well set
+&quot;patcopy&quot; to be the start of &quot;pat&quot;:</p>
+
+<p>items = SP - MARK; MARK++; sv_setpvn(cat, &quot;&quot;,
+0); + patcopy = pat; while (pat &lt; patend) {</p>
+
+<p>Now if we see a &quot;U&quot; which was at the start of
+the string, we turn on the &quot;UTF8&quot; flag for the
+output SV, &quot;cat&quot;:</p>
+
+<p>+ if (datumtype == &rsquo;U&rsquo; &amp;&amp;
+pat==patcopy+1) + SvUTF8_on(cat); if (datumtype ==
+&rsquo;#&rsquo;) { while (pat &lt; patend &amp;&amp; *pat !=
+&rsquo;0) pat++;</p>
+
+<p>Remember that it has to be &quot;patcopy+1&quot; because
+the first character of the string is the &quot;U&quot; which
+has been swallowed into &quot;datumtype!&quot;</p>
+
+<p>Oops, we forgot one thing: what if there are spaces at
+the start of the pattern? &quot;pack(&quot; U*&quot;,
+@stuff)&quot; will have &quot;U&quot; as the first active
+character, even though it s not the first thing in the
+pattern. In this case, we have to advance
+&quot;patcopy&quot; along with &quot;pat&quot; when we see
+spaces:</p>
+
+<p>if (isSPACE(datumtype)) continue;</p>
+
+<p>needs to become</p>
+
+<p>if (isSPACE(datumtype)) { patcopy++; continue; }</p>
+
+<p>OK. That s the C part done. Now we must do two
+additional things before this patch is ready to go: weve
+changed the behaviour of Perl, and so we must document that
+change. We must also provide some more regression tests to
+make sure our patch works and doesnt create a bug somewhere
+else along the line.</p>
+
+<p>The regression tests for each operator live in t/op/,
+and so we make a copy of t/op/pack.t to t/op/pack.t~. Now we
+can add our tests to the end. First, we ll test that the
+&quot;U&quot; does indeed create Unicode strings.</p>
+
+<p>t/op/pack.t has a sensible ok() function, but if it didn
+t we could use the one from t/test.pl.</p>
+
+<p>require &rsquo;./test.pl&rsquo;; plan( tests =&gt; 159
+);</p>
+
+<p>so instead of this:</p>
+
+<p>print &rsquo;not &rsquo; unless
+&quot;1.20.300.4000&quot; eq sprintf &quot;%vd&quot;,
+pack(&quot;U*&quot;,1,20,300,4000); print &quot;ok $test0;
+$test++;</p>
+
+<p>we can write the more sensible (see Test::More for a
+full explanation of is() and other testing functions).</p>
+
+<p>is( &quot;1.20.300.4000&quot;, sprintf &quot;%vd&quot;,
+pack(&quot;U*&quot;,1,20,300,4000), &quot;U* produces
+Unicode&quot; );</p>
+
+<p>Now we ll test that we got that space-at-the-beginning
+business right:</p>
+
+<p>is( &quot;1.20.300.4000&quot;, sprintf &quot;%vd&quot;,
+pack(&quot; U*&quot;,1,20,300,4000), &quot; with spaces at
+the beginning&quot; );</p>
+
+<p>And finally well test that we dont make Unicode strings
+if &quot;U&quot; is not the first active format:</p>
+
+<p>isnt( v1.20.300.4000, sprintf &quot;%vd&quot;,
+pack(&quot;C0U*&quot;,1,20,300,4000), &quot;U* not first
+isn&rsquo;t Unicode&quot; );</p>
+
+<p>Mustn t forget to change the number of tests which
+appears at the top, or else the automated tester will get
+confused. This will either look like this:</p>
+
+<p>print &quot;1..1560;</p>
+
+<p>or this:</p>
+
+<p>plan( tests =&gt; 156 );</p>
+
+<p>We now compile up Perl, and run it through the test
+suite. Our new tests pass, hooray!</p>
+
+<p>Finally, the documentation. The job is never done until
+the paperwork is over, so lets describe the change weve just
+made. The relevant place is pod/perlfunc.pod; again, we make
+a copy, and then well insert this text in the description of
+&quot;pack&quot;:</p>
+
+<p>=item *</p>
+
+<p>If the pattern begins with a C&lt;U&gt;, the resulting
+string will be treated as UTF-8-encoded Unicode. You can
+force UTF-8 encoding on in a string with an initial
+C&lt;U0&gt;, and the bytes that follow will be interpreted
+as Unicode characters. If you don&rsquo;t want this to
+happen, you can begin your pattern with C&lt;C0&gt; (or
+anything else) to force Perl not to UTF-8 encode your
+string, and then follow this with a C&lt;U*&gt; somewhere in
+your pattern.</p>
+
+<p>All done. Now lets create the patch.
+Porting/patching.pod tells us that if were making major
+changes, we should copy the entire directory to somewhere
+safe before we begin fiddling, and then do</p>
+
+<p>diff -ruN old new &gt; patch</p>
+
+<p>However, we know which files weve changed, and we can
+simply do this:</p>
+
+<p>diff -u pp.c~ pp.c &gt; patch diff -u t/op/pack.t~
+t/op/pack.t &gt;&gt; patch diff -u pod/perlfunc.pod~
+pod/perlfunc.pod &gt;&gt; patch</p>
+
+<p>We end up with a patch looking a little like this:</p>
+
+<p>--- pp.c~ Fri Jun 02 04:34:10 2000 +++ pp.c Fri Jun 16
+11:37:25 2000 @@ -4375,6 +4375,7 @@ register I32 items;
+STRLEN fromlen; register char *pat = SvPVx(*++MARK,
+fromlen); + char *patcopy; register char *patend = pat +
+fromlen; register I32 len; I32 datumtype; @@ -4405,6 +4406,7
+@@ ...</p>
+
+<p>And finally, we submit it, with our rationale, to
+perl5-porters. Job done!</p>
+
+<p>Patching a core module This works just like patching
+anything else, with an extra consideration. Many core
+modules also live on CPAN. If this is so, patch the CPAN
+version instead of the core and send the patch off to the
+module maintainer (with a copy to p5p). This will help the
+module maintainer keep the CPAN version in sync with the
+core version without constantly scanning p5p.</p>
+
+<p>The list of maintainers of core modules is usefully
+documented in Porting/Maintainers.pl.</p>
+
+<p>Adding a new function to the core If, as part of a patch
+to fix a bug, or just because you have an especially good
+idea, you decide to add a new function to the core, discuss
+your ideas on p5p well before you start work. It may be that
+someone else has already attempted to do what you are
+considering and can give lots of good advice or even provide
+you with bits of code that they already started (but never
+finished).</p>
+
+<p>You have to follow all of the advice given above for
+patching. It is extremely important to test any addition
+thoroughly and add new tests to explore all boundary
+conditions that your new function is expected to handle. If
+your new function is used only by one module (e.g. toke),
+then it should probably be named S_your_function (for
+static); on the other hand, if you expect it to accessible
+from other functions in Perl, you should name it
+Perl_your_function. See &quot;Internal Functions&quot; in
+perlguts for more details.</p>
+
+<p>The location of any new code is also an important
+consideration. Dont just create a new top level .c file and
+put your code there; you would have to make changes to
+Configure (so the Makefile is created properly), as well as
+possibly lots of include files. This is strictly pumpking
+business.</p>
+
+<p>It is better to add your function to one of the existing
+top level source code files, but your choice is complicated
+by the nature of the Perl distribution. Only the files that
+are marked as compiled static are located in the perl
+executable. Everything else is located in the shared library
+(or DLL if you are running under WIN32). So, for example, if
+a function was only used by functions located in toke.c,
+then your code can go in toke.c. If, however, you want to
+call the function from universal.c, then you should put your
+code in another location, for example util.c.</p>
+
+<p>In addition to writing your c-code, you will need to
+create an appropriate entry in embed.pl describing your
+function, then run make regen_headers to create the entries
+in the numerous header files that perl needs to compile
+correctly. See &quot;Internal Functions&quot; in perlguts
+for information on the various options that you can set in
+embed.pl. You will forget to do this a few (or many) times
+and you will get warnings during the compilation phase. Make
+sure that you mention this when you post your patch to P5P;
+the pumpking needs to know this.</p>
+
+<p>When you write your new code, please be conscious of
+existing code conventions used in the perl source files. See
+perlstyle for details. Although most of the guidelines
+discussed seem to focus on Perl code, rather than c, they
+all apply (except when they don t ;). See also
+Porting/patching.pod file in the Perl source distribution
+for lots of details about both formatting and submitting
+patches of your changes.</p>
+
+<p>Lastly, TEST TEST TEST TEST TEST any code before posting
+to p5p. Test on as many platforms as you can find. Test as
+many perl Configure options as you can (e.g. MULTIPLICITY).
+If you have profiling or memory tools, see &quot;EXTERNAL
+TOOLS FOR DEBUGGING PERL&quot; below for how to use them to
+further test your code. Remember that most of the people on
+P5P are doing this on their own time and dont have the time
+to debug your code.</p>
+
+<p>Writing a test Every module and built-in function has an
+associated test file (or should...). If you add or change
+functionality, you have to write a test. If you fix a bug,
+you have to write a test so that bug never comes back. If
+you alter the docs, it would be nice to test what the new
+documentation says.</p>
+
+<p>In short, if you submit a patch you probably also have
+to patch the tests.</p>
+
+<p>For modules, the test file is right next to the module
+itself. lib/strict.t tests lib/strict.pm. This is a recent
+innovation, so there are some snags (and it would be
+wonderful for you to brush them out), but it basically works
+that way. Everything else lives in t/.</p>
+
+<p>If you add a new test directory under t/, it is
+imperative that you add that directory to t/HARNESS and
+t/TEST.</p>
+
+<p>t/base/ Testing of the absolute basic functionality of
+Perl. Things like &quot;if&quot;, basic file reads and
+writes, simple regexes, etc. These are run first in the test
+suite and if any of them fail, something is really
+broken.</p>
+
+<p>t/cmd/ These test the basic control structures,
+&quot;if/else&quot;, &quot;while&quot;, subroutines,
+etc.</p>
+
+<p>t/comp/ Tests basic issues of how Perl parses and
+compiles itself.</p>
+
+<p>t/io/ Tests for built-in IO functions, including command
+line arguments.</p>
+
+<p>t/lib/ The old home for the module tests, you shouldnt
+put anything new in here. There are still some bits and
+pieces hanging around in here that need to be moved. Perhaps
+you could move them? Thanks!</p>
+
+<p>t/mro/ Tests for perls method resolution order
+implementations (see mro).</p>
+
+<p>t/op/ Tests for perls built in functions that dont fit
+into any of the other directories.</p>
+
+<p>t/pod/ Tests for POD directives. There are still some
+tests for the Pod modules hanging around in here that need
+to be moved out into lib/.</p>
+
+<p>t/run/ Testing features of how perl actually runs,
+including exit codes and handling of PERL* environment
+variables.</p>
+
+<p>t/uni/ Tests for the core support of Unicode.</p>
+
+<p>t/win32/ Windows-specific tests.</p>
+
+<p>t/x2p A test suite for the s2p converter.</p>
+
+<p>The core uses the same testing style as the rest of
+Perl, a simple &quot;ok/not ok&quot; run through
+Test::Harness, but there are a few special
+considerations.</p>
+
+<p>There are three ways to write a test in the core.
+Test::More, t/test.pl and ad hoc &quot;print $test ?
+&quot;ok 420 : &quot;not ok 420&quot;. The decision of which
+to use depends on what part of the test suite youre working
+on. This is a measure to prevent a high-level failure (such
+as Config.pm breaking) from causing basic functionality
+tests to fail.</p>
+
+<p>t/base t/comp Since we don t know if require works, or
+even subroutines, use ad hoc tests for these two. Step
+carefully to avoid using the feature being tested.</p>
+
+<p>t/cmd t/run t/io t/op Now that basic require() and
+subroutines are tested, you can use the t/test.pl library
+which emulates the important features of Test::More while
+using a minimum of core features.</p>
+
+<p>You can also conditionally use certain libraries like
+Config, but be sure to skip the test gracefully if its not
+there.</p>
+
+<p>t/lib ext lib Now that the core of Perl is tested,
+Test::More can be used. You can also use the full suite of
+core modules in the tests.</p>
+
+<p>When you say &quot;make test&quot; Perl uses the t/TEST
+program to run the test suite (except under Win32 where it
+uses t/harness instead.) All tests are run from the t/
+directory, not the directory which contains the test. This
+causes some problems with the tests in lib/, so heres some
+opportunity for some patching.</p>
+
+<p>You must be triply conscious of cross-platform concerns.
+This usually boils down to using File::Spec and avoiding
+things like &quot;fork()&quot; and &quot;system()&quot;
+unless absolutely necessary.</p>
+
+<p>Special Make Test Targets There are various special make
+targets that can be used to test Perl slightly differently
+than the standard &quot;test&quot; target. Not all them are
+expected to give a 100% success rate. Many of them have
+several aliases, and many of them are not available on
+certain operating systems.</p>
+
+<p>coretest Run perl on all core tests (t/* and lib/[a-z]*
+pragma tests).</p>
+
+<p>(Not available on Win32)</p>
+
+<p>test.deparse Run all the tests through B::Deparse. Not
+all tests will succeed.</p>
+
+<p>(Not available on Win32)</p>
+
+<p>test.taintwarn Run all tests with the -t command-line
+switch. Not all tests are expected to succeed (until theyre
+specifically fixed, of course).</p>
+
+<p>(Not available on Win32)</p>
+
+<p>minitest Run miniperl on t/base, t/comp, t/cmd, t/run,
+t/io, t/op, t/uni and t/mro tests.</p>
+
+<p>test.valgrind check.valgrind utest.valgrind
+ucheck.valgrind (Only in Linux) Run all the tests using the
+memory leak + naughty memory access tool
+&quot;valgrind&quot;. The log files will be named
+testname.valgrind.</p>
+
+<p>test.third check.third utest.third ucheck.third (Only in
+Tru64) Run all the tests using the memory leak + naughty
+memory access tool &quot;Third Degree&quot;. The log files
+will be named perl.3log.testname.</p>
+
+<p>test.torture torturetest Run all the usual tests and
+some extra tests. As of Perl 5.8.0 the only extra tests are
+Abigails JAPHs, t/japh/abigail.t.</p>
+
+<p>You can also run the torture test with t/harness by
+giving &quot;-torture&quot; argument to t/harness.</p>
+
+<p>utest ucheck test.utf8 check.utf8 Run all the tests with
+-Mutf8. Not all tests will succeed.</p>
+
+<p>(Not available on Win32)</p>
+
+<p>minitest.utf16 test.utf16 Runs the tests with UTF-16
+encoded scripts, encoded with different versions of this
+encoding.</p>
+
+<p>&quot;make utest.utf16&quot; runs the test suite with a
+combination of &quot;-utf8&quot; and &quot;-utf16&quot;
+arguments to t/TEST.</p>
+
+<p>(Not available on Win32)</p>
+
+<p>test_harness Run the test suite with the t/harness
+controlling program, instead of t/TEST. t/harness is more
+sophisticated, and uses the Test::Harness module, thus using
+this test target supposes that perl mostly works. The main
+advantage for our purposes is that it prints a detailed
+summary of failed tests at the end. Also, unlike t/TEST, it
+doesnt redirect stderr to stdout.</p>
+
+<p>Note that under Win32 t/harness is always used instead
+of t/TEST, so there is no special &quot;test_harness&quot;
+target.</p>
+
+<p>Under Win32 s &quot;test&quot; target you may use the
+TEST_SWITCHES and TEST_FILES environment variables to
+control the behaviour of t/harness. This means you can
+say</p>
+
+<p>nmake test TEST_FILES=&quot;op/*.t&quot; nmake test
+TEST_SWITCHES=&quot;-torture&quot;
+TEST_FILES=&quot;op/*.t&quot;</p>
+
+<p>test-notty test_notty Sets PERL_SKIP_TTY_TEST to true
+before running normal test.</p>
+
+<p>Running tests by hand You can run part of the test suite
+by hand by using one the following commands from the t/
+directory :</p>
+
+<p>./perl -I../lib TEST list-of-.t-files</p>
+
+<p>or</p>
+
+<p>./perl -I../lib harness list-of-.t-files</p>
+
+<p>(if you don t specify test scripts, the whole test suite
+will be run.)</p>
+
+<p>Using t/harness for testing</p>
+
+<p>If you use &quot;harness&quot; for testing you have
+several command line options available to you. The arguments
+are as follows, and are in the order that they must appear
+if used together.</p>
+
+<p>harness -v -torture -re=pattern LIST OF FILES TO TEST
+harness -v -torture -re LIST OF PATTERNS TO MATCH</p>
+
+<p>If &quot;LIST OF FILES TO TEST&quot; is omitted the file
+list is obtained from the manifest. The file list may
+include shell wildcards which will be expanded out.</p>
+
+<p>-v Run the tests under verbose mode so you can see what
+tests were run, and debug output.</p>
+
+<p>-torture Run the torture tests as well as the normal
+set.</p>
+
+<p>-re=PATTERN Filter the file list so that all the test
+files run match PATTERN. Note that this form is distinct
+from the -re LIST OF PATTERNS form below in that it allows
+the file list to be provided as well.</p>
+
+<p>-re LIST OF PATTERNS Filter the file list so that all
+the test files run match /(LIST|OF|PATTERNS)/. Note that
+with this form the patterns are joined by | and you cannot
+supply a list of files, instead the test files are obtained
+from the MANIFEST.</p>
+
+<p>You can run an individual test by a command similar
+to</p>
+
+<p>./perl -I../lib patho/to/foo.t</p>
+
+<p>except that the harnesses set up some environment
+variables that may affect the execution of the test :</p>
+
+<p>PERL_CORE=1 indicates that were running this test part
+of the perl core test suite. This is useful for modules that
+have a dual life on CPAN.</p>
+
+<p>PERL_DESTRUCT_LEVEL=2 is set to 2 if it isn t set
+already (see &quot;PERL_DESTRUCT_LEVEL&quot;)</p>
+
+<p>PERL (used only by t/TEST) if set, overrides the path to
+the perl executable that should be used to run the tests
+(the default being ./perl).</p>
+
+<p>PERL_SKIP_TTY_TEST if set, tells to skip the tests that
+need a terminal. Its actually set automatically by the
+Makefile, but can also be forced artificially by running
+make test_notty.</p>
+
+<p>Other environment variables that may influence tests</p>
+
+<p>PERL_TEST_Net_Ping Setting this variable runs all the
+Net::Ping modules tests, otherwise some tests that interact
+with the outside world are skipped. See perl58delta.</p>
+
+<p>PERL_TEST_NOVREXX Setting this variable skips the
+vrexx.t tests for OS2::REXX.</p>
+
+<p>PERL_TEST_NUMCONVERTS This sets a variable in
+op/numconvert.t.</p>
+
+<p>See also the documentation for the Test and
+Test::Harness modules, for more environment variables that
+affect testing.</p>
+
+<p>Common problems when patching Perl source code Perl
+source plays by ANSI C89 rules: no C99 (or C++) extensions.
+In some cases we have to take pre-ANSI requirements into
+consideration. You dont care about some particular platform
+having broken Perl? I hear there is still a strong demand
+for J2EE programmers.</p>
+
+<p>Perl environment problems &middot; Not compiling with
+threading</p>
+
+<p>Compiling with threading (-Duseithreads) completely
+rewrites the function prototypes of Perl. You better try
+your changes with that. Related to this is the difference
+between &quot;Perl_-less&quot; and &quot;Perl_-ly&quot;
+APIs, for example:</p>
+
+<p>Perl_sv_setiv(aTHX_ ...); sv_setiv(...);</p>
+
+<p>The first one explicitly passes in the context, which is
+needed for e.g. threaded builds. The second one does that
+implicitly; do not get them mixed. If you are not passing in
+a aTHX_, you will need to do a dTHX (or a dVAR) as the first
+thing in the function.</p>
+
+<p>See &quot;How multiple interpreters and concurrency are
+supported&quot; in perlguts for further discussion about
+context.</p>
+
+<p>&middot; Not compiling with -DDEBUGGING</p>
+
+<p>The DEBUGGING define exposes more code to the compiler,
+therefore more ways for things to go wrong. You should try
+it.</p>
+
+<p>&middot; Introducing (non-read-only) globals</p>
+
+<p>Do not introduce any modifiable globals, truly global or
+file static. They are bad form and complicate multithreading
+and other forms of concurrency. The right way is to
+introduce them as new interpreter variables, see intrpvar.h
+(at the very end for binary compatibility).</p>
+
+<p>Introducing read-only (const) globals is okay, as long
+as you verify with e.g. &quot;nm libperl.a|egrep -v &rsquo;
+[TURtr] &rsquo;&quot; (if your &quot;nm&quot; has BSD-style
+output) that the data you added really is read-only. (If it
+is, it shouldnt show up in the output of that command.)</p>
+
+<p>If you want to have static strings, make them
+constant:</p>
+
+<p>static const char etc[] = &quot;...&quot;;</p>
+
+<p>If you want to have arrays of constant strings, note
+carefully the right combination of &quot;const&quot;s:</p>
+
+<p>static const char * const yippee[] = {&quot;hi&quot;,
+&quot;ho&quot;, &quot;silver&quot;};</p>
+
+<p>There is a way to completely hide any modifiable globals
+(they are all moved to heap), the compilation setting
+&quot;-DPERL_GLOBAL_STRUCT_PRIVATE&quot;. It is not normally
+used, but can be used for testing, read more about it in
+&quot;Background and PERL_IMPLICIT_CONTEXT&quot; in
+perlguts.</p>
+
+<p>&middot; Not exporting your new function</p>
+
+<p>Some platforms (Win32, AIX, VMS, OS/2, to name a few)
+require any function that is part of the public API (the
+shared Perl library) to be explicitly marked as exported.
+See the discussion about embed.pl in perlguts.</p>
+
+<p>&middot; Exporting your new function</p>
+
+<p>The new shiny result of either genuine new functionality
+or your arduous refactoring is now ready and correctly
+exported. So what could possibly go wrong?</p>
+
+<p>Maybe simply that your function did not need to be
+exported in the first place. Perl has a long and not so
+glorious history of exporting functions that it should not
+have.</p>
+
+<p>If the function is used only inside one source code
+file, make it static. See the discussion about embed.pl in
+perlguts.</p>
+
+<p>If the function is used across several files, but
+intended only for Perls internal use (and this should be the
+common case), do not export it to the public API. See the
+discussion about embed.pl in perlguts.</p>
+
+<p>Portability problems The following are common causes of
+compilation and/or execution failures, not common to Perl as
+such. The C FAQ is good bedtime reading. Please test your
+changes with as many C compilers and platforms as possible
+-- we will, anyway, and its nice to save oneself from public
+embarrassment.</p>
+
+<p>If using gcc, you can add the &quot;-std=c89&quot;
+option which will hopefully catch most of these
+unportabilities. (However it might also catch
+incompatibilities in your systems header files.)</p>
+
+<p>Use the Configure &quot;-Dgccansipedantic&quot; flag to
+enable the gcc &quot;-ansi -pedantic&quot; flags which
+enforce stricter ANSI rules.</p>
+
+<p>If using the &quot;gcc -Wall&quot; note that not all the
+possible warnings (like &quot;-Wunitialized&quot;) are given
+unless you also compile with &quot;-O&quot;.</p>
+
+<p>Note that if using gcc, starting from Perl 5.9.5 the
+Perl core source code files (the ones at the top level of
+the source code distribution, but not e.g. the extensions
+under ext/) are automatically compiled with as many as
+possible of the &quot;-std=c89&quot;, &quot;-ansi&quot;,
+&quot;-pedantic&quot;, and a selection of &quot;-W&quot;
+flags (see cflags.SH).</p>
+
+<p>Also study perlport carefully to avoid any bad
+assumptions about the operating system, filesystems, and so
+forth.</p>
+
+<p>You may once in a while try a &quot;make microperl&quot;
+to see whether we can still compile Perl with just the bare
+minimum of interfaces. (See README.micro.)</p>
+
+<p>Do not assume an operating system indicates a certain
+compiler.</p>
+
+<p>&middot; Casting pointers to integers or casting
+integers to pointers</p>
+
+<p>void castaway(U8* p) { IV i = p;</p>
+
+<p>or</p>
+
+<p>void castaway(U8* p) { IV i = (IV)p;</p>
+
+<p>Both are bad, and broken, and unportable. Use the
+PTR2IV() macro that does it right. (Likewise, there are
+PTR2UV(), PTR2NV(), INT2PTR(), and NUM2PTR().)</p>
+
+<p>&middot; Casting between data function pointers and data
+pointers</p>
+
+<p>Technically speaking casting between function pointers
+and data pointers is unportable and undefined, but
+practically speaking it seems to work, but you should use
+the FPTR2DPTR() and DPTR2FPTR() macros. Sometimes you can
+also play games with unions.</p>
+
+<p>&middot; Assuming sizeof(int) == sizeof(long)</p>
+
+<p>There are platforms where longs are 64 bits, and
+platforms where ints are 64 bits, and while we are out to
+shock you, even platforms where shorts are 64 bits. This is
+all legal according to the C standard. (In other words,
+&quot;long long&quot; is not a portable way to specify 64
+bits, and &quot;long long&quot; is not even guaranteed to be
+any wider than &quot;long&quot;.)</p>
+
+<p>Instead, use the definitions IV, UV, IVSIZE, I32SIZE,
+and so forth. Avoid things like I32 because they are not
+guaranteed to be exactly 32 bits, they are at least 32 bits,
+nor are they guaranteed to be int or long. If you really
+explicitly need 64-bit variables, use I64 and U64, but only
+if guarded by HAS_QUAD.</p>
+
+<p>&middot; Assuming one can dereference any type of
+pointer for any type of data</p>
+
+<p>char *p = ...; long pony = *p; /* BAD */</p>
+
+<p>Many platforms, quite rightly so, will give you a core
+dump instead of a pony if the p happens not be correctly
+aligned.</p>
+
+<p>&middot; Lvalue casts</p>
+
+<p>(int)*p = ...; /* BAD */</p>
+
+<p>Simply not portable. Get your lvalue to be of the right
+type, or maybe use temporary variables, or dirty tricks with
+unions.</p>
+
+<p>&middot; Assume anything about structs (especially the
+ones you dont control, like the ones coming from the system
+headers)</p>
+
+<p>&middot; That a certain field exists in a struct</p>
+
+<p>&middot; That no other fields exist besides the ones you
+know of</p>
+
+<p>&middot; That a field is of certain signedness, sizeof,
+or type</p>
+
+<p>&middot; That the fields are in a certain order</p>
+
+<p>&middot; While C guarantees the ordering specified in
+the struct definition, between different platforms the
+definitions might differ</p>
+
+<p>&middot; That the sizeof(struct) or the alignments are
+the same everywhere</p>
+
+<p>&middot; There might be padding bytes between the fields
+to align the fields - the bytes can be anything</p>
+
+<p>&middot; Structs are required to be aligned to the
+maximum alignment required by the fields - which for native
+types is for usually equivalent to sizeof() of the field</p>
+
+<p>&middot; Assuming the character set is ASCIIish</p>
+
+<p>Perl can compile and run under EBCDIC platforms. See
+perlebcdic. This is transparent for the most part, but
+because the character sets differ, you shouldnt use numeric
+(decimal, octal, nor hex) constants to refer to characters.
+You can safely say A, but not , but not 12. If a character
+0x41. You can safely say 0 doesn t have a trivial input
+form, you can create a #define for it in both
+&quot;utfebcdic.h&quot; and &quot;utf8.h&quot;, so that it
+resolves to different values depending on the character set
+being used. (There are three different EBCDIC character sets
+defined in &quot;utfebcdic.h&quot;, so it might be best to
+insert the #define three times in that file.)</p>
+
+<p>Also, the range A - Z in ASCII is an unbroken sequence
+of 26 upper case alphabetic characters. That is not true in
+EBCDIC. Nor for a to z. But 0 - 9 is an unbroken range in
+both systems. Dont assume anything about other ranges.</p>
+
+<p>Many of the comments in the existing code ignore the
+possibility of EBCDIC, and may be wrong therefore, even if
+the code works. This is actually a tribute to the successful
+transparent insertion of being able to handle EBCDIC without
+having to change pre-existing code.</p>
+
+<p>UTF-8 and UTF-EBCDIC are two different encodings used to
+represent Unicode code points as sequences of bytes. Macros
+with the same names (but different definitions) in
+&quot;utf8.h&quot; and &quot;utfebcdic.h&quot; are used to
+allow the calling code to think that there is only one such
+encoding. This is almost always referred to as
+&quot;utf8&quot;, but it means the EBCDIC version as well.
+Again, comments in the code may well be wrong even if the
+code itself is right. For example, the concept of
+&quot;invariant characters&quot; differs between ASCII and
+EBCDIC. On ASCII platforms, only characters that do not have
+the high-order bit set (i.e. whose ordinals are strict
+ASCII, 0 - 127) are invariant, and the documentation and
+comments in the code may assume that, often referring to
+something like, say, &quot;hibit&quot;. The situation
+differs and is not so simple on EBCDIC machines, but as long
+as the code itself uses the
+&quot;NATIVE_IS_INVARIANT()&quot; macro appropriately, it
+works, even if the comments are wrong.</p>
+
+<p>&middot; Assuming the character set is just ASCII</p>
+
+<p>ASCII is a 7 bit encoding, but bytes have 8 bits in
+them. The 128 extra characters have different meanings
+depending on the locale. Absent a locale, currently these
+extra characters are generally considered to be unassigned,
+and this has presented some problems. This is scheduled to
+be changed in 5.12 so that these characters will be
+considered to be Latin-1 (ISO-8859-1).</p>
+
+<p>&middot; Mixing #define and #ifdef</p>
+
+<p>#define BURGLE(x) ... #ifdef BURGLE_OLD_STYLE /* BAD */
+... do it the old way ... #else ... do it the new way ...
+#endif</p>
+
+<p>You cannot portably &quot;stack&quot; cpp directives.
+For example in the above you need two separate BURGLE()
+#defines, one for each #ifdef branch.</p>
+
+<p>&middot; Adding non-comment stuff after #endif or
+#else</p>
+
+<p>#ifdef SNOSH ... #else !SNOSH /* BAD */ ... #endif SNOSH
+/* BAD */</p>
+
+<p>The #endif and #else cannot portably have anything
+non-comment after them. If you want to document what is
+going (which is a good idea especially if the branches are
+long), use (C) comments:</p>
+
+<p>#ifdef SNOSH ... #else /* !SNOSH */ ... #endif /* SNOSH
+*/</p>
+
+<p>The gcc option &quot;-Wendif-labels&quot; warns about
+the bad variant (by default on starting from Perl
+5.9.4).</p>
+
+<p>&middot; Having a comma after the last element of an
+enum list</p>
+
+<p>enum color { CERULEAN, CHARTREUSE, CINNABAR, /* BAD */
+};</p>
+
+<p>is not portable. Leave out the last comma.</p>
+
+<p>Also note that whether enums are implicitly morphable to
+ints varies between compilers, you might need to (int).</p>
+
+<p>&middot; Using //-comments</p>
+
+<p>// This function bamfoodles the zorklator. /* BAD */</p>
+
+<p>That is C99 or C++. Perl is C89. Using the //-comments
+is silently allowed by many C compilers but cranking up the
+ANSI C89 strictness (which we like to do) causes the
+compilation to fail.</p>
+
+<p>&middot; Mixing declarations and code</p>
+
+<p>void zorklator() { int n = 3; set_zorkmids(n); /* BAD */
+int q = 4;</p>
+
+<p>That is C99 or C++. Some C compilers allow that, but you
+shouldnt.</p>
+
+<p>The gcc option
+&quot;-Wdeclaration-after-statements&quot; scans for such
+problems (by default on starting from Perl 5.9.4).</p>
+
+<p>&middot; Introducing variables inside for()</p>
+
+<p>for(int i = ...; ...; ...) { /* BAD */</p>
+
+<p>That is C99 or C++. While it would indeed be awfully
+nice to have that also in C89, to limit the scope of the
+loop variable, alas, we cannot.</p>
+
+<p>&middot; Mixing signed char pointers with unsigned char
+pointers</p>
+
+<p>int foo(char *s) { ... } ... unsigned char *t = ...; /*
+Or U8* t = ... */ foo(t); /* BAD */</p>
+
+<p>While this is legal practice, it is certainly dubious,
+and downright fatal in at least one platform: for example
+VMS cc considers this a fatal error. One cause for people
+often making this mistake is that a &quot;naked char&quot;
+and therefore dereferencing a &quot;naked char pointer&quot;
+have an undefined signedness: it depends on the compiler and
+the flags of the compiler and the underlying platform
+whether the result is signed or unsigned. For this very same
+reason using a char as an array index is bad.</p>
+
+<p>&middot; Macros that have string constants and their
+arguments as substrings of the string constants</p>
+
+<p>#define FOO(n) printf(&quot;number = %d0, n) /* BAD */
+FOO(10);</p>
+
+<p>Pre-ANSI semantics for that was equivalent to</p>
+
+<p>printf(&quot;10umber = %d10&quot;);</p>
+
+<p>which is probably not what you were expecting.
+Unfortunately at least one reasonably common and modern C
+compiler does &quot;real backward compatibility&quot; here,
+in AIX that is what still happens even though the rest of
+the AIX compiler is very happily C89.</p>
+
+<p>&middot; Using printf formats for non-basic C types</p>
+
+<p>IV i = ...; printf(&quot;i = %d0, i); /* BAD */</p>
+
+<p>While this might by accident work in some platform
+(where IV happens to be an &quot;int&quot;), in general it
+cannot. IV might be something larger. Even worse the
+situation is with more specific types (defined by Perl s
+configuration step in config.h):</p>
+
+<p>Uid_t who = ...; printf(&quot;who = %d0, who); /* BAD
+*/</p>
+
+<p>The problem here is that Uid_t might be not only not
+&quot;int&quot;-wide but it might also be unsigned, in which
+case large uids would be printed as negative values.</p>
+
+<p>There is no simple solution to this because of printf()s
+limited intelligence, but for many types the right format is
+available as with either f or _f suffix, for example:</p>
+
+<p>IVdf /* IV in decimal */ UVxf /* UV is hexadecimal
+*/</p>
+
+<p>printf(&quot;i = %&quot;IVdf&quot;0, i); /* The IVdf is
+a string constant. */</p>
+
+<p>Uid_t_f /* Uid_t in decimal */</p>
+
+<p>printf(&quot;who = %&quot;Uid_t_f&quot;0, who);</p>
+
+<p>Or you can try casting to a &quot;wide enough&quot;
+type:</p>
+
+<p>printf(&quot;i = %&quot;IVdf&quot;0,
+(IV)something_very_small_and_signed);</p>
+
+<p>Also remember that the %p format really does require a
+void pointer:</p>
+
+<p>U8* p = ...; printf(&quot;p = %p0, (void*)p);</p>
+
+<p>The gcc option &quot;-Wformat&quot; scans for such
+problems.</p>
+
+<p>&middot; Blindly using variadic macros</p>
+
+<p>gcc has had them for a while with its own syntax, and
+C99 brought them with a standardized syntax. Dont use the
+former, and use the latter only if the
+HAS_C99_VARIADIC_MACROS is defined.</p>
+
+<p>&middot; Blindly passing va_list</p>
+
+<p>Not all platforms support passing va_list to further
+varargs (stdarg) functions. The right thing to do is to copy
+the va_list using the Perl_va_copy() if the NEED_VA_COPY is
+defined.</p>
+
+<p>&middot; Using gcc statement expressions</p>
+
+<p>val = ({...;...;...}); /* BAD */</p>
+
+<p>While a nice extension, its not portable. The Perl code
+does admittedly use them if available to gain some extra
+speed (essentially as a funky form of inlining), but you
+shouldnt.</p>
+
+<p>&middot; Binding together several statements in a
+macro</p>
+
+<p>Use the macros STMT_START and STMT_END.</p>
+
+<p>STMT_START { ... } STMT_END</p>
+
+<p>&middot; Testing for operating systems or versions when
+should be testing for features</p>
+
+<p>#ifdef __FOONIX__ /* BAD */ foo = quux(); #endif</p>
+
+<p>Unless you know with 100% certainty that quux() is only
+ever available for the &quot;Foonix&quot; operating system
+and that is available and correctly working for all past,
+present, and future versions of &quot;Foonix&quot;, the
+above is very wrong. This is more correct (though still not
+perfect, because the below is a compile-time check):</p>
+
+<p>#ifdef HAS_QUUX foo = quux(); #endif</p>
+
+<p>How does the HAS_QUUX become defined where it needs to
+be? Well, if Foonix happens to be UNIXy enough to be able to
+run the Configure script, and Configure has been taught
+about detecting and testing quux(), the HAS_QUUX will be
+correctly defined. In other platforms, the corresponding
+configuration step will hopefully do the same.</p>
+
+<p>In a pinch, if you cannot wait for Configure to be
+educated, or if you have a good hunch of where quux() might
+be available, you can temporarily try the following:</p>
+
+<p>#if (defined(__FOONIX__) || defined(__BARNIX__)) #
+define HAS_QUUX #endif</p>
+
+<p>...</p>
+
+<p>#ifdef HAS_QUUX foo = quux(); #endif</p>
+
+<p>But in any case, try to keep the features and operating
+systems separate.</p>
+
+<p>Problematic System Interfaces &middot; malloc(0),
+realloc(0), calloc(0, 0) are non-portable. To be portable
+allocate at least one byte. (In general you should rarely
+need to work at this low level, but instead use the various
+malloc wrappers.)</p>
+
+<p>&middot; snprintf() - the return type is unportable. Use
+my_snprintf() instead.</p>
+
+<p>Security problems Last but not least, here are various
+tips for safer coding.</p>
+
+<p>&middot; Do not use gets()</p>
+
+<p>Or we will publicly ridicule you. Seriously.</p>
+
+<p>&middot; Do not use strcpy() or strcat() or strncpy() or
+strncat()</p>
+
+<p>Use my_strlcpy() and my_strlcat() instead: they either
+use the native implementation, or Perl s own implementation
+(borrowed from the public domain implementation of INN).</p>
+
+<p>&middot; Do not use sprintf() or vsprintf()</p>
+
+<p>If you really want just plain byte strings, use
+my_snprintf() and my_vsnprintf() instead, which will try to
+use snprintf() and vsnprintf() if those safer APIs are
+available. If you want something fancier than a plain byte
+string, use SVs and Perl_sv_catpvf().</p>
+
+<p>EXTERNAL TOOLS FOR DEBUGGING PERL Sometimes it helps to
+use external tools while debugging and testing Perl. This
+section tries to guide you through using some common testing
+and debugging tools with Perl. This is meant as a guide to
+interfacing these tools with Perl, not as any kind of guide
+to the use of the tools themselves.</p>
+
+<p>NOTE 1: Running under memory debuggers such as Purify,
+valgrind, or Third Degree greatly slows down the execution:
+seconds become minutes, minutes become hours. For example as
+of Perl 5.8.1, the ext/Encode/t/Unicode.t takes
+extraordinarily long to complete under e.g. Purify, Third
+Degree, and valgrind. Under valgrind it takes more than six
+hours, even on a snappy computer-- the said test must be
+doing something that is quite unfriendly for memory
+debuggers. If you dont feel like waiting, that you can
+simply kill away the perl process.</p>
+
+<p>NOTE 2: To minimize the number of memory leak false
+alarms (see &quot;PERL_DESTRUCT_LEVEL&quot; for more
+information), you have to have environment variable
+PERL_DESTRUCT_LEVEL set to 2. The TEST and harness scripts
+do that automatically. But if you are running some of the
+tests manually-- for csh-like shells:</p>
+
+<p>setenv PERL_DESTRUCT_LEVEL 2</p>
+
+<p>and for Bourne-type shells:</p>
+
+<p>PERL_DESTRUCT_LEVEL=2 export PERL_DESTRUCT_LEVEL</p>
+
+<p>or in UNIXy environments you can also use the
+&quot;env&quot; command:</p>
+
+<p>env PERL_DESTRUCT_LEVEL=2 valgrind ./perl -Ilib ...</p>
+
+<p>NOTE 3: There are known memory leaks when there are
+compile-time errors within eval or require, seeing
+&quot;S_doeval&quot; in the call stack is a good sign of
+these. Fixing these leaks is non-trivial, unfortunately, but
+they must be fixed eventually.</p>
+
+<p>NOTE 4: DynaLoader will not clean up after itself
+completely unless Perl is built with the Configure option
+&quot;-Accflags=-DDL_UNLOAD_ALL_AT_EXIT&quot;.</p>
+
+<p>Rational Softwars Purify Purify is a commercial tool
+that is helpful in identifying memory overruns, wild
+pointers, memory leaks and other such badness. Perl must be
+compiled in a specific way for optimal testing with Purify.
+Purify is available under Windows NT, Solaris, HP-UX, SGI,
+and Siemens Unix.</p>
+
+<p>Purify on Unix On Unix, Purify creates a new Perl
+binary. To get the most benefit out of Purify, you should
+create the perl to Purify using:</p>
+
+<p>sh Configure -Accflags=-DPURIFY
+-Doptimize=&rsquo;-g&rsquo; -Uusemymalloc
+-Dusemultiplicity</p>
+
+<p>where these arguments mean:</p>
+
+<p>-Accflags=-DPURIFY Disables Perl s arena memory
+allocation functions, as well as forcing use of memory
+allocation functions derived from the system malloc.</p>
+
+<p>-Doptimize=-g Adds debugging information so that you see
+the exact source statements where the problem occurs.
+Without this flag, all you will see is the source filename
+of where the error occurred.</p>
+
+<p>-Uusemymalloc Disable Perls malloc so that Purify can
+more closely monitor allocations and leaks. Using Perls
+malloc will make Purify report most leaks in the
+&quot;potential&quot; leaks category.</p>
+
+<p>-Dusemultiplicity Enabling the multiplicity option
+allows perl to clean up thoroughly when the interpreter
+shuts down, which reduces the number of bogus leak reports
+from Purify.</p>
+
+<p>Once youve compiled a perl suitable for Purify ing, then
+you can just:</p>
+
+<p>make pureperl</p>
+
+<p>which creates a binary named pureperl that has been
+Purify ed. This binary is used in place of the standard perl
+binary when you want to debug Perl memory problems.</p>
+
+<p>As an example, to show any memory leaks produced during
+the standard Perl testset you would create and run the
+Purify ed perl as:</p>
+
+<p>make pureperl cd t ../pureperl -I../lib harness</p>
+
+<p>which would run Perl on test.pl and report any memory
+problems.</p>
+
+<p>Purify outputs messages in &quot;Viewer&quot; windows by
+default. If you dont have a windowing environment or if you
+simply want the Purify output to unobtrusively go to a log
+file instead of to the interactive window, use these
+following options to output to the log file
+&quot;perl.log&quot;:</p>
+
+<p>setenv PURIFYOPTIONS &quot;-chain-length=25 -windows=no
+-log-file=perl.log -append-logfile=yes&quot;</p>
+
+<p>If you plan to use the &quot;Viewer&quot; windows, then
+you only need this option:</p>
+
+<p>setenv PURIFYOPTIONS &quot;-chain-length=25&quot;</p>
+
+<p>In Bourne-type shells:</p>
+
+<p>PURIFYOPTIONS=&quot;...&quot; export PURIFYOPTIONS</p>
+
+<p>or if you have the &quot;env&quot; utility:</p>
+
+<p>env PURIFYOPTIONS=&quot;...&quot; ../pureperl ...</p>
+
+<p>Purify on NT Purify on Windows NT instruments the Perl
+binary perl.exe on the fly. There are several options in the
+makefile you should change to get the most use out of
+Purify:</p>
+
+<p>DEFINES You should add -DPURIFY to the DEFINES line so
+the DEFINES line looks something like:</p>
+
+<p>DEFINES = -DWIN32 -D_CONSOLE -DNO_STRICT $(CRYPT_FLAG)
+-DPURIFY=1</p>
+
+<p>to disable Perls arena memory allocation functions, as
+well as to force use of memory allocation functions derived
+from the system malloc.</p>
+
+<p>USE_MULTI = define Enabling the multiplicity option
+allows perl to clean up thoroughly when the interpreter
+shuts down, which reduces the number of bogus leak reports
+from Purify.</p>
+
+<p>#PERL_MALLOC = define Disable Perls malloc so that
+Purify can more closely monitor allocations and leaks. Using
+Perls malloc will make Purify report most leaks in the
+&quot;potential&quot; leaks category.</p>
+
+<p>CFG = Debug Adds debugging information so that you see
+the exact source statements where the problem occurs.
+Without this flag, all you will see is the source filename
+of where the error occurred.</p>
+
+<p>As an example, to show any memory leaks produced during
+the standard Perl testset you would create and run Purify
+as:</p>
+
+<p>cd win32 make cd ../t purify ../perl -I../lib
+harness</p>
+
+<p>which would instrument Perl in memory, run Perl on
+test.pl, then finally report any memory problems.</p>
+
+<p>valgrind The excellent valgrind tool can be used to find
+out both memory leaks and illegal memory accesses. As of
+version 3.3.0, Valgrind only supports Linux on x86, x86-64
+and PowerPC. The special &quot;test.valgrind&quot; target
+can be used to run the tests under valgrind. Found errors
+and memory leaks are logged in files named
+testfile.valgrind.</p>
+
+<p>Valgrind also provides a cachegrind tool, invoked on
+perl as:</p>
+
+<p>VG_OPTS=--tool=cachegrind make test.valgrind</p>
+
+<p>As system libraries (most notably glibc) are also
+triggering errors, valgrind allows to suppress such errors
+using suppression files. The default suppression file that
+comes with valgrind already catches a lot of them. Some
+additional suppressions are defined in t/perl.supp.</p>
+
+<p>To get valgrind and for more information see</p>
+
+<p>http://developer.kde.org/~sewardj/</p>
+
+<p>Compas/Digitas/Hs Third Degree Third Degree is a tool
+for memory leak detection and memory access checks. It is
+one of the many tools in the ATOM toolkit. The toolkit is
+only available on Tru64 (formerly known as Digital UNIX
+formerly known as DEC OSF/1).</p>
+
+<p>When building Perl, you must first run Configure with
+-Doptimize=-g and -Uusemymalloc flags, after that you can
+use the make targets &quot;perl.third&quot; and
+&quot;test.third&quot;. (What is required is that Perl must
+be compiled using the &quot;-g&quot; flag, you may need to
+re-Configure.)</p>
+
+<p>The short story is that with &quot;atom&quot; you can
+instrument the Perl executable to create a new executable
+called perl.third. When the instrumented executable is run,
+it creates a log of dubious memory traffic in file called
+perl.3log. See the manual pages of atom and third for more
+information. The most extensive Third Degree documentation
+is available in the Compaq &quot;Tru64 UNIX Programmers
+Guide&quot;, chapter &quot;Debugging Programs with Third
+Degree&quot;.</p>
+
+<p>The &quot;test.third&quot; leaves a lot of files named
+foo_bar.3log in the t/ subdirectory. There is a problem with
+these files: Third Degree is so effective that it finds
+problems also in the system libraries. Therefore you should
+used the Porting/thirdclean script to cleanup the *.3log
+files.</p>
+
+<p>There are also leaks that for given certain definition
+of a leak, arent. See &quot;PERL_DESTRUCT_LEVEL&quot; for
+more information.</p>
+
+<p>PERL_DESTRUCT_LEVEL If you want to run any of the tests
+yourself manually using e.g. valgrind, or the pureperl or
+perl.third executables, please note that by default perl
+does not explicitly cleanup all the memory it has allocated
+(such as global memory arenas) but instead lets the exit()
+of the whole program &quot;take care&quot; of such
+allocations, also known as &quot;global destruction of
+objects&quot;.</p>
+
+<p>There is a way to tell perl to do complete cleanup: set
+the environment variable PERL_DESTRUCT_LEVEL to a non-zero
+value. The t/TEST wrapper does set this to 2, and this is
+what you need to do too, if you dont want to see the
+&quot;global leaks&quot;: For example, for
+&quot;third-degreed&quot; Perl:</p>
+
+<p>env PERL_DESTRUCT_LEVEL=2 ./perl.third -Ilib
+t/foo/bar.t</p>
+
+<p>(Note: the mod_perl apache module uses also this
+environment variable for its own purposes and extended its
+semantics. Refer to the mod_perl documentation for more
+information. Also, spawned threads do the equivalent of
+setting this variable to the value 1.)</p>
+
+<p>If, at the end of a run you get the message N scalars
+leaked, you can recompile with
+&quot;-DDEBUG_LEAKING_SCALARS&quot;, which will cause the
+addresses of all those leaked SVs to be dumped along with
+details as to where each SV was originally allocated. This
+information is also displayed by Devel::Peek. Note that the
+extra details recorded with each SV increases memory usage,
+so it shouldnt be used in production environments. It also
+converts &quot;new_SV()&quot; from a macro into a real
+function, so you can use your favourite debugger to discover
+where those pesky SVs were allocated.</p>
+
+<p>If you see that you re leaking memory at runtime, but
+neither valgrind nor &quot;-DDEBUG_LEAKING_SCALARS&quot;
+will find anything, youre probably leaking SVs that are
+still reachable and will be properly cleaned up during
+destruction of the interpreter. In such cases, using the
+&quot;-Dm&quot; switch can point you to the source of the
+leak. If the executable was built with
+&quot;-DDEBUG_LEAKING_SCALARS&quot;, &quot;-Dm&quot; will
+output SV allocations in addition to memory allocations.
+Each SV allocation has a distinct serial number that will be
+written on creation and destruction of the SV. So if youre
+executing the leaking code in a loop, you need to look for
+SVs that are created, but never destroyed between each
+cycle. If such an SV is found, set a conditional breakpoint
+within &quot;new_SV()&quot; and make it break only when
+&quot;PL_sv_serial&quot; is equal to the serial number of
+the leaking SV. Then you will catch the interpreter in
+exactly the state where the leaking SV is allocated, which
+is sufficient in many cases to find the source of the
+leak.</p>
+
+<p>As &quot;-Dm&quot; is using the PerlIO layer for output,
+it will by itself allocate quite a bunch of SVs, which are
+hidden to avoid recursion. You can bypass the PerlIO layer
+if you use the SV logging provided by
+&quot;-DPERL_MEM_LOG&quot; instead.</p>
+
+<p>PERL_MEM_LOG If compiled with
+&quot;-DPERL_MEM_LOG&quot;, all Newx() and Renew()
+allocations and Safefree() in the Perl core go through
+logging functions, which is handy for breakpoint setting. If
+also compiled with &quot;-DPERL_MEM_LOG_STDERR&quot;, the
+allocations and frees are logged to STDERR (or more
+precisely, to the file descriptor 2) in these logging
+functions, with the calling source code file and line number
+(and C function name, if supported by the C compiler).</p>
+
+<p>This logging is somewhat similar to &quot;-Dm&quot; but
+independent of &quot;-DDEBUGGING&quot;, and at a higher
+level (the &quot;-Dm&quot; is directly at the point of
+&quot;malloc()&quot;, while the &quot;PERL_MEM_LOG&quot; is
+at the level of &quot;New()&quot;).</p>
+
+<p>In addition to memory allocations, SV allocations will
+be logged, just as with &quot;-Dm&quot;. However, since the
+logging doesn t use PerlIO, all SV allocations are logged
+and no extra SV allocations are introduced by enabling the
+logging. If compiled with
+&quot;-DDEBUG_LEAKING_SCALARS&quot;, the serial number for
+each SV allocation is also logged.</p>
+
+<p>You can control the logging from your environment if you
+compile with &quot;-DPERL_MEM_LOG_ENV&quot;. Then you need
+to explicitly set &quot;PERL_MEM_LOG&quot; and/or
+&quot;PERL_SV_LOG&quot; to a non-zero value to enable
+logging of memory and/or SV allocations.</p>
+
+<p>Profiling Depending on your platform there are various
+of profiling Perl.</p>
+
+<p>There are two commonly used techniques of profiling
+executables: statistical time-sampling and basic-block
+counting.</p>
+
+<p>The first method takes periodically samples of the CPU
+program counter, and since the program counter can be
+correlated with the code generated for functions, we get a
+statistical view of in which functions the program is
+spending its time. The caveats are that very small/fast
+functions have lower probability of showing up in the
+profile, and that periodically interrupting the program
+(this is usually done rather frequently, in the scale of
+milliseconds) imposes an additional overhead that may skew
+the results. The first problem can be alleviated by running
+the code for longer (in general this is a good idea for
+profiling), the second problem is usually kept in guard by
+the profiling tools themselves.</p>
+
+<p>The second method divides up the generated code into
+basic blocks. Basic blocks are sections of code that are
+entered only in the beginning and exited only at the end.
+For example, a conditional jump starts a basic block. Basic
+block profiling usually works by instrumenting the code by
+adding enter basic block #nnnn book-keeping code to the
+generated code. During the execution of the code the basic
+block counters are then updated appropriately. The caveat is
+that the added extra code can skew the results: again, the
+profiling tools usually try to factor their own effects out
+of the results.</p>
+
+<p>Gprof Profiling gprof is a profiling tool available in
+many UNIX platforms, it uses statistical time-sampling.</p>
+
+<p>You can build a profiled version of perl called
+&quot;perl.gprof&quot; by invoking the make target
+&quot;perl.gprof&quot; (What is required is that Perl must
+be compiled using the &quot;-pg&quot; flag, you may need to
+re-Configure). Running the profiled version of Perl will
+create an output file called gmon.out is created which
+contains the profiling data collected during the
+execution.</p>
+
+<p>The gprof tool can then display the collected data in
+various ways. Usually gprof understands the following
+options:</p>
+
+<p>-a Suppress statically defined functions from the
+profile.</p>
+
+<p>-b Suppress the verbose descriptions in the profile.</p>
+
+<p>-e routine Exclude the given routine and its descendants
+from the profile.</p>
+
+<p>-f routine Display only the given routine and its
+descendants in the profile.</p>
+
+<p>-s Generate a summary file called gmon.sum which then
+may be given to subsequent gprof runs to accumulate data
+over several runs.</p>
+
+<p>-z Display routines that have zero usage.</p>
+
+<p>For more detailed explanation of the available commands
+and output formats, see your own local documentation of
+gprof.</p>
+
+<p>quick hint:</p>
+
+<p>$ sh Configure -des -Dusedevel
+-Doptimize=&rsquo;-g&rsquo; -Accflags=&rsquo;-pg&rsquo;
+-Aldflags=&rsquo;-pg&rsquo; &amp;&amp; make $ ./perl
+someprog # creates gmon.out in current directory $ gprof
+perl &gt; out $ view out</p>
+
+<p>GCC gcov Profiling Starting from GCC 3.0 basic block
+profiling is officially available for the GNU CC.</p>
+
+<p>You can build a profiled version of perl called
+perl.gcov by invoking the make target &quot;perl.gcov&quot;
+(what is required that Perl must be compiled using gcc with
+the flags &quot;-fprofile-arcs -ftest-coverage&quot;, you
+may need to re-Configure).</p>
+
+<p>Running the profiled version of Perl will cause profile
+output to be generated. For each source file an accompanying
+&quot;.da&quot; file will be created.</p>
+
+<p>To display the results you use the &quot;gcov&quot;
+utility (which should be installed if you have gcc 3.0 or
+newer installed). gcov is run on source code files, like
+this</p>
+
+<p>gcov sv.c</p>
+
+<p>which will cause sv.c.gcov to be created. The .gcov
+files contain the source code annotated with relative
+frequencies of execution indicated by &quot;#&quot;
+markers.</p>
+
+<p>Useful options of gcov include &quot;-b&quot; which will
+summarise the basic block, branch, and function call
+coverage, and &quot;-c&quot; which instead of relative
+frequencies will use the actual counts. For more information
+on the use of gcov and basic block profiling with gcc, see
+the latest GNU CC manual, as of GCC 3.0 see</p>
+
+<p>http://gcc.gnu.org/onlinedocs/gcc-3.0/gcc.html</p>
+
+<p>and its section titled &quot;8. gcov: a Test Coverage
+Program&quot;</p>
+
+
+<p>http://gcc.gnu.org/onlinedocs/gcc-3.0/gcc_8.html#SEC132</p>
+
+<p>quick hint:</p>
+
+<p>$ sh Configure -des -Doptimize=&rsquo;-g&rsquo;
+-Accflags=&rsquo;-fprofile-arcs -ftest-coverage&rsquo;
+-Aldflags=&rsquo;-fprofile-arcs -ftest-coverage&rsquo;
+&amp;&amp; make perl.gcov $ rm -f regexec.c.gcov
+regexec.gcda $ ./perl.gcov $ gcov regexec.c $ view
+regexec.c.gcov</p>
+
+<p>Pixie Profiling Pixie is a profiling tool available on
+IRIX and Tru64 (aka Digital UNIX aka DEC OSF/1) platforms.
+Pixie does its profiling using basic-block counting.</p>
+
+<p>You can build a profiled version of perl called
+perl.pixie by invoking the make target
+&quot;perl.pixie&quot; (what is required is that Perl must
+be compiled using the &quot;-g&quot; flag, you may need to
+re-Configure).</p>
+
+<p>In Tru64 a file called perl.Addrs will also be silently
+created, this file contains the addresses of the basic
+blocks. Running the profiled version of Perl will create a
+new file called &quot;perl.Counts&quot; which contains the
+counts for the basic block for that particular program
+execution.</p>
+
+<p>To display the results you use the prof utility. The
+exact incantation depends on your operating system,
+&quot;prof perl.Counts&quot; in IRIX, and &quot;prof -pixie
+-all -L. perl&quot; in Tru64.</p>
+
+<p>In IRIX the following prof options are available:</p>
+
+<p>-h Reports the most heavily used lines in descending
+order of use. Useful for finding the hotspot lines.</p>
+
+<p>-l Groups lines by procedure, with procedures sorted in
+descending order of use. Within a procedure, lines are
+listed in source order. Useful for finding the hotspots of
+procedures.</p>
+
+<p>In Tru64 the following options are available:</p>
+
+<p>-p[rocedures] Procedures sorted in descending order by
+the number of cycles executed in each procedure. Useful for
+finding the hotspot procedures. (This is the default
+option.)</p>
+
+<p>-h[eavy] Lines sorted in descending order by the number
+of cycles executed in each line. Useful for finding the
+hotspot lines.</p>
+
+<p>-i[nvocations] The called procedures are sorted in
+descending order by number of calls made to the procedures.
+Useful for finding the most used procedures.</p>
+
+<p>-l[ines] Grouped by procedure, sorted by cycles executed
+per procedure. Useful for finding the hotspots of
+procedures.</p>
+
+<p>-testcoverage The compiler emitted code for these lines,
+but the code was unexecuted.</p>
+
+<p>-z[ero] Unexecuted procedures.</p>
+
+<p>For further information, see your systems manual pages
+for pixie and prof.</p>
+
+<p>Miscellaneous tricks &middot; Those debugging perl with
+the DDD frontend over gdb may find the following useful:</p>
+
+<p>You can extend the data conversion shortcuts menu, so
+for example you can display an SV s IV value with one click,
+without doing any typing. To do that simply edit ~/.ddd/init
+file and add after:</p>
+
+<p>! Display shortcuts. Ddd*gdbDisplayShortcuts: /t () //
+Convert to Bin /d () // Convert to Dec /x () // Convert to
+Hex /o () // Convert to Oct( the following two lines:</p>
+
+<p>((XPV*) (())-&gt;sv_any )-&gt;xpv_pv // 2pvx ((XPVIV*)
+(())-&gt;sv_any )-&gt;xiv_iv // 2ivx</p>
+
+<p>so now you can do ivx and pvx lookups or you can plug
+there the sv_peek &quot;conversion&quot;:</p>
+
+<p>Perl_sv_peek(my_perl, (SV*)()) // sv_peek</p>
+
+<p>(The my_perl is for threaded builds.) Just remember that
+every line, but the last one, should end with Alternatively
+edit the init file interactively via: 3rd mouse button -&gt;
+New Display -&gt; Edit Menu</p>
+
+<p>Note: you can define up to 20 conversion shortcuts in
+the gdb section.</p>
+
+<p>&middot; If you see in a debugger a memory area
+mysteriously full of 0xABABABAB or 0xEFEFEFEF, you may be
+seeing the effect of the Poison() macros, see perlclib.</p>
+
+<p>&middot; Under ithreads the optree is read only. If you
+want to enforce this, to check for write accesses from buggy
+code, compile with &quot;-DPL_OP_SLAB_ALLOC&quot; to enable
+the OP slab allocator and
+&quot;-DPERL_DEBUG_READONLY_OPS&quot; to enable code that
+allocates op memory via &quot;mmap&quot;, and sets it
+read-only at run time. Any write access to an op results in
+a &quot;SIGBUS&quot; and abort.</p>
+
+<p>This code is intended for development only, and may not
+be portable even to all Unix variants. Also, it is an 80%
+solution, in that it isnt able to make all ops read only.
+Specifically it</p>
+
+<p>1. Only sets read-only on all slabs of ops at
+&quot;CHECK&quot; time, hence ops allocated later via
+&quot;require&quot; or &quot;eval&quot; will be re-write</p>
+
+<p>2. Turns an entire slab of ops read-write if the
+refcount of any op in the slab needs to be decreased.</p>
+
+<p>3. Turns an entire slab of ops read-write if any op from
+the slab is freed.</p>
+
+<p>Its not possible to turn the slabs to read-only after an
+action requiring read-write access, as either can happen
+during op tree building time, so there may still be
+legitimate write access.</p>
+
+<p>However, as an 80% solution it is still effective, as
+currently it catches a write access during the generation of
+Config.pm, which means that we cant yet build perl with this
+enabled.</p>
+
+<p>CONCLUSION We ve had a brief look around the Perl
+source, how to maintain quality of the source code, an
+overview of the stages perl goes through when its running
+your code, how to use debuggers to poke at the Perl guts,
+and finally how to analyse the execution of Perl. We took a
+very simple problem and demonstrated how to solve it fully -
+with documentation, regression tests, and finally a patch
+for submission to p5p. Finally, we talked about how to use
+external tools to debug and test Perl.</p>
+
+<p>Id now suggest you read over those references again, and
+then, as soon as possible, get your hands dirty. The best
+way to learn is by doing, so:</p>
+
+<p>&middot; Subscribe to perl5-porters, follow the patches
+and try and understand them; don t be afraid to ask if
+theres a portion youre not clear on - who knows, you may
+unearth a bug in the patch...</p>
+
+<p>&middot; Keep up to date with the bleeding edge Perl
+distributions and get familiar with the changes. Try and get
+an idea of what areas people are working on and the changes
+theyre making.</p>
+
+<p>&middot; Do read the README associated with your
+operating system, e.g. README.aix on the IBM AIX OS. Dont
+hesitate to supply patches to that README if you find
+anything missing or changed over a new OS release.</p>
+
+<p>&middot; Find an area of Perl that seems interesting to
+you, and see if you can work out how it works. Scan through
+the source, and step over it in the debugger. Play, poke,
+investigate, fiddle! Youll probably get to understand not
+just your chosen area but a much wider range of perls
+activity as well, and probably sooner than you d think.</p>
+
+<p>The Road goes ever on and on, down from the door where
+it began.</p>
+
+<p>If you can do these things, youve started on the long
+road to Perl porting. Thanks for wanting to help make Perl
+better - and happy hacking!</p>
+
+<p>Metaphoric Quotations If you recognized the quote about
+the Road above, youre in luck.</p>
+
+<p>Most software projects begin each file with a literal
+description of each files purpose. Perl instead begins each
+with a literary allusion to that files purpose.</p>
+
+<p>Like chapters in many books, all top-level Perl source
+files (along with a few others here and there) begin with an
+epigramic inscription that alludes, indirectly and
+metaphorically, to the material youre about to read.</p>
+
+<p>Quotations are taken from writings of J.R.R Tolkien
+pertaining to his Legendarium, almost always from The Lord
+of the Rings. Chapters and page numbers are given using the
+following editions:</p>
+
+<p>&middot; The Hobbit, by J.R.R. Tolkien. The hardcover,
+70th-anniversary edition of 2007 was used, published in the
+UK by Harper Collins Publishers and in the US by the
+Houghton Mifflin Company.</p>
+
+<p>&middot; The Lord of the Rings, by J.R.R. Tolkien. The
+hardcover, 50th-anniversary edition of 2004 was used,
+published in the UK by Harper Collins Publishers and in the
+US by the Houghton Mifflin Company.</p>
+
+<p>&middot; The Lays of Beleriand, by J.R.R. Tolkien and
+published posthumously by his son and literary executor,
+C.J.R. Tolkien, being the 3rd of the 12 volumes in
+Christopher s mammoth History of Middle Earth. Page numbers
+derive from the hardcover edition, first published in 1983
+by George Allen &amp; Unwin; no page numbers changed for the
+special 3-volume omnibus edition of 2002 or the various
+trade-paper editions, all again now by Harper Collins or
+Houghton Mifflin.</p>
+
+<p>Other JRRT books fair game for quotes would thus include
+The Adventures of Tom Bombadil, The Silmarillion, Unfinished
+Tales, and The Tale of the Children of Hurin, all but the
+first posthumously assembled by CJRT. But The Lord of the
+Rings itself is perfectly fine and probably best to quote
+from, provided you can find a suitable quote there.</p>
+
+<p>So if you were to supply a new, complete, top-level
+source file to add to Perl, you should conform to this
+peculiar practice by yourself selecting an appropriate
+quotation from Tolkien, retaining the original spelling and
+punctuation and using the same format the rest of the quotes
+are in. Indirect and oblique is just fine; remember, its a
+metaphor, so being meta is, after all, what its for.</p>
+
+<p>AUTHOR This document was written by Nathan Torkington,
+and is maintained by the perl5-porters mailing list.</p>
+
+<p>SEE ALSO perlrepository</p>
+
+<p>perl v5.10.1 2009-08-03 PERLHACK(1)</p>
+<hr>
+</body>
+</html>

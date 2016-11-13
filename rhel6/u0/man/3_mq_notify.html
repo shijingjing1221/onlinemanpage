@@ -1,0 +1,192 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:07:44 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>MQ_NOTIFY(3) Linux Programmer s Manual MQ_NOTIFY(3)</p>
+
+<p>NAME mq_notify - register for notification when a
+message is available</p>
+
+<p>SYNOPSIS #include &lt;mqueue.h&gt;</p>
+
+<p>mqd_t mq_notify(mqd_t mqdes, const struct sigevent
+*notification);</p>
+
+<p>Link with -lrt.</p>
+
+<p>DESCRIPTION mq_notify() allows the calling process to
+register or unregister for delivery of an asynchronous
+notification when a new message arrives on the empty message
+queue referred to by the descriptor mqdes.</p>
+
+<p>The notification argument is a pointer to a sigevent
+structure that is defined something like the following:</p>
+
+<p>union sigval { /* Data passed with notification */ int
+sival_int; /* Integer value */ void *sival_ptr; /* Pointer
+value */ };</p>
+
+<p>struct sigevent { int sigev_notify; /* Notification
+method */ int sigev_signo; /* Notification signal */ union
+sigval sigev_value; /* Data passed with notification */ void
+(*sigev_notify_function) (union sigval); /* Function for
+thread notification */ void *sigev_notify_attributes; /*
+Thread function attributes */ };</p>
+
+<p>If notification is a non-NULL pointer, then mq_notify()
+registers the calling process to receive message
+notification. The sigev_notify field of the sigevent to
+which notification points specifies how noti- fication is to
+be performed. This field has one of the following val-
+ues:</p>
+
+<p>SIGEV_NONE A &quot;null&quot; notification: the calling
+process is registered as the target for notification, but
+when a message arrives, no notifi- cation is sent.</p>
+
+<p>SIGEV_SIGNAL Notify the process by sending the signal
+specified in sigev_signo. If the signal is caught with a
+signal handler that was registered using the sigaction(2)
+SA_SIGINFO flag, then the following fields are set in the
+siginfo_t structure that is passed as the second argument of
+the handler: si_code is set to SI_MESGQ; si_signo is set to
+the signal number; si_value is set to the value specified in
+notification-&gt;sigev_value; si_pid is set to the PID of
+the process that sent the message; and si_uid is set to the
+real user ID of the sending process. The same information is
+available if the signal is accepted using sig-
+waitinfo(2).</p>
+
+<p>SIGEV_THREAD Deliver notification by invoking notifica-
+tion-&gt;sigev_notify_function as the start function of a
+new thread. The function is invoked with
+notification-&gt;sigev_value as its sole argument. If
+notification-&gt;sigev_notify_attributes is not NULL, then
+it should point to a pthread_attr_t structure that defines
+attributes for the thread (see pthread_attr_init(3)).</p>
+
+<p>Only one process can be registered to receive
+notification from a mes- sage queue.</p>
+
+<p>If notification is NULL, and the calling process is
+currently regis- tered to receive notifications for this
+message queue, then the regis- tration is removed; another
+process can then register to receive a mes- sage
+notification for this queue.</p>
+
+<p>Message notification only occurs when a new message
+arrives and the queue was previously empty. If the queue was
+not empty at the time mq_notify() was called, then a
+notification will only occur after the queue is emptied and
+a new message arrives.</p>
+
+<p>If another process or thread is waiting to read a
+message from an empty queue using mq_receive(3), then any
+message notification registration is ignored: the message is
+delivered to the process or thread calling mq_receive(3),
+and the message notification registration remains in
+effect.</p>
+
+<p>Notification occurs once: after a notification is
+delivered, the noti- fication registration is removed, and
+another process can register for message notification. If
+the notified process wishes to receive the next
+notification, it can use mq_notify() to request a further
+notifi- cation. This should be done before emptying all
+unread messages from the queue. (Placing the queue in
+non-blocking mode is useful for emp- tying the queue of
+messages without blocking once it is empty.)</p>
+
+<p>RETURN VALUE On success mq_notify() returns 0; on error,
+-1 is returned, with errno set to indicate the error.</p>
+
+<p>ERRORS EBADF The descriptor specified in mqdes is
+invalid.</p>
+
+<p>EBUSY Another process has already registered to receive
+notification for this message queue.</p>
+
+<p>EINVAL notification-&gt;sigev_notify is not one of the
+permitted values; or notification-&gt;sigev_notify is
+SIGEV_SIGNAL and notifica- tion-&gt;sigev_signo is not a
+valid signal number.</p>
+
+<p>ENOMEM Insufficient memory.</p>
+
+<p>POSIX.1-2008 says that an implementation may generate an
+EINVAL error if notification is NULL, and the caller is not
+currently registered to receive notifications for the queue
+mqdes.</p>
+
+<p>CONFORMING TO POSIX.1-2001.</p>
+
+<p>EXAMPLE The following program registers a notification
+request for the message queue named in its command-line
+argument. Notification is performed by creating a thread.
+The thread executes a function which reads one mes- sage
+from the queue and then terminates the process.</p>
+
+<p>#include &lt;pthread.h&gt; #include &lt;mqueue.h&gt;
+#include &lt;assert.h&gt; #include &lt;stdio.h&gt; #include
+&lt;stdlib.h&gt; #include &lt;unistd.h&gt;</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>static void /* Thread start function */ tfunc(union
+sigval sv) { struct mq_attr attr; ssize_t nr; void *buf;
+mqd_t mqdes = *((mqd_t *) sv.sival_ptr);</p>
+
+<p>/* Determine max. msg size; allocate buffer to receive
+msg */</p>
+
+<p>if (mq_getattr(mqdes, &amp;attr) == -1)
+handle_error(&quot;mq_getattr&quot;); buf =
+malloc(attr.mq_msgsize); if (buf == NULL)
+handle_error(&quot;malloc&quot;);</p>
+
+<p>nr = mq_receive(mqdes, buf, attr.mq_msgsize, NULL); if
+(nr == -1) handle_error(&quot;mq_receive&quot;);</p>
+
+<p>printf(&quot;Read %ld bytes from MQ0, (long) nr);
+free(buf); exit(EXIT_SUCCESS); /* Terminate the process */
+}</p>
+
+<p>int main(int argc, char *argv[]) { mqd_t mqdes; struct
+sigevent not;</p>
+
+<p>assert(argc == 2);</p>
+
+<p>mqdes = mq_open(argv[1], O_RDONLY); if (mqdes == (mqd_t)
+-1) handle_error(&quot;mq_open&quot;);</p>
+
+<p>not.sigev_notify = SIGEV_THREAD;
+not.sigev_notify_function = tfunc;
+not.sigev_notify_attributes = NULL;
+not.sigev_value.sival_ptr = &amp;mqdes; /* Arg. to thread
+func. */ if (mq_notify(mqdes, &amp;not) == -1)
+handle_error(&quot;mq_notify&quot;);</p>
+
+<p>pause(); /* Process will be terminated by thread
+function */ }</p>
+
+<p>SEE ALSO mq_close(3), mq_getattr(3), mq_open(3),
+mq_receive(3), mq_send(3), mq_unlink(3), mq_overview(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-03-31 MQ_NOTIFY(3)</p>
+<hr>
+</body>
+</html>

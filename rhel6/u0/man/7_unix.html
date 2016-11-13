@@ -1,0 +1,248 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:24:07 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>UNIX(7) Linux Programmer s Manual UNIX(7)</p>
+
+<p>NAME unix, AF_UNIX, AF_LOCAL - Sockets for local
+interprocess communication</p>
+
+<p>SYNOPSIS #include &lt;sys/socket.h&gt; #include
+&lt;sys/un.h&gt;</p>
+
+<p>unix_socket = socket(AF_UNIX, type, 0); error =
+socketpair(AF_UNIX, type, 0, int *sv);</p>
+
+<p>DESCRIPTION The AF_UNIX (also known as AF_LOCAL) socket
+family is used to communi- cate between processes on the
+same machine efficiently. Traditionally, Unix sockets can be
+either unnamed, or bound to a file system pathname (marked
+as being of type socket). Linux also supports an abstract
+namespace which is independent of the file system.</p>
+
+<p>Valid types are: SOCK_STREAM, for a stream-oriented
+socket and SOCK_DGRAM, for a datagram-oriented socket that
+preserves message boundaries (as on most Unix
+implementations, Unix domain datagram sock- ets are always
+reliable and dont reorder datagrams); and (since Linux
+2.6.4) SOCK_SEQPACKET, for a connection-oriented socket that
+preserves message boundaries and delivers messages in the
+order that they were sent.</p>
+
+<p>Unix sockets support passing file descriptors or process
+credentials to other processes using ancillary data.</p>
+
+<p>Address Format A Unix domain socket address is
+represented in the following structure:</p>
+
+<p>#define UNIX_PATH_MAX 108</p>
+
+<p>struct sockaddr_un { sa_family_t sun_family; /* AF_UNIX
+*/ char sun_path[UNIX_PATH_MAX]; /* pathname */ };</p>
+
+<p>sun_family always contains AF_UNIX.</p>
+
+<p>Three types of address are distinguished in this
+structure:</p>
+
+<p>* pathname: a Unix domain socket can be bound to a
+null-terminated file system pathname using bind(2). When the
+address of the socket is returned by getsockname(2),
+getpeername(2), and accept(2), its length is
+sizeof(sa_family_t) + strlen(sun_path) + 1, and sun_path
+contains the null-terminated pathname.</p>
+
+<p>* unnamed: A stream socket that has not been bound to a
+pathname using bind(2) has no name. Likewise, the two
+sockets created by socket- pair(2) are unnamed. When the
+address of an unnamed socket is returned by getsockname(2),
+getpeername(2), and accept(2), its length is
+sizeof(sa_family_t), and sun_path should not be
+inspected.</p>
+
+<p>* abstract: an abstract socket address is distinguished
+by the fact that sun_path[0] is a null byte ( ). All of the
+remaining bytes in sun_path define the &quot;name&quot; of
+the socket. (Null bytes in the name have no special
+significance.) The name has no connection with file system
+pathnames. The sockets address in this namespace is given by
+the rest of the bytes in sun_path. When the address of an
+abstract socket is returned by getsockname(2),
+getpeername(2), and accept(2), its length is sizeof(struct
+sockaddr_un), and sun_path contains the abstract name. The
+abstract socket namespace is a non- portable Linux
+extension.</p>
+
+<p>Socket Options For historical reasons these socket
+options are specified with a SOL_SOCKET type even though
+they are AF_UNIX specific. They can be set with
+setsockopt(2) and read with getsockopt(2) by specifying
+SOL_SOCKET as the socket family.</p>
+
+<p>SO_PASSCRED Enables the receiving of the credentials of
+the sending process ancillary message. When this option is
+set and the socket is not yet connected a unique name in the
+abstract namespace will be generated automatically. Expects
+an integer boolean flag.</p>
+
+<p>Sockets API The following paragraphs describe
+domain-specific details and unsup- ported features of the
+sockets API for Unix domain sockets on Linux.</p>
+
+<p>Unix domain sockets do not support the transmission of
+out-of-band data (the MSG_OOB flag for send(2) and
+recv(2)).</p>
+
+<p>The send(2) MSG_MORE flag is not supported by Unix
+domain sockets.</p>
+
+<p>The use of MSG_TRUNC in the flags argument of recv(2) is
+not supported by Unix domain sockets.</p>
+
+<p>The SO_SNDBUF socket option does have an effect for Unix
+domain sock- ets, but the SO_RCVBUF option does not. For
+datagram sockets, the SO_SNDBUF value imposes an upper limit
+on the size of outgoing data- grams. This limit is
+calculated as the doubled (see socket(7)) option value less
+32 bytes used for overhead.</p>
+
+<p>Ancillary Messages Ancillary data is sent and received
+using sendmsg(2) and recvmsg(2). For historical reasons the
+ancillary message types listed below are specified with a
+SOL_SOCKET type even though they are AF_UNIX specific. To
+send them set the cmsg_level field of the struct cmsghdr to
+SOL_SOCKET and the cmsg_type field to the type. For more
+information see cmsg(3).</p>
+
+<p>SCM_RIGHTS Send or receive a set of open file
+descriptors from another pro- cess. The data portion
+contains an integer array of the file descriptors. The
+passed file descriptors behave as though they have been
+created with dup(2).</p>
+
+<p>SCM_CREDENTIALS Send or receive Unix credentials. This
+can be used for authen- tication. The credentials are passed
+as a struct ucred ancil- lary message. Thus structure is
+defined in &lt;sys/socket.h&gt; as follows:</p>
+
+<p>struct ucred { pid_t pid; /* process ID of the sending
+process */ uid_t uid; /* user ID of the sending process */
+gid_t gid; /* group ID of the sending process */ };</p>
+
+<p>Since glibc 2.8, the _GNU_SOURCE feature test macro must
+be defined in order to obtain the definition of this
+structure.</p>
+
+<p>The credentials which the sender specifies are checked
+by the kernel. A process with effective user ID 0 is allowed
+to spec- ify values that do not match its own. The sender
+must specify its own process ID (unless it has the
+capability CAP_SYS_ADMIN), its user ID, effective user ID,
+or saved set-user-ID (unless it has CAP_SETUID), and its
+group ID, effective group ID, or saved set-group-ID (unless
+it has CAP_SETGID). To receive a struct ucred message the
+SO_PASSCRED option must be enabled on the socket.</p>
+
+<p>ERRORS EADDRINUSE Selected local address is already
+taken or file system socket object already exists.</p>
+
+<p>ECONNREFUSED connect(2) called with a socket object that
+isn t listening. This can happen when the remote socket does
+not exist or the filename is not a socket.</p>
+
+<p>ECONNRESET Remote socket was unexpectedly closed.</p>
+
+<p>EFAULT User memory address was not valid.</p>
+
+<p>EINVAL Invalid argument passed. A common cause is the
+missing setting of AF_UNIX in the sun_type field of passed
+addresses or the socket being in an invalid state for the
+applied operation.</p>
+
+<p>EISCONN connect(2) called on an already connected socket
+or a target address was specified on a connected socket.</p>
+
+<p>ENOMEM Out of memory.</p>
+
+<p>ENOTCONN Socket operation needs a target address, but
+the socket is not connected.</p>
+
+<p>EOPNOTSUPP Stream operation called on non-stream
+oriented socket or tried to use the out-of-band data
+option.</p>
+
+<p>EPERM The sender passed invalid credentials in the
+struct ucred.</p>
+
+<p>EPIPE Remote socket was closed on a stream socket. If
+enabled, a SIG- PIPE is sent as well. This can be avoided by
+passing the MSG_NOSIGNAL flag to sendmsg(2) or
+recvmsg(2).</p>
+
+<p>EPROTONOSUPPORT Passed protocol is not AF_UNIX.</p>
+
+<p>EPROTOTYPE Remote socket does not match the local socket
+type (SOCK_DGRAM vs. SOCK_STREAM)</p>
+
+<p>ESOCKTNOSUPPORT Unknown socket type.</p>
+
+<p>Other errors can be generated by the generic socket
+layer or by the file system while generating a file system
+socket object. See the appropriate manual pages for more
+information.</p>
+
+<p>VERSIONS SCM_CREDENTIALS and the abstract namespace were
+introduced with Linux 2.2 and should not be used in portable
+programs. (Some BSD-derived systems also support credential
+passing, but the implementation details differ.)</p>
+
+<p>NOTES In the Linux implementation, sockets which are
+visible in the file sys- tem honor the permissions of the
+directory they are in. Their owner, group and their
+permissions can be changed. Creation of a new socket will
+fail if the process does not have write and search (execute)
+per- mission on the directory the socket is created in.
+Connecting to the socket object requires read/write
+permission. This behavior differs from many BSD-derived
+systems which ignore permissions for Unix sock- ets.
+Portable programs should not rely on this feature for
+security.</p>
+
+<p>Binding to a socket with a filename creates a socket in
+the file system that must be deleted by the caller when it
+is no longer needed (using unlink(2)). The usual Unix
+close-behind semantics apply; the socket can be unlinked at
+any time and will be finally removed from the file system
+when the last reference to it is closed.</p>
+
+<p>To pass file descriptors or credentials over a
+SOCK_STREAM, you need to send or receive at least one byte
+of non-ancillary data in the same sendmsg(2) or recvmsg(2)
+call.</p>
+
+<p>Unix domain stream sockets do not support the notion of
+out-of-band data.</p>
+
+<p>EXAMPLE See bind(2).</p>
+
+<p>SEE ALSO recvmsg(2), sendmsg(2), socket(2),
+socketpair(2), cmsg(3), capabili- ties(7), credentials(7),
+socket(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-12-01 UNIX(7)</p>
+<hr>
+</body>
+</html>

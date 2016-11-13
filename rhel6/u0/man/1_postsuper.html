@@ -1,0 +1,240 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:11:13 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>POSTSUPER(1) POSTSUPER(1)</p>
+
+<p>NAME postsuper - Postfix superintendent</p>
+
+<p>SYNOPSIS postsuper [-psv] [-c config_dir] [-d queue_id]
+[-h queue_id] [-H queue_id] [-r queue_id] [directory
+...]</p>
+
+<p>DESCRIPTION The postsuper(1) command does maintenance
+jobs on the Postfix queue. Use of the command is restricted
+to the superuser. See the postqueue(1) command for
+unprivileged queue operations such as listing or flushing
+the mail queue.</p>
+
+<p>By default, postsuper(1) performs the operations
+requested with the -s and -p command-line options on all
+Postfix queue directories - this includes the incoming,
+active and deferred directories with mail files and the
+bounce, defer, trace and flush directories with log
+files.</p>
+
+<p>Options:</p>
+
+<p>-c config_dir The main.cf configuration file is in the
+named directory instead of the default configuration
+directory. See also the MAIL_CONFIG environment setting
+below.</p>
+
+<p>-d queue_id Delete one message with the named queue ID
+from the named mail queue(s) (default: hold, incoming,
+active and deferred).</p>
+
+<p>If a queue_id of - is specified, the program reads queue
+IDs from standard input. For example, to delete all mail
+with exactly one recipient user@example.com:</p>
+
+<p>mailq | tail +2 | grep -v ^ *( | awk &acute;BEGIN { RS =
+&quot;&quot; } # $7=sender, $8=recipient1, $9=recipient2 {
+if ($8 == &quot;user@example.com&quot; &amp;&amp; $9 ==
+&quot;&quot;) print $1 } &acute; | tr -d *! | postsuper -d
+-</p>
+
+<p>Specify &quot;-d ALL&quot; to remove all messages; for
+example, specify &quot;-d ALL deferred&quot; to delete all
+mail in the deferred queue. As a safety measure, the word
+ALL must be specified in upper case.</p>
+
+<p>Warning: Postfix queue IDs are reused. There is a very
+small possibility that postsuper deletes the wrong message
+file when it is executed while the Postfix mail system is
+delivering mail.</p>
+
+<p>The scenario is as follows:</p>
+
+<p>1) The Postfix queue manager deletes the message that
+post- super(1) is asked to delete, because Postfix is
+finished with the message (it is delivered, or it is
+returned to the sender).</p>
+
+<p>2) New mail arrives, and the new message is given the
+same queue ID as the message that postsuper(1) is supposed
+to delete. The probability for reusing a deleted queue ID is
+about 1 in 2**15 (the number of different microsecond values
+that the system clock can distinguish within a second).</p>
+
+<p>3) postsuper(1) deletes the new message, instead of the
+old message that it should have deleted.</p>
+
+<p>-h queue_id Put mail &quot;on hold&quot; so that no
+attempt is made to deliver it. Move one message with the
+named queue ID from the named mail queue(s) (default:
+incoming, active and deferred) to the hold queue.</p>
+
+<p>If a queue_id of - is specified, the program reads queue
+IDs from standard input.</p>
+
+<p>Specify &quot;-h ALL&quot; to hold all messages; for
+example, specify &quot;-h ALL deferred&quot; to hold all
+mail in the deferred queue. As a safety measure, the word
+ALL must be specified in upper case.</p>
+
+<p>Note: while mail is &quot;on hold&quot; it will not
+expire when its time in the queue exceeds the
+maximal_queue_lifetime or bounce_queue_lifetime setting. It
+becomes subject to expiration after it is released from
+&quot;hold&quot;.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>-H queue_id Release mail that was put &quot;on
+hold&quot;. Move one message with the named queue ID from
+the named mail queue(s) (default: hold) to the deferred
+queue.</p>
+
+<p>If a queue_id of - is specified, the program reads queue
+IDs from standard input.</p>
+
+<p>Note: specify &quot;postsuper -r&quot; to release mail
+that was kept on hold for a significant fraction of
+$maximal_queue_lifetime or $bounce_queue_lifetime, or
+longer.</p>
+
+<p>Specify &quot;-H ALL&quot; to release all mail that is
+&quot;on hold&quot;. As a safety measure, the word ALL must
+be specified in upper case.</p>
+
+<p>This feature is available in Postfix 2.0 and later.</p>
+
+<p>-p Purge old temporary files that are left over after
+system or software crashes.</p>
+
+<p>-r queue_id Requeue the message with the named queue ID
+from the named mail queue(s) (default: hold, incoming,
+active and deferred). To requeue multiple messages, specify
+multiple -r command-line options.</p>
+
+<p>Alternatively, if a queue_id of - is specified, the
+program reads queue IDs from standard input.</p>
+
+<p>Specify &quot;-r ALL&quot; to requeue all messages. As a
+safety measure, the word ALL must be specified in upper
+case.</p>
+
+<p>A requeued message is moved to the maildrop queue, from
+where it is copied by the pickup(8) and cleanup(8) daemons
+to a new queue file. In many respects its handling differs
+from that of a new local submission.</p>
+
+<p>&middot; The message is not subjected to the
+smtpd_milters or non_smtpd_milters settings. When mail has
+passed through an external content filter, this would
+produce incorrect results with Milter applications that
+depend on original SMTP connection state information.</p>
+
+<p>&middot; The message is subjected again to mail address
+rewriting and substitution. This is useful when rewriting
+rules or virtual mappings have changed.</p>
+
+<p>The address rewriting context (local or remote) is the
+same as when the message was received.</p>
+
+<p>&middot; The message is subjected to the same
+content_filter set- tings (if any) as used for new local
+mail submissions. This is useful when content_filter
+settings have changed.</p>
+
+<p>Warning: Postfix queue IDs are reused. There is a very
+small possibility that postsuper(1) requeues the wrong
+message file when it is executed while the Postfix mail
+system is running, but no harm should be done.</p>
+
+<p>This feature is available in Postfix 1.1 and later.</p>
+
+<p>-s Structure check and structure repair. This should be
+done once before Postfix startup.</p>
+
+<p>&middot; Rename files whose name does not match the
+message file inode number. This operation is necessary after
+restoring a mail queue from a different machine, or from
+backup media.</p>
+
+<p>&middot; Move queue files that are in the wrong place in
+the file system hierarchy and remove subdirectories that are
+no longer needed. File position rearrangements are neces-
+sary after a change in the hash_queue_names and/or
+hash_queue_depth configuration parameters.</p>
+
+<p>-v Enable verbose logging for debugging purposes.
+Multiple -v options make the software increasingly
+verbose.</p>
+
+<p>DIAGNOSTICS Problems are reported to the standard error
+stream and to syslogd(8).</p>
+
+<p>postsuper(1) reports the number of messages deleted with
+-d, the number of messages requeued with -r, and the number
+of messages whose queue file name was fixed with -s. The
+report is written to the standard error stream and to
+syslogd(8).</p>
+
+<p>ENVIRONMENT MAIL_CONFIG Directory with the main.cf
+file.</p>
+
+<p>BUGS Mail that is not sanitized by Postfix (i.e. mail in
+the maildrop queue) cannot be placed &quot;on
+hold&quot;.</p>
+
+<p>CONFIGURATION PARAMETERS The following main.cf
+parameters are especially relevant to this pro- gram. The
+text below provides only a parameter summary. See post-
+conf(5) for more details including examples.</p>
+
+<p>config_directory (seepostconf -doutput) The default
+location of the Postfix main.cf and master.cf con-
+figuration files.</p>
+
+<p>hash_queue_depth (1) The number of subdirectory levels
+for queue directories listed with the hash_queue_names
+parameter.</p>
+
+<p>hash_queue_names (deferred, defer) The names of queue
+directories that are split across multiple subdirectory
+levels.</p>
+
+<p>queue_directory (seepostconf -doutput) The location of
+the Postfix top-level queue directory.</p>
+
+<p>syslog_facility (mail) The syslog facility of Postfix
+logging.</p>
+
+<p>syslog_name (seepostconf -doutput) The mail system name
+that is prepended to the process name in syslog records, so
+that &quot;smtpd&quot; becomes, for example, &quot;post-
+fix/smtpd&quot;.</p>
+
+<p>SEE ALSO sendmail(1), Sendmail-compatible user interface
+postqueue(1), unprivileged queue operations</p>
+
+<p>LICENSE The Secure Mailer license must be distributed
+with this software.</p>
+
+<p>AUTHOR(S) Wietse Venema IBM T.J. Watson Research P.O.
+Box 704 Yorktown Heights, NY 10598, USA</p>
+
+<p>POSTSUPER(1)</p>
+<hr>
+</body>
+</html>

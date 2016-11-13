@@ -1,0 +1,973 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:10:01 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERLDEBUG(1) Perl Programmers Reference Guide
+PERLDEBUG(1)</p>
+
+<p>NAME perldebug - Perl debugging</p>
+
+<p>DESCRIPTION First of all, have you tried using the -w
+switch?</p>
+
+<p>If youre new to the Perl debugger, you may prefer to
+read perldebtut, which is a tutorial introduction to the
+debugger .</p>
+
+<p>The Perl Debugger If you invoke Perl with the -d switch,
+your script runs under the Perl source debugger. This works
+like an interactive Perl environment, prompting for debugger
+commands that let you examine source code, set breakpoints,
+get stack backtraces, change the values of variables, etc.
+This is so convenient that you often fire up the debugger
+all by itself just to test out Perl constructs interactively
+to see what they do. For example:</p>
+
+<p>$ perl -d -e 42</p>
+
+<p>In Perl, the debugger is not a separate program the way
+it usually is in the typical compiled environment. Instead,
+the -d flag tells the compiler to insert source information
+into the parse trees its about to hand off to the
+interpreter. That means your code must first compile
+correctly for the debugger to work on it. Then when the
+interpreter starts up, it preloads a special Perl library
+file containing the debugger.</p>
+
+<p>The program will halt right before the first run-time
+executable statement (but see below regarding compile-time
+statements) and ask you to enter a debugger command.
+Contrary to popular expectations, whenever the debugger
+halts and shows you a line of code, it always displays the
+line its about to execute, rather than the one it has just
+executed.</p>
+
+<p>Any command not recognized by the debugger is directly
+executed (&quot;eval&quot; d) as Perl code in the current
+package. (The debugger uses the DB package for keeping its
+own state information.)</p>
+
+<p>Note that the said &quot;eval&quot; is bound by an
+implicit scope. As a result any newly introduced lexical
+variable or any modified capture buffer content is lost
+after the eval. The debugger is a nice environment to learn
+Perl, but if you interactively experiment using material
+which should be in the same scope, stuff it in one line.</p>
+
+<p>For any text entered at the debugger prompt, leading and
+trailing whitespace is first stripped before further
+processing. If a debugger command coincides with some
+function in your own program, merely precede the function
+with something that doesnt look like a debugger command,
+such as a leading &quot;;&quot; or perhaps a &quot;+&quot;,
+or by wrapping it with parentheses or braces.</p>
+
+<p>Calling the debugger There are several ways to call the
+debugger:</p>
+
+<p>perl -d program_name On the given program identified by
+&quot;program_name&quot;.</p>
+
+<p>perl -d -e 0 Interactively supply an arbitrary
+&quot;expression&quot; using &quot;-e&quot;.</p>
+
+<p>perl -d:Ptkdb program_name Debug a given program via the
+&quot;Devel::Ptkdb&quot; GUI.</p>
+
+<p>perl -dt threaded_program_name Debug a given program
+using threads (experimental).</p>
+
+<p>Debugger Commands The interactive debugger understands
+the following commands:</p>
+
+<p>h Prints out a summary help message</p>
+
+<p>h [command] Prints out a help message for the given
+debugger command.</p>
+
+<p>h h The special argument of &quot;h h&quot; produces the
+entire help page, which is quite long.</p>
+
+<p>If the output of the &quot;h h&quot; command (or any
+command, for that matter) scrolls past your screen, precede
+the command with a leading pipe symbol so that its run
+through your pager, as in</p>
+
+<p>DB&gt; |h h</p>
+
+<p>You may change the pager which is used via &quot;o
+pager=...&quot; command.</p>
+
+<p>p expr Same as &quot;print {$DB::OUT} expr&quot; in the
+current package. In particular, because this is just Perl s
+own &quot;print&quot; function, this means that nested data
+structures and objects are not dumped, unlike with the
+&quot;x&quot; command.</p>
+
+<p>The &quot;DB::OUT&quot; filehandle is opened to
+/dev/tty, regardless of where STDOUT may be redirected
+to.</p>
+
+<p>x [maxdepth] expr Evaluates its expression in list
+context and dumps out the result in a pretty-printed
+fashion. Nested data structures are printed out recursively,
+unlike the real &quot;print&quot; function in Perl. When
+dumping hashes, youll probably prefer x h rather than x %h.
+See Dumpvalue if youd like to do this yourself.</p>
+
+<p>The output format is governed by multiple options
+described under &quot;Configurable Options&quot;.</p>
+
+<p>If the &quot;maxdepth&quot; is included, it must be a
+numeral N; the value is dumped only N levels deep, as if the
+&quot;dumpDepth&quot; option had been temporarily set to
+N.</p>
+
+<p>V [pkg [vars]] Display all (or some) variables in
+package (defaulting to &quot;main&quot;) using a data
+pretty-printer (hashes show their keys and values so you see
+what s what, control characters are made printable, etc.).
+Make sure you dont put the type specifier (like
+&quot;$&quot;) there, just the symbol names, like this:</p>
+
+<p>V DB filename line</p>
+
+<p>Use &quot;~pattern&quot; and &quot;!pattern&quot; for
+positive and negative regexes.</p>
+
+<p>This is similar to calling the &quot;x&quot; command on
+each applicable var.</p>
+
+<p>X [vars] Same as &quot;V currentpackage
+[vars]&quot;.</p>
+
+<p>y [level [vars]] Display all (or some) lexical variables
+(mnemonic: &quot;mY&quot; variables) in the current scope or
+level scopes higher. You can limit the variables that you
+see with vars which works exactly as it does for the
+&quot;V&quot; and &quot;X&quot; commands. Requires the
+&quot;PadWalker&quot; module version 0.08 or higher; will
+warn if this isnt installed. Output is pretty- printed in
+the same style as for &quot;V&quot; and the format is
+controlled by the same options.</p>
+
+<p>T Produce a stack backtrace. See below for details on
+its output.</p>
+
+<p>s [expr] Single step. Executes until the beginning of
+another statement, descending into subroutine calls. If an
+expression is supplied that includes function calls, it too
+will be single-stepped.</p>
+
+<p>n [expr] Next. Executes over subroutine calls, until the
+beginning of the next statement. If an expression is
+supplied that includes function calls, those functions will
+be executed with stops before each statement.</p>
+
+<p>r Continue until the return from the current subroutine.
+Dump the return value if the &quot;PrintRet&quot; option is
+set (default).</p>
+
+<p>&lt;CR&gt; Repeat last &quot;n&quot; or &quot;s&quot;
+command.</p>
+
+<p>c [line|sub] Continue, optionally inserting a
+one-time-only breakpoint at the specified line or
+subroutine.</p>
+
+<p>l List next window of lines.</p>
+
+<p>l min+incr List &quot;incr+1&quot; lines starting at
+&quot;min&quot;.</p>
+
+<p>l min-max List lines &quot;min&quot; through
+&quot;max&quot;. &quot;l -&quot; is synonymous to
+&quot;-&quot;.</p>
+
+<p>l line List a single line.</p>
+
+<p>l subname List first window of lines from subroutine.
+subname may be a variable that contains a code
+reference.</p>
+
+<p>- List previous window of lines.</p>
+
+<p>v [line] View a few lines of code around the current
+line.</p>
+
+<p>. Return the internal debugger pointer to the line last
+executed, and print out that line.</p>
+
+<p>f filename Switch to viewing a different file or
+&quot;eval&quot; statement. If filename is not a full
+pathname found in the values of %INC, it is considered a
+regex.</p>
+
+<p>&quot;eval&quot;ed strings (when accessible) are
+considered to be a c c e s s t filenames: &quot;f (eval
+7)&quot; and &quot;f eval 7h e b o d y o f the 7th
+&quot;eval&quot;ed string (in the order of execution). The
+bodies of the currently executed &quot;eval&quot; and of
+&quot;eval&quot;ed strings that define subroutines are saved
+and thus accessible.</p>
+
+<p>/pattern/ Search forwards for pattern (a Perl regex);
+final / is optional. The search is case-insensitive by
+default.</p>
+
+<p>?pattern? Search backwards for pattern; final ? is
+optional. The search is case-insensitive by default.</p>
+
+<p>L [abw] List (default all) actions, breakpoints and
+watch expressions</p>
+
+<p>S [[!]regex] List subroutine names [not] matching the
+regex.</p>
+
+<p>t Toggle trace mode (see also the &quot;AutoTrace&quot;
+option).</p>
+
+<p>t expr Trace through execution of &quot;expr&quot;. See
+&quot;Frame Listing Output Examples&quot; in perldebguts for
+examples.</p>
+
+<p>b Sets breakpoint on current line</p>
+
+<p>b [line] [condition] Set a breakpoint before the given
+line. If a condition is specified, it s evaluated each time
+the statement is reached: a breakpoint is taken only if the
+condition is true. Breakpoints may only be set on lines that
+begin an executable statement. Conditions don t use
+&quot;if&quot;:</p>
+
+<p>b 237 $x &gt; 30 b 237 ++$count237 &lt; 11 b 33
+/pattern/i</p>
+
+<p>b subname [condition] Set a breakpoint before the first
+line of the named subroutine. subname may be a variable
+containing a code reference (in this case condition is not
+supported).</p>
+
+<p>b postpone subname [condition] Set a breakpoint at first
+line of subroutine after it is compiled.</p>
+
+<p>b load filename Set a breakpoint before the first
+executed line of the filename, which should be a full
+pathname found amongst the %INC values.</p>
+
+<p>b compile subname Sets a breakpoint before the first
+statement executed after the specified subroutine is
+compiled.</p>
+
+<p>B line Delete a breakpoint from the specified line.</p>
+
+<p>B * Delete all installed breakpoints.</p>
+
+<p>a [line] command Set an action to be done before the
+line is executed. If line is omitted, set an action on the
+line about to be executed. The sequence of steps taken by
+the debugger is</p>
+
+<p>1. check for a breakpoint at this line 2. print the line
+if necessary (tracing) 3. do any actions associated with
+that line 4. prompt user if at a breakpoint or in
+single-step 5. evaluate line</p>
+
+<p>For example, this will print out $foo every time line 53
+is passed:</p>
+
+<p>a 53 print &quot;DB FOUND $foo0</p>
+
+<p>A line Delete an action from the specified line.</p>
+
+<p>A * Delete all installed actions.</p>
+
+<p>w expr Add a global watch-expression. Whenever a watched
+global changes the debugger will stop and display the old
+and new values.</p>
+
+<p>W expr Delete watch-expression</p>
+
+<p>W * Delete all watch-expressions.</p>
+
+<p>o Display all options</p>
+
+<p>o booloption ... Set each listed Boolean option to the
+value 1.</p>
+
+<p>o anyoption? ... Print out the value of one or more
+options.</p>
+
+<p>o option=value ... Set the value of one or more options.
+If the value has internal whitespace, it should be quoted.
+For example, you could set &quot;o pager=&quot;less
+-MQeicsNfr&quot;&quot; to call less with those specific
+options. You may use either single or double quotes, but if
+you do, you must escape any embedded instances of same sort
+of quote you began with, as well as any escaping any escapes
+that immediately precede that quote but which are not meant
+to escape the quote itself. In other words, you follow
+single-quoting rules irrespective of the quote; eg: &quot;o
+option=&rsquo;this isn&acute;t bad&rsquo;&quot; or &quot;o
+option=&quot;She said,</p>
+
+<p>For historical reasons, the &quot;=value&quot; is
+optional, but defaults to 1 only where it is safe to do
+so--that is, mostly for Boolean options. It is always better
+to assign a specific value using &quot;=&quot;. The
+&quot;option&quot; can be abbreviated, but for clarity
+probably should not be. Several options can be set together.
+See &quot;Configurable Options&quot; for a list of
+these.</p>
+
+<p>&lt; ? List out all pre-prompt Perl command actions.</p>
+
+<p>&lt; [ command ] Set an action (Perl command) to happen
+before every debugger prompt. A multi-line command may be
+entered by backslashing the newlines.</p>
+
+<p>&lt; * Delete all pre-prompt Perl command actions.</p>
+
+<p>&lt;&lt; command Add an action (Perl command) to happen
+before every debugger prompt. A multi-line command may be
+entered by backwhacking the newlines.</p>
+
+<p>&gt; ? List out post-prompt Perl command actions.</p>
+
+<p>&gt; command Set an action (Perl command) to happen
+after the prompt when youve just given a command to return
+to executing the script. A multi-line command may be entered
+by backslashing the newlines (we bet you couldn t have
+guessed this by now).</p>
+
+<p>&gt; * Delete all post-prompt Perl command actions.</p>
+
+<p>&gt;&gt; command Adds an action (Perl command) to happen
+after the prompt when youve just given a command to return
+to executing the script. A multi-line command may be entered
+by backslashing the newlines.</p>
+
+<p>{ ? List out pre-prompt debugger commands.</p>
+
+<p>{ [ command ] Set an action (debugger command) to happen
+before every debugger prompt. A multi-line command may be
+entered in the customary fashion.</p>
+
+<p>Because this command is in some senses new, a warning is
+issued if you appear to have accidentally entered a block
+instead. If thats what you mean to do, write it as with
+&quot;;{ ... }&quot; or even &quot;do { ... }&quot;.</p>
+
+<p>{ * Delete all pre-prompt debugger commands.</p>
+
+<p>{{ command Add an action (debugger command) to happen
+before every debugger prompt. A multi-line command may be
+entered, if you can guess how: see above.</p>
+
+<p>! number Redo a previous command (defaults to the
+previous command).</p>
+
+<p>! -number Redo numberth previous command.</p>
+
+<p>! pattern Redo last command that started with pattern.
+See &quot;o recallCommand&quot;, too.</p>
+
+<p>!! cmd Run cmd in a subprocess (reads from DB::IN,
+writes to DB::OUT) See &quot;o shellBang&quot;, also. Note
+that the users current shell (well, their $ENV{SHELL}
+variable) will be used, which can interfere with proper
+interpretation of exit status or signal and coredump
+information.</p>
+
+<p>source file Read and execute debugger commands from
+file. file may itself contain &quot;source&quot;
+commands.</p>
+
+<p>H -number Display last n commands. Only commands longer
+than one character are listed. If number is omitted, list
+them all.</p>
+
+<p>q or ^D Quit. (&quot;quit&quot; doesnt work for this,
+unless youve made an alias) This is the only supported way
+to exit the debugger, though typing &quot;exit&quot; twice
+might work.</p>
+
+<p>Set the &quot;inhibit_exit&quot; option to 0 if you want
+to be able to step off the end the script. You may also need
+to set $finished to 0 if you want to step through global
+destruction.</p>
+
+<p>R Restart the debugger by &quot;exec()&quot;ing a new
+session. We try to maintain your history across this, but
+internal settings and command-line options may be lost.</p>
+
+<p>The following setting are currently preserved: history,
+breakpoints, actions, debugger options, and the Perl
+command-line options -w, -I, and -e.</p>
+
+<p>|dbcmd Run the debugger command, piping DB::OUT into
+your current pager.</p>
+
+<p>||dbcmd Same as &quot;|dbcmd&quot; but DB::OUT is
+temporarily &quot;select&quot;ed as well.</p>
+
+<p>= [alias value] Define a command alias, like</p>
+
+<p>= quit q</p>
+
+<p>or list current aliases.</p>
+
+<p>command Execute command as a Perl statement. A trailing
+semicolon will be supplied. If the Perl statement would
+otherwise be confused for a Perl debugger, use a leading
+semicolon, too.</p>
+
+<p>m expr List which methods may be called on the result of
+the evaluated expression. The expression may evaluated to a
+reference to a blessed object, or to a package name.</p>
+
+<p>M Displays all loaded modules and their versions</p>
+
+<p>man [manpage] Despite its name, this calls your systems
+default documentation viewer on the given page, or on the
+viewer itself if manpage is omitted. If that viewer is man,
+the current &quot;Config&quot; information is used to invoke
+man using the proper MANPATH or -M manpath option. Failed
+lookups of the form &quot;XXX&quot; that match known
+manpages of the form perlXXX will be retried. This lets you
+type &quot;man debug&quot; or &quot;man op&quot; from the
+debugger.</p>
+
+<p>On systems traditionally bereft of a usable man command,
+the debugger invokes perldoc. Occasionally this
+determination is incorrect due to recalcitrant vendors or
+rather more felicitously, to enterprising users. If you fall
+into either category, just manually set the $DB::doccmd
+variable to whatever viewer to view the Perl documentation
+on your system. This may be set in an rc file, or through
+direct assignment. Were still waiting for a working example
+of something along the lines of:</p>
+
+<p>$DB::doccmd = &rsquo;netscape -remote
+http://something.here/&rsquo;;</p>
+
+<p>Configurable Options The debugger has numerous options
+settable using the &quot;o&quot; command, either
+interactively or from the environment or an rc file.
+(./.perldb or ~/.perldb under Unix.)</p>
+
+<p>&quot;recallCommand&quot;, &quot;ShellBang&quot; The
+characters used to recall command or spawn shell. By
+default, both are set to &quot;!&quot;, which is
+unfortunate.</p>
+
+<p>&quot;pager&quot; Program to use for output of
+pager-piped commands (those beginning with a &quot;|&quot;
+character.) By default, $ENV{PAGER} will be used. Because
+the debugger uses your current terminal characteristics for
+bold and underlining, if the chosen pager does not pass
+escape sequences through unchanged, the output of some
+debugger commands will not be readable when sent through the
+pager.</p>
+
+<p>&quot;tkRunning&quot; Run Tk while prompting (with
+ReadLine).</p>
+
+<p>&quot;signalLevel&quot;, &quot;warnLevel&quot;,
+&quot;dieLevel&quot; Level of verbosity. By default, the
+debugger leaves your exceptions and warnings alone, because
+altering them can break correctly running programs. It will
+attempt to print a message when uncaught INT, BUS, or SEGV
+signals arrive. (But see the mention of signals in BUGS
+below.)</p>
+
+<p>To disable this default safe mode, set these values to
+something higher than 0. At a level of 1, you get backtraces
+upon receiving any kind of warning (this is often annoying)
+or exception (this is often valuable). Unfortunately, the
+debugger cannot discern fatal exceptions from non-fatal
+ones. If &quot;dieLevel&quot; is even 1, then your non-fatal
+exceptions are also traced and unceremoniously altered if
+they came from &quot;eval&rsquo;ed&quot; strings or from any
+kind of &quot;eval&quot; within modules youre attempting to
+load. If &quot;dieLevel&quot; is 2, the debugger doesn t
+care where they came from: It usurps your exception handler
+and prints out a trace, then modifies all exceptions with
+its own embellishments. This may perhaps be useful for some
+tracing purposes, but tends to hopelessly destroy any
+program that takes its exception handling seriously.</p>
+
+<p>&quot;AutoTrace&quot; Trace mode (similar to
+&quot;t&quot; command, but can be put into
+&quot;PERLDB_OPTS&quot;).</p>
+
+<p>&quot;LineInfo&quot; File or pipe to print line number
+info to. If it is a pipe (say, &quot;|visual_perl_db&quot;),
+then a short message is used. This is the mechanism used to
+interact with a slave editor or visual debugger, such as the
+special &quot;vi&quot; or &quot;emacs&quot; hooks, or the
+&quot;ddd&quot; graphical debugger.</p>
+
+<p>&quot;inhibit_exit&quot; If 0, allows stepping off the
+end of the script.</p>
+
+<p>&quot;PrintRet&quot; Print return value after
+&quot;r&quot; command if set (default).</p>
+
+<p>&quot;ornaments&quot; Affects screen appearance of the
+command line (see Term::ReadLine). There is currently no way
+to disable these, which can render some output illegible on
+some displays, or with some pagers. This is considered a
+bug.</p>
+
+<p>&quot;frame&quot; Affects the printing of messages upon
+entry and exit from subroutines. If &quot;frame &amp;
+2&quot; is false, messages are printed on entry only.
+(Printing on exit might be useful if interspersed with other
+messages.)</p>
+
+<p>If &quot;frame &amp; 4&quot;, arguments to functions are
+printed, plus context and caller info. If &quot;frame &amp;
+8&quot;, overloaded &quot;stringify&quot; and
+&quot;tie&quot;d &quot;FETCH&quot; is enabled on the printed
+arguments. If &quot;frame &amp; 16&quot;, the return value
+from the subroutine is printed.</p>
+
+<p>The length at which the argument list is truncated is
+governed by the next option:</p>
+
+<p>&quot;maxTraceLen&quot; Length to truncate the argument
+list when the &quot;frame&quot; options bit 4 is set.</p>
+
+<p>&quot;windowSize&quot; Change the size of code list
+window (default is 10 lines).</p>
+
+<p>The following options affect what happens with
+&quot;V&quot;, &quot;X&quot;, and &quot;x&quot;
+commands:</p>
+
+<p>&quot;arrayDepth&quot;, &quot;hashDepth&quot; Print only
+first N elements ( for all).</p>
+
+<p>&quot;dumpDepth&quot; Limit recursion depth to N levels
+when dumping structures. Negative values are interpreted as
+infinity. Default: infinity.</p>
+
+<p>&quot;compactDump&quot;, &quot;veryCompact&quot; Change
+the style of array and hash output. If
+&quot;compactDump&quot;, short array may be printed on one
+line.</p>
+
+<p>&quot;globPrint&quot; Whether to print contents of
+globs.</p>
+
+<p>&quot;DumpDBFiles&quot; Dump arrays holding debugged
+files.</p>
+
+<p>&quot;DumpPackages&quot; Dump symbol tables of
+packages.</p>
+
+<p>&quot;DumpReused&quot; Dump contents of
+&quot;reused&quot; addresses.</p>
+
+<p>&quot;quote&quot;, &quot;HighBit&quot;,
+&quot;undefPrint&quot; Change the style of string dump. The
+default value for &quot;quote&quot; is &quot;auto&quot;; one
+can enable double-quotish or single- quotish format by
+setting it to &quot;&quot;&quot; or &quot;&rsquo;&quot;,
+respectively. By default, characters with their high bit set
+are printed verbatim.</p>
+
+<p>&quot;UsageOnly&quot; Rudimentary per-package memory
+usage dump. Calculates total size of strings found in
+variables in the package. This does not include lexicals in
+a module s file scope, or lost in closures.</p>
+
+<p>After the rc file is read, the debugger reads the
+$ENV{PERLDB_OPTS} environment variable and parses this as
+the remainder of a &quot;O ...&quot; line as one might enter
+at the debugger prompt. You may place the initialization
+options &quot;TTY&quot;, &quot;noTTY&quot;,
+&quot;ReadLine&quot;, and &quot;NonStop&quot; there.</p>
+
+<p>If your rc file contains:</p>
+
+<p>parse_options(&quot;NonStop=1 LineInfo=db.out
+AutoTrace&quot;);</p>
+
+<p>then your script will run without human intervention,
+putting trace information into the file db.out. (If you
+interrupt it, youd better reset &quot;LineInfo&quot; to
+/dev/tty if you expect to see anything.)</p>
+
+<p>&quot;TTY&quot; The TTY to use for debugging I/O.</p>
+
+<p>&quot;noTTY&quot; If set, the debugger goes into
+&quot;NonStop&quot; mode and will not connect to a TTY. If
+interrupted (or if control goes to the debugger via explicit
+setting of $DB::signal or $DB::single from the Perl script),
+it connects to a TTY specified in the &quot;TTY&quot; option
+at startup, or to a tty found at runtime using the
+&quot;Term::Rendezvous&quot; module of your choice.</p>
+
+<p>This module should implement a method named
+&quot;new&quot; that returns an object with two methods:
+&quot;IN&quot; and &quot;OUT&quot;. These should return
+filehandles to use for debugging input and output
+correspondingly. The &quot;new&quot; method should inspect
+an argument containing the value of $ENV{PERLDB_NOTTY} at
+startup, or &quot;$ENV{HOME}/.perldbtty$$&quot; otherwise.
+This file is not inspected for proper ownership, so security
+hazards are theoretically possible.</p>
+
+<p>&quot;ReadLine&quot; If false, readline support in the
+debugger is disabled in order to debug applications that
+themselves use ReadLine.</p>
+
+<p>&quot;NonStop&quot; If set, the debugger goes into
+non-interactive mode until interrupted, or programmatically
+by setting $DB::signal or $DB::single.</p>
+
+<p>Heres an example of using the $ENV{PERLDB_OPTS}
+variable:</p>
+
+<p>$ PERLDB_OPTS=&quot;NonStop frame=2&quot; perl -d
+myprogram</p>
+
+<p>That will run the script myprogram without human
+intervention, printing out the call tree with entry and exit
+points. Note that &quot;NonStop=1 frame=2&quot; is
+equivalent to &quot;N f=2&quot;, and that originally,
+options could be uniquely abbreviated by the first letter
+(modulo the &quot;Dump*&quot; options). It is nevertheless
+recommended that you always spell them out in full for
+legibility and future compatibility.</p>
+
+<p>Other examples include</p>
+
+<p>$ PERLDB_OPTS=&quot;NonStop LineInfo=listing
+frame=2&quot; perl -d myprogram</p>
+
+<p>which runs script non-interactively, printing info on
+each entry into a subroutine and each executed line into the
+file named listing. (If you interrupt it, you would better
+reset &quot;LineInfo&quot; to something
+&quot;interactive&quot;!)</p>
+
+<p>Other examples include (using standard shell syntax to
+show environment variable settings):</p>
+
+<p>$ ( PERLDB_OPTS=&quot;NonStop frame=1 AutoTrace
+LineInfo=tperl.out&quot; perl -d myprogram )</p>
+
+<p>which may be useful for debugging a program that uses
+&quot;Term::ReadLine&quot; itself. Do not forget to detach
+your shell from the TTY in the window that corresponds to
+/dev/ttyXX, say, by issuing a command like</p>
+
+<p>$ sleep 1000000</p>
+
+<p>See &quot;Debugger Internals&quot; in perldebguts for
+details.</p>
+
+<p>Debugger input/output Prompt The debugger prompt is
+something like</p>
+
+<p>DB&lt;8&gt;</p>
+
+<p>or even</p>
+
+<p>DB&lt;&lt;17&gt;&gt;</p>
+
+<p>where that number is the command number, and which youd
+use to access with the built-in csh-like history mechanism.
+For example, &quot;!17&quot; would repeat command number 17.
+The depth of the angle brackets indicates the nesting depth
+of the debugger. You could get more than one set of
+brackets, for example, if youd already at a breakpoint and
+then printed the result of a function call that itself has a
+breakpoint, or you step into an expression via &quot;s/n/t
+expression&quot; command.</p>
+
+<p>Multiline commands If you want to enter a multi-line
+command, such as a subroutine definition with several
+statements or a format, escape the newline that would
+normally end the debugger command with a backslash. Heres an
+example:</p>
+
+<p>DB&lt;1&gt; for (1..4) { cont: print &quot;ok0; cont: }
+ok ok ok ok</p>
+
+<p>Note that this business of escaping a newline is
+specific to interactive commands typed into the
+debugger.</p>
+
+<p>Stack backtrace Heres an example of what a stack
+backtrace via &quot;T&quot; command might look like:</p>
+
+<p>$ = main::infested called from file
+&lsquo;Ambulation.pm&rsquo; line 10 @ = Ambulation::legs(1,
+2, 3, 4) called from file &lsquo;camel_flea&rsquo; line 7 $
+= main::pests(&rsquo;bactrian&rsquo;, 4) called from file
+&lsquo;camel_flea&rsquo; line 4</p>
+
+<p>The left-hand character up there indicates the context
+in which the function was called, with &quot;$&quot; and
+&quot;@&quot; meaning scalar or list contexts respectively,
+and &quot;.&quot; meaning void context (which is actually a
+sort of scalar context). The display above says that you
+were in the function &quot;main::infested&quot; when you ran
+the stack dump, and that it was called in scalar context
+from line 10 of the file Ambulation.pm, but without any
+arguments at all, meaning it was called as &amp;infested.
+The next stack frame shows that the function
+&quot;Ambulation::legs&quot; was called in list context from
+the camel_flea file with four arguments. The last stack
+frame shows that &quot;main::pests&quot; was called in
+scalar context, also from camel_flea, but from line 4.</p>
+
+<p>If you execute the &quot;T&quot; command from inside an
+active &quot;use&quot; statement, the backtrace will contain
+both a &quot;require&quot; frame and an &quot;eval&quot;)
+frame.</p>
+
+<p>Line Listing Format This shows the sorts of output the
+&quot;l&quot; command can produce:</p>
+
+<p>DB&lt;&lt;13&gt;&gt; l 101: @i{@i} = (); 102:b
+@isa{@i,$pack} = () 103 if(exists $i{$prevpack} || exists
+$isa{$pack}); 104 } 105 106 next 107==&gt; if(exists
+$isa{$pack}); 108 109:a if ($extra-- &gt; 0) { 110: %isa =
+($pack,1);</p>
+
+<p>Breakable lines are marked with &quot;:&quot;. Lines
+with breakpoints are marked by &quot;b&quot; and those with
+actions by &quot;a&quot;. The line thats about to be
+executed is marked by &quot;==&gt;&quot;.</p>
+
+<p>Please be aware that code in debugger listings may not
+look the same as your original source code. Line directives
+and external source filters can alter the code before Perl
+sees it, causing code to move from its original positions or
+take on entirely different forms.</p>
+
+<p>Frame listing When the &quot;frame&quot; option is set,
+the debugger would print entered (and optionally exited)
+subroutines in different styles. See perldebguts for
+incredibly long examples of these.</p>
+
+<p>Debugging compile-time statements If you have
+compile-time executable statements (such as code within
+BEGIN, UNITCHECK and CHECK blocks or &quot;use&quot;
+statements), these will not be stopped by debugger, although
+&quot;require&quot;s and INIT blocks will, and compile-time
+statements can be traced with &quot;AutoTrace&quot; option
+set in &quot;PERLDB_OPTS&quot;). From your own Perl code,
+however, you can transfer control back to the debugger using
+the following statement, which is harmless if the debugger
+is not running:</p>
+
+<p>$DB::single = 1;</p>
+
+<p>If you set $DB::single to 2, its equivalent to having
+just typed the &quot;n&quot; command, whereas a value of 1
+means the &quot;s&quot; command. The $DB::trace variable
+should be set to 1 to simulate having typed the
+&quot;t&quot; command.</p>
+
+<p>Another way to debug compile-time code is to start the
+debugger, set a breakpoint on the load of some module:</p>
+
+<p>DB&lt;7&gt; b load f:/perllib/lib/Carp.pm Will stop on
+load of &lsquo;f:/perllib/lib/Carp.pm&rsquo;.</p>
+
+<p>and then restart the debugger using the &quot;R&quot;
+command (if possible). One can use &quot;b compile
+subname&quot; for the same purpose.</p>
+
+<p>Debugger Customization The debugger probably contains
+enough configuration hooks that you won t ever have to
+modify it yourself. You may change the behaviour of debugger
+from within the debugger using its &quot;o&quot; command,
+from the command line via the &quot;PERLDB_OPTS&quot;
+environment variable, and from customization files.</p>
+
+<p>You can do some customization by setting up a .perldb
+file, which contains initialization code. For instance, you
+could make aliases like these (the last one is one people
+expect to be there):</p>
+
+<p>$DB::alias{&rsquo;len&rsquo;} = &rsquo;s/^len(.*)/p
+length($1)/&rsquo;; $DB::alias{&rsquo;stop&rsquo;} =
+&rsquo;s/^stop (at|in)/b/&rsquo;; p s c
+$DB::alias{&rsquo;ps&rsquo;} = &rsquo;s/^psa&rsquo;; l a r
+$DB::alias{&rsquo;quit&rsquo;} =
+&rsquo;s/^quit()/exit/&rsquo;;</p>
+
+<p>You can change options from .perldb by using calls like
+this one;</p>
+
+<p>parse_options(&quot;NonStop=1 LineInfo=db.out
+AutoTrace=1 frame=2&quot;);</p>
+
+<p>The code is executed in the package &quot;DB&quot;. Note
+that .perldb is processed before processing
+&quot;PERLDB_OPTS&quot;. If .perldb defines the subroutine
+&quot;afterinit&quot;, that function is called after
+debugger initialization ends. .perldb may be contained in
+the current directory, or in the home directory. Because
+this file is sourced in by Perl and may contain arbitrary
+commands, for security reasons, it must be owned by the
+superuser or the current user, and writable by no one but
+its owner.</p>
+
+<p>You can mock TTY input to debugger by adding arbitrary
+commands to @DB::typeahead. For example, your .perldb file
+might contain:</p>
+
+<p>sub afterinit { push @DB::typeahead, &quot;b 4&quot;,
+&quot;b 6&quot;; }</p>
+
+<p>Which would attempt to set breakpoints on lines 4 and 6
+immediately after debugger initialization. Note that
+@DB::typeahead is not a supported interface and is subject
+to change in future releases.</p>
+
+<p>If you want to modify the debugger, copy perl5db.pl from
+the Perl library to another name and hack it to your heart s
+content. Youll then want to set your &quot;PERL5DB&quot;
+environment variable to say something like this:</p>
+
+<p>BEGIN { require &quot;myperl5db.pl&quot; }</p>
+
+<p>As a last resort, you could also use &quot;PERL5DB&quot;
+to customize the debugger by directly setting internal
+variables or calling debugger functions.</p>
+
+<p>Note that any variables and functions that are not
+documented in this document (or in perldebguts) are
+considered for internal use only, and as such are subject to
+change without notice.</p>
+
+<p>Readline Support / History in the debugger As shipped,
+the only command-line history supplied is a simplistic one
+that checks for leading exclamation points. However, if you
+install the Term::ReadKey and Term::ReadLine modules from
+CPAN (such as Term::ReadLine::Gnu, Term::ReadLine::Perl,
+...) you will have full editing capabilities much like GNU
+readline(3) provides. Look for these in the
+modules/by-module/Term directory on CPAN. These do not
+support normal vi command-line editing, however.</p>
+
+<p>A rudimentary command-line completion is also available.
+Unfortunately, the names of lexical variables are not
+available for completion.</p>
+
+<p>Without Readline support you may see the symbols
+&quot;^[[A&quot;, &quot;^[[C&quot;, &quot;^[[B&quot;,
+&quot;^[[D&quot;&quot;, &quot;^H&quot;, ... when using the
+arrow keys and/or the backspace key.</p>
+
+<p>Editor Support for Debugging If you have the FSFs
+version of emacs installed on your system, it can interact
+with the Perl debugger to provide an integrated software
+development environment reminiscent of its interactions with
+C debuggers.</p>
+
+<p>Perl comes with a start file for making emacs act like a
+syntax- directed editor that understands (some of) Perls
+syntax. Look in the emacs directory of the Perl source
+distribution.</p>
+
+<p>A similar setup by Tom Christiansen for interacting with
+any vendor- shipped vi and the X11 window system is also
+available. This works similarly to the integrated
+multiwindow support that emacs provides, where the debugger
+drives the editor. At the time of this writing, however,
+that tool s eventual location in the Perl distribution was
+uncertain.</p>
+
+<p>Users of vi should also look into vim and gvim, the
+mousey and windy version, for coloring of Perl keywords.</p>
+
+<p>Note that only perl can truly parse Perl, so all such
+CASE tools fall somewhat short of the mark, especially if
+you dont program your Perl as a C programmer might.</p>
+
+<p>The Perl Profiler If you wish to supply an alternative
+debugger for Perl to run, just invoke your script with a
+colon and a package argument given to the -d flag. The most
+popular alternative debuggers for Perl is the Perl profiler.
+Devel::DProf is included with the standard Perl
+distribution. To profile your Perl program in the file
+mycode.pl, just type:</p>
+
+<p>$ perl -d:DProf mycode.pl</p>
+
+<p>When the script terminates the profiler will dump the
+profile information to a file called tmon.out. A tool like
+dprofpp, also supplied with the standard Perl distribution,
+can be used to interpret the information in that profile.
+More powerful profilers, such as &quot;Devel::NYTProf&quot;
+are available from the CPAN.</p>
+
+<p>Debugging regular expressions &quot;use re
+&rsquo;debug&rsquo;&quot; enables you to see the gory
+details of how the Perl regular expression engine works. In
+order to understand this typically voluminous output, one
+must not only have some idea about how regular expression
+matching works in general, but also know how Perls regular
+expressions are internally compiled into an automaton. These
+matters are explored in some detail in &quot;Debugging
+regular expressions&quot; in perldebguts.</p>
+
+<p>Debugging memory usage Perl contains internal support
+for reporting its own memory usage, but this is a fairly
+advanced concept that requires some understanding of how
+memory allocation works. See &quot;Debugging Perl memory
+usage&quot; in perldebguts for the details.</p>
+
+<p>SEE ALSO You did try the -w switch, didnt you?</p>
+
+<p>perldebtut, perldebguts, re, DB, Devel::DProf, dprofpp,
+Dumpvalue, and perlrun.</p>
+
+<p>When debugging a script that uses #! and is thus
+normally found in $PATH, the -S option causes perl to search
+$PATH for it, so you dont have to type the path or
+&quot;which $scriptname&quot;.</p>
+
+<p>$ perl -Sd foo.pl</p>
+
+<p>BUGS You cannot get stack frame information or in any
+fashion debug functions that were not compiled by Perl, such
+as those from C or C++ extensions.</p>
+
+<p>If you alter your @_ arguments in a subroutine (such as
+with &quot;shift&quot; or &quot;pop&quot;), the stack
+backtrace will not show the original values.</p>
+
+<p>The debugger does not currently work in conjunction with
+the -W command-line switch, because it itself is not free of
+warnings.</p>
+
+<p>If you re in a slow syscall (like &quot;wait&quot;ing,
+&quot;accept&quot;ing, or &quot;read&quot;ing from your
+keyboard or a socket) and havent set up your own $SIG{INT}
+handler, then you wont be able to CTRL-C your way back to
+the debugger, because the debugger s own $SIG{INT} handler
+doesnt understand that it needs to raise an exception to
+longjmp(3) out of slow syscalls.</p>
+
+<p>perl v5.10.1 2009-06-26 PERLDEBUG(1)</p>
+<hr>
+</body>
+</html>

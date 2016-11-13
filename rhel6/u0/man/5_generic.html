@@ -1,0 +1,233 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:00:52 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>GENERIC(5) GENERIC(5)</p>
+
+<p>NAME generic - Postfix generic table format</p>
+
+<p>SYNOPSIS postmap /etc/postfix/generic</p>
+
+<p>postmap -q &quot;string&quot; /etc/postfix/generic</p>
+
+<p>postmap -q - /etc/postfix/generic &lt;inputfile</p>
+
+<p>DESCRIPTION The optional generic(5) table specifies an
+address mapping that applies when mail is delivered. This is
+the opposite of canonical(5) mapping, which applies when
+mail is received.</p>
+
+<p>Typically, one would use the generic(5) table on a
+system that does not have a valid Internet domain name and
+that uses something like localdo- main.local instead. The
+generic(5) table is then used by the smtp(8) client to
+transform local mail addresses into valid Internet mail
+addresses when mail has to be sent across the Internet. See
+the EXAM- PLE section at the end of this document.</p>
+
+<p>The generic(5) mapping affects both message header
+addresses (i.e. addresses that appear inside messages) and
+message envelope addresses (for example, the addresses that
+are used in SMTP protocol commands).</p>
+
+<p>Normally, the generic(5) table is specified as a text
+file that serves as input to the postmap(1) command. The
+result, an indexed file in dbm or db format, is used for
+fast searching by the mail system. Execute the command
+&quot;postmap /etc/postfix/generic&quot; to rebuild an
+indexed file after changing the corresponding text file.</p>
+
+<p>When the table is provided via other means such as NIS,
+LDAP or SQL, the same lookups are done as for ordinary
+indexed files.</p>
+
+<p>Alternatively, the table can be provided as a
+regular-expression map where patterns are given as regular
+expressions, or lookups can be directed to TCP-based server.
+In those case, the lookups are done in a slightly different
+way as described below under &quot;REGULAR EXPRESSION
+TABLES&quot; or &quot;TCP-BASED TABLES&quot;.</p>
+
+<p>CASE FOLDING The search string is folded to lowercase
+before database lookup. As of Postfix 2.3, the search string
+is not case folded with database types such as regexp: or
+pcre: whose lookup fields can match both upper and lower
+case.</p>
+
+<p>TABLE FORMAT The input format for the postmap(1) command
+is as follows:</p>
+
+<p>pattern result When pattern matches a mail address,
+replace it by the corre- sponding result.</p>
+
+<p>blank lines and comments Empty lines and whitespace-only
+lines are ignored, as are lines whose first non-whitespace
+character is a #.</p>
+
+<p>multi-line text A logical line starts with
+non-whitespace text. A line that starts with whitespace
+continues a logical line.</p>
+
+<p>TABLE SEARCH ORDER With lookups from indexed files such
+as DB or DBM, or from networked tables such as NIS, LDAP or
+SQL, patterns are tried in the order as listed below:</p>
+
+<p>user@domain address Replace user@domain by address. This
+form has the highest prece- dence.</p>
+
+<p>user address Replace user@site by address when site is
+equal to $myorigin, when site is listed in $mydestination,
+or when it is listed in $inet_interfaces or
+$proxy_interfaces.</p>
+
+<p>@domain address Replace other addresses in domain by
+address. This form has the lowest precedence.</p>
+
+<p>RESULT ADDRESS REWRITING The lookup result is subject to
+address rewriting:</p>
+
+<p>&middot; When the result has the form @otherdomain, the
+result becomes the same user in otherdomain.</p>
+
+<p>&middot; When &quot;append_at_myorigin=yes&quot;, append
+&quot;@$myorigin&quot; to addresses without
+&quot;@domain&quot;.</p>
+
+<p>&middot; When &quot;append_dot_mydomain=yes&quot;,
+append &quot;.$mydomain&quot; to addresses without
+&quot;.domain&quot;.</p>
+
+<p>ADDRESS EXTENSION When a mail address localpart contains
+the optional recipient delimiter (e.g., user+foo@domain),
+the lookup order becomes: user+foo@domain, user@domain,
+user+foo, user, and @domain.</p>
+
+<p>The propagate_unmatched_extensions parameter controls
+whether an unmatched address extension (+foo) is propagated
+to the result of table lookup.</p>
+
+<p>REGULAR EXPRESSION TABLES This section describes how the
+table lookups change when the table is given in the form of
+regular expressions. For a description of regular expression
+lookup table syntax, see regexp_table(5) or
+pcre_table(5).</p>
+
+<p>Each pattern is a regular expression that is applied to
+the entire address being looked up. Thus, user@domain mail
+addresses are not bro- ken up into their user and @domain
+constituent parts, nor is user+foo broken up into user and
+foo.</p>
+
+<p>Patterns are applied in the order as specified in the
+table, until a pattern is found that matches the search
+string.</p>
+
+<p>Results are the same as with indexed file lookups, with
+the additional feature that parenthesized substrings from
+the pattern can be interpo- lated as $1, $2 and so on.</p>
+
+<p>TCP-BASED TABLES This section describes how the table
+lookups change when lookups are directed to a TCP-based
+server. For a description of the TCP client/server lookup
+protocol, see tcp_table(5). This feature is not available up
+to and including Postfix version 2.4.</p>
+
+<p>Each lookup operation uses the entire address once.
+Thus, user@domain mail addresses are not broken up into
+their user and @domain con- stituent parts, nor is user+foo
+broken up into user and foo.</p>
+
+<p>Results are the same as with indexed file lookups.</p>
+
+<p>EXAMPLE The following shows a generic mapping with an
+indexed file. When mail is sent to a remote host via SMTP,
+this replaces his@localdomain.local by his ISP mail address,
+replaces her@localdomain.local by her ISP mail address, and
+replaces other local addresses by his ISP account, with an
+address extension of +local (this example assumes that the
+ISP supports &quot;+&quot; style address extensions).</p>
+
+<p>/etc/postfix/main.cf: smtp_generic_maps =
+hash:/etc/postfix/generic</p>
+
+<p>/etc/postfix/generic: his@localdomain.local
+hisaccount@hisisp.example her@localdomain.local
+heraccount@herisp.example @localdomain.local
+hisaccount+local@hisisp.example</p>
+
+<p>Execute the command &quot;postmap
+/etc/postfix/generic&quot; whenever the table is changed.
+Instead of hash, some systems use dbm database files. To
+find out what tables your system supports use the command
+&quot;postconf -m&quot;.</p>
+
+<p>BUGS The table format does not understand quoting
+conventions.</p>
+
+<p>CONFIGURATION PARAMETERS The following main.cf
+parameters are especially relevant. The text below provides
+only a parameter summary. See postconf(5) for more details
+including examples.</p>
+
+<p>smtp_generic_maps Address mapping lookup table for
+envelope and header sender and recipient addresses while
+delivering mail via SMTP.</p>
+
+<p>propagate_unmatched_extensions A list of address
+rewriting or forwarding mechanisms that propa- gate an
+address extension from the original address to the result.
+Specify zero or more of canonical, virtual, alias, for-
+ward, include, or generic.</p>
+
+<p>Other parameters of interest:</p>
+
+<p>inet_interfaces The network interface addresses that
+this system receives mail on. You need to stop and start
+Postfix when this parameter changes.</p>
+
+<p>proxy_interfaces Other interfaces that this machine
+receives mail on by way of a proxy agent or network address
+translator.</p>
+
+<p>mydestination List of domains that this mail system
+considers local.</p>
+
+<p>myorigin The domain that is appended to locally-posted
+mail.</p>
+
+<p>owner_request_special Give special treatment to
+owner-xxx and xxx-request addresses.</p>
+
+<p>SEE ALSO postmap(1), Postfix lookup table manager
+postconf(5), configuration parameters smtp(8), Postfix SMTP
+client</p>
+
+<p>README FILES Use &quot;postconf readme_directory&quot;
+or &quot;postconf html_directory&quot; to locate this
+information. ADDRESS_REWRITING_README, address rewriting
+guide DATABASE_README, Postfix lookup table overview
+STANDARD_CONFIGURATION_README, configuration examples</p>
+
+<p>LICENSE The Secure Mailer license must be distributed
+with this software.</p>
+
+<p>HISTORY A genericstable feature appears in the Sendmail
+MTA.</p>
+
+<p>This feature is available in Postfix 2.2 and later.</p>
+
+<p>AUTHOR(S) Wietse Venema IBM T.J. Watson Research P.O.
+Box 704 Yorktown Heights, NY 10598, USA</p>
+
+<p>GENERIC(5)</p>
+<hr>
+</body>
+</html>

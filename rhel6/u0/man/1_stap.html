@@ -1,0 +1,980 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:17:02 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>STAP(1) STAP(1)</p>
+
+<p>NAME stap - systemtap script translator/driver</p>
+
+<p>SYNOPSIS stap [ OPTIONS ] FILENAME [ ARGUMENTS ] stap [
+OPTIONS ] - [ ARGUMENTS ] stap [ OPTIONS ] -e SCRIPT [
+ARGUMENTS ] stap [ OPTIONS ] -l PROBE [ ARGUMENTS ] stap [
+OPTIONS ] -L PROBE [ ARGUMENTS ]</p>
+
+<p>DESCRIPTION The stap program is the front-end to the
+Systemtap tool. It accepts probing instructions (written in
+a simple scripting language), trans- lates those
+instructions into C code, compiles this C code, and loads
+the resulting kernel module into a running Linux kernel to
+perform the requested system trace/probe functions. You can
+supply the script in a named file, from standard input, or
+from the command line. The program runs until it is
+interrupted by the user, or if the script voluntarily
+invokes the exit() function, or by sufficient number of soft
+errors.</p>
+
+<p>The language, which is described in a later section, is
+strictly typed, declaration free, procedural, and inspired
+by awk. It allows source code points or events in the kernel
+to be associated with handlers, which are subroutines that
+are executed synchronously. It is somewhat similar
+conceptually to &quot;breakpoint command lists&quot; in the
+gdb debugger.</p>
+
+<p>This manual corresponds to version 1.2.</p>
+
+<p>OPTIONS The systemtap translator supports the following
+options. Any other option prints a list of supported
+options.</p>
+
+<p>-h Show help message.</p>
+
+<p>-V Show version message.</p>
+
+<p>-p NUM Stop after pass NUM. The passes are numbered 1-5:
+parse, elabo- rate, translate, compile, run. See the
+PROCESSING section for details.</p>
+
+<p>-v Increase verbosity for all passes. Produce a larger
+volume of informative (?) output each time option
+repeated.</p>
+
+<p>--vp ABCDE Increase verbosity on a per-pass basis. For
+example, &quot;--vp 002&quot; adds 2 units of verbosity to
+pass 3 only. The combination &quot;-v --vp 00004&quot; adds
+1 unit of verbosity for all passes, and 4 more for pass
+5.</p>
+
+<p>-k Keep the temporary directory after all processing.
+This may be useful in order to examine the generated C code,
+or to reuse the compiled kernel object.</p>
+
+<p>-g Guru mode. Enable parsing of unsafe expert-level
+constructs like embedded C.</p>
+
+<p>-P Prologue-searching mode. Activate heuristics to work
+around incorrect debugging information for $target
+variables.</p>
+
+<p>-u Unoptimized mode. Disable unused code elision during
+elabora- tion.</p>
+
+<p>-w Suppressed warnings mode. Disables all warning
+messages.</p>
+
+<p>-b Use bulk mode (percpu files) for kernel-to-user data
+transfer.</p>
+
+<p>-t Collect timing information on the number of times
+probe executes and average amount of time spent in each
+probe.</p>
+
+<p>-sNUM Use NUM megabyte buffers for kernel-to-user data
+transfer. On a multiprocessor in bulk mode, this is a
+per-processor amount.</p>
+
+<p>-I DIR Add the given directory to the tapset search
+directory. See the description of pass 2 for details.</p>
+
+<p>-D NAME=VALUE Add the given C preprocessor directive to
+the module Makefile. These can be used to override limit
+parameters described below.</p>
+
+<p>-B NAME=VALUE Add the given make directive to the kernel
+module builds make invocation. These can be used to add or
+override kconfig options.</p>
+
+<p>-R DIR Look for the systemtap runtime sources in the
+given directory.</p>
+
+<p>-r /DIR Build for kernel in given build tree. Can also
+be set with the SYSTEMTAP_RELEASE environment variable.</p>
+
+<p>-r RELEASE Build for kernel in build tree
+/lib/modules/RELEASE/build. Can also be set with the
+SYSTEMTAP_RELEASE environment variable.</p>
+
+<p>-m MODULE Use the given name for the generated kernel
+object module, instead of a unique randomized name. The
+generated kernel object module is copied to the current
+directory.</p>
+
+<p>-d MODULE Add symbol/unwind information for the given
+module into the ker- nel object module. This may enable
+symbolic tracebacks from those modules/programs, even if
+they do not have an explicit probe placed into them.</p>
+
+<p>-o FILE Send standard output to named file. In bulk
+mode, percpu files will start with FILE_ (FILE_cpu with -F)
+followed by the cpu number. This supports strftime(3)
+formats for FILE.</p>
+
+<p>-c CMD Start the probes, run CMD, and exit when CMD
+finishes.</p>
+
+<p>-x PID Sets target() to PID. This allows scripts to be
+written that filter on a specific process.</p>
+
+<p>-l PROBE Instead of running a probe script, just list
+all available probe points matching the given pattern. The
+pattern may include wildcards and aliases.</p>
+
+<p>-L PROBE Similar to &quot;-l&quot;, but list probe
+points and script-level local variables.</p>
+
+<p>-F Without -o option, load module and start probes, then
+detach from the module leaving the probes running. With -o
+option, run staprun in background as a daemon and show its
+pid.</p>
+
+<p>-S size[,N] Sets the maximum size of output file and the
+maximum number of output files. If the size of output file
+will exceed size , systemtap switches output file to the
+next file. And if the num- ber of output files exceed N ,
+systemtap removes the oldest out- put file. You can omit the
+second argument.</p>
+
+<p>--skip-badvars Ignore out of context variables and
+substitute with literal 0.</p>
+
+<p>ARGUMENTS Any additional arguments on the command line
+are passed to the script parser for substitution. See
+below.</p>
+
+<p>SCRIPT LANGUAGE The systemtap script language resembles
+awk. There are two main outer- most constructs: probes and
+functions. Within these, statements and expressions use
+C-like operator syntax and precedence.</p>
+
+<p>GENERAL SYNTAX Whitespace is ignored. Three forms of
+comments are supported: # ... shell style, to the end of
+line, except for $# and @# // ... C++ style, to the end of
+line /* ... C style ... */ Literals are either strings
+enclosed in double-quotes (passing through the usual C
+escape codes with backslashes), or integers (in decimal,
+hexadecimal, or octal, using the same notation as in C). All
+strings are limited in length to some reasonable value (a
+few hundred bytes). Integers are 64-bit signed quantities,
+although the parser also accepts (and wraps around) values
+above positive 2**63.</p>
+
+<p>In addition, script arguments given at the end of the
+command line may be inserted. Use $1 ... $&lt;NN&gt; for
+insertion unquoted, @1 ... @&lt;NN&gt; for insertion as a
+string literal. The number of arguments may be accessed
+through $# (as an unquoted number) or through @# (as a
+quoted number). These may be used at any place a token may
+begin, including within the preprocessing stage. Reference
+to an argument number beyond what was actually given is an
+error.</p>
+
+<p>PREPROCESSING A simple conditional preprocessing stage
+is run as a part of parsing. The general form is similar to
+the cond ? exp1 : exp2 ternary operator: %( CONDITION %?
+TRUE-TOKENS %) %( CONDITION %? TRUE-TOKENS %: FALSE-TOKENS
+%) The CONDITION is either an expression whose format is
+determined by its first keyword, or a string literals
+comparison or a numeric literals comparison. It can be also
+composed of many alternatives and conjunc- tions of
+CONDITIONs (meant as in previous sentence) using || and
+&amp;&amp; re- spectively. However, parentheses are not
+supported yet, so remembering that conjunction takes
+precedence over alternative is important.</p>
+
+<p>If the first part is the identifier kernel_vr or
+kernel_v to refer to the kernel version number, with
+(&quot;2.6.13-1.322FC3smp&quot;) or without
+(&quot;2.6.13&quot;) the release code suffix, then the
+second part is one of the six standard numeric comparison
+operators &lt;, &lt;=, ==, !=, &gt;, and &gt;=, and the
+third part is a string literal that contains an RPM-style
+version- release value. The condition is deemed satisfied if
+the version of the target kernel (as optionally overridden
+by the -r option) compares to the given version string. The
+comparison is performed by the glibc function strverscmp. As
+a special case, if the operator is for simple equality (==),
+or inequality (!=), and the third part contains any wildcard
+characters (* or ? or [), then the expression is treated as
+a wildcard (mis)match as evaluated by fnmatch.</p>
+
+<p>If, on the other hand, the first part is the identifier
+arch to refer to the processor architecture (as named by the
+kernel build system ARCH/SUBARCH), then the second part is
+one of the two string comparison operators == or !=, and the
+third part is a string literal for matching it. This
+comparison is a wildcard (mis)match.</p>
+
+<p>Similarly, if the first part is an identifier like
+CONFIG_something to refer to a kernel configuration option,
+then the second part is == or !=, and the third part is a
+string literal for matching the value (com- monly
+&quot;y&quot; or &quot;m&quot;). Nonexistent or unset kernel
+configuration options are represented by the empty string.
+This comparison is also a wild- card (mis)match.</p>
+
+<p>Otherwise, the CONDITION is expected to be a comparison
+between two string literals or two numeric literals. In this
+case, the arguments are the only variables usable.</p>
+
+<p>The TRUE-TOKENS and FALSE-TOKENS are zero or more
+general parser tokens (possibly including nested
+preprocessor conditionals), and are passed into the input
+stream if the condition is true or false. For example, the
+following code induces a parse error unless the target
+kernel ver- sion is newer than 2.6.5: %( kernel_v &lt;=
+&quot;2.6.5&quot; %? **ERROR** %) # invalid token sequence
+The following code might adapt to hypothetical kernel
+version drift: probe kernel.function ( %( kernel_v &lt;=
+&quot;2.6.12&quot; %? &quot;__mm_do_fault&quot; %: %(
+kernel_vr == &quot;2.6.13*smp&quot; %?
+&quot;do_page_fault&quot; %: UNSUPPORTED %) %) ) { /* ... */
+}</p>
+
+<p>%( arch == &quot;ia64&quot; %? probe syscall.vliw =
+kernel.function(&quot;vliw_widget&quot;) {} %)</p>
+
+<p>VARIABLES Identifiers for variables and functions are an
+alphanumeric sequence, and may include &quot;_&quot; and
+&quot;$&quot; characters. They may not start with a plain
+digit, as in C. Each variable is by default local to the
+probe or function statement block within which it is
+mentioned, and therefore its scope and lifetime is limited
+to a particular probe or function in- vocation.</p>
+
+<p>Scalar variables are implicitly typed as either string
+or integer. As- sociative arrays also have a string or
+integer value, and a tuple of strings and/or integers
+serving as a key. Here are a few basic expres- sions. var1 =
+5 var2 = &quot;bar&quot; array1 [pid()] = &quot;name&quot; #
+single numeric key array2 [&quot;foo&quot;,4,i++] += 5 #
+vector of string/num/num keys if ([&quot;hello&quot;,5,4] in
+array2) println (&quot;yes&quot;) # membership test</p>
+
+<p>The translator performs type inference on all
+identifiers, including array indexes and function
+parameters. Inconsistent type-related use of identifiers
+signals an error.</p>
+
+<p>Variables may be declared global, so that they are
+shared amongst all probes and live as long as the entire
+systemtap session. There is one namespace for all global
+variables, regardless of which script file they are found
+within. A global declaration may be written at the out-
+ermost level anywhere, not within a block of code. Global
+variables which are written but never read will be displayed
+automatically at session shutdown. The translator will infer
+for each its value type, and if it is used as an array, its
+key types. Optionally, scalar glob- als may be initialized
+with a string or number literal. The following declaration
+marks variables as global. global var1, var2, var3=4</p>
+
+<p>Global variables can also be set as module options. To
+do this, the module must first be compiled using stap -p4.
+Global variables can then be set on the command line when
+calling staprun on the module generated by stap -p4. See
+staprun(8) for more information.</p>
+
+<p>Arrays are limited in size by the MAXMAPENTRIES variable
+-- see the SAFETY AND SECURITY section for details.
+Optionally, global arrays may be declared with a maximum
+size in brackets, overriding MAXMAPENTRIES for that array
+only. Note that this doesnt indicate the type of keys for
+the array, just the size. global tiny_array[10],
+normal_array, big_array[50000]</p>
+
+<p>STATEMENTS Statements enable procedural control flow.
+They may occur within func- tions and probe handlers. The
+total number of statements executed in response to any
+single probe event is limited to some number defined by a
+macro in the translated C code, and is in the neighbourhood
+of 1000.</p>
+
+<p>EXP Execute the string- or integer-valued expression and
+throw away the value.</p>
+
+<p>{ STMT1 STMT2 ... } Execute each statement in sequence
+in this block. Note that separators or terminators are
+generally not necessary between statements.</p>
+
+<p>; Null statement, do nothing. It is useful as an
+optional separa- tor between statements to improve
+syntax-error detection and to handle certain grammar
+ambiguities.</p>
+
+<p>if (EXP) STMT1 [ else STMT2 ] Compare integer-valued EXP
+to zero. Execute the first (non-ze- ro) or second STMT
+(zero).</p>
+
+<p>while (EXP) STMT While integer-valued EXP evaluates to
+non-zero, execute STMT.</p>
+
+<p>for (EXP1; EXP2; EXP3) STMT Execute EXP1 as
+initialization. While EXP2 is non-zero, execute STMT, then
+the iteration expression EXP3.</p>
+
+<p>foreach (VAR in ARRAY [ limit EXP ]) STMT Loop over each
+element of the named global array, assigning cur- rent key
+to VAR. The array may not be modified within the statement.
+By adding a single + or - operator after the VAR or the
+ARRAY identifier, the iteration will proceed in a sorted or-
+der, by ascending or descending index or value. Using the
+op- tional limit keyword limits the number of loop
+iterations to EXP times. EXP is evaluated once at the
+beginning of the loop.</p>
+
+<p>foreach ([VAR1, VAR2, ...] in ARRAY [ limit EXP ]) STMT
+Same as above, used when the array is indexed with a tuple
+of keys. A sorting suffix may be used on at most one VAR or
+ARRAY identifier.</p>
+
+<p>break, continue Exit or iterate the innermost nesting
+loop (while or for or foreach) statement.</p>
+
+<p>return EXP Return EXP value from enclosing function. If
+the functions value is not taken anywhere, then a return
+statement is not needed, and the function will have a
+special &quot;unknown&quot; type with no return value.</p>
+
+<p>next Return now from enclosing probe handler. This is
+especially useful in probe aliases that apply event
+filtering predicates.</p>
+
+<p>try { STMT1 } catch { STMT2 } Run the statements in the
+first block. Upon any run-time er- rors, abort STMT1 and
+start executing STMT2. Any errors in STMT2 will propagate to
+outer try/catch blocks, if any.</p>
+
+<p>try { STMT1 } catch(VAR) { STMT2 } Same as above, plus
+assign the error message to the string scalar variable
+VAR.</p>
+
+<p>delete ARRAY[INDEX1, INDEX2, ...] Remove from ARRAY the
+element specified by the index tuple. The value will no
+longer be available, and subsequent iterations will not
+report the element. It is not an error to delete an element
+that does not exist.</p>
+
+<p>delete ARRAY Remove all elements from ARRAY.</p>
+
+<p>delete SCALAR Removes the value of SCALAR. Integers and
+strings are cleared to 0 and &quot;&quot; respectively,
+while statistics are reset to the ini- tial empty state.</p>
+
+<p>EXPRESSIONS Systemtap supports a number of operators
+that have the same general syntax, semantics, and precedence
+as in C and awk. Arithmetic is per- formed as per typical C
+rules for signed integers. Division by zero or overflow is
+detected and results in an error.</p>
+
+<p>binary numeric operators * / % + - &gt;&gt; &lt;&lt;
+&amp; ^ | &amp;&amp; ||</p>
+
+<p>binary string operators . (string concatenation)</p>
+
+<p>numeric assignment operators = *= /= %= += -= &gt;&gt;=
+&lt;&lt;= &amp;= ^= |=</p>
+
+<p>string assignment operators = .=</p>
+
+<p>unary numeric operators + - ! ~ ++ --</p>
+
+<p>binary numeric or string comparison operators &lt; &gt;
+&lt;= &gt;= == !=</p>
+
+<p>ternary operator cond ? exp1 : exp2</p>
+
+<p>grouping operator ( exp )</p>
+
+<p>function call fn ([ arg1, arg2, ... ])</p>
+
+<p>array membership check exp in array [exp1, exp2, ...] in
+array</p>
+
+<p>PROBES The main construct in the scripting language
+identifies probes. Probes associate abstract events with a
+statement block (&quot;probe handler&quot;) that is to be
+executed when any of those events occur. The general syntax
+is as follows: probe PROBEPOINT [, PROBEPOINT] { [STMT ...]
+}</p>
+
+<p>Events are specified in a special syntax called
+&quot;probe points&quot;. There are several varieties of
+probe points defined by the translator, and tapset scripts
+may define further ones using aliases. These are listed in
+the stapprobes(3stap) manual pages.</p>
+
+<p>The probe handler is interpreted relative to the context
+of each event. For events associated with kernel code, this
+context may include vari- ables defined in the source code
+at that spot. These &quot;target vari- ables&quot; are
+presented to the script as variables whose names are pre-
+fixed with &quot;$&quot;. They may be accessed only if the
+kernels compiler preserved them despite optimization. This
+is the same constraint that a debugger user faces when
+working with optimized code. Some other events have very
+little context. See the stapprobes(3stap) man pages to see
+the kinds of context variables available at each kind of
+probe point.</p>
+
+<p>New probe points may be defined using
+&quot;aliases&quot;. Probe point aliases look similar to
+probe definitions, but instead of activating a probe at the
+given point, it just defines a new probe point name as an
+alias to an existing one. There are two types of alias, i.e.
+the prologue style and the epilogue style which are
+identified by &quot;=&quot; and &quot;+=&quot; respective-
+ly.</p>
+
+<p>For prologue style alias, the statement block that
+follows an alias definition is implicitly added as a
+prologue to any probe that refers to the alias. While for
+the epilogue style alias, the statement block that follows
+an alias definition is implicitly added as an epilogue to
+any probe that refers to the alias. For example:</p>
+
+<p>probe syscall.read =
+kernel.function(&quot;sys_read&quot;) { fildes = $fd if
+(execname == &quot;init&quot;) next # skip rest of probe }
+defines a new probe point syscall.read, which expands to
+kernel.function(&quot;sys_read&quot;), with the given
+statement as a prologue, which is useful to predefine some
+variables for the alias user and/or to skip probe processing
+entirely based on some conditions. And probe syscall.read +=
+kernel.function(&quot;sys_read&quot;) { if (tracethis)
+println ($fd) } defines a new probe point with the given
+statement as an epilogue, which is useful to take actions
+based upon variables set or left over by the the alias
+user.</p>
+
+<p>An alias is used just like a built-in probe type. probe
+syscall.read { printf(&quot;reading fd=%d0, fildes) if
+(fildes &gt; 10) tracethis = 1 }</p>
+
+<p>FUNCTIONS Systemtap scripts may define subroutines to
+factor out common work. Functions take any number of scalar
+(integer or string) arguments, and must return a single
+scalar (integer or string). An example function declaration
+looks like this: function thisfn (arg1, arg2) { return arg1
++ arg2 } Note the general absence of type declarations,
+which are instead in- ferred by the translator. However, if
+desired, a function definition may include explicit type
+declarations for its return value and/or its arguments. This
+is especially helpful for embedded-C functions. In the
+following example, the type inference engine need only infer
+type type of arg2 (a string). function thatfn:string
+(arg1:long, arg2) { return sprint(arg1) . arg2 } Functions
+may call others or themselves recursively, up to a fixed
+nesting limit. This limit is defined by a macro in the
+translated C code and is in the neighbourhood of 10.</p>
+
+<p>PRINTING There are a set of function names that are
+specially treated by the translator. They format values for
+printing to the standard systemtap output stream in a more
+convenient way. The sprint* variants return the formatted
+string instead of printing it.</p>
+
+<p>print, sprint Print one or more values of any type,
+concatenated directly to- gether.</p>
+
+<p>println, sprintln Print values like print and sprint,
+but also append a newline.</p>
+
+<p>printd, sprintd Take a string delimiter and two or more
+values of any type, and print the values with the delimiter
+interposed. The delimiter must be a literal string
+constant.</p>
+
+<p>printdln, sprintdln Print values with a delimiter like
+printd and sprintd, but also append a newline.</p>
+
+<p>printf, sprintf Take a formatting string and a number of
+values of corresponding types, and print them all. The
+format must be a literal string constant.</p>
+
+<p>The printf formatting directives similar to those of C,
+except that they are fully type-checked by the
+translator:</p>
+
+<p>%b Writes a binary blob of the value given, instead of
+ASCII text. The width specifier determines the number of
+bytes to write; valid specifiers are %b %1b %2b %4b %8b. De-
+fault (%b) is 8 bytes.</p>
+
+<p>%c Character.</p>
+
+<p>%d,%i Signed decimal.</p>
+
+<p>%m Safely reads kernel memory at the given address,
+outputs its content. The precision specifier determines the
+num- ber of bytes to read. Default is 1 byte.</p>
+
+<p>%M Same as %m, but outputs in hexadecimal. The minimal
+size of output is double the precision specifier.</p>
+
+<p>%o Unsigned octal.</p>
+
+<p>%p Unsigned pointer address.</p>
+
+<p>%s String.</p>
+
+<p>%u Unsigned decimal.</p>
+
+<p>%x Unsigned hex value, in all lower-case.</p>
+
+<p>%X Unsigned hex value, in all upper-case.</p>
+
+<p>%% Writes a %.</p>
+
+<p>Examples: a = &quot;alice&quot;, b = &quot;bob&quot;, p
+= 0x1234abcd, i = 123, j = -1, id[a] = 1234, id[b] = 4567
+print(&quot;hello&quot;) Prints: hello println(b) Prints:
+bob println(a . &quot; is &quot; . sprint(16)) Prints: alice
+is 16 foreach (name in id) printdln(&quot;|&quot;,
+strlen(name), name, id[name]) Prints: 5|alice|12340|bob|4567
+printf(&quot;%c is %s; %x or %X or %p; %d or
+%u0,97,a,p,p,p,j,j) Prints: a is alice; 1234abcd or 1234ABCD
+or 0x1234abcd; -1 or 18446744073709551615 printf(&quot;2
+bytes of kernel buffer at address %p: %2m&quot;, p, p)
+Prints: 2 byte of kernel buffer at address 0x1234abcd:
+&lt;binary data&gt; printf(&quot;%4b&quot;, p) Prints (these
+values as binary data): 0x1234abcd</p>
+
+<p>STATISTICS It is often desirable to collect statistics
+in a way that avoids the penalties of repeatedly exclusive
+locking the global variables those numbers are being put
+into. Systemtap provides a solution using a spe- cial
+operator to accumulate values, and several pseudo-functions
+to ex- tract the statistical aggregates.</p>
+
+<p>The aggregation operator is &lt;&lt;&lt;, and resembles
+an assignment, or a C++ output-streaming operation. The left
+operand specifies a scalar or ar- ray-index lvalue, which
+must be declared global. The right operand is a numeric
+expression. The meaning is intuitive: add the given number
+to the pile of numbers to compute statistics of. (The
+specific list of statistics to gather is given separately,
+by the extraction functions.) foo &lt;&lt;&lt; 1
+stats[pid()] &lt;&lt;&lt; memsize</p>
+
+<p>The extraction functions are also special. For each
+appearance of a distinct extraction function operating on a
+given identifier, the translator arranges to compute a set
+of statistics that satisfy it. The statistics system is
+thereby &quot;on-demand&quot;. Each execution of an ex-
+traction function causes the aggregation to be computed for
+that moment across all processors.</p>
+
+<p>Here is the set of extractor functions. The first
+argument of each is the same style of lvalue used on the
+left hand side of the accumulate operation. The @count(v),
+@sum(v), @min(v), @max(v), @avg(v) extractor functions
+compute the number/total/minimum/maximum/average of all
+accu- mulated values. The resulting values are all simple
+integers.</p>
+
+<p>Histograms are also available, but are more complicated
+because they have a vector rather than scalar value.
+@hist_linear(v,start,stop,in- terval) represents a linear
+histogram from &quot;start&quot; to &quot;stop&quot; by
+incre- ments of &quot;interval&quot;. The interval must be
+positive. Similarly, @hist_log(v) represents a base-2
+logarithmic histogram. Printing a his- togram with the print
+family of functions renders a histogram object as a tabular
+&quot;ASCII art&quot; bar chart. probe foo { x &lt;&lt;&lt;
+$value } probe end { printf (&quot;avg %d = sum %d / count
+%d0, @avg(x), @sum(x), @count(x)) print (@hist_log(v)) }</p>
+
+<p>TYPECASTING Once a pointer has been saved into a script
+integer variable, the translator loses the type information
+necessary to access members from that pointer. Using the
+@cast() operator tells the translator how to read a pointer.
+@cast(p, &quot;type_name&quot;[,
+&quot;module&quot;])-&gt;member</p>
+
+<p>This will interpret p as a pointer to a struct/union
+named type_name and dereference the member value. Further
+-&gt;subfield expressions may be appended to dereference
+more levels. NOTE: the same dereferencing operator -&gt; is
+used to refer to both direct containment or pointer in-
+direction. Systemtap automatically determines which. The
+optional module tells the translator where to look for
+information about that type. Multiple modules may be
+specified as a list with : separators. If the module is not
+specified, it will default either to the probe module for
+dwarf probes, or to &quot;kernel&quot; for functions and all
+other probes types.</p>
+
+<p>The translator can create its own module with type
+information from a header surrounded by angle brackets, in
+case normal debuginfo is not available. For kernel headers,
+prefix it with &quot;kernel&quot; to use the ap- propriate
+build system. All other headers are build with default GCC
+parameters into a user module. Multiple headers may be
+specified in sequence to resolve a codependency. @cast(tv,
+&quot;timeval&quot;,
+&quot;&lt;sys/time.h&gt;&quot;)-&gt;tv_sec @cast(task,
+&quot;task_struct&quot;,
+&quot;kernel&lt;linux/sched.h&gt;&quot;)-&gt;tgid
+@cast(task, &quot;task_struct&quot;,
+&quot;kernel&lt;linux/sched.h&gt;&lt;linux/fs_struct.h&gt;&quot;)-&gt;fs-&gt;umask</p>
+
+<p>When in guru mode, the translator will also allow
+scripts to assign new values to members of typecasted
+pointers.</p>
+
+<p>Typecasting is also useful in the case of void* members
+whose type may be determinable at runtime. probe foo { if
+($var-&gt;type == 1) { value = @cast($var-&gt;data,
+&quot;type1&quot;)-&gt;bar } else { value =
+@cast($var-&gt;data, &quot;type2&quot;)-&gt;baz }
+print(value) }</p>
+
+<p>EMBEDDED C When in guru mode, the translator accepts
+embedded code in the script. Such code is enclosed between
+%{ and %} markers, and is transcribed verbatim, without
+analysis, in some sequence, into the generated C code. At
+the outermost level, this may be useful to add #include in-
+structions, and any auxiliary definitions for use by other
+embedded code.</p>
+
+<p>The other place where embedded code is permitted is as a
+function body. In this case, the script language body is
+replaced entirely by a piece of C code enclosed again
+between %{ and %} markers. This C code may do anything
+reasonable and safe. There are a number of undocumented but
+complex safety constraints on atomicity, concurrency,
+resource consump- tion, and run time limits, so this is an
+advanced technique.</p>
+
+<p>The memory locations set aside for input and output
+values are made available to it using a macro THIS. Here are
+some examples: function add_one (val) %{ THIS-&gt;__retvalue
+= THIS-&gt;val + 1; %} function add_one_str (val) %{ strlcpy
+(THIS-&gt;__retvalue, THIS-&gt;val, MAXSTRINGLEN); strlcat
+(THIS-&gt;__retvalue, &quot;one&quot;, MAXSTRINGLEN); %} The
+function argument and return value types have to be inferred
+by the translator from the call sites in order for this to
+work. The user should examine C code generated for ordinary
+script-language functions in order to write compatible
+embedded-C ones.</p>
+
+<p>BUILT-INS A set of builtin functions and probe point
+aliases are provided by the scripts installed under the
+/usr/share/systemtap/tapset directory. These are described
+in the stapfuncs(3stap) and stapprobes(3stap) manu- al
+pages.</p>
+
+<p>PROCESSING The translator begins pass 1 by parsing the
+given input script, and all scripts (files named *.stp)
+found in a tapset directory. The directo- ries listed with
+-I are processed in sequence, each processed in &quot;guru
+mode&quot;. For each directory, a number of subdirectories
+are also searched. These subdirectories are derived from the
+selected kernel version (the -R option), in order to allow
+more kernel-version-specific scripts to override less
+specific ones. For example, for a kernel ver- sion
+2.6.12-23.FC3 the following patterns would be searched, in
+se- quence: 2.6.12-23.FC3/*.stp, 2.6.12/*.stp, 2.6/*.stp,
+and finally *.stp Stopping the translator after pass 1
+causes it to print the parse trees.</p>
+
+<p>In pass 2, the translator analyzes the input script to
+resolve symbols and types. References to variables,
+functions, and probe aliases that are unresolved internally
+are satisfied by searching through the parsed tapset
+scripts. If any tapset script is selected because it defines
+an unresolved symbol, then the entirety of that script is
+added to the translators resolution queue. This process
+iterates until all symbols are resolved and a subset of
+tapset scripts is selected.</p>
+
+<p>Next, all probe point descriptions are validated against
+the wide vari- ety supported by the translator. Probe points
+that refer to code loca- tions (&quot;synchronous probe
+points&quot;) require the appropriate kernel de- bugging
+information to be installed. In the associated probe
+handlers, target-side variables (whose names begin with
+&quot;$&quot;) are found and have their run-time locations
+decoded.</p>
+
+<p>Next, all probes and functions are analyzed for
+optimization opportuni- ties, in order to remove variables,
+expressions, and functions that have no useful value and no
+side-effect. Embedded-C functions are as- sumed to have
+side-effects unless they include the magic string /* pure
+*/. Since this optimization can hide latent code errors such
+as type mismatches or invalid $target variables, it
+sometimes may be useful to disable the optimizations with
+the -u option.</p>
+
+<p>Finally, all variable, function, parameter, array, and
+index types are inferred from context (literals and
+operators). Stopping the transla- tor after pass 2 causes it
+to list all the probes, functions, and vari- ables, along
+with all inferred types. Any inconsistent or unresolved
+types cause an error.</p>
+
+<p>In pass 3, the translator writes C code that represents
+the actions of all selected script files, and creates a
+Makefile to build that into a kernel object. These files are
+placed into a temporary directory. Stopping the translator
+at this point causes it to print the contents of the C
+file.</p>
+
+<p>In pass 4, the translator invokes the Linux kernel build
+system to cre- ate the actual kernel object file. This
+involves running make in the temporary directory, and
+requires a kernel module build system (head- ers, config and
+Makefiles) to be installed in the usual spot /lib/mod-
+ules/VERSION/build. Stopping the translator after pass 4 is
+the last chance before running the kernel object. This may
+be useful if you want to archive the file.</p>
+
+<p>In pass 5, the translator invokes the systemtap
+auxiliary program staprun program for the given kernel
+object. This program arranges to load the module then
+communicates with it, copying trace data from the kernel
+into temporary files, until the user sends an interrupt
+signal. Any run-time error encountered by the probe
+handlers, such as running out of memory, division by zero,
+exceeding nesting or runtime limits, results in a soft error
+indication. Soft errors in excess of MAXERRORS block of all
+subsequent probes (except error-handling probes), and ter-
+minate the session. Finally, staprun unloads the module, and
+cleans up.</p>
+
+<p>ABNORMAL TERMINATION One should avoid killing the stap
+process forcibly, for example with SIGKILL, because the
+stapio process (a child process of the stap pro- cess) and
+the loaded module may be left running on the system. If this
+happens, send SIGTERM or SIGINT to any remaining stapio
+processes, then use rmmod to unload the systemtap
+module.</p>
+
+<p>EXAMPLES See the stapex(3stap) manual page for a
+collection of samples.</p>
+
+<p>CACHING The systemtap translator caches the pass 3
+output (the generated C code) and the pass 4 output (the
+compiled kernel module) if pass 4 com- pletes successfully.
+This cached output is reused if the same script is
+translated again assuming the same conditions exist (same
+kernel version, same systemtap version, etc.). Cached files
+are stored in the $SYSTEMTAP_DIR/cache directory. The cache
+can be limited by having the file cache_mb_limit placed in
+the cache directory (shown above) con- taining only an ASCII
+integer representing how many MiB the cache should not
+exceed. Note that this is a soft limit in that the cache
+will be cleaned after a new entry is added, so the total
+cache size may temporarily exceed this limit. In the absence
+of this file, a default will be created with the limit set
+to 64MiB.</p>
+
+<p>SAFETY AND SECURITY Systemtap is an administrative tool.
+It exposes kernel internal data structures and potentially
+private user information. It acquires ei- ther root
+privileges</p>
+
+<p>To actually run the kernel objects it builds, a user
+must be one of the following:</p>
+
+<p>&middot; the root user;</p>
+
+<p>&middot; a member of the stapdev group; or</p>
+
+<p>&middot; a member of the stapusr group.</p>
+
+<p>Members of the stapusr group can only use modules under
+the following conditions:</p>
+
+<p>&middot; The module is located in the
+/lib/modules/VERSION/systemtap direc- tory. This directory
+must be owned by root and not be world writable.</p>
+
+<p>&middot; The module has been signed by a trusted signer.
+Trusted signers are normally systemtap compile servers which
+sign modules when the --unprivileged option is specified by
+the client. See the stap- server(8) manual page for a for
+more information.</p>
+
+<p>The kernel modules generated by stap program are run by
+the staprun program. The latter is a part of the Systemtap
+package, dedicated to module loading and unloading (but only
+in the white zone), and kernel- to-user data transfer. Since
+staprun does not perform any additional security checks on
+the kernel objects it is given, it would be unwise for a
+system administrator to add untrusted users to the stapdev
+or stapusr groups.</p>
+
+<p>The translator asserts certain safety constraints. It
+aims to ensure that no handler routine can run for very
+long, allocate memory, perform unsafe operations, or in
+unintentionally interfere with the kernel. Use of script
+global variables is suitably locked to protect against
+manipulation by concurrent probe handlers. Use of guru mode
+constructs such as embedded C can violate these constraints,
+leading to kernel crash or data corruption.</p>
+
+<p>The resource use limits are set by macros in the
+generated C code. These may be overridden with the -D flag.
+A selection of these is as follows:</p>
+
+<p>MAXNESTING Maximum number of nested function calls.
+Default determined by script analysis, with a bonus 10 slots
+added for recursive scripts.</p>
+
+<p>MAXSTRINGLEN Maximum length of strings, default 128.</p>
+
+<p>MAXTRYLOCK Maximum number of iterations to wait for
+locks on global vari- ables before declaring possible
+deadlock and skipping the probe, default 1000.</p>
+
+<p>MAXACTION Maximum number of statements to execute during
+any single probe hit (with interrupts disabled), default
+1000.</p>
+
+<p>MAXACTION_INTERRUPTIBLE Maximum number of statements to
+execute during any single probe hit which is executed with
+interrupts enabled (such as begin/end probes), default
+(MAXACTION * 10).</p>
+
+<p>MAXMAPENTRIES Maximum number of rows in any single
+global array, default 2048.</p>
+
+<p>MAXERRORS Maximum number of soft errors before an exit
+is triggered, de- fault 0, which means that the first error
+will exit the script.</p>
+
+<p>MAXSKIPPED Maximum number of skipped probes before an
+exit is triggered, default 100. Running systemtap with -t
+(timing) mode gives more details about skipped probes. With
+the default -DINTERRUPT- IBLE=1 setting, probes skipped due
+to reentrancy are not accumu- lated against this limit.</p>
+
+<p>MINSTACKSPACE Minimum number of free kernel stack bytes
+required in order to run a probe handler, default 1024. This
+number should be large enough for the probe handlers own
+needs, plus a safety margin.</p>
+
+<p>MAXUPROBES Maximum number of concurrently armed
+user-space probes (up- robes), default somewhat larger than
+the number of user-space probe points named in the script.
+This pool needs to be poten- tialy large because individual
+uprobe objects (about 64 bytes each) are allocated for each
+process for each matching script- level probe.</p>
+
+<p>STP_MAXMEMORY Maximum amount of memory (in kilobytes)
+that the systemtap mod- ule should use, default unlimited.
+The memory size includes the size of the module itself, plus
+any additional allocations. This only tracks direct
+allocations by the systemtap runtime. This does not track
+indirect allocations (as done by kprobes/up- robes/etc.
+internals).</p>
+
+<p>STP_PROCFS_BUFSIZE Size of procfs probe read buffers (in
+bytes). Defaults to MAXSTRINGLEN. This value can be
+overridden on a per-procfs file basis using the procfs read
+probe .maxsize(MAXSIZE) parameter.</p>
+
+<p>With scripts that contain probes on any interrupt path,
+it is possible that those interrupts may occur in the middle
+of another probe handler. The probe in the interrupt handler
+would be skipped in this case to avoid reentrance. To work
+around this issue, execute stap with the op- tion
+-DINTERRUPTIBLE=0 to mask interrupts throughout the probe
+handler. This does add some extra overhead to the probes,
+but it may prevent reentrance for common problem cases.
+However, probes in NMI handlers and in the callpath of the
+stap runtime may still be skipped due to reentrance.</p>
+
+<p>Multiple scripts can write data into a relay buffer
+concurrently. A host script provides an interface for
+accessing its relay buffer to guest scripts. Then, the
+output of the guests are merged into the out- put of the
+host. To run a script as a host, execute stap with -DRELAY-
+HOST[=name] option. The name identifies your host script
+among several hosts. While running the host, execute stap
+with -DRELAYGUEST[=name] to add a guest script to the host.
+Note that you must unload guests before unloading a host. If
+there are some guests connected to the host, unloading the
+host will be failed.</p>
+
+<p>In case something goes wrong with stap or staprun after
+a probe has al- ready started running, one may safely kill
+both user processes, and re- move the active probe kernel
+module with rmmod. Any pending trace mes- sages may be
+lost.</p>
+
+<p>In addition to the methods outlined above, the generated
+kernel module also uses overload processing to make sure
+that probes cant run for too long. If more than
+STP_OVERLOAD_THRESHOLD cycles (default 500000000) have been
+spent in all the probes on a single cpu during the last
+STP_OVERLOAD_INTERVAL cycles (default 1000000000), the
+probes have overloaded the system and an exit is
+triggered.</p>
+
+<p>By default, overload processing is turned on for all
+modules. If you would like to disable overload processing,
+define STP_NO_OVERLOAD.</p>
+
+<p>FILES ~/.systemtap Systemtap data directory for cached
+systemtap files, unless overridden by the SYSTEMTAP_DIR
+environment variable.</p>
+
+<p>/tmp/stapXXXXXX Temporary directory for systemtap files,
+including translated C code and kernel object.</p>
+
+<p>/usr/share/systemtap/tapset The automatic tapset search
+directory, unless overridden by the SYSTEMTAP_TAPSET
+environment variable.</p>
+
+<p>/usr/share/systemtap/runtime The runtime sources, unless
+overridden by the SYSTEMTAP_RUNTIME environment
+variable.</p>
+
+<p>/lib/modules/VERSION/build The location of kernel module
+building infrastructure.</p>
+
+<p>/usr/lib/debug/lib/modules/VERSION The location of
+kernel debugging information when packaged into the
+kernel-debuginfo RPM, unless overridden by the SYSTEMTAP_DE-
+BUGINFO_PATH environment variable. The default value for
+this variable is +:.debug:/usr/lib/debug:build. Elfutils
+searches vmlinux in this path and it interprets the path as
+a base direc- tory of which various subdirectories will be
+searched for find- ing modules.</p>
+
+<p>/usr/bin/staprun The auxiliary program supervising
+module loading, interaction, and unloading.</p>
+
+<p>SEE ALSO stapprobes(3stap), stapfuncs(3stap),
+staprun(8), stapvars(3stap), stapex(3stap), stap-client(8),
+stap-server(8), awk(1), gdb(1)</p>
+
+<p>BUGS Use the Bugzilla link of the project web page or
+our mailing list.
+http://sources.redhat.com/systemtap/,&lt;systemtap@sources.redhat.com&gt;.</p>
+
+<p>Red Hat 2010-06-29 STAP(1)</p>
+<hr>
+</body>
+</html>

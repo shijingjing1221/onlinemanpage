@@ -1,0 +1,269 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:10:00 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERLCOMPILE(1) Perl Programmers Reference Guide
+PERLCOMPILE(1)</p>
+
+<p>NAME perlcompile - Introduction to the Perl
+Compiler-Translator</p>
+
+<p>DESCRIPTION Perl has always had a compiler: your source
+is compiled into an internal form (a parse tree) which is
+then optimized before being run. Since version 5.005, Perl
+has shipped with a module capable of inspecting the
+optimized parse tree (&quot;B&quot;), and this has been used
+to write many useful utilities, including a module that lets
+you turn your Perl into C source code that can be compiled
+into a native executable.</p>
+
+<p>The &quot;B&quot; module provides access to the parse
+tree, and other modules (&quot;back ends&quot;) do things
+with the tree. Some write it out as semi- human-readable
+text. Another traverses the parse tree to build a
+cross-reference of which subroutines, formats, and variables
+are used where. Another checks your code for dubious
+constructs. Yet another back end dumps the parse tree back
+out as Perl source, acting as a source code beautifier or
+deobfuscator.</p>
+
+<p>Because its original purpose was to be a way to produce
+C code corresponding to a Perl program, and in turn a native
+executable, the &quot;B&quot; module and its associated back
+ends are known as &quot;the compiler&quot;, even though they
+dont really compile anything. Different parts of the
+compiler are more accurately a &quot;translator&quot;, or an
+&quot;inspector&quot;, but people want Perl to have a
+&quot;compiler option&quot; not an &quot;inspector
+gadget&quot;. What can you do?</p>
+
+<p>This document covers the use of the Perl compiler: which
+modules it comprises, how to use the most important of the
+back end modules, what problems there are, and how to work
+around them.</p>
+
+<p>Layout The compiler back ends are in the &quot;B::&quot;
+hierarchy, and the front-end (the module that you, the user
+of the compiler, will sometimes interact with) is the O
+module.</p>
+
+<p>Here are the important back ends to know about, with
+their status expressed as a number from 0 (outline for later
+implementation) to 10 (if theres a bug in it, were very
+surprised):</p>
+
+<p>B::Lint Complains if it finds dubious constructs in your
+source code. Status: 6 (it works adequately, but only has a
+very limited number of areas that it checks).</p>
+
+<p>B::Deparse Recreates the Perl source, making an attempt
+to format it coherently. Status: 8 (it works nicely, but a
+few obscure things are missing).</p>
+
+<p>B::Xref Reports on the declaration and use of
+subroutines and variables. Status: 8 (it works nicely, but
+still has a few lingering bugs).</p>
+
+<p>Using The Back Ends The following sections describe how
+to use the various compiler back ends. Theyre presented
+roughly in order of maturity, so that the most stable and
+proven back ends are described first, and the most
+experimental and incomplete back ends are described
+last.</p>
+
+<p>The O module automatically enabled the -c flag to Perl,
+which prevents Perl from executing your code once it has
+been compiled. This is why all the back ends print:</p>
+
+<p>myperlprogram syntax OK</p>
+
+<p>before producing any other output.</p>
+
+<p>The Cross Referencing Back End The cross referencing
+back end (B::Xref) produces a report on your program,
+breaking down declarations and uses of subroutines and
+variables (and formats) by file and subroutine. For
+instance, heres part of the report from the pod2man program
+that comes with Perl:</p>
+
+<p>Subroutine clear_noremap Package (lexical)
+$ready_to_print i1069, 1079 Package main $&amp; 1086 $. 1086
+$0 1086 $1 1087 $2 1085, 1085 $3 1085, 1085 $ARGV 1086
+%HTML_Escapes 1085, 1085</p>
+
+<p>This shows the variables used in the subroutine
+&quot;clear_noremap&quot;. The variable $ready_to_print is a
+my() (lexical) variable, introduced (first declared with
+my()) on line 1069, and used on line 1079. The variable
+$&amp; from the main package is used on 1086, and so on.</p>
+
+<p>A line number may be prefixed by a single letter:</p>
+
+<p>i Lexical variable introduced (declared with my()) for
+the first time.</p>
+
+<p>&amp; Subroutine or method call.</p>
+
+<p>s Subroutine defined.</p>
+
+<p>r Format defined.</p>
+
+<p>The most useful option the cross referencer has is to
+save the report to a separate file. For instance, to save
+the report on myperlprogram to the file report:</p>
+
+<p>$ perl -MO=Xref,-oreport myperlprogram</p>
+
+<p>The Decompiling Back End The Deparse back end turns your
+Perl source back into Perl source. It can reformat along the
+way, making it useful as a deobfuscator. The most basic way
+to use it is:</p>
+
+<p>$ perl -MO=Deparse myperlprogram</p>
+
+<p>Youll notice immediately that Perl has no idea of how to
+paragraph your code. You ll have to separate chunks of code
+from each other with newlines by hand. However, watch what
+it will do with one-liners:</p>
+
+<p>$ perl -MO=Deparse -e &rsquo;$op=shift||die &quot;usage:
+$0 code [...]&quot;;chomp(@ARGV=&lt;&gt;)unless@ARGV;
+for(@ARGV){$was=$_;eval$op; die$@ if$@; rename$was,$_
+unless$was eq $_}&rsquo; -e syntax OK $op = shift @ARGV ||
+die(&quot;usage: $0 code [...]&quot;); chomp(@ARGV =
+&lt;ARGV&gt;) unless @ARGV; foreach $_ (@ARGV) { $was = $_;
+eval $op; die $@ if $@; rename $was, $_ unless $was eq $_;
+}</p>
+
+<p>The decompiler has several options for the code it
+generates. For instance, you can set the size of each indent
+from 4 (as above) to 2 with:</p>
+
+<p>$ perl -MO=Deparse,-si2 myperlprogram</p>
+
+<p>The -p option adds parentheses where normally they are
+omitted:</p>
+
+<p>$ perl -MO=Deparse -e &rsquo;print &quot;Hello,
+world0&rsquo; -e syntax OK print &quot;Hello, world0; $ perl
+-MO=Deparse,-p -e &rsquo;print &quot;Hello, world0&rsquo; -e
+syntax OK print(&quot;Hello, world0);</p>
+
+<p>See B::Deparse for more information on the formatting
+options.</p>
+
+<p>The Lint Back End The lint back end (B::Lint) inspects
+programs for poor style. One programmer s bad style is
+another programmers useful tool, so options let you select
+what is complained about.</p>
+
+<p>To run the style checker across your source code:</p>
+
+<p>$ perl -MO=Lint myperlprogram</p>
+
+<p>To disable context checks and undefined subroutines:</p>
+
+<p>$ perl -MO=Lint,-context,-undefined-subs
+myperlprogram</p>
+
+<p>See B::Lint for information on the options.</p>
+
+<p>Module List for the Compiler Suite B This module is the
+introspective (&quot;reflective&quot; in Java terms) module,
+which allows a Perl program to inspect its innards. The back
+end modules all use this module to gain access to the
+compiled parse tree. You, the user of a back end module,
+will not need to interact with B.</p>
+
+<p>O This module is the front-end to the compiler s back
+ends. Normally called something like this:</p>
+
+<p>$ perl -MO=Deparse myperlprogram</p>
+
+<p>This is like saying &quot;use O
+&rsquo;Deparse&rsquo;&quot; in your Perl program.</p>
+
+<p>B::Concise This module prints a concise (but complete)
+version of the Perl parse tree. Its output is more
+customizable than the one of B::Terse or B::Debug (and it
+can emulate them). This module useful for people who are
+writing their own back end, or who are learning about the
+Perl internals. It s not useful to the average
+programmer.</p>
+
+<p>B::Debug This module dumps the Perl parse tree in
+verbose detail to STDOUT. Its useful for people who are
+writing their own back end, or who are learning about the
+Perl internals. Its not useful to the average
+programmer.</p>
+
+<p>B::Deparse This module produces Perl source code from
+the compiled parse tree. It is useful in debugging and
+deconstructing other peoples code, also as a pretty-printer
+for your own source. See &quot;The Decompiling Back
+End&quot; for details about usage.</p>
+
+<p>B::Lint This module inspects the compiled form of your
+source code for things which, while some people frown on
+them, aren t necessarily bad enough to justify a warning.
+For instance, use of an array in scalar context without
+explicitly saying &quot;scalar(@array)&quot; is something
+that Lint can identify. See &quot;The Lint Back End&quot;
+for details about usage.</p>
+
+<p>B::Showlex This module prints out the my() variables
+used in a function or a file. To get a list of the my()
+variables used in the subroutine mysub() defined in the file
+myperlprogram:</p>
+
+<p>$ perl -MO=Showlex,mysub myperlprogram</p>
+
+<p>To get a list of the my() variables used in the file
+myperlprogram:</p>
+
+<p>$ perl -MO=Showlex myperlprogram</p>
+
+<p>[BROKEN]</p>
+
+<p>B::Terse This module prints the contents of the parse
+tree, but without as much information as B::Debug. For
+comparison, &quot;print &quot;Hello, world.&quot;&quot;
+produced 96 lines of output from B::Debug, but only 6 from
+B::Terse.</p>
+
+<p>This module is useful for people who are writing their
+own back end, or who are learning about the Perl internals.
+It s not useful to the average programmer.</p>
+
+<p>B::Xref This module prints a report on where the
+variables, subroutines, and formats are defined and used
+within a program and the modules it loads. See &quot;The
+Cross Referencing Back End&quot; for details about
+usage.</p>
+
+<p>KNOWN PROBLEMS BEGIN{} blocks are executed while
+compiling your code. Any external state that is initialized
+in BEGIN{}, such as opening files, initiating database
+connections etc., do not behave properly. To work around
+this, Perl has an INIT{} block that corresponds to code
+being executed before your program begins running but after
+your program has finished being compiled. Execution order:
+BEGIN{}, (possible save of state through compiler back-end),
+INIT{}, program runs, END{}.</p>
+
+<p>AUTHOR This document was originally written by Nathan
+Torkington, and is now maintained by the perl5-porters
+mailing list perl5-porters@perl.org.</p>
+
+<p>perl v5.10.1 2009-04-11 PERLCOMPILE(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:59:54 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>FMEMOPEN(3) Linux Programmer s Manual FMEMOPEN(3)</p>
+
+<p>NAME fmemopen, open_memstream, open_wmemstream - open
+memory as stream</p>
+
+<p>SYNOPSIS #define _GNU_SOURCE #include
+&lt;stdio.h&gt;</p>
+
+<p>FILE *fmemopen(void *buf, size_t size, const char
+*mode);</p>
+
+<p>FILE *open_memstream(char **ptr, size_t *sizeloc);</p>
+
+<p>#define _GNU_SOURCE #include &lt;wchar.h&gt;</p>
+
+<p>FILE *open_wmemstream(wchar_t **ptr, size_t
+*sizeloc);</p>
+
+<p>DESCRIPTION The fmemopen() function opens a stream that
+permits the access speci- fied by mode. The stream allows
+I/O to be performed on the string or memory buffer pointed
+to by buf. This buffer must be at least size bytes long.</p>
+
+<p>The argument mode is the same as for fopen(3). If mode
+specifies an append mode, then the initial file position is
+set to the location of the first null byte (&rsquo; &rsquo;)
+in the buffer; otherwise the initial file position is set to
+the start of the buffer. Since glibc 2.9, the let- ter b may
+be specified as the second character in mode. This pro-
+vides &quot;binary&quot; mode: writes don t implicitly add a
+terminating null byte, and fseek(3) SEEK_END is relative to
+the end of the buffer (i.e., the value specified by the size
+argument), rather than the current string length.</p>
+
+<p>When a stream that has been opened for writing is
+flushed (fflush(3)) or closed (fclose(3)), a null byte is
+written at the end of the buffer if there is space. The
+caller should ensure that an extra byte is available in the
+buffer (and that size counts that byte) to allow for
+this.</p>
+
+<p>Attempts to write more than size bytes to the buffer
+result in an error. (By default, such errors will only be
+visible when the stdio buffer is flushed. Disabling
+buffering with setbuf(fp, NULL) may be useful to detect
+errors at the time of an output operation. Alterna- tively,
+the caller can explicitly set buf as the stdio stream
+buffer, at the same time informing stdio of the buffers
+size, using set- buffer(fp, buf, size).)</p>
+
+<p>In a stream opened for reading, null bytes (&rsquo;
+&rsquo;) in the buffer do not cause read operations to
+return an end-of-file indication. A read from the buffer
+will only indicate end-of-file when the file pointer
+advances size bytes past the start of the buffer.</p>
+
+<p>If buf is specified as NULL, then fmemopen() dynamically
+allocates a buffer size bytes long. This is useful for an
+application that wants to write data to a temporary buffer
+and then read it back again. The buffer is automatically
+freed when the stream is closed. Note that the caller has no
+way to obtain a pointer to the temporary buffer allocated by
+this call (but see open_memstream() below).</p>
+
+<p>The open_memstream() function opens a stream for writing
+to a buffer. The buffer is dynamically allocated (as with
+malloc(3)), and automati- cally grows as required. After
+closing the stream, the caller should free(3) this
+buffer.</p>
+
+<p>When the stream is closed (fclose(3)) or flushed
+(fflush(3)), the loca- tions pointed to by ptr and sizeloc
+are updated to contain, respec- tively, a pointer to the
+buffer and the current size of the buffer. These values
+remain valid only as long as the caller performs no fur-
+ther output on the stream. If further output is performed,
+then the stream must again be flushed before trying to
+access these variables.</p>
+
+<p>A null byte is maintained at the end of the buffer. This
+byte is not included in the size value stored at
+sizeloc.</p>
+
+<p>The streams file position can be changed with fseek(3)
+or fseeko(3). Moving the file position past the end of the
+data already written fills the intervening space with
+zeros.</p>
+
+<p>The open_wmemstream() is similar to open_memstream(),
+but operates on wide characters instead of bytes.</p>
+
+<p>RETURN VALUE Upon successful completion fmemopen(),
+open_memstream() and open_wmem- stream() return a FILE
+pointer. Otherwise, NULL is returned and errno is set to
+indicate the error.</p>
+
+<p>VERSIONS fmemopen() and open_memstream() were already
+available in glibc 1.0.x. open_wmemstream() is available
+since glibc 2.4.</p>
+
+<p>CONFORMING TO POSIX.1-2008. These functions are not
+specified in POSIX.1-2001, and are not widely available on
+other systems.</p>
+
+<p>NOTES There is no file descriptor associated with the
+file stream returned by these functions (i.e., fileno(3)
+will return an error if called on the returned stream).</p>
+
+<p>BUGS In glibc before version 2.7, seeking past the end
+of a stream created by open_memstream() does not enlarge the
+buffer; instead the fseek() call fails, returning -1.</p>
+
+<p>EXAMPLE The program below uses fmemopen() to open an
+input buffer, and open_memstream() to open a dynamically
+sized output buffer. The pro- gram scans its input string
+(taken from the programs first command- line argument)
+reading integers, and writes the squares of these inte- gers
+to the output buffer. An example of the output produced by
+this program is the following:</p>
+
+<p>$ ./a.out &rsquo;1 23 43&rsquo; size=11; ptr=1 529
+1849</p>
+
+<p>Program source</p>
+
+<p>#define _GNU_SOURCE #include &lt;assert.h&gt; #include
+&lt;string.h&gt; #include &lt;stdio.h&gt; #include
+&lt;stdlib.h&gt;</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>int main(int argc, char *argv[]) { FILE *out, *in; int
+v, s; size_t size; char *ptr;</p>
+
+<p>assert(argc == 2);</p>
+
+<p>in = fmemopen(argv[1], strlen(argv[1]), &quot;r&quot;);
+if (in == NULL) handle_error(&quot;fmemopen&quot;);</p>
+
+<p>out = open_memstream(&amp;ptr, &amp;size); if (out ==
+NULL) handle_error(&quot;fmemopen&quot;);</p>
+
+<p>for (;;) { s = fscanf(in, &quot;%d&quot;, &amp;v); if (s
+&lt;= 0) break;</p>
+
+<p>s = fprintf(out, &quot;%d &quot;, v * v); if (s == -1)
+handle_error(&quot;fprintf&quot;); } fclose(in);
+fclose(out); printf(&quot;size=%ld; ptr=%s0, (long) size,
+ptr); free(ptr); exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO fopen(3), fopencookie(3),
+feature_test_macros(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>GNU 2009-04-21 FMEMOPEN(3)</p>
+<hr>
+</body>
+</html>

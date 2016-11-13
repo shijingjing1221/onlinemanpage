@@ -1,0 +1,237 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:08:25 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>FTW(3) Linux Programmer s Manual FTW(3)</p>
+
+<p>NAME ftw, nftw - file tree walk</p>
+
+<p>SYNOPSIS #include &lt;ftw.h&gt;</p>
+
+<p>int ftw(const char *dirpath, int (*fn) (const char
+*fpath, const struct stat *sb, int typeflag), int
+nopenfd);</p>
+
+<p>#define _XOPEN_SOURCE 500 #include &lt;ftw.h&gt;</p>
+
+<p>int nftw(const char *dirpath, int (*fn) (const char
+*fpath, const struct stat *sb, int typeflag, struct FTW
+*ftwbuf), int nopenfd, int flags);</p>
+
+<p>DESCRIPTION ftw() walks through the directory tree that
+is located under the direc- tory dirpath, and calls fn()
+once for each entry in the tree. By default, directories are
+handled before the files and subdirectories they contain
+(pre-order traversal).</p>
+
+<p>To avoid using up all of the calling processs file
+descriptors, nopenfd specifies the maximum number of
+directories that ftw() will hold open simultaneously. When
+the search depth exceeds this, ftw() will become slower
+because directories have to be closed and reopened. ftw()
+uses at most one file descriptor for each level in the
+directory tree.</p>
+
+<p>For each entry found in the tree, ftw() calls fn() with
+three argu- ments: fpath, sb, and typeflag. fpath is the
+pathname of the entry relative to dirpath. sb is a pointer
+to the stat structure returned by a call to stat(2) for
+fpath. typeflag is an integer that has one of the following
+values:</p>
+
+<p>FTW_F fpath is a regular file.</p>
+
+<p>FTW_D fpath is a directory.</p>
+
+<p>FTW_DNR fpath is a directory which cant be read.</p>
+
+<p>FTW_NS The stat(2) call failed on fpath, which is not a
+symbolic link.</p>
+
+<p>If fpath is a symbolic link and stat(2) failed,
+POSIX.1-2001 states that it is undefined whether FTW_NS or
+FTW_SL (see below) is passed in typeflag.</p>
+
+<p>To stop the tree walk, fn() returns a non-zero value;
+this value will become the return value of ftw(). As long as
+fn() returns 0, ftw() will continue either until it has
+traversed the entire tree, in which case it will return
+zero, or until it encounters an error (such as a malloc(3)
+failure), in which case it will return -1.</p>
+
+<p>Because ftw() uses dynamic data structures, the only
+safe way to exit out of a tree walk is to return a non-zero
+value from fn(). To allow a signal to terminate the walk
+without causing a memory leak, have the handler set a global
+flag that is checked by fn(). Dont use longjmp(3) unless the
+program is going to terminate.</p>
+
+<p>nftw() The function nftw() is the same as ftw(), except
+that it has one addi- tional argument, flags, and calls fn()
+with one more argument, ftwbuf.</p>
+
+<p>This flags argument is formed by ORing zero or more of
+the following flags:</p>
+
+<p>FTW_ACTIONRETVAL (since glibc 2.3.3) If this
+glibc-specific flag is set, then nftw() handles the return
+value from fn() differently. fn() should return one of the
+following values:</p>
+
+<p>FTW_CONTINUE Instructs nftw() to continue normally.</p>
+
+<p>FTW_SKIP_SIBLINGS If fn() returns this value, then
+siblings of the current entry will be skipped, and
+processing continues in the parent.</p>
+
+<p>FTW_SKIP_SUBTREE If fn() is called with an entry that is
+a directory (typeflag is FTW_D), this return value will
+prevent objects within that directory from being passed as
+argu- ments to fn(). nftw() continues processing with the
+next sibling of the directory.</p>
+
+<p>FTW_STOP Causes nftw() to return immediately with the
+return value FTW_STOP.</p>
+
+<p>Other return values could be associated with new actions
+in the future; fn() should not return values other than
+those listed above.</p>
+
+<p>The feature test macro _GNU_SOURCE must be defined in
+order to obtain the definition of FTW_ACTIONRETVAL from
+&lt;ftw.h&gt;.</p>
+
+<p>FTW_CHDIR If set, do a chdir(2) to each directory before
+handling its con- tents. This is useful if the program needs
+to perform some action in the directory in which fpath
+resides.</p>
+
+<p>FTW_DEPTH If set, do a post-order traversal, that is,
+call fn() for the directory itself after handling the
+contents of the directory and its subdirectories. (By
+default, each directory is handled before its contents.)</p>
+
+<p>FTW_MOUNT If set, stay within the same file system
+(i.e., do not cross mount points).</p>
+
+<p>FTW_PHYS If set, do not follow symbolic links. (This is
+what you want.) If not set, symbolic links are followed, but
+no file is reported twice.</p>
+
+<p>If FTW_PHYS is not set, but FTW_DEPTH is set, then the
+function fn() is never called for a directory that would be
+a descendant of itself.</p>
+
+<p>For each entry in the directory tree, nftw() calls fn()
+with four argu- ments. fpath and sb are as for ftw().
+typeflag may receive any of the same values as with ftw(),
+or any of the following values:</p>
+
+<p>FTW_DP fpath is a directory, and FTW_DEPTH was specified
+in flags. All of the files and subdirectories within fpath
+have been pro- cessed.</p>
+
+<p>FTW_SL fpath is a symbolic link, and FTW_PHYS was set in
+flags.</p>
+
+<p>FTW_SLN fpath is a symbolic link pointing to a
+nonexistent file. (This occurs only if FTW_PHYS is not
+set.)</p>
+
+<p>The fourth argument that nftw() supplies when calling
+fn() is a struc- ture of type FTW:</p>
+
+<p>struct FTW { int base; int level; };</p>
+
+<p>base is the offset of the filename (i.e., basename
+component) in the pathname given in fpath. level is the
+depth of fpath in the directory tree, relative to the root
+of the tree (dirpath, which has depth 0).</p>
+
+<p>RETURN VALUE These functions return 0 on success, and -1
+if an error occurs.</p>
+
+<p>If fn() returns non-zero, then the tree walk is
+terminated and the value returned by fn() is returned as the
+result of ftw() or nftw().</p>
+
+<p>If nftw() is called with the FTW_ACTIONRETVAL flag, then
+the only non- zero value that should be used by fn() to
+terminate the tree walk is FTW_STOP, and that value is
+returned as the result of nftw().</p>
+
+<p>CONFORMING TO POSIX.1-2001, SVr4, SUSv1. POSIX.1-2008
+marks ftw() as obsolete.</p>
+
+<p>NOTES The function nftw() and the use of FTW_SL with
+ftw() were introduced in SUSv1.</p>
+
+<p>On some systems ftw() will never use FTW_SL, on other
+systems FTW_SL occurs only for symbolic links that do not
+point to an existing file, and again on other systems ftw()
+will use FTW_SL for each symbolic link. For predictable
+control, use nftw().</p>
+
+<p>Under Linux, libc4 and libc5 and glibc 2.0.6 will use
+FTW_F for all objects (files, symbolic links, FIFOs, etc.)
+that can be stated but are not a directory.</p>
+
+<p>The function nftw() is available since glibc 2.1.</p>
+
+<p>FTW_ACTIONRETVAL is glibc-specific.</p>
+
+<p>EXAMPLE The following program traverses the directory
+tree under the path named in its first command-line
+argument, or under the current directory if no argument is
+supplied. It displays various information about each file.
+The second command-line argument can be used to specify
+charac- ters that control the value assigned to the flags
+argument when calling nftw().</p>
+
+<p>#define _XOPEN_SOURCE 500 #include &lt;ftw.h&gt;
+#include &lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;string.h&gt; #include &lt;stdint.h&gt;</p>
+
+<p>static int display_info(const char *fpath, const struct
+stat *sb, int tflag, struct FTW *ftwbuf) { printf(&quot;%-3s
+%2d %7jd %-40s %d %s0, (tflag == FTW_D) ? &quot;d&quot; :
+(tflag == FTW_DNR) ? &quot;dnr&quot; : (tflag == FTW_DP) ?
+&quot;dp&quot; : (tflag == FTW_F) ? &quot;f&quot; : (tflag
+== FTW_NS) ? &quot;ns&quot; : (tflag == FTW_SL) ?
+&quot;sl&quot; : (tflag == FTW_SLN) ? &quot;sln&quot; :
+&quot;???&quot;, ftwbuf-&gt;level, (intmax_t)
+sb-&gt;st_size, fpath, ftwbuf-&gt;base, fpath +
+ftwbuf-&gt;base); return 0; /* To tell nftw() to continue */
+}</p>
+
+<p>int main(int argc, char *argv[]) { int flags = 0;</p>
+
+<p>if (argc &gt; 2 &amp;&amp; strchr(argv[2],
+&rsquo;d&rsquo;) != NULL) flags |= FTW_DEPTH; if (argc &gt;
+2 &amp;&amp; strchr(argv[2], &rsquo;p&rsquo;) != NULL) flags
+|= FTW_PHYS;</p>
+
+<p>if (nftw((argc &lt; 2) ? &quot;.&quot; : argv[1],
+display_info, 20, flags) == -1) { perror(&quot;nftw&quot;);
+exit(EXIT_FAILURE); } exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO stat(2), fts(3), readdir(3),
+feature_test_macros(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-08-06 FTW(3)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:01:00 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>GETDENTS(2) Linux Programmer s Manual GETDENTS(2)</p>
+
+<p>NAME getdents - get directory entries</p>
+
+<p>SYNOPSIS int getdents(unsigned int fd, struct
+linux_dirent *dirp, unsigned int count);</p>
+
+<p>DESCRIPTION This is not the function you are interested
+in. Look at readdir(3) for the POSIX conforming C library
+interface. This page documents the bare kernel system call
+interface.</p>
+
+<p>The system call getdents() reads several linux_dirent
+structures from the directory referred to by the open file
+descriptor fd into the buffer pointed to by dirp. The
+argument count specifies the size of that buffer.</p>
+
+<p>The linux_dirent structure is declared as follows:</p>
+
+<p>struct linux_dirent { unsigned long d_ino; /* Inode
+number */ unsigned long d_off; /* Offset to next
+linux_dirent */ unsigned short d_reclen; /* Length of this
+linux_dirent */ char d_name[]; /* Filename (null-terminated)
+*/ /* length is actually (d_reclen - 2 - offsetof(struct
+linux_dirent, d_name) */ /* char pad; // Zero padding byte
+*/ char d_type; // File type (only since Linux 2.6.4; //
+offset is (d_reclen - 1)) */</p>
+
+<p>}</p>
+
+<p>d_ino is an inode number. d_off is the distance from the
+start of the directory to the start of the next
+linux_dirent. d_reclen is the size of this entire
+linux_dirent. d_name is a null-terminated filename.</p>
+
+<p>d_type is a byte at the end of the structure that
+indicates the file type. It contains one of the following
+values (defined in &lt;dirent.h&gt;):</p>
+
+<p>DT_BLK This is a block device.</p>
+
+<p>DT_CHR This is a character device.</p>
+
+<p>DT_DIR This is a directory.</p>
+
+<p>DT_FIFO This is a named pipe (FIFO).</p>
+
+<p>DT_LNK This is a symbolic link.</p>
+
+<p>DT_REG This is a regular file.</p>
+
+<p>DT_SOCK This is a Unix domain socket.</p>
+
+<p>DT_UNKNOWN The file type is unknown.</p>
+
+<p>The d_type field is implemented since Linux 2.6.4. It
+occupies a space that was previously a zero-filled padding
+byte in the linux_dirent structure. Thus, on kernels before
+2.6.3, attempting to access this field always provides the
+value 0 (DT_UNKNOWN).</p>
+
+<p>Currently, only some file systems (among them: Btrfs,
+ext2, etx3, and ext4) have full support for returning the
+file type in d_type. All applications must properly handle a
+return of DT_UNKNOWN.</p>
+
+<p>RETURN VALUE On success, the number of bytes read is
+returned. On end of directory, 0 is returned. On error, -1
+is returned, and errno is set appropri- ately.</p>
+
+<p>ERRORS EBADF Invalid file descriptor fd.</p>
+
+<p>EFAULT Argument points outside the calling process s
+address space.</p>
+
+<p>EINVAL Result buffer is too small.</p>
+
+<p>ENOENT No such directory.</p>
+
+<p>ENOTDIR File descriptor does not refer to a
+directory.</p>
+
+<p>CONFORMING TO SVr4.</p>
+
+<p>NOTES Glibc does not provide a wrapper for this system
+call; call it using syscall(2). You will need to define the
+linux_dirent structure your- self.</p>
+
+<p>This call supersedes readdir(2).</p>
+
+<p>EXAMPLE The program below demonstrates the use of
+getdents(). The following output shows an example of what we
+see when running this program on an ext2 directory:</p>
+
+<p>$ ./a.out /testfs/ --------------- nread=120
+--------------- i-node# file type d_reclen d_off d_name 2
+directory 16 12 . 2 directory 16 24 .. 11 directory 24 44
+lost+found 12 regular 16 56 a 228929 directory 16 68 sub
+16353 directory 16 80 sub2 130817 directory 16 4096 sub3</p>
+
+<p>Program source</p>
+
+<p>#define _GNU_SOURCE #include &lt;dirent.h&gt; /* Defines
+DT_* constants */ #include &lt;fcntl.h&gt; #include
+&lt;stdio.h&gt; #include &lt;unistd.h&gt; #include
+&lt;stdlib.h&gt; #include &lt;sys/stat.h&gt; #include
+&lt;sys/syscall.h&gt;</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>struct linux_dirent { long d_ino; off_t d_off; unsigned
+short d_reclen; char d_name[]; };</p>
+
+<p>#define BUF_SIZE 1024</p>
+
+<p>int main(int argc, char *argv[]) { int fd, nread; char
+buf[BUF_SIZE]; struct linux_dirent *d; int bpos; char
+d_type;</p>
+
+<p>fd = open(argc &gt; 1 ? argv[1] : &quot;.&quot;,
+O_RDONLY | O_DIRECTORY); if (fd == -1)
+handle_error(&quot;open&quot;);</p>
+
+<p>for ( ; ; ) { nread = syscall(SYS_getdents, fd, buf,
+BUF_SIZE); if (nread == -1)
+handle_error(&quot;getdents&quot;);</p>
+
+<p>if (nread == 0) break;</p>
+
+<p>printf(&quot;--------------- nread=%d ---------------0,
+nread); printf(&quot;i-node# file type d_reclen d_off
+d_name0); for (bpos = 0; bpos &lt; nread;) { d = (struct
+linux_dirent *) (buf + bpos); printf(&quot;%8ld &quot;,
+d-&gt;d_ino); d_type = *(buf + bpos + d-&gt;d_reclen - 1);
+printf(&quot;%-10s &quot;, (d_type == DT_REG) ?
+&quot;regular&quot; : (d_type == DT_DIR) ?
+&quot;directory&quot; : (d_type == DT_FIFO) ?
+&quot;FIFO&quot; : (d_type == DT_SOCK) ? &quot;socket&quot;
+: (d_type == DT_LNK) ? &quot;symlink&quot; : (d_type ==
+DT_BLK) ? &quot;block dev&quot; : (d_type == DT_CHR) ?
+&quot;char dev&quot; : &quot;???&quot;); printf(&quot;%4d
+%10lld %s0, d-&gt;d_reclen, (long long) d-&gt;d_off, (char
+*) d-&gt;d_name); bpos += d-&gt;d_reclen; } }</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO readdir(2), readdir(3)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-07-04 GETDENTS(2)</p>
+<hr>
+</body>
+</html>

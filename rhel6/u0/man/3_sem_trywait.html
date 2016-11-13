@@ -1,0 +1,185 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:14:57 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SEM_WAIT(3) Linux Programmer s Manual SEM_WAIT(3)</p>
+
+<p>NAME sem_wait, sem_timedwait, sem_trywait - lock a
+semaphore</p>
+
+<p>SYNOPSIS #include &lt;semaphore.h&gt;</p>
+
+<p>int sem_wait(sem_t *sem);</p>
+
+<p>int sem_trywait(sem_t *sem);</p>
+
+<p>int sem_timedwait(sem_t *sem, const struct timespec
+*abs_timeout);</p>
+
+<p>Link with -lrt or -pthread.</p>
+
+<p>Feature Test Macro Requirements for glibc (see
+feature_test_macros(7)):</p>
+
+<p>sem_timedwait(): _POSIX_C_SOURCE &gt;= 200112L ||
+_XOPEN_SOURCE &gt;= 600</p>
+
+<p>DESCRIPTION sem_wait() decrements (locks) the semaphore
+pointed to by sem. If the semaphore s value is greater than
+zero, then the decrement proceeds, and the function returns,
+immediately. If the semaphore currently has the value zero,
+then the call blocks until either it becomes possible to
+perform the decrement (i.e., the semaphore value rises above
+zero), or a signal handler interrupts the call.</p>
+
+<p>sem_trywait() is the same as sem_wait(), except that if
+the decrement cannot be immediately performed, then call
+returns an error (errno set to EAGAIN) instead of
+blocking.</p>
+
+<p>sem_timedwait() is the same as sem_wait(), except that
+abs_timeout specifies a limit on the amount of time that the
+call should block if the decrement cannot be immediately
+performed. The abs_timeout argu- ment points to a structure
+that specifies an absolute timeout in sec- onds and
+nanoseconds since the Epoch (00:00:00, 1 January 1970). This
+structure is defined as follows:</p>
+
+<p>struct timespec { time_t tv_sec; /* Seconds */ long
+tv_nsec; /* Nanoseconds [0 .. 999999999] */ };</p>
+
+<p>If the timeout has already expired by the time of the
+call, and the semaphore could not be locked immediately,
+then sem_timedwait() fails with a timeout error (errno set
+to ETIMEDOUT).</p>
+
+<p>If the operation can be performed immediately, then
+sem_timedwait() never fails with a timeout error, regardless
+of the value of abs_time- out. Furthermore, the validity of
+abs_timeout is not checked in this case.</p>
+
+<p>RETURN VALUE All of these functions return 0 on success;
+on error, the value of the semaphore is left unchanged, -1
+is returned, and errno is set to indi- cate the error.</p>
+
+<p>ERRORS EINTR The call was interrupted by a signal
+handler; see signal(7).</p>
+
+<p>EINVAL sem is not a valid semaphore.</p>
+
+<p>The following additional error can occur for
+sem_trywait():</p>
+
+<p>EAGAIN The operation could not be performed without
+blocking (i.e., the semaphore currently has the value
+zero).</p>
+
+<p>The following additional errors can occur for
+sem_timedwait():</p>
+
+<p>EINVAL The value of abs_timeout.tv_nsecs is less than 0,
+or greater than or equal to 1000 million.</p>
+
+<p>ETIMEDOUT The call timed out before the semaphore could
+be locked.</p>
+
+<p>CONFORMING TO POSIX.1-2001.</p>
+
+<p>NOTES A signal handler always interrupts a blocked call
+to one of these func- tions, regardless of the use of the
+sigaction(2) SA_RESTART flag.</p>
+
+<p>EXAMPLE The (somewhat trivial) program shown below
+operates on an unnamed semaphore. The program expects two
+command-line arguments. The first argument specifies a
+seconds value that is used to set an alarm timer to generate
+a SIGALRM signal. This handler performs a sem_post(3) to
+increment the semaphore that is being waited on in main()
+using sem_timedwait(). The second command-line argument
+specifies the length of the timeout, in seconds, for
+sem_timedwait(). The following shows what happens on two
+different runs of the program:</p>
+
+<p>$ ./a.out 2 3 About to call sem_timedwait() sem_post()
+from handler sem_getvalue() from handler; value = 1
+sem_timedwait() succeeded $ ./a.out 2 1 About to call
+sem_timedwait() sem_timedwait() timed out</p>
+
+<p>Program source</p>
+
+<p>#include &lt;unistd.h&gt; #include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt; #include &lt;semaphore.h&gt;
+#include &lt;time.h&gt; #include &lt;assert.h&gt; #include
+&lt;errno.h&gt; #include &lt;signal.h&gt;</p>
+
+<p>sem_t sem;</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>static void handler(int sig) { write(STDOUT_FILENO,
+&quot;sem_post() from handler0, 24); if (sem_post(&amp;sem)
+== -1) { write(STDERR_FILENO, &quot;sem_post() failed0, 18);
+_exit(EXIT_FAILURE); } }</p>
+
+<p>int main(int argc, char *argv[]) { struct sigaction sa;
+struct timespec ts; int s;</p>
+
+<p>if (argc != 3) { fprintf(stderr, &quot;Usage: %s
+&lt;alarm-secs&gt; &lt;wait-secs&gt;0, argv[0]);
+exit(EXIT_FAILURE); }</p>
+
+<p>if (sem_init(&amp;sem, 0, 0) == -1)
+handle_error(&quot;sem_init&quot;);</p>
+
+<p>/* Establish SIGALRM handler; set alarm timer using
+argv[1] */</p>
+
+<p>sa.sa_handler = handler; sigemptyset(&amp;sa.sa_mask);
+sa.sa_flags = 0; if (sigaction(SIGALRM, &amp;sa, NULL) ==
+-1) handle_error(&quot;sigaction&quot;);</p>
+
+<p>alarm(atoi(argv[1]));</p>
+
+<p>/* Calculate relative interval as current time plus
+number of seconds given argv[2] */</p>
+
+<p>if (clock_gettime(CLOCK_REALTIME, &amp;ts) == -1)
+handle_error(&quot;clock_gettime&quot;);</p>
+
+<p>ts.tv_sec += atoi(argv[2]);</p>
+
+<p>printf(&quot;main() about to call sem_timedwait()0);
+while ((s = sem_timedwait(&amp;sem, &amp;ts)) == -1
+&amp;&amp; errno == EINTR) continue; /* Restart if
+interrupted by handler */</p>
+
+<p>/* Check what happened */</p>
+
+<p>if (s == -1) { if (errno == ETIMEDOUT)
+printf(&quot;sem_timedwait() timed out0); else
+perror(&quot;sem_timedwait&quot;); } else
+printf(&quot;sem_timedwait() succeeded0);</p>
+
+<p>exit((s == 0) ? EXIT_SUCCESS : EXIT_FAILURE); }</p>
+
+<p>SEE ALSO clock_gettime(2), sem_getvalue(3), sem_post(3),
+sem_overview(7), time(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-02-09 SEM_WAIT(3)</p>
+<hr>
+</body>
+</html>

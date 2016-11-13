@@ -1,0 +1,695 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:16:01 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SLAPD.ACCESS(5) SLAPD.ACCESS(5)</p>
+
+<p>NAME slapd.access - access configuration for slapd, the
+stand-alone LDAP daemon</p>
+
+<p>SYNOPSIS /etc/openldap/slapd.conf</p>
+
+<p>DESCRIPTION The slapd.conf(5) file contains
+configuration information for the slapd(8) daemon. This
+configuration file is also used by the SLAPD tools
+slapacl(8), slapadd(8), slapauth(8), slapcat(8), slapdn(8),
+slapindex(8), and slaptest(8).</p>
+
+<p>The slapd.conf file consists of a series of global
+configuration options that apply to slapd as a whole
+(including all backends), fol- lowed by zero or more
+database backend definitions that contain infor- mation
+specific to a backend instance.</p>
+
+<p>The general format of slapd.conf is as follows:</p>
+
+<p># comment - these options apply to every database
+&lt;global configuration options&gt; # first database
+definition &amp; configuration options database &lt;backend
+1 type&gt; &lt;configuration options specific to backend
+1&gt; # subsequent database definitions &amp; configuration
+options ...</p>
+
+<p>Both the global configuration and each backend-specific
+section can contain access information. Backend-specific
+access control directives are used for those entries that
+belong to the backend, according to their naming context. In
+case no access control directives are defined for a backend
+or those which are defined are not applicable, the direc-
+tives from the global configuration section are then
+used.</p>
+
+<p>If no access controls are present, the default policy
+allows anyone and everyone to read anything but restricts
+updates to rootdn. (e.g., &quot;access to * by *
+read&quot;).</p>
+
+<p>When dealing with an access list, because the global
+access list is effectively appended to each per-database
+list, if the resulting list is non-empty then the access
+list will end with an implicit access to * by * none
+directive. If there are no access directives applicable to a
+backend, then a default read is used.</p>
+
+<p>Be warned: the rootdn can always read and write
+EVERYTHING!</p>
+
+<p>For entries not held in any backend (such as a root
+DSE), the global directives are used.</p>
+
+<p>Arguments that should be replaced by actual text are
+shown in brackets &lt;&gt;.</p>
+
+<p>THE ACCESS DIRECTIVE The structure of the access control
+directives is</p>
+
+<p>access to &lt;what&gt; [ by &lt;who&gt; [ &lt;access&gt;
+] [ &lt;control&gt; ] ]+ Grant access (specified by
+&lt;access&gt;) to a set of entries and/or attributes
+(specified by &lt;what&gt;) by one or more requestors
+(specified by &lt;who&gt;).</p>
+
+<p>Lists of access directives are evaluated in the order
+they appear in slapd.conf. When a &lt;what&gt; clause
+matches the datum whose access is being evaluated, its
+&lt;who&gt; clause list is checked. When a &lt;who&gt;
+clause matches the accessor s properties, its &lt;access&gt;
+and &lt;control&gt; clauses are evaluated. Access control
+checking stops at the first match of the &lt;what&gt; and
+&lt;who&gt; clause, unless otherwise dictated by the
+&lt;control&gt; clause. Each &lt;who&gt; clause list is
+implicitly terminated by a</p>
+
+<p>by * none stop</p>
+
+<p>clause that results in stopping the access control with
+no access priv- ileges granted. Each &lt;what&gt; clause
+list is implicitly terminated by a</p>
+
+<p>access to * by * none</p>
+
+<p>clause that results in granting no access privileges to
+an otherwise unspecified datum.</p>
+
+<p>THE &lt;WHAT&gt; FIELD The field &lt;what&gt; specifies
+the entity the access control directive applies to. It can
+have the forms</p>
+
+<p>dn[.&lt;dnstyle&gt;]=&lt;dnpattern&gt;
+filter=&lt;ldapfilter&gt; attrs=&lt;attrlist&gt;[
+val[/matchingRule][.&lt;attrstyle&gt;]=&lt;attrval&gt;]</p>
+
+<p>with</p>
+
+<p>&lt;dnstyle&gt;={{exact|base(object)}|regex
+|one(level)|sub(tree)|children}
+&lt;attrlist&gt;={&lt;attr&gt;|[{!|@}]&lt;objectClass&gt;}[,&lt;attrlist&gt;]
+&lt;attrstyle&gt;={{exact|base(object)}|regex
+|one(level)|sub(tree)|children}</p>
+
+<p>The statement dn=&lt;dnpattern&gt; selects the entries
+based on their naming context. The &lt;dnpattern&gt; is a
+string representation of the entrys DN. The wildcard *
+stands for all the entries, and it is implied if no dn form
+is given.</p>
+
+<p>The &lt;dnstyle&gt; is optional; however, it is
+recommended to specify it to avoid ambiguities. Base
+(synonym of baseObject), the default, or exact (an alias of
+base) indicates the entry whose DN is equal to the
+&lt;dnpat- tern&gt;; one (synonym of onelevel) indicates all
+the entries immediately below the &lt;dnpattern&gt;, sub
+(synonym of subtree) indicates all entries in the subtree at
+the &lt;dnpattern&gt;, children indicates all the entries
+below (subordinate to) the &lt;dnpattern&gt;.</p>
+
+<p>If the &lt;dnstyle&gt; qualifier is regex, then
+&lt;dnpattern&gt; is a POSIX (extended) regular expression
+pattern, as detailed in regex(7) and/or re_format(7),
+matching a normalized string representation of the entrys
+DN. The regex form of the pattern does not (yet) support
+UTF-8.</p>
+
+<p>The statement filter=&lt;ldapfilter&gt; selects the
+entries based on a valid LDAP filter as described in RFC
+4515. A filter of (objectClass=*) is implied if no filter
+form is given.</p>
+
+<p>The statement attrs=&lt;attrlist&gt; selects the
+attributes the access con- trol rule applies to. It is a
+comma-separated list of attribute types, plus the special
+names entry, indicating access to the entry itself, and
+children, indicating access to the entrys children.
+ObjectClass names may also be specified in this list, which
+will affect all the attributes that are required and/or
+allowed by that objectClass. Actu- ally, names in
+&lt;attrlist&gt; that are prefixed by @ are directly treated
+as objectClass names. A name prefixed by ! is also treated
+as an objectClass, but in this case the access rule affects
+the attributes that are not required nor allowed by that
+objectClass. If no attrs form is given,
+attrs=@extensibleObject is implied, i.e. all attributes are
+addressed.</p>
+
+<p>Using the form attrs=&lt;attr&gt;
+val[/matchingRule][.&lt;attrstyle&gt;]=&lt;attrval&gt;
+specifies access to a particular value of a single
+attribute. In this case, only a single attribute type may be
+given. The &lt;attrstyle&gt; exact (the default) uses the
+attributes equality matching rule to compare the value,
+unless a different (and compatible) matching rule is speci-
+fied. If the &lt;attrstyle&gt; is regex, the provided value
+is used as a POSIX (extended ) regular expression pattern.
+If the attribute has DN syntax, the &lt;attrstyle&gt; can be
+any of base, onelevel, subtree or children, resulting in
+base, onelevel, subtree or children match, respectively.</p>
+
+<p>The dn, filter, and attrs statements are additive; they
+can be used in sequence to select entities the access rule
+applies to based on naming context, value and attribute type
+simultaneously.</p>
+
+<p>THE &lt;WHO&gt; FIELD The field &lt;who&gt; indicates
+whom the access rules apply to. Multiple &lt;who&gt;
+statements can appear in an access control statement,
+indicating the different access privileges to the same
+resource that apply to dif- ferent accessee. It can have the
+forms</p>
+
+<p>* anonymous users self[.&lt;selfstyle&gt;]</p>
+
+<p>dn[.&lt;dnstyle&gt;[,&lt;modifier&gt;]]=&lt;DN&gt;
+dnattr=&lt;attrname&gt;</p>
+
+<p>realanonymous realusers realself[.&lt;selfstyle&gt;]</p>
+
+<p>realdn[.&lt;dnstyle&gt;[,&lt;modifier&gt;]]=&lt;DN&gt;
+realdnattr=&lt;attrname&gt;</p>
+
+<p>group[/&lt;objectclass&gt;[/&lt;attrname&gt;]]
+[.&lt;groupstyle&gt;]=&lt;group&gt;
+peername[.&lt;peernamestyle&gt;]=&lt;peername&gt;
+sockname[.&lt;style&gt;]=&lt;sockname&gt;
+domain[.&lt;domainstyle&gt;[,&lt;modifier&gt;]]=&lt;domain&gt;
+sockurl[.&lt;style&gt;]=&lt;sockurl&gt;
+set[.&lt;setstyle&gt;]=&lt;pattern&gt;</p>
+
+<p>ssf=&lt;n&gt; transport_ssf=&lt;n&gt; tls_ssf=&lt;n&gt;
+sasl_ssf=&lt;n&gt;</p>
+
+
+<p>dynacl/&lt;name&gt;[/&lt;options&gt;][.&lt;dynstyle&gt;][=&lt;pattern&gt;]</p>
+
+<p>with</p>
+
+<p>&lt;style&gt;={exact|regex|expand}
+&lt;selfstyle&gt;={level{&lt;n&gt;}}
+&lt;dnstyle&gt;={{exact|base(object)}|regex
+|one(level)|sub(tree)|children|level{&lt;n&gt;}}
+&lt;groupstyle&gt;={exact|expand}
+&lt;peernamestyle&gt;={&lt;style&gt;|ip|ipv6|path}
+&lt;domainstyle&gt;={exact|regex|sub(tree)}
+&lt;setstyle&gt;={exact|expand} &lt;modifier&gt;={expand}
+&lt;name&gt;=aci &lt;pattern&gt;=&lt;attrname&gt;]</p>
+
+<p>They may be specified in combination.</p>
+
+<p>The wildcard * refers to everybody.</p>
+
+<p>The keywords prefixed by real act as their counterparts
+without prefix; the checking respectively occurs with the
+authentication DN and the authorization DN.</p>
+
+<p>The keyword anonymous means access is granted to
+unauthenticated clients; it is mostly used to limit access
+to authentication resources (e.g. the userPassword
+attribute) to unauthenticated clients for authentication
+purposes.</p>
+
+<p>The keyword users means access is granted to
+authenticated clients.</p>
+
+<p>The keyword self means access to an entry is allowed to
+the entry itself (e.g. the entry being accessed and the
+requesting entry must be the same). It allows the
+level{&lt;n&gt;} style, where &lt;n&gt; indicates what
+ancestor of the DN is to be used in matches. A positive
+value indi- cates that the &lt;n&gt;-th ancestor of the
+users DN is to be considered; a negative value indicates
+that the &lt;n&gt;-th ancestor of the target is to be
+considered. For example, a &quot;by self.level{1} ...&quot;
+clause would match when the object
+&quot;dc=example,dc=com&quot; is accessed by
+&quot;cn=User,dc=example,dc=com&quot;. A &quot;by
+self.level{-1} ...&quot; clause would match when the same
+user accesses the object &quot;ou=Address
+Book,cn=User,dc=example,dc=com&quot;.</p>
+
+<p>The statement dn=&lt;DN&gt; means that access is granted
+to the matching DN. The optional style qualifier dnstyle
+allows the same choices of the dn form of the &lt;what&gt;
+field. In addition, the regex style can exploit substring
+substitution of submatches in the &lt;what&gt; dn.regex
+clause by using the form $&lt;digit&gt;, with digit ranging
+from 0 to 9 (where 0 matches the entire string), or the form
+${&lt;digit&gt;+}, for submatches higher than 9. Substring
+substitution from attribute value can be done in using the
+form ${v&lt;digit&gt;+}. Since the dollar character is used
+to indicate a substring replacement, the dollar character
+that is used to indicate match up to the end of the string
+must be escaped by a second dollar character, e.g.</p>
+
+<p>access to
+dn.regex=&quot;^(.+,)?uid=([^,]+),dc=[^,]+,dc=com$&quot; by
+dn.regex=&quot;^uid=$2,dc=[^,]+,dc=com$$&quot; write</p>
+
+<p>The style qualifier allows an optional modifier. At
+present, the only type allowed is expand, which causes
+substring substitution of sub- matches to take place even if
+dnstyle is not regex. Note that the regex dnstyle in the
+above example may be of use only if the &lt;by&gt; clause
+needs to be a regex; otherwise, if the value of the second
+(from the right) dc= portion of the DN in the above example
+were fixed, the form</p>
+
+<p>access to
+dn.regex=&quot;^(.+,)?uid=([^,]+),dc=example,dc=com$&quot;
+by dn.exact,expand=&quot;uid=$2,dc=example,dc=com&quot;
+write</p>
+
+<p>could be used; if it had to match the value in the
+&lt;what&gt; clause, the form</p>
+
+<p>access to
+dn.regex=&quot;^(.+,)?uid=([^,]+),dc=([^,]+),dc=com$&quot;
+by dn.exact,expand=&quot;uid=$2,dc=$3,dc=com&quot; write</p>
+
+<p>could be used.</p>
+
+<p>Forms of the &lt;what&gt; clause other than regex may
+provide submatches as well. The base(object), the sub(tree),
+the one(level), and the chil- dren forms provide $0 as the
+match of the entire string. The sub(tree), the one(level),
+and the children forms also provide $1 as the match of the
+rightmost part of the DN as defined in the &lt;what&gt;
+clause. This may be useful, for instance, to provide access
+to all the ancestors of a user by defining</p>
+
+<p>access to dn.subtree=&quot;dc=com&quot; by
+dn.subtree,expand=&quot;$1&quot; read</p>
+
+<p>which means that only access to entries that appear in
+the DN of the &lt;by&gt; clause is allowed.</p>
+
+<p>The level{&lt;n&gt;} form is an extension and a
+generalization of the onelevel form, which matches all DNs
+whose &lt;n&gt;-th ancestor is the pat- tern. So, level{1}
+is equivalent to onelevel, and level{0} is equiva- lent to
+base.</p>
+
+<p>It is perfectly useless to give any access privileges to
+a DN that exactly matches the rootdn of the database the
+ACLs apply to, because it implicitly possesses write
+privileges for the entire tree of that database. Actually,
+access control is bypassed for the rootdn, to solve the
+intrinsic chicken-and-egg problem.</p>
+
+<p>The statement dnattr=&lt;attrname&gt; means that access
+is granted to requests whose DN is listed in the entry being
+accessed under the &lt;attrname&gt; attribute.</p>
+
+<p>The statement group=&lt;group&gt; means that access is
+granted to requests whose DN is listed in the group entry
+whose DN is given by &lt;group&gt;. The optional parameters
+&lt;objectclass&gt; and &lt;attrname&gt; define the object-
+Class and the member attributeType of the group entry. The
+defaults are groupOfNames and member, respectively. The
+optional style quali- fier &lt;style&gt; can be expand,
+which means that &lt;group&gt; will be expanded as a
+replacement string (but not as a regular expression)
+according to regex(7) and/or re_format(7), and exact, which
+means that exact match will be used. If the style of the DN
+portion of the &lt;what&gt; clause is regex, the submatches
+are made available according to regex(7) and/or
+re_format(7); other styles provide limited submatches as
+discussed above about the DN form of the &lt;by&gt;
+clause.</p>
+
+<p>For static groups, the specified attributeType must have
+Distinguished- Name or NameAndOptionalUID syntax. For
+dynamic groups the attributeType must be a subtype of the
+labeledURI attributeType. Only LDAP URIs of the form
+ldap:///&lt;base&gt;??&lt;scope&gt;?&lt;filter&gt; will be
+evaluated in a dynamic group, by searching the local server
+only.</p>
+
+<p>The statements peername=&lt;peername&gt;,
+sockname=&lt;sockname&gt;, domain=&lt;domain&gt;, and
+sockurl=&lt;sockurl&gt; mean that the contacting host IP (in
+the form IP=&lt;ip&gt;:&lt;port&gt; for IPv4, or
+IP=[&lt;ipv6&gt;]:&lt;port&gt; for IPv6) or the contacting
+host named pipe file name (in the form PATH=&lt;path&gt; if
+connecting through a named pipe) for peername, the named
+pipe file name for sockname, the contacting host name for
+domain, and the contacting URL for sockurl are compared
+against pattern to determine access. The same style rules
+for pattern match described for the group case apply, plus
+the regex style, which implies submatch expand and regex
+match of the corresponding connection parameters. The exact
+style of the &lt;peer- name&gt; clause (the default) implies
+a case-exact match on the clients IP, including the IP=
+prefix and the trailing :&lt;port&gt;, or the clients path,
+including the PATH= prefix if connecting through a named
+pipe. The special ip style interprets the pattern as
+&lt;peer- name&gt;=&lt;ip&gt;[%&lt;mask&gt;][{&lt;n&gt;}],
+where &lt;ip&gt; and &lt;mask&gt; are dotted digit rep-
+resentations of the IP and the mask, while &lt;n&gt;,
+delimited by curly brackets, is an optional port. The same
+applies to IPv6 addresses when the special ipv6 style is
+used. When checking access privileges, the IP portion of the
+peername is extracted, eliminating the IP= prefix and the
+:&lt;port&gt; part, and it is compared against the
+&lt;ip&gt; portion of the pattern after masking with
+&lt;mask&gt;: ((peername &amp; &lt;mask&gt;) == &lt;ip&gt;).
+As an example, peername.ip=127.0.0.1 and peername.ipv6=::1
+allow connec- tions only from localhost,
+peername.ip=192.168.1.0%255.255.255.0 allows connections
+from any IP in the 192.168.1 class C domain, and peer-
+name.ip=192.168.1.16%255.255.255.240{9009} allows
+connections from any IP in the 192.168.1.[16-31] range of
+the same domain, only if port 9009 is used. The special path
+style eliminates the PATH= prefix from the peername when
+connecting through a named pipe, and performs an exact match
+on the given pattern. The &lt;domain&gt; clause also allows
+the sub- tree style, which succeeds when a fully qualified
+name exactly matches the domain pattern, or its trailing
+part, after a dot, exactly matches the domain pattern. The
+expand style is allowed, implying an exact match with
+submatch expansion; the use of expand as a style modifier is
+considered more appropriate. As an example,
+domain.subtree=example.com will match www.example.com, but
+will not match www.anotherexample.com. The domain of the
+contacting host is determined by performing a DNS reverse
+lookup. As this lookup can easily be spoofed, use of the
+domain statement is strongly discouraged. By default,
+reverse lookups are disabled. The optional domainstyle
+qualifier of the &lt;domain&gt; clause allows a modifier
+option; the only value currently supported is expand, which
+causes substring substitution of submatches to take place
+even if the domainstyle is not regex, much like the
+analogous usage in &lt;dn&gt; clause.</p>
+
+<p>The statement set=&lt;pattern&gt; is undocumented
+yet.</p>
+
+<p>The statement
+dynacl/&lt;name&gt;[/&lt;options&gt;][.&lt;dynstyle&gt;][=&lt;pattern&gt;]
+means that access checking is delegated to the admin-defined
+method indicated by &lt;name&gt;, which can be registered at
+run-time by means of the mod- uleload statement. The fields
+&lt;options&gt;, &lt;dynstyle&gt; and &lt;pattern&gt; are
+optional, and are directly passed to the registered parsing
+routine. Dynacl is experimental; it must be enabled at
+compile time.</p>
+
+<p>The statement dynacl/aci[=&lt;attrname&gt;] means that
+the access control is determined by the values in the
+attrname of the entry itself. The optional &lt;attrname&gt;
+indicates what attributeType holds the ACI informa- tion in
+the entry. By default, the OpenLDAPaci operational attribute
+is used. ACIs are experimental; they must be enabled at
+compile time.</p>
+
+<p>The statements ssf=&lt;n&gt;, transport_ssf=&lt;n&gt;,
+tls_ssf=&lt;n&gt;, and sasl_ssf=&lt;n&gt; set the minimum
+required Security Strength Factor (ssf) needed to grant
+access. The value should be positive integer.</p>
+
+<p>THE &lt;ACCESS&gt; FIELD The optional field
+&lt;access&gt; ::= [[real]self]{&lt;level&gt;|&lt;priv&gt;}
+determines the access level or the specific access
+privileges the who field will have. Its component are
+defined as</p>
+
+<p>&lt;level&gt; ::=
+none|disclose|auth|compare|search|read|{write|add|delete}|manage
+&lt;priv&gt; ::= {=|+|-}{0|d|x|c|s|r|{w|a|z}|m}+</p>
+
+<p>The modifier self allows special operations like having
+a certain access level or privilege only in case the
+operation involves the name of the user thats requesting the
+access. It implies the user that requests access is
+authorized. The modifier realself refers to the
+authenticated DN as opposed to the authorized DN of the self
+modifier. An example is the selfwrite access to the member
+attribute of a group, which allows one to add/delete its own
+DN from the member list of a group, while being not allowed
+to affect other members.</p>
+
+<p>The level access model relies on an incremental
+interpretation of the access privileges. The possible levels
+are none, disclose, auth, com- pare, search, read, write,
+and manage. Each access level implies all the preceding
+ones, thus manage grants all access including administra-
+tive access. The write access is actually the combination of
+add and delete, which respectively restrict the write
+privilege to add or delete the specified &lt;what&gt;.</p>
+
+<p>The none access level disallows all access including
+disclosure on error.</p>
+
+<p>The disclose access level allows disclosure of
+information on error.</p>
+
+<p>The auth access level means that one is allowed access
+to an attribute to perform authentication/authorization
+operations (e.g. bind) with no other access. This is useful
+to grant unauthenticated clients the least possible access
+level to critical resources, like passwords.</p>
+
+<p>The priv access model relies on the explicit setting of
+access privi- leges for each clause. The = sign resets
+previously defined accesses; as a consequence, the final
+access privileges will be only those defined by the clause.
+The + and - signs add/remove access privileges to the
+existing ones. The privileges are m for manage, w for write,
+a for add, z for delete, r for read, s for search, c for
+compare, x for authentication, and d for disclose. More than
+one of the above privi- leges can be added in one statement.
+0 indicates no privileges and is used only by itself (e.g.,
++0). Note that +az is equivalent to +w.</p>
+
+<p>If no access is given, it defaults to +0.</p>
+
+<p>THE &lt;CONTROL&gt; FIELD The optional field
+&lt;control&gt; controls the flow of access rule applica-
+tion. It can have the forms</p>
+
+<p>stop continue break</p>
+
+<p>where stop, the default, means access checking stops in
+case of match. The other two forms are used to keep on
+processing access clauses. In detail, the continue form
+allows for other &lt;who&gt; clauses in the same
+&lt;access&gt; clause to be considered, so that they may
+result in incremen- tally altering the privileges, while the
+break form allows for other &lt;access&gt; clauses that
+match the same target to be processed. Consider the (silly)
+example</p>
+
+<p>access to dn.subtree=&quot;dc=example,dc=com&quot;
+attrs=cn by * =cs break</p>
+
+<p>access to
+dn.subtree=&quot;ou=People,dc=example,dc=com&quot; by *
++r</p>
+
+<p>which allows search and compare privileges to everybody
+under the &quot;dc=example,dc=com&quot; tree, with the
+second rule allowing also read in the &quot;ou=People&quot;
+subtree, or the (even more silly) example</p>
+
+<p>access to dn.subtree=&quot;dc=example,dc=com&quot;
+attrs=cn by * =cs continue by users +r</p>
+
+<p>which grants everybody search and compare privileges,
+and adds read privileges to authenticated clients.</p>
+
+<p>One useful application is to easily grant write
+privileges to an updat- edn that is different from the
+rootdn. In this case, since the updat- edn needs write
+access to (almost) all data, one can use</p>
+
+<p>access to * by dn.exact=&quot;cn=The Update
+DN,dc=example,dc=com&quot; write by * break</p>
+
+<p>as the first access rule. As a consequence, unless the
+operation is performed with the updatedn identity, control
+is passed straight to the subsequent rules.</p>
+
+<p>OPERATION REQUIREMENTS Operations require different
+privileges on different portions of entries. The following
+summary applies to primary database backends such as the BDB
+and HDB backends. Requirements for other backends may (and
+often do) differ.</p>
+
+<p>The add operation requires add (=a) privileges on the
+pseudo-attribute entry of the entry being added, and add
+(=a) privileges on the pseudo- attribute children of the
+entrys parent. When adding the suffix entry of a database,
+add access to children of the empty DN (&quot;&quot;) is
+required. Also if Add content ACL checking has been
+configured on the database (see the slapd.conf(5) or
+slapd-config(5) manual page), add (=a) will be required on
+all of the attributes being added.</p>
+
+<p>The bind operation, when credentials are stored in the
+directory, requires auth (=x) privileges on the attribute
+the credentials are stored in (usually userPassword).</p>
+
+<p>The compare operation requires compare (=c) privileges
+on the attribute that is being compared.</p>
+
+<p>The delete operation requires delete (=z) privileges on
+the pseudo- attribute entry of the entry being deleted, and
+delete (=d) privileges on the children pseudo-attribute of
+the entrys parent.</p>
+
+<p>The modify operation requires write (=w) privileges on
+the attributes being modified. In detail, add (=a) is
+required to add new values, delete (=z) is required to
+delete existing values, and both delete and add (=az), or
+write (=w), are required to replace existing values.</p>
+
+<p>The modrdn operation requires write (=w) privileges on
+the pseudo- attribute entry of the entry whose relative DN
+is being modified, delete (=z) privileges on the
+pseudo-attribute children of the old entry s parents, add
+(=a) privileges on the pseudo-attribute children of the new
+entrys parents, and add (=a) privileges on the attributes
+that are present in the new relative DN. Delete (=z)
+privileges are also required on the attributes that are
+present in the old relative DN if deleteoldrdn is set to
+1.</p>
+
+<p>The search operation, requires search (=s) privileges on
+the entry pseudo-attribute of the searchBase (NOTE: this was
+introduced with OpenLDAP 2.4). Then, for each entry, it
+requires search (=s) privi- leges on the attributes that are
+defined in the filter. The resulting entries are finally
+tested for read (=r) privileges on the pseudo- attribute
+entry (for read access to the entry itself) and for read
+(=r) access on each value of each attribute that is
+requested. Also, for each referral object used in generating
+continuation references, the operation requires read (=r)
+access on the pseudo-attribute entry (for read access to the
+referral object itself), as well as read (=r) access to the
+attribute holding the referral information (generally the
+ref attribute).</p>
+
+<p>Some internal operations and some controls require
+specific access privileges. The authzID mapping and the
+proxyAuthz control require auth (=x) privileges on all the
+attributes that are present in the search filter of the URI
+regexp maps (the right-hand side of the authz- regexp
+directives). Auth (=x) privileges are also required on the
+authzTo attribute of the authorizing identity and/or on the
+authzFrom attribute of the authorized identity. In general,
+when an internal lookup is performed for authentication or
+authorization purposes, search-specific privileges (see the
+access requirements for the search operation illustrated
+above) are relaxed to auth.</p>
+
+<p>Access control to search entries is checked by the
+frontend, so it is fully honored by all backends; for all
+other operations and for the discovery phase of the search
+operation, full ACL semantics is only supported by the
+primary backends, i.e. back-bdb(5), and back-hdb(5).</p>
+
+<p>Some other backend, like back-sql(5), may fully support
+them; others may only support a portion of the described
+semantics, or even differ in some aspects. The relevant
+details are described in the backend- specific man
+pages.</p>
+
+<p>CAVEATS It is strongly recommended to explicitly use the
+most appropriate &lt;dnstyle&gt; in &lt;what&gt; and
+&lt;who&gt; clauses, to avoid possible incorrect
+specifications of the access rules as well as for
+performance (avoid unnecessary regex matching when an exact
+match suffices) reasons.</p>
+
+<p>An administrator might create a rule of the form:</p>
+
+<p>access to dn.regex=&quot;dc=example,dc=com&quot; by
+...</p>
+
+<p>expecting it to match all entries in the subtree
+&quot;dc=example,dc=com&quot;. However, this rule actually
+matches any DN which contains anywhere the substring
+&quot;dc=example,dc=com&quot;. That is, the rule matches
+both &quot;uid=joe,dc=example,dc=com&quot; and
+&quot;dc=example,dc=com,uid=joe&quot;.</p>
+
+<p>To match the desired subtree, the rule would be more
+precisely written:</p>
+
+<p>access to dn.regex=&quot;^(.+,)?dc=example,dc=com$&quot;
+by ...</p>
+
+<p>For performance reasons, it would be better to use the
+subtree style.</p>
+
+<p>access to dn.subtree=&quot;dc=example,dc=com&quot; by
+...</p>
+
+<p>When writing submatch rules, it may be convenient to
+avoid unnecessary regex &lt;dnstyle&gt; use; for instance,
+to allow access to the subtree of the user that matches the
+&lt;what&gt; clause, one could use</p>
+
+<p>access to
+dn.regex=&quot;^(.+,)?uid=([^,]+),dc=example,dc=com$&quot;
+by dn.regex=&quot;^uid=$2,dc=example,dc=com$$&quot; write by
+...</p>
+
+<p>However, since all that is required in the &lt;by&gt;
+clause is substring expansion, a more efficient solution
+is</p>
+
+<p>access to
+dn.regex=&quot;^(.+,)?uid=([^,]+),dc=example,dc=com$&quot;
+by dn.exact,expand=&quot;uid=$2,dc=example,dc=com&quot;
+write by ...</p>
+
+<p>In fact, while a &lt;dnstyle&gt; of regex implies
+substring expansion, exact, as well as all the other DN
+specific &lt;dnstyle&gt; values, does not, so it must be
+explicitly requested.</p>
+
+<p>FILES /etc/openldap/slapd.conf default slapd
+configuration file</p>
+
+<p>SEE ALSO slapd(8), slapd-*(5), slapacl(8), regex(7),
+re_format(7)</p>
+
+<p>&quot;OpenLDAP Administrator s Guide&quot;
+(http://www.OpenLDAP.org/doc/admin/)</p>
+
+<p>ACKNOWLEDGEMENTS OpenLDAP Software is developed and
+maintained by The OpenLDAP Project
+&lt;http://www.openldap.org/&gt;. OpenLDAP Software is
+derived from Univer- sity of Michigan LDAP 3.3 Release.</p>
+
+<p>OpenLDAP 2.4.19 2009/10/06 SLAPD.ACCESS(5)</p>
+<hr>
+</body>
+</html>

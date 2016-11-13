@@ -1,0 +1,527 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:09:58 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERL595DELTA(1) Perl Programmers Reference Guide
+PERL595DELTA(1)</p>
+
+<p>NAME perl595delta - what is new for perl v5.9.5</p>
+
+<p>DESCRIPTION This document describes differences between
+the 5.9.4 and the 5.9.5 development releases. See
+perl590delta, perl591delta, perl592delta, perl593delta and
+perl594delta for the differences between 5.8.0 and
+5.9.4.</p>
+
+<p>Incompatible Changes Tainting and printf When perl is
+run under taint mode, &quot;printf()&quot; and
+&quot;sprintf()&quot; will now reject any tainted format
+argument. (Rafael Garcia-Suarez)</p>
+
+<p>undef and signal handlers Undefining or deleting a
+signal handler via &quot;undef $SIG{FOO}&quot; is now
+equivalent to setting it to &rsquo;DEFAULT&rsquo;.
+(Rafael)</p>
+
+<p>strictures and array/hash dereferencing in defined()
+&quot;defined @$foo&quot; and &quot;defined %$bar&quot; are
+now subject to &quot;strict &rsquo;refs&rsquo;&quot; (that
+is, $foo and $bar shall be proper references there.)
+(Nicholas Clark)</p>
+
+<p>(However, &quot;defined(@foo)&quot; and
+&quot;defined(%bar)&quot; are discouraged constructs
+anyway.)</p>
+
+<p>&quot;(?p{})&quot; has been removed The regular
+expression construct &quot;(?p{})&quot;, which was
+deprecated in perl 5.8, has been removed. Use
+&quot;(??{})&quot; instead. (Rafael)</p>
+
+<p>Pseudo-hashes have been removed Support for
+pseudo-hashes has been removed from Perl 5.9. (The
+&quot;fields&quot; pragma remains here, but uses an
+alternate implementation.)</p>
+
+<p>Removal of the bytecode compiler and of perlcc
+&quot;perlcc&quot;, the byteloader and the supporting
+modules (B::C, B::CC, B::Bytecode, etc.) are no longer
+distributed with the perl sources. Those experimental tools
+have never worked reliably, and, due to the lack of
+volunteers to keep them in line with the perl interpreter
+developments, it was decided to remove them instead of
+shipping a broken version of those. The last version of
+those modules can be found with perl 5.9.4.</p>
+
+<p>However the B compiler framework stays supported in the
+perl core, as with the more useful modules it has permitted
+(among others, B::Deparse and B::Concise).</p>
+
+<p>Removal of the JPL The JPL (Java-Perl Linguo) has been
+removed from the perl sources tarball.</p>
+
+<p>Recursive inheritance detected earlier Perl will now
+immediately throw an exception if you modify any packages
+@ISA in such a way that it would cause recursive
+inheritance.</p>
+
+<p>Previously, the exception would not occur until Perl
+attempted to make use of the recursive inheritance while
+resolving a method or doing a &quot;$foo-&gt;isa($bar)&quot;
+lookup.</p>
+
+<p>Core Enhancements Regular expressions Recursive Patterns
+It is now possible to write recursive patterns without using
+the &quot;(??{})&quot; construct. This new way is more
+efficient, and in many cases easier to read.</p>
+
+<p>Each capturing parenthesis can now be treated as an
+independent pattern that can be entered by using the
+&quot;(?PARNO)&quot; syntax (&quot;PARNO&quot; standing for
+&quot;parenthesis number&quot;). For example, the following
+pattern will match nested balanced angle brackets:</p>
+
+<p>/ ^ # start of line ( # start capture buffer 1 &lt; #
+match an opening angle bracket (?: # match one of: (?&gt; #
+don&rsquo;t backtrack over the inside of this group
+[^&lt;&gt;]+ # one or more non angle brackets ) # end non
+backtracking group | # ... or ... (?1) # recurse to bracket
+1 and try it again )* # 0 or more times. &gt; # match a
+closing angle bracket ) # end capture buffer one $ # end of
+line /x</p>
+
+<p>Note, users experienced with PCRE will find that the
+Perl implementation of this feature differs from the PCRE
+one in that it is possible to backtrack into a recursed
+pattern, whereas in PCRE the recursion is atomic or
+&quot;possessive&quot; in nature. (Yves Orton)</p>
+
+<p>Named Capture Buffers It is now possible to name
+capturing parenthesis in a pattern and refer to the captured
+contents by name. The naming syntax is
+&quot;(?&lt;NAME&gt;....)&quot;. Its possible to
+backreference to a named buffer with the
+&quot;NAME&gt;&quot; syntax. In code, the new magical hashes
+&quot;%+&quot; and &quot;%-&quot; can be used to access the
+contents of the capture buffers.</p>
+
+<p>Thus, to replace all doubled chars, one could write</p>
+
+<p>s/(?&lt;letter&gt;.)letter&gt;/$+{letter}/g</p>
+
+<p>Only buffers with defined contents will be
+&quot;visible&quot; in the &quot;%+&quot; hash, so its
+possible to do something like</p>
+
+<p>foreach my $name (keys %+) { print &quot;content of
+buffer &rsquo;$name&rsquo; is $+{$name}0; }</p>
+
+<p>The &quot;%-&quot; hash is a bit more complete, since it
+will contain array refs holding values from all capture
+buffers similarly named, if there should be many of
+them.</p>
+
+<p>&quot;%+&quot; and &quot;%-&quot; are implemented as
+tied hashes through the new module
+&quot;Tie::Hash::NamedCapture&quot;.</p>
+
+<p>Users exposed to the .NET regex engine will find that
+the perl implementation differs in that the numerical
+ordering of the buffers is sequential, and not &quot;unnamed
+first, then named&quot;. Thus in the pattern</p>
+
+<p>/(A)(?&lt;B&gt;B)(C)(?&lt;D&gt;D)/</p>
+
+<p>$1 will be A, $2 will be B, $3 will be C and $4 will be
+D and not $1 is A, $2 is C and $3 is B and $4 is D that a
+.NET programmer would expect. This is considered a feature.
+:-) (Yves Orton)</p>
+
+<p>Possessive Quantifiers Perl now supports the
+&quot;possessive quantifier&quot; syntax of the &quot;atomic
+match&quot; pattern. Basically a possessive quantifier
+matches as much as it can and never gives any back. Thus it
+can be used to control backtracking. The syntax is similar
+to non-greedy matching, except instead of using a ? as the
+modifier the + is used. Thus &quot;?+&quot;, &quot;*+&quot;,
+&quot;++&quot;, &quot;{min,max}+&quot; are now legal
+quantifiers. (Yves Orton)</p>
+
+<p>Backtracking control verbs The regex engine now supports
+a number of special-purpose backtrack control verbs:
+(*THEN), (*PRUNE), (*MARK), (*SKIP), (*COMMIT), (*FAIL) and
+(*ACCEPT). See perlre for their descriptions. (Yves
+Orton)</p>
+
+<p>Relative backreferences A new syntax &quot;N}&quot; or
+&quot;&quot; where &quot;N&quot; is a decimal integer allows
+a safer form of back-reference notation as well as allowing
+relative backreferences. This should make it easier to
+generate and embed patterns that contain backreferences. See
+&quot;Capture buffers&quot; in perlre. (Yves Orton)</p>
+
+<p>&quot;K&quot; escape The functionality of Jeff Pinyans
+module Regexp::Keep has been added to the core. You can now
+use in regular expressions the special escape &quot;K&quot;
+as a way to do something like floating length positive
+lookbehind. It is also useful in substitutions like:</p>
+
+<p>s/(foo)bar/$1/g</p>
+
+<p>that can now be converted to</p>
+
+<p>s/fooKbar//g</p>
+
+<p>which is much more efficient. (Yves Orton)</p>
+
+<p>Vertical and horizontal whitespace, and linebreak
+Regular expressions now recognize the &quot;nd &quot;scapes,
+that match vertical and horizontal whitespace, respectively.
+&quot; and &quot;ogically match their complements.</p>
+
+<p>&quot; generic linebreak, that is, vertical whitespace,
+plus the multi-character sequence &quot;DA&quot;.</p>
+
+<p>The &quot;_&quot; prototype A new prototype character
+has been added. &quot;_&quot; is equivalent to &quot;$&quot;
+(it denotes a scalar), but defaults to $_ if the
+corresponding argument isnt supplied. Due to the optional
+nature of the argument, you can only use it at the end of a
+prototype, or before a semicolon.</p>
+
+<p>This has a small incompatible consequence: the
+prototype() function has been adjusted to return
+&quot;_&quot; for some built-ins in appropriate cases (for
+example, &quot;prototype(&rsquo;CORE::rmdir&rsquo;)&quot;).
+(Rafael)</p>
+
+<p>UNITCHECK blocks &quot;UNITCHECK&quot;, a new special
+code block has been introduced, in addition to
+&quot;BEGIN&quot;, &quot;CHECK&quot;, &quot;INIT&quot; and
+&quot;END&quot;.</p>
+
+<p>&quot;CHECK&quot; and &quot;INIT&quot; blocks, while
+useful for some specialized purposes, are always executed at
+the transition between the compilation and the execution of
+the main program, and thus are useless whenever code is
+loaded at runtime. On the other hand, &quot;UNITCHECK&quot;
+blocks are executed just after the unit which defined them
+has been compiled. See perlmod for more information. (Alex
+Gough)</p>
+
+<p>readpipe() is now overridable The built-in function
+readpipe() is now overridable. Overriding it permits also to
+override its operator counterpart, &quot;qx//&quot; (a.k.a.
+&quot;&lsquo;&lsquo;&quot;). Moreover, it now defaults to $_
+if no argument is provided. (Rafael)</p>
+
+<p>default argument for readline() readline() now defaults
+to *ARGV if no argument is provided. (Rafael)</p>
+
+<p>UCD 5.0.0 The copy of the Unicode Character Database
+included in Perl 5.9 has been updated to version 5.0.0.</p>
+
+<p>Smart match The smart match operator (&quot;~~&quot;) is
+now available by default (you dont need to enable it with
+&quot;use feature&quot; any longer). (Michael G Schwern)</p>
+
+<p>Implicit loading of &quot;feature&quot; The
+&quot;feature&quot; pragma is now implicitly loaded when you
+require a minimal perl version (with the &quot;use
+VERSION&quot; construct) greater than, or equal to,
+5.9.5.</p>
+
+<p>Modules and Pragmas New Pragma, &quot;mro&quot; A new
+pragma, &quot;mro&quot; (for Method Resolution Order) has
+been added. It permits to switch, on a per-class basis, the
+algorithm that perl uses to find inherited methods in case
+of a multiple inheritance hierarchy. The default MRO hasn t
+changed (DFS, for Depth First Search). Another MRO is
+available: the C3 algorithm. See mro for more information.
+(Brandon Black)</p>
+
+<p>Note that, due to changes in the implementation of class
+hierarchy search, code that used to undef the *ISA glob will
+most probably break. Anyway, undefing *ISA had the
+side-effect of removing the magic on the @ISA array and
+should not have been done in the first place.</p>
+
+<p>bignum, bigint, bigrat The three numeric pragmas
+&quot;bignum&quot;, &quot;bigint&quot; and
+&quot;bigrat&quot; are now lexically scoped. (Tels)</p>
+
+<p>Math::BigInt/Math::BigFloat Many bugs have been fixed;
+noteworthy are comparisons with NaN, which no longer warn
+about undef values.</p>
+
+<p>The following things are new:</p>
+
+<p>config() The config() method now also supports the
+calling-style &quot;config(&rsquo;lib&rsquo;)&quot; in
+addition to
+&quot;config()-&gt;{&rsquo;lib&rsquo;}&quot;.</p>
+
+<p>import() Upon import, using &quot;lib =&gt;
+&rsquo;Foo&rsquo;&quot; now warns if the low-level library
+cannot be found. To suppress the warning, you can use
+&quot;try =&gt; &rsquo;Foo&rsquo;&quot; instead. To convert
+the warning into a die, use &quot;only =&gt;
+&rsquo;Foo&rsquo;&quot; instead.</p>
+
+<p>roundmode common A rounding mode of &quot;common&quot;
+is now supported.</p>
+
+<p>Also, support for the following methods has been
+added:</p>
+
+<p>bpi(), bcos(), bsin(), batan(), batan2() bmuladd()
+bexp(), bnok() from_hex(), from_oct(), and from_bin()
+as_oct()</p>
+
+<p>In addition, the default math-backend (Calc (Perl) and
+FastCalc (XS)) now support storing numbers in parts with 9
+digits instead of 7 on Perls with either 64bit integer or
+long double support. This means math operations scale better
+and are thus faster for really big numbers.</p>
+
+<p>New Core Modules &middot;
+&quot;Locale::Maketext::Simple&quot;, needed by CPANPLUS, is
+a simple wrapper around
+&quot;Locale::Maketext::Lexicon&quot;. Note that
+&quot;Locale::Maketext::Lexicon&quot; isnt included in the
+perl core; the behaviour of
+&quot;Locale::Maketext::Simple&quot; gracefully degrades
+when the later isnt present.</p>
+
+<p>&middot; &quot;Params::Check&quot; implements a generic
+input parsing/checking mechanism. It is used by
+CPANPLUS.</p>
+
+<p>&middot; &quot;Term::UI&quot; simplifies the task to ask
+questions at a terminal prompt.</p>
+
+<p>&middot; &quot;Object::Accessor&quot; provides an
+interface to create per-object accessors.</p>
+
+<p>&middot; &quot;Module::Pluggable&quot; is a simple
+framework to create modules that accept pluggable
+sub-modules.</p>
+
+<p>&middot; &quot;Module::Load::Conditional&quot; provides
+simple ways to query and possibly load installed
+modules.</p>
+
+<p>&middot; &quot;Time::Piece&quot; provides an object
+oriented interface to time functions, overriding the
+built-ins localtime() and gmtime().</p>
+
+<p>&middot; &quot;IPC::Cmd&quot; helps to find and run
+external commands, possibly interactively.</p>
+
+<p>&middot; &quot;File::Fetch&quot; provide a simple
+generic file fetching mechanism.</p>
+
+<p>&middot; &quot;Log::Message&quot; and
+&quot;Log::Message::Simple&quot; are used by the log
+facility of &quot;CPANPLUS&quot;.</p>
+
+<p>&middot; &quot;Archive::Extract&quot; is a generic
+archive extraction mechanism for .tar (plain, gziped or
+bzipped) or .zip files.</p>
+
+<p>&middot; &quot;CPANPLUS&quot; provides an API and a
+command-line tool to access the CPAN mirrors.</p>
+
+<p>Module changes &quot;assertions&quot; The
+&quot;assertions&quot; pragma, its submodules
+&quot;assertions::activate&quot; and
+&quot;assertions::compat&quot; and the -A command-line
+switch have been removed. The interface was not judged
+mature enough for inclusion in a stable release.</p>
+
+<p>&quot;base&quot; The &quot;base&quot; pragma now warns
+if a class tries to inherit from itself. (Curtis
+&quot;Ovid&quot; Poe)</p>
+
+<p>&quot;strict&quot; and &quot;warnings&quot;
+&quot;strict&quot; and &quot;warnings&quot; will now
+complain loudly if they are loaded via incorrect casing (as
+in &quot;use Strict;&quot;). (Johan Vromans)</p>
+
+<p>&quot;warnings&quot; The &quot;warnings&quot; pragma
+doesnt load &quot;Carp&quot; anymore. That means that code
+that used &quot;Carp&quot; routines without having loaded it
+at compile time might need to be adjusted; typically, the
+following (faulty) code won t work anymore, and will require
+parentheses to be added after the function name:</p>
+
+<p>use warnings; require Carp; Carp::confess
+&quot;argh&quot;;</p>
+
+<p>&quot;less&quot; &quot;less&quot; now does something
+useful (or at least it tries to). In fact, it has been
+turned into a lexical pragma. So, in your modules, you can
+now test whether your users have requested to use less CPU,
+or less memory, less magic, or maybe even less fat. See less
+for more. (Joshua ben Jore)</p>
+
+<p>&quot;Attribute::Handlers&quot;
+&quot;Attribute::Handlers&quot; can now report the callers
+file and line number. (David Feldman)</p>
+
+<p>&quot;B::Lint&quot; &quot;B::Lint&quot; is now based on
+&quot;Module::Pluggable&quot;, and so can be extended with
+plugins. (Joshua ben Jore)</p>
+
+<p>&quot;B&quot; Its now possible to access the lexical
+pragma hints (&quot;%^H&quot;) by using the method
+B::COP::hints_hash(). It returns a &quot;B::RHE&quot;
+object, which in turn can be used to get a hash reference
+via the method B::RHE::HASH(). (Joshua ben Jore)</p>
+
+<p>&quot;Thread&quot; As the old 5005thread threading model
+has been removed, in favor of the ithreads scheme, the
+&quot;Thread&quot; module is now a compatibility wrapper, to
+be used in old code only. It has been removed from the
+default list of dynamic extensions.</p>
+
+<p>Utility Changes &quot;cpanp&quot; &quot;cpanp&quot;, the
+CPANPLUS shell, has been added. (&quot;cpanp-run-perl&quot;,
+an helper for CPANPLUS operation, has been added too, but
+isn t intended for direct use).</p>
+
+<p>&quot;cpan2dist&quot; &quot;cpan2dist&quot; is a new
+utility, that comes with CPANPLUS. It s a tool to create
+distributions (or packages) from CPAN modules.</p>
+
+<p>&quot;pod2html&quot; The output of &quot;pod2html&quot;
+has been enhanced to be more customizable via CSS. Some
+formatting problems were also corrected. (Jari Aalto)</p>
+
+<p>Documentation New manpage, perlunifaq A new manual page,
+perlunifaq (the Perl Unicode FAQ), has been added (Juerd
+Waalboer).</p>
+
+<p>Installation and Configuration Improvements C++
+compatibility Efforts have been made to make perl and the
+core XS modules compilable with various C++ compilers
+(although the situation is not perfect with some of the
+compilers on some of the platforms tested.)</p>
+
+<p>Visual C++ Perl now can be compiled with Microsoft
+Visual C++ 2005.</p>
+
+<p>Static build on Win32 Its now possible to build a
+&quot;perl-static.exe&quot; that doesn t depend on
+&quot;perl59.dll&quot; on Win32. See the Win32 makefiles for
+details. (Vadim Konovalov)</p>
+
+<p>win32 builds All win32 builds (MS-Win, WinCE) have been
+merged and cleaned up.</p>
+
+<p>&quot;d_pseudofork&quot; and
+&quot;d_printf_format_null&quot; A new configuration
+variable, available as $Config{d_pseudofork} in the Config
+module, has been added, to distinguish real fork() support
+from fake pseudofork used on Windows platforms.</p>
+
+<p>A new configuration variable,
+&quot;d_printf_format_null&quot;, has been added, to see if
+printf-like formats are allowed to be NULL.</p>
+
+<p>Help &quot;Configure -h&quot; has been extended with the
+most used option.</p>
+
+<p>Much less Whoa there messages.</p>
+
+<p>64bit systems Better detection of 64bit(only) systems,
+and setting all the (library) paths accordingly.</p>
+
+<p>Ports Perl has been reported to work on MidnightBSD.</p>
+
+<p>Support for Cray XT4 Catamount/Qk has been added.</p>
+
+<p>Vendor patches have been merged for RedHat and
+GenToo.</p>
+
+<p>Selected Bug Fixes PerlIO::scalar will now prevent
+writing to read-only scalars. Moreover, seek() is now
+supported with PerlIO::scalar-based filehandles, the
+underlying string being zero-filled as needed. (Rafael,
+Jarkko Hietaniemi)</p>
+
+<p>study() never worked for UTF-8 strings, but could lead
+to false results. Its now a no-op on UTF-8 data. (Yves
+Orton)</p>
+
+<p>The signals SIGILL, SIGBUS and SIGSEGV are now always
+delivered in an &quot;unsafe&quot; manner (contrary to other
+signals, that are deferred until the perl interpreter
+reaches a reasonably stable state; see &quot;Deferred
+Signals (Safe Signals)&quot; in perlipc). (Rafael)</p>
+
+<p>When a module or a file is loaded through an @INC-hook,
+and when this hook has set a filename entry in %INC,
+__FILE__ is now set for this module accordingly to the
+contents of that %INC entry. (Rafael)</p>
+
+<p>The &quot;-w&quot; and &quot;-t&quot; switches can now
+be used together without messing up what categories of
+warnings are activated or not. (Rafael)</p>
+
+<p>Duping a filehandle which has the &quot;:utf8&quot;
+PerlIO layer set will now properly carry that layer on the
+duped filehandle. (Rafael)</p>
+
+<p>Localizing an hash element whose key was given as a
+variable didnt work correctly if the variable was changed
+while the local() was in effect (as in &quot;local $h{$x};
+++$x&quot;). (Bo Lindbergh)</p>
+
+<p>New or Changed Diagnostics Deprecations Two deprecation
+warnings have been added: (Rafael)</p>
+
+<p>Opening dirhandle %s also as a file Opening filehandle
+%s also as a directory</p>
+
+<p>Changed Internals The anonymous hash and array
+constructors now take 1 op in the optree instead of 3, now
+that pp_anonhash and pp_anonlist return a reference to an
+hash/array when the op is flagged with OPf_SPECIAL (Nicholas
+Clark).</p>
+
+<p>Reporting Bugs If you find what you think is a bug, you
+might check the articles recently posted to the
+comp.lang.perl.misc newsgroup and the perl bug database at
+http://rt.perl.org/rt3/ . There may also be information at
+http://www.perl.org/ , the Perl Home Page.</p>
+
+<p>If you believe you have an unreported bug, please run
+the perlbug program included with your release. Be sure to
+trim your bug down to a tiny but sufficient test case. Your
+bug report, along with the output of &quot;perl -V&quot;,
+will be sent off to perlbug@perl.org to be analysed by the
+Perl porting team.</p>
+
+<p>SEE ALSO The Changes file for exhaustive details on what
+changed.</p>
+
+<p>The INSTALL file for how to build Perl.</p>
+
+<p>The README file for general stuff.</p>
+
+<p>The Artistic and Copying files for copyright
+information.</p>
+
+<p>perl v5.10.1 2009-02-25 PERL595DELTA(1)</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,1463 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:09:54 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERL5100DELTA(1) Perl Programmers Reference Guide
+PERL5100DELTA(1)</p>
+
+<p>NAME perl5100delta - what is new for perl 5.10.0</p>
+
+<p>DESCRIPTION This document describes the differences
+between the 5.8.8 release and the 5.10.0 release.</p>
+
+<p>Many of the bug fixes in 5.10.0 were already seen in the
+5.8.X maintenance releases; they are not duplicated here and
+are documented in the set of man pages named
+perl58[1-8]?delta.</p>
+
+<p>Core Enhancements The &quot;feature&quot; pragma The
+&quot;feature&quot; pragma is used to enable new syntax that
+would break Perls backwards-compatibility with older
+releases of the language. Its a lexical pragma, like
+&quot;strict&quot; or &quot;warnings&quot;.</p>
+
+<p>Currently the following new features are available:
+&quot;switch&quot; (adds a switch statement),
+&quot;say&quot; (adds a &quot;say&quot; built-in function),
+and &quot;state&quot; (adds a &quot;state&quot; keyword for
+declaring &quot;static&quot; variables). Those features are
+described in their own sections of this document.</p>
+
+<p>The &quot;feature&quot; pragma is also implicitly loaded
+when you require a minimal perl version (with the &quot;use
+VERSION&quot; construct) greater than, or equal to, 5.9.5.
+See feature for details.</p>
+
+<p>New -E command-line switch -E is equivalent to -e, but
+it implicitly enables all optional features (like &quot;use
+feature &quot;:5.10&quot;&quot;).</p>
+
+<p>Defined-or operator A new operator &quot;//&quot;
+(defined-or) has been implemented. The following
+expression:</p>
+
+<p>$a // $b</p>
+
+<p>is merely equivalent to</p>
+
+<p>defined $a ? $a : $b</p>
+
+<p>and the statement</p>
+
+<p>$c //= $d;</p>
+
+<p>can now be used instead of</p>
+
+<p>$c = $d unless defined $c;</p>
+
+<p>The &quot;//&quot; operator has the same precedence and
+associativity as &quot;||&quot;. Special care has been taken
+to ensure that this operator Do What You Mean while not
+breaking old code, but some edge cases involving the empty
+regular expression may now parse differently. See perlop for
+details.</p>
+
+<p>Switch and Smart Match operator Perl 5 now has a switch
+statement. Its available when &quot;use feature
+&rsquo;switch&rsquo;&quot; is in effect. This feature
+introduces three new keywords, &quot;given&quot;,
+&quot;when&quot;, and &quot;default&quot;:</p>
+
+<p>given ($foo) { when (/^abc/) { $abc = 1; } when (/^def/)
+{ $def = 1; } when (/^xyz/) { $xyz = 1; } default { $nothing
+= 1; } }</p>
+
+<p>A more complete description of how Perl matches the
+switch variable against the &quot;when&quot; conditions is
+given in &quot;Switch statements&quot; in perlsyn.</p>
+
+<p>This kind of match is called smart match, and its also
+possible to use it outside of switch statements, via the new
+&quot;~~&quot; operator. See &quot;Smart matching in
+detail&quot; in perlsyn.</p>
+
+<p>This feature was contributed by Robin Houston.</p>
+
+<p>Regular expressions Recursive Patterns It is now
+possible to write recursive patterns without using the
+&quot;(??{})&quot; construct. This new way is more
+efficient, and in many cases easier to read.</p>
+
+<p>Each capturing parenthesis can now be treated as an
+independent pattern that can be entered by using the
+&quot;(?PARNO)&quot; syntax (&quot;PARNO&quot; standing for
+&quot;parenthesis number&quot;). For example, the following
+pattern will match nested balanced angle brackets:</p>
+
+<p>/ ^ # start of line ( # start capture buffer 1 &lt; #
+match an opening angle bracket (?: # match one of: (?&gt; #
+don&rsquo;t backtrack over the inside of this group
+[^&lt;&gt;]+ # one or more non angle brackets ) # end non
+backtracking group | # ... or ... (?1) # recurse to bracket
+1 and try it again )* # 0 or more times. &gt; # match a
+closing angle bracket ) # end capture buffer one $ # end of
+line /x</p>
+
+<p>PCRE users should note that Perl s recursive regex
+feature allows backtracking into a recursed pattern, whereas
+in PCRE the recursion is atomic or &quot;possessive&quot; in
+nature. As in the example above, you can add (?&gt;) to
+control this selectively. (Yves Orton)</p>
+
+<p>Named Capture Buffers It is now possible to name
+capturing parenthesis in a pattern and refer to the captured
+contents by name. The naming syntax is
+&quot;(?&lt;NAME&gt;....)&quot;. Its possible to
+backreference to a named buffer with the
+&quot;NAME&gt;&quot; syntax. In code, the new magical hashes
+&quot;%+&quot; and &quot;%-&quot; can be used to access the
+contents of the capture buffers.</p>
+
+<p>Thus, to replace all doubled chars with a single copy,
+one could write</p>
+
+<p>s/(?&lt;letter&gt;.)letter&gt;/$+{letter}/g</p>
+
+<p>Only buffers with defined contents will be
+&quot;visible&quot; in the &quot;%+&quot; hash, so its
+possible to do something like</p>
+
+<p>foreach my $name (keys %+) { print &quot;content of
+buffer &rsquo;$name&rsquo; is $+{$name}0; }</p>
+
+<p>The &quot;%-&quot; hash is a bit more complete, since it
+will contain array refs holding values from all capture
+buffers similarly named, if there should be many of
+them.</p>
+
+<p>&quot;%+&quot; and &quot;%-&quot; are implemented as
+tied hashes through the new module
+&quot;Tie::Hash::NamedCapture&quot;.</p>
+
+<p>Users exposed to the .NET regex engine will find that
+the perl implementation differs in that the numerical
+ordering of the buffers is sequential, and not &quot;unnamed
+first, then named&quot;. Thus in the pattern</p>
+
+<p>/(A)(?&lt;B&gt;B)(C)(?&lt;D&gt;D)/</p>
+
+<p>$1 will be A, $2 will be B, $3 will be C and $4 will be
+D and not $1 is A, $2 is C and $3 is B and $4 is D that a
+.NET programmer would expect. This is considered a feature.
+:-) (Yves Orton)</p>
+
+<p>Possessive Quantifiers Perl now supports the
+&quot;possessive quantifier&quot; syntax of the &quot;atomic
+match&quot; pattern. Basically a possessive quantifier
+matches as much as it can and never gives any back. Thus it
+can be used to control backtracking. The syntax is similar
+to non-greedy matching, except instead of using a ? as the
+modifier the + is used. Thus &quot;?+&quot;, &quot;*+&quot;,
+&quot;++&quot;, &quot;{min,max}+&quot; are now legal
+quantifiers. (Yves Orton)</p>
+
+<p>Backtracking control verbs The regex engine now supports
+a number of special-purpose backtrack control verbs:
+(*THEN), (*PRUNE), (*MARK), (*SKIP), (*COMMIT), (*FAIL) and
+(*ACCEPT). See perlre for their descriptions. (Yves
+Orton)</p>
+
+<p>Relative backreferences A new syntax &quot;N}&quot; or
+&quot;&quot; where &quot;N&quot; is a decimal integer allows
+a safer form of back-reference notation as well as allowing
+relative backreferences. This should make it easier to
+generate and embed patterns that contain backreferences. See
+&quot;Capture buffers&quot; in perlre. (Yves Orton)</p>
+
+<p>&quot;K&quot; escape The functionality of Jeff Pinyans
+module Regexp::Keep has been added to the core. In regular
+expressions you can now use the special escape &quot;K&quot;
+as a way to do something like floating length positive
+lookbehind. It is also useful in substitutions like:</p>
+
+<p>s/(foo)bar/$1/g</p>
+
+<p>that can now be converted to</p>
+
+<p>s/fooKbar//g</p>
+
+<p>which is much more efficient. (Yves Orton)</p>
+
+<p>Vertical and horizontal whitespace, and linebreak
+Regular expressions now recognize the &quot;nd &quot;scapes
+that match vertical and horizontal whitespace, respectively.
+&quot; and &quot;ogically match their complements.</p>
+
+<p>&quot; generic linebreak, that is, vertical whitespace,
+plus the multi-character sequence &quot;DA&quot;.</p>
+
+<p>&quot;say()&quot; say() is a new built-in, only
+available when &quot;use feature &rsquo;say&rsquo;&quot; is
+in effect, that is similar to print(), but that implicitly
+appends a newline to the printed string. See &quot;say&quot;
+in perlfunc. (Robin Houston)</p>
+
+<p>Lexical $_ The default variable $_ can now be
+lexicalized, by declaring it like any other lexical
+variable, with a simple</p>
+
+<p>my $_;</p>
+
+<p>The operations that default on $_ will use the
+lexically-scoped version of $_ when it exists, instead of
+the global $_.</p>
+
+<p>In a &quot;map&quot; or a &quot;grep&quot; block, if $_
+was previously myed, then the $_ inside the block is lexical
+as well (and scoped to the block).</p>
+
+<p>In a scope where $_ has been lexicalized, you can still
+have access to the global version of $_ by using $::_, or,
+more simply, by overriding the lexical declaration with
+&quot;our $_&quot;. (Rafael Garcia-Suarez)</p>
+
+<p>The &quot;_&quot; prototype A new prototype character
+has been added. &quot;_&quot; is equivalent to &quot;$&quot;
+but defaults to $_ if the corresponding argument isnt
+supplied (both &quot;$&quot; and &quot;_&quot; denote a
+scalar). Due to the optional nature of the argument, you can
+only use it at the end of a prototype, or before a
+semicolon.</p>
+
+<p>This has a small incompatible consequence: the
+prototype() function has been adjusted to return
+&quot;_&quot; for some built-ins in appropriate cases (for
+example, &quot;prototype(&rsquo;CORE::rmdir&rsquo;)&quot;).
+(Rafael Garcia-Suarez)</p>
+
+<p>UNITCHECK blocks &quot;UNITCHECK&quot;, a new special
+code block has been introduced, in addition to
+&quot;BEGIN&quot;, &quot;CHECK&quot;, &quot;INIT&quot; and
+&quot;END&quot;.</p>
+
+<p>&quot;CHECK&quot; and &quot;INIT&quot; blocks, while
+useful for some specialized purposes, are always executed at
+the transition between the compilation and the execution of
+the main program, and thus are useless whenever code is
+loaded at runtime. On the other hand, &quot;UNITCHECK&quot;
+blocks are executed just after the unit which defined them
+has been compiled. See perlmod for more information. (Alex
+Gough)</p>
+
+<p>New Pragma, &quot;mro&quot; A new pragma,
+&quot;mro&quot; (for Method Resolution Order) has been
+added. It permits to switch, on a per-class basis, the
+algorithm that perl uses to find inherited methods in case
+of a multiple inheritance hierarchy. The default MRO hasn t
+changed (DFS, for Depth First Search). Another MRO is
+available: the C3 algorithm. See mro for more information.
+(Brandon Black)</p>
+
+<p>Note that, due to changes in the implementation of class
+hierarchy search, code that used to undef the *ISA glob will
+most probably break. Anyway, undefing *ISA had the
+side-effect of removing the magic on the @ISA array and
+should not have been done in the first place. Also, the
+cache *::ISA::CACHE:: no longer exists; to force reset the
+@ISA cache, you now need to use the &quot;mro&quot; API, or
+more simply to assign to @ISA (e.g. with &quot;@ISA =
+@ISA&quot;).</p>
+
+<p>readdir() may return a &quot;short filename&quot; on
+Windows The readdir() function may return a &quot;short
+filename&quot; when the long filename contains characters
+outside the ANSI codepage. Similarly Cwd::cwd() may return a
+short directory name, and glob() may return short names as
+well. On the NTFS file system these short names can always
+be represented in the ANSI codepage. This will not be true
+for all other file system drivers; e.g. the FAT filesystem
+stores short filenames in the OEM codepage, so some files on
+FAT volumes remain unaccessible through the ANSI APIs.</p>
+
+<p>Similarly, $^X, @INC, and $ENV{PATH} are preprocessed at
+startup to make sure all paths are valid in the ANSI
+codepage (if possible).</p>
+
+<p>The Win32::GetLongPathName() function now returns the
+UTF-8 encoded correct long file name instead of using
+replacement characters to force the name into the ANSI
+codepage. The new Win32::GetANSIPathName() function can be
+used to turn a long pathname into a short one only if the
+long one cannot be represented in the ANSI codepage.</p>
+
+<p>Many other functions in the &quot;Win32&quot; module
+have been improved to accept UTF-8 encoded arguments. Please
+see Win32 for details.</p>
+
+<p>readpipe() is now overridable The built-in function
+readpipe() is now overridable. Overriding it permits also to
+override its operator counterpart, &quot;qx//&quot; (a.k.a.
+&quot;&lsquo;&lsquo;&quot;). Moreover, it now defaults to $_
+if no argument is provided. (Rafael Garcia-Suarez)</p>
+
+<p>Default argument for readline() readline() now defaults
+to *ARGV if no argument is provided. (Rafael
+Garcia-Suarez)</p>
+
+<p>state() variables A new class of variables has been
+introduced. State variables are similar to &quot;my&quot;
+variables, but are declared with the &quot;state&quot;
+keyword in place of &quot;my&quot;. Theyre visible only in
+their lexical scope, but their value is persistent: unlike
+&quot;my&quot; variables, theyre not undefined at scope
+entry, but retain their previous value. (Rafael
+Garcia-Suarez, Nicholas Clark)</p>
+
+<p>To use state variables, one needs to enable them by
+using</p>
+
+<p>use feature &rsquo;state&rsquo;;</p>
+
+<p>or by using the &quot;-E&quot; command-line switch in
+one-liners. See &quot;Persistent Private Variables&quot; in
+perlsub.</p>
+
+<p>Stacked filetest operators As a new form of syntactic
+sugar, it s now possible to stack up filetest operators. You
+can now write &quot;-f -w -x $file&quot; in a row to mean
+&quot;-x $file &amp;&amp; -w _ &amp;&amp; -f _&quot;. See
+&quot;-X&quot; in perlfunc.</p>
+
+<p>UNIVERSAL::DOES() The &quot;UNIVERSAL&quot; class has a
+new method, &quot;DOES()&quot;. It has been added to solve
+semantic problems with the &quot;isa()&quot; method.
+&quot;isa()&quot; checks for inheritance, while
+&quot;DOES()&quot; has been designed to be overridden when
+module authors use other types of relations between classes
+(in addition to inheritance). (chromatic)</p>
+
+<p>See &quot;$obj-&gt;DOES( ROLE )&quot; in UNIVERSAL.</p>
+
+<p>Formats Formats were improved in several ways. A new
+field, &quot;^*&quot;, can be used for variable-width,
+one-line-at-a-time text. Null characters are now handled
+correctly in picture lines. Using &quot;@#&quot; and
+&quot;~~&quot; together will now produce a compile-time
+error, as those format fields are incompatible. perlform has
+been improved, and miscellaneous bugs fixed.</p>
+
+<p>Byte-order modifiers for pack() and unpack() There are
+two new byte-order modifiers, &quot;&gt;&quot; (big-endian)
+and &quot;&lt;&quot; (little-endian), that can be appended
+to most pack() and unpack() template characters and groups
+to force a certain byte-order for that type or group. See
+&quot;pack&quot; in perlfunc and perlpacktut for
+details.</p>
+
+<p>&quot;no VERSION&quot; You can now use &quot;no&quot;
+followed by a version number to specify that you want to use
+a version of perl older than the specified one.</p>
+
+<p>&quot;chdir&quot;, &quot;chmod&quot; and
+&quot;chown&quot; on filehandles &quot;chdir&quot;,
+&quot;chmod&quot; and &quot;chown&quot; can now work on
+filehandles as well as filenames, if the system supports
+respectively &quot;fchdir&quot;, &quot;fchmod&quot; and
+&quot;fchown&quot;, thanks to a patch provided by Gisle
+Aas.</p>
+
+<p>OS groups $( and $) now return groups in the order where
+the OS returns them, thanks to Gisle Aas. This wasnt
+previously the case.</p>
+
+<p>Recursive sort subs You can now use recursive
+subroutines with sort(), thanks to Robin Houston.</p>
+
+<p>Exceptions in constant folding The constant folding
+routine is now wrapped in an exception handler, and if
+folding throws an exception (such as attempting to evaluate
+0/0), perl now retains the current optree, rather than
+aborting the whole program. Without this change, programs
+would not compile if they had expressions that happened to
+generate exceptions, even though those expressions were in
+code that could never be reached at runtime. (Nicholas
+Clark, Dave Mitchell)</p>
+
+<p>Source filters in @INC It s possible to enhance the
+mechanism of subroutine hooks in @INC by adding a source
+filter on top of the filehandle opened and returned by the
+hook. This feature was planned a long time ago, but wasnt
+quite working until now. See &quot;require&quot; in perlfunc
+for details. (Nicholas Clark)</p>
+
+<p>New internal variables &quot;${^RE_DEBUG_FLAGS}&quot;
+This variable controls what debug flags are in effect for
+the regular expression engine when running under &quot;use
+re &quot;debug&quot;&quot;. See re for details.</p>
+
+<p>&quot;${^CHILD_ERROR_NATIVE}&quot; This variable gives
+the native status returned by the last pipe close, backtick
+command, successful call to wait() or waitpid(), or from the
+system() operator. See perlvar for details. (Contributed by
+Gisle Aas.)</p>
+
+<p>&quot;${^RE_TRIE_MAXBUF}&quot; See &quot;Trie
+optimisation of literal string alternations&quot;.</p>
+
+<p>&quot;${^WIN32_SLOPPY_STAT}&quot; See &quot;Sloppy stat
+on Windows&quot;.</p>
+
+<p>Miscellaneous &quot;unpack()&quot; now defaults to
+unpacking the $_ variable.</p>
+
+<p>&quot;mkdir()&quot; without arguments now defaults to
+$_.</p>
+
+<p>The internal dump output has been improved, so that
+non-printable characters such as newline and backspace are
+output in &quot;otation, rather than octal.</p>
+
+<p>The -C option can no longer be used on the
+&quot;#!&quot; line. It wasnt working there anyway, since
+the standard streams are already set up at this point in the
+execution of the perl interpreter. You can use binmode()
+instead to get the desired behaviour.</p>
+
+<p>UCD 5.0.0 The copy of the Unicode Character Database
+included in Perl 5 has been updated to version 5.0.0.</p>
+
+<p>MAD MAD, which stands for Miscellaneous Attribute
+Decoration, is a still- in-development work leading to a
+Perl 5 to Perl 6 converter. To enable it, it s necessary to
+pass the argument &quot;-Dmad&quot; to Configure. The
+obtained perl isnt binary compatible with a regular perl
+5.10, and has space and speed penalties; moreover not all
+regression tests still pass with it. (Larry Wall, Nicholas
+Clark)</p>
+
+<p>kill() on Windows On Windows platforms, &quot;kill(-9,
+$pid)&quot; now kills a process tree. (On UNIX, this
+delivers the signal to all processes in the same process
+group.)</p>
+
+<p>Incompatible Changes Packing and UTF-8 strings The
+semantics of pack() and unpack() regarding UTF-8-encoded
+data has been changed. Processing is now by default
+character per character instead of byte per byte on the
+underlying encoding. Notably, code that used things like
+&quot;pack(&quot;a*&quot;, $string)&quot; to see through the
+encoding of string will now simply get back the original
+$string. Packed strings can also get upgraded during
+processing when you store upgraded characters. You can get
+the old behaviour by using &quot;use bytes&quot;.</p>
+
+<p>To be consistent with pack(), the &quot;C0&quot; in
+unpack() templates indicates that the data is to be
+processed in character mode, i.e. character by character; on
+the contrary, &quot;U0&quot; in unpack() indicates UTF-8
+mode, where the packed string is processed in its
+UTF-8-encoded Unicode form on a byte by byte basis. This is
+reversed with regard to perl 5.8.X, but now consistent
+between pack() and unpack().</p>
+
+<p>Moreover, &quot;C0&quot; and &quot;U0&quot; can also be
+used in pack() templates to specify respectively character
+and byte modes.</p>
+
+<p>&quot;C0&quot; and &quot;U0&quot; in the middle of a
+pack or unpack format now switch to the specified encoding
+mode, honoring parens grouping. Previously, parens were
+ignored.</p>
+
+<p>Also, there is a new pack() character format,
+&quot;W&quot;, which is intended to replace the old
+&quot;C&quot;. &quot;C&quot; is kept for unsigned chars
+coded as bytes in the strings internal representation.
+&quot;W&quot; represents unsigned (logical) character
+values, which can be greater than 255. It is therefore more
+robust when dealing with potentially UTF-8-encoded data (as
+&quot;C&quot; will wrap values outside the range 0..255, and
+not respect the string encoding).</p>
+
+<p>In practice, that means that pack formats are now
+encoding-neutral, except &quot;C&quot;.</p>
+
+<p>For consistency, &quot;A&quot; in unpack() format now
+trims all Unicode whitespace from the end of the string.
+Before perl 5.9.2, it used to strip only the classical ASCII
+space characters.</p>
+
+<p>Byte/character count feature in unpack() A new unpack()
+template character, &quot;.&quot;, returns the number of
+bytes or characters (depending on the selected encoding
+mode, see above) read so far.</p>
+
+<p>The $* and $# variables have been removed $*, which was
+deprecated in favor of the &quot;/s&quot; and &quot;/m&quot;
+regexp modifiers, has been removed.</p>
+
+<p>The deprecated $# variable (output format for numbers)
+has been removed.</p>
+
+<p>Two new severe warnings, &quot;$#/$* is no longer
+supported&quot;, have been added.</p>
+
+<p>substr() lvalues are no longer fixed-length The lvalues
+returned by the three argument form of substr() used to be a
+&quot;fixed length window&quot; on the original string. In
+some cases this could cause surprising action at distance or
+other undefined behaviour. Now the length of the window
+adjusts itself to the length of the string assigned to
+it.</p>
+
+<p>Parsing of &quot;-f _&quot; The identifier &quot;_&quot;
+is now forced to be a bareword after a filetest operator.
+This solves a number of misparsing issues when a global
+&quot;_&quot; subroutine is defined.</p>
+
+<p>&quot;:unique&quot; The &quot;:unique&quot; attribute
+has been made a no-op, since its current implementation was
+fundamentally flawed and not threadsafe.</p>
+
+<p>Effect of pragmas in eval The compile-time value of the
+&quot;%^H&quot; hint variable can now propagate into
+eval(&quot;&quot;)uated code. This makes it more useful to
+implement lexical pragmas.</p>
+
+<p>As a side-effect of this, the overloaded-ness of
+constants now propagates into eval(&quot;&quot;).</p>
+
+<p>chdir FOO A bareword argument to chdir() is now
+recognized as a file handle. Earlier releases interpreted
+the bareword as a directory name. (Gisle Aas)</p>
+
+<p>Handling of .pmc files An old feature of perl was that
+before &quot;require&quot; or &quot;use&quot; look for a
+file with a .pm extension, they will first look for a
+similar filename with a .pmc extension. If this file is
+found, it will be loaded in place of any potentially
+existing file ending in a .pm extension.</p>
+
+<p>Previously, .pmc files were loaded only if more recent
+than the matching .pm file. Starting with 5.9.4, theyll be
+always loaded if they exist.</p>
+
+<p>$^V is now a &quot;version&quot; object instead of a
+v-string $^V can still be used with the %vd format in
+printf, but any character- level operations will now access
+the string representation of the &quot;version&quot; object
+and not the ordinals of a v-string. Expressions like
+&quot;substr($^V, 0, 2)&quot; or &quot;split //, $^V&quot;
+no longer work and must be rewritten.</p>
+
+<p>@- and @+ in patterns The special arrays &quot;@-&quot;
+and &quot;@+&quot; are no longer interpolated in regular
+expressions. (Sadahiro Tomoyuki)</p>
+
+<p>$AUTOLOAD can now be tainted If you call a subroutine by
+a tainted name, and if it defers to an AUTOLOAD function,
+then $AUTOLOAD will be (correctly) tainted. (Rick
+Delaney)</p>
+
+<p>Tainting and printf When perl is run under taint mode,
+&quot;printf()&quot; and &quot;sprintf()&quot; will now
+reject any tainted format argument. (Rafael
+Garcia-Suarez)</p>
+
+<p>undef and signal handlers Undefining or deleting a
+signal handler via &quot;undef $SIG{FOO}&quot; is now
+equivalent to setting it to &rsquo;DEFAULT&rsquo;. (Rafael
+Garcia-Suarez)</p>
+
+<p>strictures and dereferencing in defined() &quot;use
+strict &rsquo;refs&rsquo;&quot; was ignoring taking a hard
+reference in an argument to defined(), as in :</p>
+
+<p>use strict &rsquo;refs&rsquo;; my $x =
+&rsquo;foo&rsquo;; if (defined $$x) {...}</p>
+
+<p>This now correctly produces the run-time error
+&quot;Can&rsquo;t use string as a SCALAR ref while
+&quot;strict refs&quot; in use&quot;.</p>
+
+<p>&quot;defined @$foo&quot; and &quot;defined %$bar&quot;
+are now also subject to &quot;strict
+&rsquo;refs&rsquo;&quot; (that is, $foo and $bar shall be
+proper references there.) (&quot;defined(@foo)&quot; and
+&quot;defined(%bar)&quot; are discouraged constructs
+anyway.) (Nicholas Clark)</p>
+
+<p>&quot;(?p{})&quot; has been removed The regular
+expression construct &quot;(?p{})&quot;, which was
+deprecated in perl 5.8, has been removed. Use
+&quot;(??{})&quot; instead. (Rafael Garcia-Suarez)</p>
+
+<p>Pseudo-hashes have been removed Support for
+pseudo-hashes has been removed from Perl 5.9. (The
+&quot;fields&quot; pragma remains here, but uses an
+alternate implementation.)</p>
+
+<p>Removal of the bytecode compiler and of perlcc
+&quot;perlcc&quot;, the byteloader and the supporting
+modules (B::C, B::CC, B::Bytecode, etc.) are no longer
+distributed with the perl sources. Those experimental tools
+have never worked reliably, and, due to the lack of
+volunteers to keep them in line with the perl interpreter
+developments, it was decided to remove them instead of
+shipping a broken version of those. The last version of
+those modules can be found with perl 5.9.4.</p>
+
+<p>However the B compiler framework stays supported in the
+perl core, as with the more useful modules it has permitted
+(among others, B::Deparse and B::Concise).</p>
+
+<p>Removal of the JPL The JPL (Java-Perl Lingo) has been
+removed from the perl sources tarball.</p>
+
+<p>Recursive inheritance detected earlier Perl will now
+immediately throw an exception if you modify any packages
+@ISA in such a way that it would cause recursive
+inheritance.</p>
+
+<p>Previously, the exception would not occur until Perl
+attempted to make use of the recursive inheritance while
+resolving a method or doing a &quot;$foo-&gt;isa($bar)&quot;
+lookup.</p>
+
+<p>Modules and Pragmata Upgrading individual core modules
+Even more core modules are now also available separately
+through the CPAN. If you wish to update one of these
+modules, you don t need to wait for a new perl release. From
+within the cpan shell, running the r command will report on
+modules with upgrades available. See &quot;perldoc
+CPAN&quot; for more information.</p>
+
+<p>Pragmata Changes &quot;feature&quot; The new pragma
+&quot;feature&quot; is used to enable new features that
+might break old code. See &quot;The &quot;feature&quot;
+pragma&quot; above.</p>
+
+<p>&quot;mro&quot; This new pragma enables to change the
+algorithm used to resolve inherited methods. See &quot;New
+Pragma, &quot;mro&quot;&quot; above.</p>
+
+<p>Scoping of the &quot;sort&quot; pragma The
+&quot;sort&quot; pragma is now lexically scoped. Its effect
+used to be global.</p>
+
+<p>Scoping of &quot;bignum&quot;, &quot;bigint&quot;,
+&quot;bigrat&quot; The three numeric pragmas
+&quot;bignum&quot;, &quot;bigint&quot; and
+&quot;bigrat&quot; are now lexically scoped. (Tels)</p>
+
+<p>&quot;base&quot; The &quot;base&quot; pragma now warns
+if a class tries to inherit from itself. (Curtis
+&quot;Ovid&quot; Poe)</p>
+
+<p>&quot;strict&quot; and &quot;warnings&quot;
+&quot;strict&quot; and &quot;warnings&quot; will now
+complain loudly if they are loaded via incorrect casing (as
+in &quot;use Strict;&quot;). (Johan Vromans)</p>
+
+<p>&quot;version&quot; The &quot;version&quot; module
+provides support for version objects.</p>
+
+<p>&quot;warnings&quot; The &quot;warnings&quot; pragma
+doesnt load &quot;Carp&quot; anymore. That means that code
+that used &quot;Carp&quot; routines without having loaded it
+at compile time might need to be adjusted; typically, the
+following (faulty) code wont work anymore, and will require
+parentheses to be added after the function name:</p>
+
+<p>use warnings; require Carp; Carp::confess
+&rsquo;argh&rsquo;;</p>
+
+<p>&quot;less&quot; &quot;less&quot; now does something
+useful (or at least it tries to). In fact, it has been
+turned into a lexical pragma. So, in your modules, you can
+now test whether your users have requested to use less CPU,
+or less memory, less magic, or maybe even less fat. See less
+for more. (Joshua ben Jore)</p>
+
+<p>New modules &middot; &quot;encoding::warnings&quot;, by
+Audrey Tang, is a module to emit warnings whenever an ASCII
+character string containing high-bit bytes is implicitly
+converted into UTF-8. Its a lexical pragma since Perl 5.9.4;
+on older perls, its effect is global.</p>
+
+<p>&middot; &quot;Module::CoreList&quot;, by Richard Clamp,
+is a small handy module that tells you what versions of core
+modules ship with any versions of Perl 5. It comes with a
+command-line frontend, &quot;corelist&quot;.</p>
+
+<p>&middot; &quot;Math::BigInt::FastCalc&quot; is an
+XS-enabled, and thus faster, version of
+&quot;Math::BigInt::Calc&quot;.</p>
+
+<p>&middot; &quot;Compress::Zlib&quot; is an interface to
+the zlib compression library. It comes with a bundled
+version of zlib, so having a working zlib is not a
+prerequisite to install it. It s used by
+&quot;Archive::Tar&quot; (see below).</p>
+
+<p>&middot; &quot;IO::Zlib&quot; is an
+&quot;IO::&quot;-style interface to
+&quot;Compress::Zlib&quot;.</p>
+
+<p>&middot; &quot;Archive::Tar&quot; is a module to
+manipulate &quot;tar&quot; archives.</p>
+
+<p>&middot; &quot;Digest::SHA&quot; is a module used to
+calculate many types of SHA digests, has been included for
+SHA support in the CPAN module.</p>
+
+<p>&middot; &quot;ExtUtils::CBuilder&quot; and
+&quot;ExtUtils::ParseXS&quot; have been added.</p>
+
+<p>&middot; &quot;Hash::Util::FieldHash&quot;, by Anno
+Siegel, has been added. This module provides support for
+field hashes: hashes that maintain an association of a
+reference with a value, in a thread-safe garbage- collected
+way. Such hashes are useful to implement inside-out
+objects.</p>
+
+<p>&middot; &quot;Module::Build&quot;, by Ken Williams, has
+been added. It s an alternative to
+&quot;ExtUtils::MakeMaker&quot; to build and install perl
+modules.</p>
+
+<p>&middot; &quot;Module::Load&quot;, by Jos Boumans, has
+been added. It provides a single interface to load Perl
+modules and .pl files.</p>
+
+<p>&middot; &quot;Module::Loaded&quot;, by Jos Boumans, has
+been added. Its used to mark modules as loaded or
+unloaded.</p>
+
+<p>&middot; &quot;Package::Constants&quot;, by Jos Boumans,
+has been added. Its a simple helper to list all constants
+declared in a given package.</p>
+
+<p>&middot; &quot;Win32API::File&quot;, by Tye McQueen, has
+been added (for Windows builds). This module provides
+low-level access to Win32 system API calls for
+files/dirs.</p>
+
+<p>&middot; &quot;Locale::Maketext::Simple&quot;, needed by
+CPANPLUS, is a simple wrapper around
+&quot;Locale::Maketext::Lexicon&quot;. Note that
+&quot;Locale::Maketext::Lexicon&quot; isnt included in the
+perl core; the behaviour of
+&quot;Locale::Maketext::Simple&quot; gracefully degrades
+when the later isnt present.</p>
+
+<p>&middot; &quot;Params::Check&quot; implements a generic
+input parsing/checking mechanism. It is used by
+CPANPLUS.</p>
+
+<p>&middot; &quot;Term::UI&quot; simplifies the task to ask
+questions at a terminal prompt.</p>
+
+<p>&middot; &quot;Object::Accessor&quot; provides an
+interface to create per-object accessors.</p>
+
+<p>&middot; &quot;Module::Pluggable&quot; is a simple
+framework to create modules that accept pluggable
+sub-modules.</p>
+
+<p>&middot; &quot;Module::Load::Conditional&quot; provides
+simple ways to query and possibly load installed
+modules.</p>
+
+<p>&middot; &quot;Time::Piece&quot; provides an object
+oriented interface to time functions, overriding the
+built-ins localtime() and gmtime().</p>
+
+<p>&middot; &quot;IPC::Cmd&quot; helps to find and run
+external commands, possibly interactively.</p>
+
+<p>&middot; &quot;File::Fetch&quot; provide a simple
+generic file fetching mechanism.</p>
+
+<p>&middot; &quot;Log::Message&quot; and
+&quot;Log::Message::Simple&quot; are used by the log
+facility of &quot;CPANPLUS&quot;.</p>
+
+<p>&middot; &quot;Archive::Extract&quot; is a generic
+archive extraction mechanism for .tar (plain, gziped or
+bzipped) or .zip files.</p>
+
+<p>&middot; &quot;CPANPLUS&quot; provides an API and a
+command-line tool to access the CPAN mirrors.</p>
+
+<p>&middot; &quot;Pod::Escapes&quot; provides utilities
+that are useful in decoding Pod E&lt;...&gt; sequences.</p>
+
+<p>&middot; &quot;Pod::Simple&quot; is now the backend for
+several of the Pod-related modules included with Perl.</p>
+
+<p>Selected Changes to Core Modules
+&quot;Attribute::Handlers&quot;
+&quot;Attribute::Handlers&quot; can now report the callers
+file and line number. (David Feldman)</p>
+
+<p>All interpreted attributes are now passed as array
+references. (Damian Conway)</p>
+
+<p>&quot;B::Lint&quot; &quot;B::Lint&quot; is now based on
+&quot;Module::Pluggable&quot;, and so can be extended with
+plugins. (Joshua ben Jore)</p>
+
+<p>&quot;B&quot; Its now possible to access the lexical
+pragma hints (&quot;%^H&quot;) by using the method
+B::COP::hints_hash(). It returns a &quot;B::RHE&quot;
+object, which in turn can be used to get a hash reference
+via the method B::RHE::HASH(). (Joshua ben Jore)</p>
+
+<p>&quot;Thread&quot; As the old 5005thread threading model
+has been removed, in favor of the ithreads scheme, the
+&quot;Thread&quot; module is now a compatibility wrapper, to
+be used in old code only. It has been removed from the
+default list of dynamic extensions.</p>
+
+<p>Utility Changes perl -d The Perl debugger can now save
+all debugger commands for sourcing later; notably, it can
+now emulate stepping backwards, by restarting and rerunning
+all bar the last command from a saved command history.</p>
+
+<p>It can also display the parent inheritance tree of a
+given class, with the &quot;i&quot; command.</p>
+
+<p>ptar &quot;ptar&quot; is a pure perl implementation of
+&quot;tar&quot; that comes with
+&quot;Archive::Tar&quot;.</p>
+
+<p>ptardiff &quot;ptardiff&quot; is a small utility used to
+generate a diff between the contents of a tar archive and a
+directory tree. Like &quot;ptar&quot;, it comes with
+&quot;Archive::Tar&quot;.</p>
+
+<p>shasum &quot;shasum&quot; is a command-line utility,
+used to print or to check SHA digests. It comes with the new
+&quot;Digest::SHA&quot; module.</p>
+
+<p>corelist The &quot;corelist&quot; utility is now
+installed with perl (see &quot;New modules&quot; above).</p>
+
+<p>h2ph and h2xs &quot;h2ph&quot; and &quot;h2xs&quot; have
+been made more robust with regard to &quot;modern&quot; C
+code.</p>
+
+<p>&quot;h2xs&quot; implements a new option
+&quot;--use-xsloader&quot; to force use of
+&quot;XSLoader&quot; even in backwards compatible
+modules.</p>
+
+<p>The handling of authors names that had apostrophes has
+been fixed.</p>
+
+<p>Any enums with negative values are now skipped.</p>
+
+<p>perlivp &quot;perlivp&quot; no longer checks for *.ph
+files by default. Use the new &quot;-a&quot; option to run
+all tests.</p>
+
+<p>find2perl &quot;find2perl&quot; now assumes
+&quot;-print&quot; as a default action. Previously, it
+needed to be specified explicitly.</p>
+
+<p>Several bugs have been fixed in &quot;find2perl&quot;,
+regarding &quot;-exec&quot; and &quot;-eval&quot;. Also the
+options &quot;-path&quot;, &quot;-ipath&quot; and
+&quot;-iname&quot; have been added.</p>
+
+<p>config_data &quot;config_data&quot; is a new utility
+that comes with &quot;Module::Build&quot;. It provides a
+command-line interface to the configuration of Perl modules
+that use Module::Build s framework of configurability (that
+is, *::ConfigData modules that contain local configuration
+information for their parent modules.)</p>
+
+<p>cpanp &quot;cpanp&quot;, the CPANPLUS shell, has been
+added. (&quot;cpanp-run-perl&quot;, a helper for CPANPLUS
+operation, has been added too, but isnt intended for direct
+use).</p>
+
+<p>cpan2dist &quot;cpan2dist&quot; is a new utility that
+comes with CPANPLUS. Its a tool to create distributions (or
+packages) from CPAN modules.</p>
+
+<p>pod2html The output of &quot;pod2html&quot; has been
+enhanced to be more customizable via CSS. Some formatting
+problems were also corrected. (Jari Aalto)</p>
+
+<p>New Documentation The perlpragma manpage documents how
+to write one s own lexical pragmas in pure Perl (something
+that is possible starting with 5.9.4).</p>
+
+<p>The new perlglossary manpage is a glossary of terms used
+in the Perl documentation, technical and otherwise, kindly
+provided by OReilly Media, Inc.</p>
+
+<p>The perlreguts manpage, courtesy of Yves Orton,
+describes internals of the Perl regular expression
+engine.</p>
+
+<p>The perlreapi manpage describes the interface to the
+perl interpreter used to write pluggable regular expression
+engines (by var Arnfjoer&lsquo; Bjarmason).</p>
+
+<p>The perlunitut manpage is an tutorial for programming
+with Unicode and string encodings in Perl, courtesy of Juerd
+Waalboer.</p>
+
+<p>A new manual page, perlunifaq (the Perl Unicode FAQ),
+has been added (Juerd Waalboer).</p>
+
+<p>The perlcommunity manpage gives a description of the
+Perl community on the Internet and in real life. (Edgar
+&quot;Trizor&quot; Bering)</p>
+
+<p>The CORE manual page documents the &quot;CORE::&quot;
+namespace. (Tels)</p>
+
+<p>The long-existing feature of &quot;/(?{...})/&quot;
+regexps setting $_ and pos() is now documented.</p>
+
+<p>Performance Enhancements In-place sorting Sorting arrays
+in place (&quot;@a = sort @a&quot;) is now optimized to
+avoid making a temporary copy of the array.</p>
+
+<p>Likewise, &quot;reverse sort ...&quot; is now optimized
+to sort in reverse, avoiding the generation of a temporary
+intermediate list.</p>
+
+<p>Lexical array access Access to elements of lexical
+arrays via a numeric constant between 0 and 255 is now
+faster. (This used to be only the case for global
+arrays.)</p>
+
+<p>XS-assisted SWASHGET Some pure-perl code that perl was
+using to retrieve Unicode properties and transliteration
+mappings has been reimplemented in XS.</p>
+
+<p>Constant subroutines The interpreter internals now
+support a far more memory efficient form of inlineable
+constants. Storing a reference to a constant value in a
+symbol table is equivalent to a full typeglob referencing a
+constant subroutine, but using about 400 bytes less memory.
+This proxy constant subroutine is automatically upgraded to
+a real typeglob with subroutine if necessary. The approach
+taken is analogous to the existing space optimisation for
+subroutine stub declarations, which are stored as plain
+scalars in place of the full typeglob.</p>
+
+<p>Several of the core modules have been converted to use
+this feature for their system dependent constants - as a
+result &quot;use POSIX;&quot; now takes about 200K less
+memory.</p>
+
+<p>&quot;PERL_DONT_CREATE_GVSV&quot; The new compilation
+flag &quot;PERL_DONT_CREATE_GVSV&quot;, introduced as an
+option in perl 5.8.8, is turned on by default in perl 5.9.3.
+It prevents perl from creating an empty scalar with every
+new typeglob. See perl589delta for details.</p>
+
+<p>Weak references are cheaper Weak reference creation is
+now O(1) rather than O(n), courtesy of Nicholas Clark. Weak
+reference deletion remains O(n), but if deletion only
+happens at program exit, it may be skipped completely.</p>
+
+<p>sort() enhancements Salvador Fandin~o provided
+improvements to reduce the memory usage of &quot;sort&quot;
+and to speed up some cases.</p>
+
+<p>Memory optimisations Several internal data structures
+(typeglobs, GVs, CVs, formats) have been restructured to use
+less memory. (Nicholas Clark)</p>
+
+<p>UTF-8 cache optimisation The UTF-8 caching code is now
+more efficient, and used more often. (Nicholas Clark)</p>
+
+<p>Sloppy stat on Windows On Windows, perls stat() function
+normally opens the file to determine the link count and
+update attributes that may have been changed through hard
+links. Setting ${^WIN32_SLOPPY_STAT} to a true value speeds
+up stat() by not performing this operation. (Jan Dubois)</p>
+
+<p>Regular expressions optimisations Engine de-recursivised
+The regular expression engine is no longer recursive,
+meaning that patterns that used to overflow the stack will
+either die with useful explanations, or run to completion,
+which, since they were able to blow the stack before, will
+likely take a very long time to happen. If you were
+experiencing the occasional stack overflow (or segfault) and
+upgrade to discover that now perl apparently hangs instead,
+look for a degenerate regex. (Dave Mitchell)</p>
+
+<p>Single char char-classes treated as literals Classes of
+a single character are now treated the same as if the
+character had been used as a literal, meaning that code that
+uses char-classes as an escaping mechanism will see a
+speedup. (Yves Orton)</p>
+
+<p>Trie optimisation of literal string alternations
+Alternations, where possible, are optimised into more
+efficient matching structures. String literal alternations
+are merged into a trie and are matched simultaneously. This
+means that instead of O(N) time for matching N alternations
+at a given point, the new code performs in O(1) time. A new
+special variable, ${^RE_TRIE_MAXBUF}, has been added to
+fine-tune this optimization. (Yves Orton)</p>
+
+<p>Note: Much code exists that works around perl s historic
+poor performance on alternations. Often the tricks used to
+do so will disable the new optimisations. Hopefully the
+utility modules used for this purpose will be educated about
+these new optimisations.</p>
+
+<p>Aho-Corasick start-point optimisation When a pattern
+starts with a trie-able alternation and there arent better
+optimisations available, the regex engine will use Aho-
+Corasick matching to find the start point. (Yves Orton)</p>
+
+<p>Installation and Configuration Improvements
+Configuration improvements &quot;-Dusesitecustomize&quot;
+Run-time customization of @INC can be enabled by passing the
+&quot;-Dusesitecustomize&quot; flag to Configure. When
+enabled, this will make perl run
+$sitelibexp/sitecustomize.pl before anything else. This
+script can then be set up to add additional entries to
+@INC.</p>
+
+<p>Relocatable installations There is now Configure support
+for creating a relocatable perl tree. If you Configure with
+&quot;-Duserelocatableinc&quot;, then the paths in @INC (and
+everything else in %Config) can be optionally located via
+the path of the perl executable.</p>
+
+<p>That means that, if the string &quot;.../&quot; is found
+at the start of any path, it s substituted with the
+directory of $^X. So, the relocation can be configured on a
+per-directory basis, although the default with
+&quot;-Duserelocatableinc&quot; is that everything is
+relocated. The initial install is done to the original
+configured prefix.</p>
+
+<p>strlcat() and strlcpy() The configuration process now
+detects whether strlcat() and strlcpy() are available. When
+they are not available, perls own version is used (from Russ
+Allberys public domain implementation). Various places in
+the perl interpreter now use them. (Steve Peters)</p>
+
+<p>&quot;d_pseudofork&quot; and
+&quot;d_printf_format_null&quot; A new configuration
+variable, available as $Config{d_pseudofork} in the Config
+module, has been added, to distinguish real fork() support
+from fake pseudofork used on Windows platforms.</p>
+
+<p>A new configuration variable,
+&quot;d_printf_format_null&quot;, has been added, to see if
+printf-like formats are allowed to be NULL.</p>
+
+<p>Configure help &quot;Configure -h&quot; has been
+extended with the most commonly used options.</p>
+
+<p>Compilation improvements Parallel build Parallel makes
+should work properly now, although there may still be
+problems if &quot;make test&quot; is instructed to run in
+parallel.</p>
+
+<p>Borlands compilers support Building with Borlands
+compilers on Win32 should work more smoothly. In particular
+Steve Hay has worked to side step many warnings emitted by
+their compilers and at least one C compiler internal
+error.</p>
+
+<p>Static build on Windows Perl extensions on Windows now
+can be statically built into the Perl DLL.</p>
+
+<p>Also, it s now possible to build a
+&quot;perl-static.exe&quot; that doesnt depend on the Perl
+DLL on Win32. See the Win32 makefiles for details. (Vadim
+Konovalov)</p>
+
+<p>ppport.h files All ppport.h files in the XS modules
+bundled with perl are now autogenerated at build time.
+(Marcus Holland-Moritz)</p>
+
+<p>C++ compatibility Efforts have been made to make perl
+and the core XS modules compilable with various C++
+compilers (although the situation is not perfect with some
+of the compilers on some of the platforms tested.)</p>
+
+<p>Support for Microsoft 64-bit compiler Support for
+building perl with Microsoft s 64-bit compiler has been
+improved. (ActiveState)</p>
+
+<p>Visual C++ Perl can now be compiled with Microsoft
+Visual C++ 2005 (and 2008 Beta 2).</p>
+
+<p>Win32 builds All win32 builds (MS-Win, WinCE) have been
+merged and cleaned up.</p>
+
+<p>Installation improvements Module auxiliary files README
+files and changelogs for CPAN modules bundled with perl are
+no longer installed.</p>
+
+<p>New Or Improved Platforms Perl has been reported to work
+on Symbian OS. See perlsymbian for more information.</p>
+
+<p>Many improvements have been made towards making Perl
+work correctly on z/OS.</p>
+
+<p>Perl has been reported to work on DragonFlyBSD and
+MidnightBSD.</p>
+
+<p>Perl has also been reported to work on NexentaOS (
+http://www.gnusolaris.org/ ).</p>
+
+<p>The VMS port has been improved. See perlvms.</p>
+
+<p>Support for Cray XT4 Catamount/Qk has been added. See
+hints/catamount.sh in the source code distribution for more
+information.</p>
+
+<p>Vendor patches have been merged for RedHat and
+Gentoo.</p>
+
+<p>DynaLoader::dl_unload_file() now works on Windows.</p>
+
+<p>Selected Bug Fixes strictures in regexp-eval blocks
+&quot;strict&quot; wasn t in effect in regexp-eval blocks
+(&quot;/(?{...})/&quot;).</p>
+
+<p>Calling CORE::require() CORE::require() and CORE::do()
+were always parsed as require() and do() when they were
+overridden. This is now fixed.</p>
+
+<p>Subscripts of slices You can now use a non-arrowed form
+for chained subscripts after a list slice, like in:</p>
+
+<p>({foo =&gt; &quot;bar&quot;})[0]{foo}</p>
+
+<p>This used to be a syntax error; a &quot;-&gt;&quot; was
+required.</p>
+
+<p>&quot;no warnings &rsquo;category&rsquo;&quot; works
+correctly with -w Previously when running with warnings
+enabled globally via &quot;-w&quot;, selective disabling of
+specific warning categories would actually turn off all
+warnings. This is now fixed; now &quot;no warnings
+&rsquo;io&rsquo;;&quot; will only turn off warnings in the
+&quot;io&quot; class. Previously it would erroneously turn
+off all warnings.</p>
+
+<p>threads improvements Several memory leaks in ithreads
+were closed. Also, ithreads were made less
+memory-intensive.</p>
+
+<p>&quot;threads&quot; is now a dual-life module, also
+available on CPAN. It has been expanded in many ways. A
+kill() method is available for thread signalling. One can
+get thread status, or the list of running or joinable
+threads.</p>
+
+<p>A new &quot;threads-&gt;exit()&quot; method is used to
+exit from the application (this is the default for the main
+thread) or from the current thread only (this is the default
+for all other threads). On the other hand, the exit()
+built-in now always causes the whole application to
+terminate. (Jerry D. Hedden)</p>
+
+<p>chr() and negative values chr() on a negative value now
+gives &quot;FFD}&quot;, the Unicode replacement character,
+unless when the &quot;bytes&quot; pragma is in effect, where
+the low eight bits of the value are used.</p>
+
+<p>PERL5SHELL and tainting On Windows, the PERL5SHELL
+environment variable is now checked for taintedness. (Rafael
+Garcia-Suarez)</p>
+
+<p>Using *FILE{IO} &quot;stat()&quot; and &quot;-X&quot;
+filetests now treat *FILE{IO} filehandles like *FILE
+filehandles. (Steve Peters)</p>
+
+<p>Overloading and reblessing Overloading now works when
+references are reblessed into another class. Internally,
+this has been implemented by moving the flag for
+&quot;overloading&quot; from the reference to the referent,
+which logically is where it should always have been.
+(Nicholas Clark)</p>
+
+<p>Overloading and UTF-8 A few bugs related to UTF-8
+handling with objects that have stringification overloaded
+have been fixed. (Nicholas Clark)</p>
+
+<p>eval memory leaks fixed Traditionally, &quot;eval
+&rsquo;syntax error&rsquo;&quot; has leaked badly. Many (but
+not all) of these leaks have now been eliminated or reduced.
+(Dave Mitchell)</p>
+
+<p>Random device on Windows In previous versions, perl
+would read the file /dev/urandom if it existed when seeding
+its random number generator. That file is unlikely to exist
+on Windows, and if it did would probably not contain
+appropriate data, so perl no longer tries to read it on
+Windows. (Alex Davies)</p>
+
+<p>PERLIO_DEBUG The &quot;PERLIO_DEBUG&quot; environment
+variable no longer has any effect for setuid scripts and for
+scripts run with -T.</p>
+
+<p>Moreover, with a thread-enabled perl, using
+&quot;PERLIO_DEBUG&quot; could lead to an internal buffer
+overflow. This has been fixed.</p>
+
+<p>PerlIO::scalar and read-only scalars PerlIO::scalar will
+now prevent writing to read-only scalars. Moreover, seek()
+is now supported with PerlIO::scalar-based filehandles, the
+underlying string being zero-filled as needed. (Rafael,
+Jarkko Hietaniemi)</p>
+
+<p>study() and UTF-8 study() never worked for UTF-8
+strings, but could lead to false results. Its now a no-op on
+UTF-8 data. (Yves Orton)</p>
+
+<p>Critical signals The signals SIGILL, SIGBUS and SIGSEGV
+are now always delivered in an &quot;unsafe&quot; manner
+(contrary to other signals, that are deferred until the perl
+interpreter reaches a reasonably stable state; see
+&quot;Deferred Signals (Safe Signals)&quot; in perlipc).
+(Rafael)</p>
+
+<p>@INC-hook fix When a module or a file is loaded through
+an @INC-hook, and when this hook has set a filename entry in
+%INC, __FILE__ is now set for this module accordingly to the
+contents of that %INC entry. (Rafael)</p>
+
+<p>&quot;-t&quot; switch fix The &quot;-w&quot; and
+&quot;-t&quot; switches can now be used together without
+messing up which categories of warnings are activated.
+(Rafael)</p>
+
+<p>Duping UTF-8 filehandles Duping a filehandle which has
+the &quot;:utf8&quot; PerlIO layer set will now properly
+carry that layer on the duped filehandle. (Rafael)</p>
+
+<p>Localisation of hash elements Localizing a hash element
+whose key was given as a variable didnt work correctly if
+the variable was changed while the local() was in effect (as
+in &quot;local $h{$x}; ++$x&quot;). (Bo Lindbergh)</p>
+
+<p>New or Changed Diagnostics Use of uninitialized value
+Perl will now try to tell you the name of the variable (if
+any) that was undefined.</p>
+
+<p>Deprecated use of my() in false conditional A new
+deprecation warning, Deprecated use of my() in false
+conditional, has been added, to warn against the use of the
+dubious and deprecated construct</p>
+
+<p>my $x if 0;</p>
+
+<p>See perldiag. Use &quot;state&quot; variables
+instead.</p>
+
+<p>!=~ should be !~ A new warning, &quot;!=~ should be
+!~&quot;, is emitted to prevent this misspelling of the
+non-matching operator.</p>
+
+<p>Newline in left-justified string The warning Newline in
+left-justified string has been removed.</p>
+
+<p>Too late for &quot;-T&quot; option The error Too late
+for &quot;-T&quot; option has been reformulated to be more
+descriptive.</p>
+
+<p>&quot;%s&quot; variable %s masks earlier declaration
+This warning is now emitted in more consistent cases; in
+short, when one of the declarations involved is a
+&quot;my&quot; variable:</p>
+
+<p>my $x; my $x; # warns my $x; our $x; # warns our $x; my
+$x; # warns</p>
+
+<p>On the other hand, the following:</p>
+
+<p>our $x; our $x;</p>
+
+<p>now gives a &quot;&quot;our&quot; variable %s
+redeclared&quot; warning.</p>
+
+<p>readdir()/closedir()/etc. attempted on invalid dirhandle
+These new warnings are now emitted when a dirhandle is used
+but is either closed or not really a dirhandle.</p>
+
+<p>Opening dirhandle/filehandle %s also as a file/directory
+Two deprecation warnings have been added: (Rafael)</p>
+
+<p>Opening dirhandle %s also as a file Opening filehandle
+%s also as a directory</p>
+
+<p>Use of -P is deprecated Perls command-line switch
+&quot;-P&quot; is now deprecated.</p>
+
+<p>v-string in use/require is non-portable Perl will warn
+you against potential backwards compatibility problems with
+the &quot;use VERSION&quot; syntax.</p>
+
+<p>perl -V &quot;perl -V&quot; has several improvements,
+making it more useable from shell scripts to get the value
+of configuration variables. See perlrun for details.</p>
+
+<p>Changed Internals In general, the source code of perl
+has been refactored, tidied up, and optimized in many
+places. Also, memory management and allocation has been
+improved in several points.</p>
+
+<p>When compiling the perl core with gcc, as many gcc
+warning flags are turned on as is possible on the platform.
+(This quest for cleanliness doesnt extend to XS code because
+we cannot guarantee the tidiness of code we didnt write.)
+Similar strictness flags have been added or tightened for
+various other C compilers.</p>
+
+<p>Reordering of SVt_* constants The relative ordering of
+constants that define the various types of &quot;SV&quot;
+have changed; in particular, &quot;SVt_PVGV&quot; has been
+moved before &quot;SVt_PVLV&quot;, &quot;SVt_PVAV&quot;,
+&quot;SVt_PVHV&quot; and &quot;SVt_PVCV&quot;. This is
+unlikely to make any difference unless you have code that
+explicitly makes assumptions about that ordering. (The
+inheritance hierarchy of &quot;B::*&quot; objects has been
+changed to reflect this.)</p>
+
+<p>Elimination of SVt_PVBM Related to this, the internal
+type &quot;SVt_PVBM&quot; has been been removed. This
+dedicated type of &quot;SV&quot; was used by the
+&quot;index&quot; operator and parts of the regexp engine to
+facilitate fast Boyer-Moore matches. Its use internally has
+been replaced by &quot;SV&quot;s of type
+&quot;SVt_PVGV&quot;.</p>
+
+<p>New type SVt_BIND A new type &quot;SVt_BIND&quot; has
+been added, in readiness for the project to implement Perl 6
+on 5. There deliberately is no implementation yet, and they
+cannot yet be created or destroyed.</p>
+
+<p>Removal of CPP symbols The C preprocessor symbols
+&quot;PERL_PM_APIVERSION&quot; and
+&quot;PERL_XS_APIVERSION&quot;, which were supposed to give
+the version number of the oldest perl binary-compatible
+(resp. source-compatible) with the present one, were not
+used, and sometimes had misleading values. They have been
+removed.</p>
+
+<p>Less space is used by ops The &quot;BASEOP&quot;
+structure now uses less space. The &quot;op_seq&quot; field
+has been removed and replaced by a single bit bit-field
+&quot;op_opt&quot;. &quot;op_type&quot; is now 9 bits long.
+(Consequently, the &quot;B::OP&quot; class doesn t provide
+an &quot;seq&quot; method anymore.)</p>
+
+<p>New parser perl s parser is now generated by bison (it
+used to be generated by byacc.) As a result, it seems to be
+a bit more robust.</p>
+
+<p>Also, Dave Mitchell improved the lexer debugging output
+under &quot;-DT&quot;.</p>
+
+<p>Use of &quot;const&quot; Andy Lester supplied many
+improvements to determine which function parameters and
+local variables could actually be declared &quot;const&quot;
+to the C compiler. Steve Peters provided new *_set macros
+and reworked the core to use these rather than assigning to
+macros in LVALUE context.</p>
+
+<p>Mathoms A new file, mathoms.c, has been added. It
+contains functions that are no longer used in the perl core,
+but that remain available for binary or source compatibility
+reasons. However, those functions will not be compiled in if
+you add &quot;-DNO_MATHOMS&quot; in the compiler flags.</p>
+
+<p>&quot;AvFLAGS&quot; has been removed The
+&quot;AvFLAGS&quot; macro has been removed.</p>
+
+<p>&quot;av_*&quot; changes The &quot;av_*()&quot;
+functions, used to manipulate arrays, no longer accept null
+&quot;AV*&quot; parameters.</p>
+
+<p>$^H and %^H The implementation of the special variables
+$^H and %^H has changed, to allow implementing lexical
+pragmas in pure Perl.</p>
+
+<p>B:: modules inheritance changed The inheritance
+hierarchy of &quot;B::&quot; modules has changed;
+&quot;B::NV&quot; now inherits from &quot;B::SV&quot; (it
+used to inherit from &quot;B::IV&quot;).</p>
+
+<p>Anonymous hash and array constructors The anonymous hash
+and array constructors now take 1 op in the optree instead
+of 3, now that pp_anonhash and pp_anonlist return a
+reference to an hash/array when the op is flagged with
+OPf_SPECIAL. (Nicholas Clark)</p>
+
+<p>Known Problems There s still a remaining problem in the
+implementation of the lexical $_: it doesnt work inside
+&quot;/(?{...})/&quot; blocks. (See the TODO test in
+t/op/mydef.t.)</p>
+
+<p>Stacked filetest operators wont work when the
+&quot;filetest&quot; pragma is in effect, because they rely
+on the stat() buffer &quot;_&quot; being populated, and
+filetest bypasses stat().</p>
+
+<p>UTF-8 problems The handling of Unicode still is unclean
+in several places, where its dependent on whether a string
+is internally flagged as UTF-8. This will be made more
+consistent in perl 5.12, but that wont be possible without a
+certain amount of backwards incompatibility.</p>
+
+<p>Platform Specific Problems When compiled with g++ and
+thread support on Linux, it s reported that the $! stops
+working correctly. This is related to the fact that the
+glibc provides two strerror_r(3) implementation, and perl
+selects the wrong one.</p>
+
+<p>Reporting Bugs If you find what you think is a bug, you
+might check the articles recently posted to the
+comp.lang.perl.misc newsgroup and the perl bug database at
+http://rt.perl.org/rt3/ . There may also be information at
+http://www.perl.org/ , the Perl Home Page.</p>
+
+<p>If you believe you have an unreported bug, please run
+the perlbug program included with your release. Be sure to
+trim your bug down to a tiny but sufficient test case. Your
+bug report, along with the output of &quot;perl -V&quot;,
+will be sent off to perlbug@perl.org to be analysed by the
+Perl porting team.</p>
+
+<p>SEE ALSO The Changes file and the perl590delta to
+perl595delta man pages for exhaustive details on what
+changed.</p>
+
+<p>The INSTALL file for how to build Perl.</p>
+
+<p>The README file for general stuff.</p>
+
+<p>The Artistic and Copying files for copyright
+information.</p>
+
+<p>perl v5.10.1 2009-08-11 PERL5100DELTA(1)</p>
+<hr>
+</body>
+</html>

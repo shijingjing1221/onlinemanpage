@@ -1,0 +1,187 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:14:09 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>SCHED_SETAFFINITY(2) Linux Programmer s Manual
+SCHED_SETAFFINITY(2)</p>
+
+<p>NAME sched_setaffinity, sched_getaffinity - set and get
+a processs CPU affinity mask</p>
+
+<p>SYNOPSIS #define _GNU_SOURCE #include
+&lt;sched.h&gt;</p>
+
+<p>int sched_setaffinity(pid_t pid, size_t cpusetsize,
+cpu_set_t *mask);</p>
+
+<p>int sched_getaffinity(pid_t pid, size_t cpusetsize,
+cpu_set_t *mask);</p>
+
+<p>DESCRIPTION A processs CPU affinity mask determines the
+set of CPUs on which it is eligible to run. On a
+multiprocessor system, setting the CPU affinity mask can be
+used to obtain performance benefits. For example, by dedi-
+cating one CPU to a particular process (i.e., setting the
+affinity mask of that process to specify a single CPU, and
+setting the affinity mask of all other processes to exclude
+that CPU), it is possible to ensure maximum execution speed
+for that process. Restricting a process to run on a single
+CPU also avoids the performance cost caused by the cache
+invalidation that occurs when a process ceases to execute on
+one CPU and then recommences execution on a different
+CPU.</p>
+
+<p>A CPU affinity mask is represented by the cpu_set_t
+structure, a &quot;CPU set&quot;, pointed to by mask. A set
+of macros for manipulating CPU sets is described in
+CPU_SET(3).</p>
+
+<p>sched_setaffinity() sets the CPU affinity mask of the
+process whose ID is pid to the value specified by mask. If
+pid is zero, then the call- ing process is used. The
+argument cpusetsize is the length (in bytes) of the data
+pointed to by mask. Normally this argument would be speci-
+fied as sizeof(cpu_set_t).</p>
+
+<p>If the process specified by pid is not currently running
+on one of the CPUs specified in mask, then that process is
+migrated to one of the CPUs specified in mask.</p>
+
+<p>sched_getaffinity() writes the affinity mask of the
+process whose ID is pid into the cpu_set_t structure pointed
+to by mask. The cpusetsize argument specifies the size (in
+bytes) of mask. If pid is zero, then the mask of the calling
+process is returned.</p>
+
+<p>RETURN VALUE On success, sched_setaffinity() and
+sched_getaffinity() return 0. On error, -1 is returned, and
+errno is set appropriately.</p>
+
+<p>ERRORS EFAULT A supplied memory address was invalid.</p>
+
+<p>EINVAL The affinity bit mask mask contains no processors
+that are cur- rently physically on the system and permitted
+to the process according to any restrictions that may be
+imposed by the &quot;cpuset&quot; mechanism described in
+cpuset(7).</p>
+
+<p>EINVAL (sched_getaffinity() and, in kernels before
+2.6.9, sched_setaffinity()) cpusetsize is smaller than the
+size of the affinity mask used by the kernel.</p>
+
+<p>EPERM (sched_setaffinity()) The calling process does not
+have appro- priate privileges. The caller needs an effective
+user ID equal to the user ID or effective user ID of the
+process identified by pid, or it must possess the
+CAP_SYS_NICE capability.</p>
+
+<p>ESRCH The process whose ID is pid could not be
+found.</p>
+
+<p>VERSIONS The CPU affinity system calls were introduced
+in Linux kernel 2.5.8. The system call wrappers were
+introduced in glibc 2.3. Initially, the glibc interfaces
+included a cpusetsize argument, typed as unsigned int. In
+glibc 2.3.3, the cpusetsize argument was removed, but was
+then restored in glibc 2.3.4, with type size_t.</p>
+
+<p>CONFORMING TO These system calls are Linux-specific.</p>
+
+<p>NOTES After a call to sched_setaffinity(), the set of
+CPUs on which the pro- cess will actually run is the
+intersection of the set specified in the mask argument and
+the set of CPUs actually present on the system. The system
+may further restrict the set of CPUs on which the process
+runs if the &quot;cpuset&quot; mechanism described in
+cpuset(7) is being used. These restrictions on the actual
+set of CPUs on which the process will run are silently
+imposed by the kernel.</p>
+
+<p>sched_setscheduler(2) has a description of the Linux
+scheduling scheme.</p>
+
+<p>The affinity mask is actually a per-thread attribute
+that can be adjusted independently for each of the threads
+in a thread group. The value returned from a call to
+gettid(2) can be passed in the argument pid. Specifying pid
+as 0 will set the attribute for the calling thread, and
+passing the value returned from a call to getpid(2) will set
+the attribute for the main thread of the thread group. (If
+you are using the POSIX threads API, then use
+pthread_setaffinity_np (3) instead of
+sched_setaffinity().)</p>
+
+<p>A child created via fork(2) inherits its parents CPU
+affinity mask. The affinity mask is preserved across an
+execve(2).</p>
+
+<p>This manual page describes the glibc interface for the
+CPU affinity calls. The actual system call interface is
+slightly different, with the mask being typed as unsigned
+long *, reflecting the fact that the underlying
+implementation of CPU sets is a simple bit mask. On suc-
+cess, the raw sched_getaffinity() system call returns the
+size (in bytes) of the cpumask_t data type that is used
+internally by the kernel to represent the CPU set bit
+mask.</p>
+
+<p>The cpu_set_t affinity mask size provided by glibc only
+allows for upto 1024 CPUs. It is possible to build Linux
+kernels with greater than 1024 CPUs. Any application using
+the statically sized cpu_set_t will fail with EINVAL on such
+kernels. It is thus recommended that applications avoid
+using the statically sized cpu_set_t type, and instead
+dynami- cally allocate a mask using the CPU_*_S macros
+described in the CPU_SET(3) man page. Since it is not
+possible to determine ahead of time what NR_CPUS value the
+kernel was built with, applications must be prepared to
+catch EINVAL, and retry the command with a larger dynami-
+cally allocated mask. The example that follows illustrates
+portable usage.</p>
+
+<p>EXAMPLE #define _GNU_SOURCE</p>
+
+<p>#include &lt;sched.h&gt; #include &lt;stdio.h&gt;
+#include &lt;errno.h&gt;</p>
+
+<p>int main(void) { cpu_set_t *mask; size_t size; int i;
+int nrcpus = 1024;</p>
+
+<p>realloc: mask = CPU_ALLOC(nrcpus); size =
+CPU_ALLOC_SIZE(nrcpus); CPU_ZERO_S(size, mask); if (
+sched_getaffinity(0, size, mask) == -1 ) { CPU_FREE(mask);
+if (errno == EINVAL &amp;&amp; nrcpus &lt; (1024 &lt;&lt;
+8)) { nrcpus = nrcpus &lt;&lt; 2; goto realloc; }
+perror(&quot;sched_getaffinity&quot;); return -1; }</p>
+
+<p>for ( i = 0; i &lt; nrcpus; i++ ) { if ( CPU_ISSET_S(i,
+size, mask) ) { printf(&quot;CPU %d is set0, (i+1)); } }</p>
+
+<p>CPU_FREE(mask);</p>
+
+<p>return 0; }</p>
+
+<p>SEE ALSO clone(2), getcpu(2), getpriority(2), gettid(2),
+nice(2), sched_get_pri- ority_max(2),
+sched_get_priority_min(2), sched_getscheduler(2),
+sched_setscheduler(2), setpriority(2), CPU_SET(3),
+sched_getcpu(3), capabilities(7), pthread_setaffinity_np(3),
+cpuset(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-11-14 SCHED_SETAFFINITY(2)</p>
+<hr>
+</body>
+</html>

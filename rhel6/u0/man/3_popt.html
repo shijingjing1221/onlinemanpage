@@ -1,0 +1,693 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:11:00 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>POPT(3) Linux Programmer s Manual POPT(3)</p>
+
+<p>NAME popt - Parse command line options</p>
+
+<p>SYNOPSIS #include &lt;popt.h&gt;</p>
+
+<p>poptContext poptGetContext(const char * name, int argc,
+const char ** argv, const struct poptOption * options, int
+flags);</p>
+
+<p>void poptFreeContext(poptContext con);</p>
+
+<p>void poptResetContext(poptContext con);</p>
+
+<p>int poptGetNextOpt(poptContext con);</p>
+
+<p>const char * poptGetOptArg(poptContext con);</p>
+
+<p>const char * poptGetArg(poptContext con);</p>
+
+<p>const char * poptPeekArg(poptContext con);</p>
+
+<p>const char ** poptGetArgs(poptContext con);</p>
+
+<p>const char *const poptStrerror(const int error);</p>
+
+<p>const char * poptBadOption(poptContext con, int
+flags);</p>
+
+<p>int poptReadDefaultConfig(poptContext con, int
+flags);</p>
+
+<p>int poptReadConfigFile(poptContext con, char * fn);</p>
+
+<p>int poptAddAlias(poptContext con, struct poptAlias
+alias, int flags);</p>
+
+<p>int poptParseArgvString(char * s, int * argcPtr, const
+char *** argvPtr);</p>
+
+<p>int poptDupArgv(int argc, const char ** argv, int *
+argcPtr, const char *** argvPtr);</p>
+
+<p>int poptStuffArgs(poptContext con, const char **
+argv);</p>
+
+<p>DESCRIPTION The popt library exists essentially for
+parsing command-line options. It is found superior in many
+ways when compared to parsing the argv array by hand or
+using the getopt functions getopt() and getopt_long() [see
+getopt(3)]. Some specific advantages of popt are: it does
+not utilize global variables, thus enabling multiple passes
+in parsing argv ; it can parse an arbitrary array of
+argv-style elements, allowing parsing of
+command-line-strings from any source; it provides a standard
+method of option aliasing (to be discussed at length
+below.); it can exec external option filters; and, finally,
+it can automatically gener- ate help and usage messages for
+the application.</p>
+
+<p>Like getopt_long(), the popt library supports short and
+long style options. Recall that a short option consists of a
+- character followed by a single alphanumeric character. A
+long option, common in GNU util- ities, consists of two -
+characters followed by a string made up of letters, numbers
+and hyphens. Long options are optionally allowed to begin
+with a single -, primarily to allow command-line
+compatibility between popt applications and X toolkit
+applications. Either type of option may be followed by an
+argument. A space separates a short option from its
+arguments; either a space or an = separates a long option
+from an argument.</p>
+
+<p>The popt library is highly portable and should work on
+any POSIX plat- form. The latest version is distributed with
+rpm and is always avail- able from:
+ftp://ftp.rpm.org/pub/rpm/dist.</p>
+
+<p>It may be redistributed under the X consortium license,
+see the file COPYING in the popt source distribution for
+details.</p>
+
+<p>BASIC POPT USAGE 1. THE OPTION TABLE Applications
+provide popt with information on their command-line options
+by means of an &quot;option table,&quot; i.e., an array of
+struct poptOp- tion structures:</p>
+
+<p>#include &lt;popt.h&gt;</p>
+
+<p>struct poptOption { const char * longName; /* may be
+NULL */ char shortName; /* may be */ int argInfo; void *
+arg; /* depends on argInfo */ int val; /* 0 means dont
+return, just update flag */ char * descrip; /* description
+for autohelp -- may be NULL */ char * argDescrip; /*
+argument description for autohelp */ };</p>
+
+<p>Each member of the table defines a single option that
+may be passed to the program. Long and short options are
+considered a single option that may occur in two different
+forms. The first two members, longName and shortName, define
+the names of the option; the first is a long name, while the
+latter is a single character.</p>
+
+<p>The argInfo member tells popt what type of argument is
+expected after the argument. If no option is expected,
+POPT_ARG_NONE should be used. The rest of the valid values
+are shown in the following table:</p>
+
+<p>Value Description arg Type POPT_ARG_NONE No argument
+expected int POPT_ARG_STRING No type checking to be
+performed char * POPT_ARG_INT An integer argument is
+expected int POPT_ARG_LONG A long integer is expected long
+POPT_ARG_VAL Integer value taken from val int POPT_ARG_FLOAT
+An float argument is expected float POPT_ARG_DOUBLE A double
+argument is expected double</p>
+
+<p>For numeric values, if the argInfo value is bitwise ord
+with one of POPT_ARGFLAG_OR, POPT_ARGFLAG_AND, or
+POPT_ARGFLAG_XOR, the value is saved by performing an OR,
+AND, or XOR. If the argInfo value is bit- wise ord with
+POPT_ARGFLAG_NOT, the value will be negated before sav- ing.
+For the common operations of setting and/or clearing bits,
+POPT_BIT_SET and POPT_BIT_CLR have the appropriate flags set
+to perform bit operations.</p>
+
+<p>If the argInfo value is bitwise or d with
+POPT_ARGFLAG_ONEDASH, the long argument may be given with a
+single - instead of two. For example, if --longopt is an
+option with POPT_ARGFLAG_ONEDASH, is specified, -longopt is
+accepted as well.</p>
+
+<p>The next element, arg, allows popt to automatically
+update program variables when the option is used. If arg is
+NULL, it is ignored and popt takes no special action.
+Otherwise it should point to a variable of the type
+indicated in the right-most column of the table above.</p>
+
+<p>If the option takes no argument (argInfo is
+POPT_ARG_NONE), the vari- able pointed to by arg is set to 1
+when the option is used. (Inciden- tally, it will perhaps
+not escape the attention of hunt-and-peck typ- ists that the
+value of POPT_ARG_NONE is 0.) If the option does take an
+argument, the variable that arg points to is updated to
+reflect the value of the argument. Any string is acceptable
+for POPT_ARG_STRING arguments, but POPT_ARG_INT,
+POPT_ARG_LONG, POPT_ARG_FLOAT, and POPT_ARG_DOUBLE are
+converted to the appropriate type, and an error returned if
+the conversion fails.</p>
+
+<p>POPT_ARG_VAL causes arg to be set to the (integer) value
+of val when the argument is found. This is most often useful
+for mutually-exclu- sive arguments in cases where it is not
+an error for multiple arguments to occur and where you want
+the last argument specified to win; for example, &quot;rm -i
+-f&quot;. POPT_ARG_VAL causes the parsing function not to
+return a value, since the value of val has already been
+used.</p>
+
+<p>If the argInfo value is bitwise or d with
+POPT_ARGFLAG_OPTIONAL, the argument to the long option may
+be omitted. If the long option is used without an argument,
+a default value of zero or NULL will be saved (if the arg
+pointer is present), otherwise behavior will be identical to
+a long option with argument.</p>
+
+<p>The next option, val, is the value popt s parsing
+function should return when the option is encountered. If it
+is 0, the parsing func- tion does not return a value,
+instead parsing the next command-line argument.</p>
+
+<p>The last two options, descrip and argDescrip are only
+required if auto- matic help messages are desired (automatic
+usage messages can be gener- ated without them). descrip is
+a text description of the argument and argdescrip is a short
+summary of the type of arguments the option expects, or NULL
+if the option doesn t require any arguments.</p>
+
+<p>If popt should automatically provide --usage and --help
+(-?) options, one line in the table should be the macro
+POPT_AUTOHELP. This macro includes another option table (via
+POPT_ARG_INCLUDE_TABLE; see below) in the main one which
+provides the table entries for these arguments. When --usage
+or --help are passed to programs which use popts automat-
+ical help, popt displays the appropriate message on stderr
+as soon as it finds the option, and exits the program with a
+return code of 0. If you want to use popts automatic help
+generation in a different way, you need to explicitly add
+the option entries to your programs option table instead of
+using POPT_AUTOHELP.</p>
+
+<p>If the argInfo value is bitwise or d with
+POPT_ARGFLAG_DOC_HIDDEN, the argument will not be shown in
+help output.</p>
+
+<p>If the argInfo value is bitwise or d with
+POPT_ARGFLAG_SHOW_DEFAULT, the inital value of the arg will
+be shown in help output.</p>
+
+<p>The final structure in the table should have all the
+pointer values set to NULL and all the arithmetic values set
+to 0, marking the end of the table. The macro POPT_TABLEEND
+is provided to do that.</p>
+
+<p>There are two types of option table entries which do not
+specify com- mand line options. When either of these types
+of entries are used, the longName element must be NULL and
+the shortName element must b.</p>
+
+<p>The first of these special entry types allows the
+application to nest another option table in the current one;
+such nesting may extend quite deeply (the actual depth is
+limited by the programs stack). Including other option
+tables allows a library to provide a standard set of
+command-line options to every program which uses it (this is
+often done in graphical programming toolkits, for example).
+To do this, set the argInfo field to POPT_ARG_INCLUDE_TABLE
+and the arg field to point to the table which is being
+included. If automatic help generation is being used, the
+descrip field should contain a overall description of the
+option table being included.</p>
+
+<p>The other special option table entry type tells popt to
+call a function (a callback) when any option in that table
+is found. This is especially usefull when included option
+tables are being used, as the program which provides the
+top-level option table doesnt need to be aware of the other
+options which are provided by the included table. When a
+callback is set for a table, the parsing function never
+returns infor- mation on an option in the table. Instead,
+options information must be retained via the callback or by
+having popt set a variable through the options arg field.
+Option callbacks should match the following proto- type:</p>
+
+<p>void poptCallbackType(poptContext con, const struct
+poptOption * opt, const char * arg, void * data);</p>
+
+<p>The first parameter is the context which is being parsed
+(see the next section for information on contexts), opt
+points to the option which triggered this callback, and arg
+is the options argument. If the option does not take an
+argument, arg is NULL. The final parameter, data is taken
+from the descrip field of the option table entry which
+defined the callback. As descrip is a pointer, this allows
+callback functions to be passed an arbitrary set of data
+(though a typecast will have to be used).</p>
+
+<p>The option table entry which defines a callback has an
+argInfo of POPT_ARG_CALLBACK, an arg which points to the
+callback function, and a descrip field which specifies an
+arbitrary pointer to be passed to the callback.</p>
+
+<p>2. CREATING A CONTEXT popt can interleave the parsing of
+multiple command-line sets. It allows this by keeping all
+the state information for a particular set of command-line
+arguments in a poptContext data structure, an opaque type
+that should not be modified outside the popt library.</p>
+
+<p>New popt contexts are created by poptGetContext():</p>
+
+<p>poptContext poptGetContext(const char * name, int argc,
+const char ** argv, const struct poptOption * options, int
+flags);</p>
+
+<p>The first parameter, name, is used only for alias
+handling (discussed later). It should be the name of the
+application whose options are being parsed, or should be
+NULL if no option aliasing is desired. The next two
+arguments specify the command-line arguments to parse. These
+are generally passed to poptGetContext() exactly as they
+were passed to the program s main() function. The options
+parameter points to the ta- ble of command-line options,
+which was described in the previous sec- tion. The final
+parameter, flags, can take one of three values:</p>
+
+<p>Value Description POPT_CONTEXT_NO_EXEC Ignore exec
+expansions POPT_CONTEXT_KEEP_FIRST Do not ignore argv[0]
+POPT_CONTEXT_POSIXMEHARDER Options cannot follow
+arguments</p>
+
+<p>A poptContext keeps track of which options have already
+been parsed and which remain, among other things. If a
+program wishes to restart option processing of a set of
+arguments, it can reset the poptContext by passing the
+context as the sole argument to poptResetContext().</p>
+
+<p>When argument processing is complete, the process should
+free the popt- Context as it contains dynamically allocated
+components. The popt- FreeContext() function takes a
+poptContext as its sole argument and frees the resources the
+context is using.</p>
+
+<p>Here are the prototypes of both poptResetContext() and
+poptFreeCon- text():</p>
+
+<p>#include &lt;popt.h&gt; void poptFreeContext(poptContext
+con); void poptResetContext(poptContext con);</p>
+
+<p>3. PARSING THE COMMAND LINE After an application has
+created a poptContext, it may begin parsing arguments.
+poptGetNextOpt() performs the actual argument parsing.</p>
+
+<p>#include &lt;popt.h&gt; int poptGetNextOpt(poptContext
+con);</p>
+
+<p>Taking the context as its sole argument, this function
+parses the next command-line argument found. After finding
+the next argument in the option table, the function fills in
+the object pointed to by the option table entrys arg pointer
+if it is not NULL. If the val entry for the option is non-0,
+the function then returns that value. Otherwise, popt-
+GetNextOpt() continues on to the next argument.</p>
+
+<p>poptGetNextOpt() returns -1 when the final argument has
+been parsed, and other negative values when errors occur.
+This makes it a good idea to keep the val elements in the
+options table greater than 0.</p>
+
+<p>If all of the command-line options are handled through
+arg pointers, command-line parsing is reduced to the
+following line of code:</p>
+
+<p>rc = poptGetNextOpt(poptcon);</p>
+
+<p>Many applications require more complex command-line
+parsing than this, however, and use the following
+structure:</p>
+
+<p>while ((rc = poptGetNextOpt(poptcon)) &gt; 0) { switch
+(rc) { /* specific arguments are handled here */ } }</p>
+
+<p>When returned options are handled, the application needs
+to know the value of any arguments that were specified after
+the option. There are two ways to discover them. One is to
+ask popt to fill in a variable with the value of the option
+through the option tables arg elements. The other is to use
+poptGetOptArg():</p>
+
+<p>#include &lt;popt.h&gt; char * poptGetOptArg(poptContext
+con);</p>
+
+<p>This function returns the argument given for the final
+option returned by poptGetNextOpt(), or it returns NULL if
+no argument was specified. The calling function is
+responsible for deallocating this string.</p>
+
+<p>4. LEFTOVER ARGUMENTS Many applications take an
+arbitrary number of command-line arguments, such as a list
+of file names. When popt encounters an argument that does
+not begin with a -, it assumes it is such an argument and
+adds it to a list of leftover arguments. Three functions
+allow applications to access such arguments:</p>
+
+<p>const char * poptGetArg(poptContext con); This function
+returns the next leftover argument and marks it as
+processed.</p>
+
+<p>const char * poptPeekArg(poptContext con); The next
+leftover argument is returned but not marked as pro- cessed.
+This allows an application to look ahead into the argu- ment
+list, without modifying the list.</p>
+
+<p>const char ** poptGetArgs(poptContext con); All the
+leftover arguments are returned in a manner identical to
+argv. The final element in the returned array points to
+NULL, indicating the end of the arguments.</p>
+
+<p>5. AUTOMATIC HELP MESSAGES The popt library can
+automatically generate help messages which describe the
+options a program accepts. There are two types of help
+messages which can be generated. Usage messages are a short
+messages which lists valid options, but does not describe
+them. Help messages describe each option on one (or more)
+lines, resulting in a longer, but more useful, message.
+Whenever automatic help messages are used, the descrip and
+argDescrip fields struct poptOption members should be filled
+in for each option.</p>
+
+<p>The POPT_AUTOHELP macro makes it easy to add --usage and
+--help mes- sages to your program, and is described in part
+1 of this man page. If more control is needed over your help
+messages, the following two func- tions are available:</p>
+
+<p>#include &lt;popt.h&gt; void poptPrintHelp(poptContext
+con, FILE * f, int flags); void poptPrintUsage(poptContext
+con, FILE * f, int flags);</p>
+
+<p>poptPrintHelp() displays the standard help message to
+the stdio file descriptor f, while poptPrintUsage() displays
+the shorter usage mes- sage. Both functions currently ignore
+the flags argument; it is there to allow future changes.</p>
+
+<p>ERROR HANDLING All of the popt functions that can return
+errors return integers. When an error occurs, a negative
+error code is returned. The following table summarizes the
+error codes that occur:</p>
+
+<p>Error Description POPT_ERROR_NOARG Argument missing for
+an option. POPT_ERROR_BADOPT Options argument couldnt be
+parsed. POPT_ERROR_OPTSTOODEEP Option aliasing nested too
+deeply. POPT_ERROR_BADQUOTE Quotations do not match.
+POPT_ERROR_BADNUMBER Option couldn t be converted to number.
+POPT_ERROR_OVERFLOW A given number was too big or small.</p>
+
+<p>Here is a more detailed discussion of each error:</p>
+
+<p>POPT_ERROR_NOARG An option that requires an argument was
+specified on the command line, but no argument was given.
+This can be returned only by poptGetNextOpt().</p>
+
+<p>POPT_ERROR_BADOPT An option was specified in argv but is
+not in the option table. This error can be returned only
+from poptGetNextOpt().</p>
+
+<p>POPT_ERROR_OPTSTOODEEP A set of option aliases is nested
+too deeply. Currently, popt follows options only 10 levels
+to prevent infinite recursion. Only poptGetNextOpt() can
+return this error.</p>
+
+<p>POPT_ERROR_BADQUOTE A parsed string has a quotation
+mismatch (such as a single quo- tation mark).
+poptParseArgvString(), poptReadConfigFile(), or
+poptReadDefaultConfig() can return this error.</p>
+
+<p>POPT_ERROR_BADNUMBER A conversion from a string to a
+number (int or long) failed due to the string containing
+nonnumeric characters. This occurs when poptGetNextOpt() is
+processing an argument of type POPT_ARG_INT, POPT_ARG_LONG,
+POPT_ARG_FLOAT, or POPT_ARG_DOUBLE.</p>
+
+<p>POPT_ERROR_OVERFLOW A string-to-number conversion failed
+because the number was too large or too small. Like
+POPT_ERROR_BADNUMBER, this error can occur only when
+poptGetNextOpt() is processing an argument of type
+POPT_ARG_INT, POPT_ARG_LONG, POPT_ARG_FLOAT, or
+POPT_ARG_DOUBLE.</p>
+
+<p>POPT_ERROR_ERRNO A system call returned with an error,
+and errno still contains the error from the system call.
+Both poptReadConfigFile() and poptReadDefaultConfig() can
+return this error.</p>
+
+<p>Two functions are available to make it easy for
+applications to provide good error messages.</p>
+
+<p>const char *const poptStrerror(const int error); This
+function takes a popt error code and returns a string
+describing the error, just as with the standard strerror()
+func- tion.</p>
+
+<p>const char * poptBadOption(poptContext con, int flags);
+If an error occurred during poptGetNextOpt(), this function
+returns the option that caused the error. If the flags
+argument is set to POPT_BADOPTION_NOALIAS, the outermost
+option is returned. Otherwise, flags should be 0, and the
+option that is returned may have been specified through an
+alias.</p>
+
+<p>These two functions make popt error handling trivial for
+most applica- tions. When an error is detected from most of
+the functions, an error message is printed along with the
+error string from poptStrerror(). When an error occurs
+during argument parsing, code similiar to the fol- lowing
+displays a useful error message:</p>
+
+<p>fprintf(stderr, &quot;%s: %s0, poptBadOption(optCon,
+POPT_BADOPTION_NOALIAS), poptStrerror(rc));</p>
+
+<p>OPTION ALIASING One of the primary benefits of using
+popt over getopt() is the ability to use option aliasing.
+This lets the user specify options that popt expands into
+other options when they are specified. If the standard grep
+program made use of popt, users could add a --text option
+that expanded to -i -n -E -2 to let them more easily find
+information in text files.</p>
+
+<p>1. SPECIFYING ALIASES Aliases are normally specified in
+two places: /etc/popt and the .popt file in the users home
+directory (found through the HOME environment variable).
+Both files have the same format, an arbitrary number of
+lines formatted like this:</p>
+
+<p>appname alias newoption expansion</p>
+
+<p>The appname is the name of the application, which must
+be the same as the name parameter passed to
+poptGetContext(). This allows each file to specify aliases
+for multiple programs. The alias keyword specifies that an
+alias is being defined; currently popt configuration files
+support only aliases, but other abilities may be added in
+the future. The next option is the option that should be
+aliased, and it may be either a short or a long option. The
+rest of the line specifies the expansion for the alias. It
+is parsed similarly to a shell command, which allows &quot;,
+and to be used for quoting. If a backslash is the final
+charac- ter on a line, the next line in the file is assumed
+to be a logical continuation of the line containing the
+backslash, just as in shell.</p>
+
+<p>The following entry would add a --text option to the
+grep command, as suggested at the beginning of this
+section.</p>
+
+<p>grep alias --text -i -n -E -2</p>
+
+<p>2. ENABLING ALIASES An application must enable alias
+expansion for a poptContext before calling poptGetNextArg()
+for the first time. There are three functions that define
+aliases for a context:</p>
+
+<p>int poptReadDefaultConfig(poptContext con, int flags);
+This function reads aliases from /etc/popt and the .popt
+file in the users home directory. Currently, flags should be
+NULL, as it is provided only for future expansion.</p>
+
+<p>int poptReadConfigFile(poptContext con, char * fn); The
+file specified by fn is opened and parsed as a popt configu-
+ration file. This allows programs to use program-specific
+con- figuration files.</p>
+
+<p>int poptAddAlias(poptContext con, struct poptAlias
+alias, int flags); Occasionally, processes want to specify
+aliases without having to read them from a configuration
+file. This function adds a new alias to a context. The flags
+argument should be 0, as it is currently reserved for future
+expansion. The new alias is speci- fied as a struct
+poptAlias, which is defined as:</p>
+
+<p>struct poptAlias { const char * longName; /* may be NULL
+*/ char shortName; /* may be */ int argc; const char **
+argv; /* must be free()able */ };</p>
+
+<p>The first two elements, longName and shortName, specify
+the option that is aliased. The final two, argc and argv,
+define the expansion to use when the aliases option is
+encountered.</p>
+
+<p>PARSING ARGUMENT STRINGS Although popt is usually used
+for parsing arguments already divided into an argv-style
+array, some programs need to parse strings that are
+formatted identically to command lines. To facilitate this,
+popt pro- vides a function that parses a string into an
+array of strings, using rules similiar to normal shell
+parsing.</p>
+
+<p>#include &lt;popt.h&gt; int poptParseArgvString(char *
+s, int * argcPtr, char *** argvPtr); int poptDupArgv(int
+argc, const char ** argv, int * argcPtr, const char ***
+argvPtr);</p>
+
+<p>The string s is parsed into an argv-style array. The
+integer pointed to by the argcPtr parameter contains the
+number of elements parsed, and the final argvPtr parameter
+contains the address of the newly created array. The routine
+poptDupArgv() can be used to make a copy of an existing
+argument array.</p>
+
+<p>The argvPtr created by poptParseArgvString() or
+poptDupArgv() is suit- able to pass directly to
+poptGetContext(). Both routines return a sin- gle
+dynamically allocated contiguous block of storage and should
+be free()ed when the application is finished with the
+storage.</p>
+
+<p>HANDLING EXTRA ARGUMENTS Some applications implement the
+equivalent of option aliasing but need to do so through
+special logic. The poptStuffArgs() function allows an
+application to insert new arguments into the current
+poptContext.</p>
+
+<p>#include &lt;popt.h&gt; int poptStuffArgs(poptContext
+con, const char ** argv);</p>
+
+<p>The passed argv must have a NULL pointer as its final
+element. When poptGetNextOpt() is next called, the
+&quot;stuffed&quot; arguments are the first to be parsed.
+popt returns to the normal arguments once all the stuffed
+arguments have been exhausted.</p>
+
+<p>EXAMPLE The following example is a simplified version of
+the program &quot;robin&quot; which appears in Chapter 15 of
+the text cited below. Robin has been stripped of everything
+but its argument-parsing logic, slightly reworked, and
+renamed &quot;parse.&quot; It may prove useful in
+illustrating at least some of the features of the extremely
+rich popt library.</p>
+
+<p>#include &lt;popt.h&gt; #include &lt;stdio.h&gt;</p>
+
+<p>void usage(poptContext optCon, int exitcode, char
+*error, char *addl) { poptPrintUsage(optCon, stderr, 0); if
+(error) fprintf(stderr, &quot;%s: %s0, error, addl);
+exit(exitcode); }</p>
+
+<p>int main(int argc, char *argv[]) { char c; /* used for
+argument parsing */ int i = 0; /* used for tracking options
+*/ char *portname; int speed = 0; /* used in argument
+parsing to set speed */ int raw = 0; /* raw mode? */ int j;
+char buf[BUFSIZ+1]; poptContext optCon; /* context for
+parsing command-line options */</p>
+
+<p>struct poptOption optionsTable[] = { { &quot;bps&quot;,
+b , POPT_ARG_INT, &amp;speed, 0, &quot;signaling rate in
+bits-per-second&quot;, &quot;BPS&quot; }, {
+&quot;crnl&quot;, c, 0, 0, c, &quot;expand cr characters to
+cr/lf sequences&quot; }, { &quot;hwflow&quot;, h, 0, 0, h,
+&quot;use hardware (RTS/CTS) flow control&quot; }, {
+&quot;noflow&quot;, n, 0, 0, n, &quot;use no flow
+control&quot; }, { &quot;raw&quot;, r, 0, &amp;raw, 0,
+&quot;don t perform any character conversions&quot; }, {
+&quot;swflow&quot;, s, 0, 0, s, &quot;use software (XON/XOF)
+flow control&quot; } , POPT_AUTOHELP { NULL, 0, 0, NULL, 0 }
+};</p>
+
+<p>optCon = poptGetContext(NULL, argc, argv, optionsTable,
+0); poptSetOtherOptionHelp(optCon, &quot;[OPTIONS]*
+&lt;port&gt;&quot;);</p>
+
+<p>if (argc &lt; 2) { poptPrintUsage(optCon, stderr, 0);
+exit(1); }</p>
+
+<p>/* Now do options processing, get portname */ while ((c
+= poptGetNextOpt(optCon)) &gt;= 0) { switch (c) { case c:
+buf[i++] = c; break; case h: buf[i++] = h; break; case s:
+buf[i++] = s; break; case n: buf[i++] = n; break; } }
+portname = poptGetArg(optCon); if((portname == NULL) ||
+!(poptPeekArg(optCon) == NULL)) usage(optCon, 1,
+&quot;Specify a single port&quot;, &quot;.e.g.,
+/dev/cua0&quot;);</p>
+
+<p>if (c &lt; -1) { /* an error occurred during option
+processing */ fprintf(stderr, &quot;%s: %s0,
+poptBadOption(optCon, POPT_BADOPTION_NOALIAS),
+poptStrerror(c)); return 1; }</p>
+
+<p>/* Print out options, portname chosen */
+printf(&quot;Options chosen: &quot;); for(j = 0; j &lt; i ;
+j++) printf(&quot;-%c &quot;, buf[j]); if(raw)
+printf(&quot;-r &quot;); if(speed) printf(&quot;-b %d
+&quot;, speed); printf(&quot;0ortname chosen: %s0,
+portname);</p>
+
+<p>poptFreeContext(optCon); exit(0); }</p>
+
+<p>RPM, a popular Linux package management program, makes
+heavy use of popts features. Many of its command-line
+arguments are implemented through popt aliases, which makes
+RPM an excellent example of how to take advantage of the
+popt library. For more information on RPM, see
+http://www.rpm.org. The popt source code distribution
+includes test program(s) which use all of the features of
+the popt libraries in vari- ous ways. If a feature isnt
+working for you, the popt test code is the first place to
+look.</p>
+
+<p>BUGS None presently known.</p>
+
+<p>AUTHOR Erik W. Troan &lt;ewt@redhat.com&gt;</p>
+
+<p>This man page is derived in part from Linux Application
+Development by Michael K. Johnson and Erik W. Troan,
+Copyright (c) 1998 by Addison Wesley Longman, Inc., and
+included in the popt documentation with the permission of
+the Publisher and the appreciation of the Authors.</p>
+
+<p>Thanks to Robert Lynch for his extensive work on this
+man page.</p>
+
+<p>SEE ALSO getopt(3)</p>
+
+<p>Linux Application Development, by Michael K. Johnson and
+Erik W. Troan (Addison-Wesley, 1998; ISBN 0-201-30821-5),
+Chapter 24.</p>
+
+<p>popt.ps is a Postscript version of the above cited book
+chapter. It can be found in the source archive for popt
+available at: ftp://ftp.rpm.org/pub/rpm.</p>
+
+<p>June 30, 1998 POPT(3)</p>
+<hr>
+</body>
+</html>

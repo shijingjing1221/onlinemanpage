@@ -1,0 +1,250 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:56:19 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>CORE(5) Linux Programmer s Manual CORE(5)</p>
+
+<p>NAME core - core dump file</p>
+
+<p>DESCRIPTION The default action of certain signals is to
+cause a process to termi- nate and produce a core dump file,
+a disk file containing an image of the processs memory at
+the time of termination. This image can be used in a
+debugger (e.g., gdb(1)) to inspect the state of the program
+at the time that it terminated. A list of the signals which
+cause a process to dump core can be found in signal(7).</p>
+
+<p>A process can set its soft RLIMIT_CORE resource limit to
+place an upper limit on the size of the core dump file that
+will be produced if it receives a &quot;core dump&quot;
+signal; see getrlimit(2) for details.</p>
+
+<p>There are various circumstances in which a core dump
+file is not pro- duced:</p>
+
+<p>* The process does not have permission to write the core
+file. (By default the core file is called core, and is
+created in the current working directory. See below for
+details on naming.) Writing the core file will fail if the
+directory in which it is to be created is non-writable, or
+if a file with the same name exists and is not writable or
+is not a regular file (e.g., it is a directory or a sym-
+bolic link).</p>
+
+<p>* A (writable, regular) file with the same name as would
+be used for the core dump already exists, but there is more
+than one hard link to that file.</p>
+
+<p>* The file system where the core dump file would be
+created is full; or has run out of inodes; or is mounted
+read-only; or the user has reached their quota for the file
+system.</p>
+
+<p>* The directory in which the core dump file is to be
+created does not exist.</p>
+
+<p>* The RLIMIT_CORE (core file size) or RLIMIT_FSIZE (file
+size) resource limits for the process are set to zero; see
+getrlimit(2) and the documentation of the shells ulimit
+command (limit in csh(1)).</p>
+
+<p>* The binary being executed by the process does not have
+read permis- sion enabled.</p>
+
+<p>* The process is executing a set-user-ID (set-group-ID)
+program that is owned by a user (group) other than the real
+user (group) ID of the process. (However, see the
+description of the prctl(2) PR_SET_DUMPABLE operation, and
+the description of the /proc/sys/fs/suid_dumpable file in
+proc(5).)</p>
+
+<p>Naming of core dump files By default, a core dump file
+is named core, but the /proc/sys/ker- nel/core_pattern file
+(since Linux 2.6 and 2.4.21) can be set to define a template
+that is used to name core dump files. The template can con-
+tain % specifiers which are substituted by the following
+values when a core file is created:</p>
+
+<p>%% a single % character %p PID of dumped process %u
+(numeric) real UID of dumped process %g (numeric) real GID
+of dumped process %s number of signal causing dump %t time
+of dump, expressed as seconds since the Epoch (00:00h, 1 Jan
+1970, UTC) %h hostname (same as nodename returned by
+uname(2)) %e executable filename (without path prefix) %c
+core file size soft resource limit of crashing process
+(since Linux 2.6.24)</p>
+
+<p>A single % at the end of the template is dropped from
+the core file- name, as is the combination of a % followed
+by any character other than those listed above. All other
+characters in the template become a lit- eral part of the
+core filename. The template may include &rsquo;/&rsquo;
+charac- ters, which are interpreted as delimiters for
+directory names. The maximum size of the resulting core
+filename is 128 bytes (64 bytes in kernels before 2.6.19).
+The default value in this file is &quot;core&quot;. For
+backward compatibility, if /proc/sys/kernel/core_pattern
+does not include &quot;%p&quot; and
+/proc/sys/kernel/core_uses_pid (see below) is non- zero,
+then .PID will be appended to the core filename.</p>
+
+<p>Since version 2.4, Linux has also provided a more
+primitive method of controlling the name of the core dump
+file. If the /proc/sys/ker- nel/core_uses_pid file contains
+the value 0, then a core dump file is simply named core. If
+this file contains a non-zero value, then the core dump file
+includes the process ID in a name of the form core.PID.</p>
+
+<p>Piping core dumps to a program Since kernel 2.6.19,
+Linux supports an alternate syntax for the
+/proc/sys/kernel/core_pattern file. If the first character
+of this file is a pipe symbol (|), then the remainder of the
+line is inter- preted as a program to be executed. Instead
+of being written to a disk file, the core dump is given as
+standard input to the program. Note the following
+points:</p>
+
+<p>* The program must be specified using an absolute
+pathname (or a path- name relative to the root directory,
+/), and must immediately follow the | character.</p>
+
+<p>* The process created to run the program runs as user
+and group root.</p>
+
+<p>* Command-line arguments can be supplied to the program
+(since kernel 2.6.24), delimited by white space (up to a
+total line length of 128 bytes).</p>
+
+<p>* The command-line arguments can include any of the %
+specifiers listed above. For example, to pass the PID of the
+process that is being dumped, specify %p in an argument.</p>
+
+<p>Controlling which mappings are written to the core dump
+Since kernel 2.6.23, the Linux-specific
+/proc/PID/coredump_filter file can be used to control which
+memory segments are written to the core dump file in the
+event that a core dump is performed for the process with the
+corresponding process ID.</p>
+
+<p>The value in the file is a bit mask of memory mapping
+types (see mmap(2)). If a bit is set in the mask, then
+memory mappings of the corresponding type are dumped;
+otherwise they are not dumped. The bits in this file have
+the following meanings:</p>
+
+<p>bit 0 Dump anonymous private mappings. bit 1 Dump
+anonymous shared mappings. bit 2 Dump file-backed private
+mappings. bit 3 Dump file-backed shared mappings.</p>
+
+<p>The default value of coredump_filter is 0x3; this
+reflects traditional Linux behavior and means that only
+anonymous memory segments are dumped.</p>
+
+<p>Memory-mapped I/O pages such as frame buffer are never
+dumped, and vir- tual DSO pages are always dumped,
+regardless of the coredump_filter value.</p>
+
+<p>A child process created via fork(2) inherits its parents
+coredump_filter value; the coredump_filter value is
+preserved across an execve(2).</p>
+
+<p>It can be useful to set coredump_filter in the parent
+shell before run- ning a program, for example:</p>
+
+<p>$ echo 0x7 &gt; /proc/self/coredump_filter $
+./some_program</p>
+
+<p>This file is only provided if the kernel was built with
+the CON- FIG_ELF_CORE configuration option.</p>
+
+<p>NOTES The gdb(1) gcore command can be used to obtain a
+core dump of a running process.</p>
+
+<p>If a multithreaded process (or, more precisely, a
+process that shares its memory with another process by being
+created with the CLONE_VM flag of clone(2)) dumps core, then
+the process ID is always appended to the core filename,
+unless the process ID was already included elsewhere in the
+filename via a %p specification in
+/proc/sys/kernel/core_pattern. (This is primarily useful
+when employing the LinuxThreads implementa- tion, where each
+thread of a process has a different PID.)</p>
+
+<p>EXAMPLE The program below can be used to demonstrate the
+use of the pipe syntax in the /proc/sys/kernel/core_pattern
+file. The following shell session demonstrates the use of
+this program (compiled to create an executable named
+core_pattern_pipe_test):</p>
+
+<p>$ cc -o core_pattern_pipe_test core_pattern_pipe_test.c
+$ su Password: # echo &rsquo;|$PWD/core_pattern_pipe_test %p
+UID=%u GID=%g sig=%s&rsquo; &gt;
+/proc/sys/kernel/core_pattern # exit $ sleep 100 ^ # type
+control-backslash Quit (core dumped) $ cat core.info argc=5
+argc[0]=&lt;/home/mtk/core_pattern_pipe_test&gt;
+argc[1]=&lt;20575&gt; argc[2]=&lt;UID=1000&gt;
+argc[3]=&lt;GID=100&gt; argc[4]=&lt;sig=3&gt; Total bytes in
+core dump: 282624</p>
+
+<p>Program source</p>
+
+<p>/* core_pattern_pipe_test.c */</p>
+
+<p>#define _GNU_SOURCE #include &lt;sys/stat.h&gt; #include
+&lt;fcntl.h&gt; #include &lt;limits.h&gt; #include
+&lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;unistd.h&gt;</p>
+
+<p>#define BUF_SIZE 1024</p>
+
+<p>int main(int argc, char *argv[]) { int tot, j; ssize_t
+nread; char buf[BUF_SIZE]; FILE *fp; char cwd[PATH_MAX];</p>
+
+<p>/* Change our current working directory to that of the
+crashing process */</p>
+
+<p>snprintf(cwd, PATH_MAX, &quot;/proc/%s/cwd&quot;,
+argv[1]); chdir(cwd);</p>
+
+<p>/* Write output to file &quot;core.info&quot; in that
+directory */</p>
+
+<p>fp = fopen(&quot;core.info&quot;, &quot;w+&quot;); if
+(fp == NULL) exit(EXIT_FAILURE);</p>
+
+<p>/* Display command-line arguments given to core_pattern
+pipe program */</p>
+
+<p>fprintf(fp, &quot;argc=%d0, argc); for (j = 0; j &lt;
+argc; j++) fprintf(fp, &quot;argc[%d]=&lt;%s&gt;0, j,
+argv[j]);</p>
+
+<p>/* Count bytes in standard input (the core dump) */</p>
+
+<p>tot = 0; while ((nread = read(STDIN_FILENO, buf,
+BUF_SIZE)) &gt; 0) tot += nread; fprintf(fp, &quot;Total
+bytes in core dump: %d0, tot);</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO bash(1), gdb(1), getrlimit(2), mmap(2),
+prctl(2), sigaction(2), elf(5), proc(5), pthreads(7),
+signal(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-08-26 CORE(5)</p>
+<hr>
+</body>
+</html>

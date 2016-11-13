@@ -1,0 +1,418 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:12:24 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>QMGR(8) QMGR(8)</p>
+
+<p>NAME qmgr - Postfix queue manager</p>
+
+<p>SYNOPSIS qmgr [generic Postfix daemon options]</p>
+
+<p>DESCRIPTION The qmgr(8) daemon awaits the arrival of
+incoming mail and arranges for its delivery via Postfix
+delivery processes. The actual mail routing strategy is
+delegated to the trivial-rewrite(8) daemon. This program
+expects to be run from the master(8) process manager.</p>
+
+<p>Mail addressed to the local double-bounce address is
+logged and dis- carded. This stops potential loops caused by
+undeliverable bounce notifications.</p>
+
+<p>MAIL QUEUES The qmgr(8) daemon maintains the following
+queues:</p>
+
+<p>incoming Inbound mail from the network, or mail picked
+up by the local pickup(8) daemon from the maildrop
+directory.</p>
+
+<p>active Messages that the queue manager has opened for
+delivery. Only a limited number of messages is allowed to
+enter the active queue (leaky bucket strategy, for a fixed
+delivery rate).</p>
+
+<p>deferred Mail that could not be delivered upon the first
+attempt. The queue manager implements exponential backoff by
+doubling the time between delivery attempts.</p>
+
+<p>corrupt Unreadable or damaged queue files are moved here
+for inspection.</p>
+
+<p>hold Messages that are kept &quot;on hold&quot; are kept
+here until someone sets them free.</p>
+
+<p>DELIVERY STATUS REPORTS The qmgr(8) daemon keeps an eye
+on per-message delivery status reports in the following
+directories. Each status report file has the same name as
+the corresponding message file:</p>
+
+<p>bounce Per-recipient status information about why mail
+is bounced. These files are maintained by the bounce(8)
+daemon.</p>
+
+<p>defer Per-recipient status information about why mail is
+delayed. These files are maintained by the defer(8)
+daemon.</p>
+
+<p>trace Per-recipient status information as requested with
+the Postfix &quot;sendmail -v&quot; or &quot;sendmail
+-bv&quot; command. These files are main- tained by the
+trace(8) daemon.</p>
+
+<p>The qmgr(8) daemon is responsible for asking the
+bounce(8), defer(8) or trace(8) daemons to send delivery
+reports.</p>
+
+<p>STRATEGIES The queue manager implements a variety of
+strategies for either opening queue files (input) or for
+message delivery (output).</p>
+
+<p>leaky bucket This strategy limits the number of messages
+in the active queue and prevents the queue manager from
+running out of memory under heavy load.</p>
+
+<p>fairness When the active queue has room, the queue
+manager takes one mes- sage from the incoming queue and one
+from the deferred queue. This prevents a large mail backlog
+from blocking the delivery of new mail.</p>
+
+<p>slow start This strategy eliminates &quot;thundering
+herd&quot; problems by slowly adjusting the number of
+parallel deliveries to the same destina- tion.</p>
+
+<p>round robin The queue manager sorts delivery requests by
+destination. Round-robin selection prevents one destination
+from dominating deliveries to other destinations.</p>
+
+<p>exponential backoff Mail that cannot be delivered upon
+the first attempt is deferred. The time interval between
+delivery attempts is dou- bled after each attempt.</p>
+
+<p>destination status cache The queue manager avoids
+unnecessary delivery attempts by main- taining a short-term,
+in-memory list of unreachable destina- tions.</p>
+
+<p>preemptive message scheduling The queue manager attempts
+to minimize the average per-recipient delay while still
+preserving the correct per-message delays, using a
+sophisticated preemptive message scheduling.</p>
+
+<p>TRIGGERS On an idle system, the queue manager waits for
+the arrival of trigger events, or it waits for a timer to go
+off. A trigger is a one-byte mes- sage. Depending on the
+message received, the queue manager performs one of the
+following actions (the message is followed by the symbolic
+constant used internally by the software):</p>
+
+<p>D (QMGR_REQ_SCAN_DEFERRED) Start a deferred queue scan.
+If a deferred queue scan is already in progress, that scan
+will be restarted as soon as it finishes.</p>
+
+<p>I (QMGR_REQ_SCAN_INCOMING) Start an incoming queue scan.
+If an incoming queue scan is already in progress, that scan
+will be restarted as soon as it finishes.</p>
+
+<p>A (QMGR_REQ_SCAN_ALL) Ignore deferred queue file time
+stamps. The request affects the next deferred queue
+scan.</p>
+
+<p>F (QMGR_REQ_FLUSH_DEAD) Purge all information about dead
+transports and destinations.</p>
+
+<p>W (TRIGGER_REQ_WAKEUP) Wakeup call, This is used by the
+master server to instantiate servers that should not go away
+forever. The action is to start an incoming queue scan.</p>
+
+<p>The qmgr(8) daemon reads an entire buffer worth of
+triggers. Multiple identical trigger requests are collapsed
+into one, and trigger requests are sorted so that A and F
+precede D and I. Thus, in order to force a deferred queue
+run, one would request A F D; in order to notify the queue
+manager of the arrival of new mail one would request I.</p>
+
+<p>STANDARDS RFC 3463 (Enhanced status codes) RFC 3464
+(Delivery status notifications)</p>
+
+<p>SECURITY The qmgr(8) daemon is not security sensitive.
+It reads single-character messages from untrusted local
+users, and thus may be susceptible to denial of service
+attacks. The qmgr(8) daemon does not talk to the out- side
+world, and it can be run at fixed low privilege in a
+chrooted environment.</p>
+
+<p>DIAGNOSTICS Problems and transactions are logged to the
+syslog daemon. Corrupted message files are saved to the
+corrupt queue for further inspection.</p>
+
+<p>Depending on the setting of the notify_classes
+parameter, the postmas- ter is notified of bounces and of
+other trouble.</p>
+
+<p>BUGS A single queue manager process has to compete for
+disk access with mul- tiple front-end processes such as
+cleanup(8). A sudden burst of inbound mail can negatively
+impact outbound delivery rates.</p>
+
+<p>CONFIGURATION PARAMETERS Changes to main.cf are not
+picked up automatically as qmgr(8) is a per- sistent
+process. Use the &quot;postfix reload&quot; command after a
+configuration change.</p>
+
+<p>The text below provides only a parameter summary. See
+postconf(5) for more details including examples.</p>
+
+<p>In the text below, transport is the first field in a
+master.cf entry.</p>
+
+<p>COMPATIBILITY CONTROLS Available before Postfix version
+2.5:</p>
+
+<p>allow_min_user (no) Allow a sender or recipient address
+to have - as the first character.</p>
+
+<p>ACTIVE QUEUE CONTROLS qmgr_clog_warn_time (300s) The
+minimal delay between warnings that a specific destination
+is clogging up the Postfix active queue.</p>
+
+<p>qmgr_message_active_limit (20000) The maximal number of
+messages in the active queue.</p>
+
+<p>qmgr_message_recipient_limit (20000) The maximal number
+of recipients held in memory by the Postfix queue manager,
+and the maximal size of the size of the short- term,
+in-memory &quot;dead&quot; destination status cache.</p>
+
+<p>qmgr_message_recipient_minimum (10) The minimal number
+of in-memory recipients for any message.</p>
+
+<p>default_recipient_limit (20000) The default
+per-transport upper limit on the number of in-memory
+recipients.</p>
+
+<p>transport_recipient_limit ($default_recipient_limit)
+Idem, for delivery via the named message transport.</p>
+
+<p>default_extra_recipient_limit (1000) The default value
+for the extra per-transport limit imposed on the number of
+in-memory recipients.</p>
+
+<p>transport_extra_recipient_limit
+($default_extra_recipient_limit) Idem, for delivery via the
+named message transport.</p>
+
+<p>Available in Postfix version 2.4 and later:</p>
+
+<p>default_recipient_refill_limit (100) The default
+per-transport limit on the number of recipients refilled at
+once.</p>
+
+<p>transport_recipient_refill_limit
+($default_recipient_refill_limit) Idem, for delivery via the
+named message transport.</p>
+
+<p>default_recipient_refill_delay (5s) The default
+per-transport maximum delay between recipients refills.</p>
+
+<p>transport_recipient_refill_delay
+($default_recipient_refill_delay) Idem, for delivery via the
+named message transport.</p>
+
+<p>DELIVERY CONCURRENCY CONTROLS
+initial_destination_concurrency (5) The initial
+per-destination concurrency level for parallel delivery to
+the same destination.</p>
+
+<p>default_destination_concurrency_limit (20) The default
+maximal number of parallel deliveries to the same
+destination.</p>
+
+<p>transport_destination_concurrency_limit
+($default_destination_concur- rency_limit) Idem, for
+delivery via the named message transport.</p>
+
+<p>Available in Postfix version 2.5 and later:</p>
+
+<p>transport_initial_destination_concurrency
+($initial_destination_concur- rency) Initial concurrency for
+delivery via the named message trans- port.</p>
+
+<p>default_destination_concurrency_failed_cohort_limit (1)
+How many pseudo-cohorts must suffer connection or handshake
+failure before a specific destination is considered
+unavailable (and further delivery is suspended).</p>
+
+<p>transport_destination_concurrency_failed_cohort_limit
+($default_desti- nation_concurrency_failed_cohort_limit)
+Idem, for delivery via the named message transport.</p>
+
+<p>default_destination_concurrency_negative_feedback (1)
+The per-destination amount of delivery concurrency negative
+feedback, after a delivery completes with a connection or
+hand- shake failure.</p>
+
+<p>transport_destination_concurrency_negative_feedback
+($default_destina- tion_concurrency_negative_feedback) Idem,
+for delivery via the named message transport.</p>
+
+<p>default_destination_concurrency_positive_feedback (1)
+The per-destination amount of delivery concurrency positive
+feedback, after a delivery completes without connection or
+hand- shake failure.</p>
+
+<p>transport_destination_concurrency_positive_feedback
+($default_destina- tion_concurrency_positive_feedback) Idem,
+for delivery via the named message transport.</p>
+
+<p>destination_concurrency_feedback_debug (no) Make the
+queue managers feedback algorithm verbose for perfor- mance
+analysis purposes.</p>
+
+<p>RECIPIENT SCHEDULING CONTROLS
+default_destination_recipient_limit (50) The default maximal
+number of recipients per message delivery.</p>
+
+<p>transport_destination_recipient_limit
+($default_destination_recipi- ent_limit) Idem, for delivery
+via the named message transport.</p>
+
+<p>MESSAGE SCHEDULING CONTROLS default_delivery_slot_cost
+(5) How often the Postfix queue managers scheduler is
+allowed to preempt delivery of one message with another.</p>
+
+<p>transport_delivery_slot_cost
+($default_delivery_slot_cost) Idem, for delivery via the
+named message transport.</p>
+
+<p>default_minimum_delivery_slots (3) How many recipients a
+message must have in order to invoke the Postfix queue
+managers scheduling algorithm at all.</p>
+
+<p>transport_minimum_delivery_slots
+($default_minimum_delivery_slots) Idem, for delivery via the
+named message transport.</p>
+
+<p>default_delivery_slot_discount (50) The default value
+for transport-specific _delivery_slot_discount settings.</p>
+
+<p>transport_delivery_slot_discount
+($default_delivery_slot_discount) Idem, for delivery via the
+named message transport.</p>
+
+<p>default_delivery_slot_loan (3) The default value for
+transport-specific _delivery_slot_loan settings.</p>
+
+<p>transport_delivery_slot_loan
+($default_delivery_slot_loan) Idem, for delivery via the
+named message transport.</p>
+
+<p>OTHER RESOURCE AND RATE CONTROLS minimal_backoff_time
+(300s) The minimal time between attempts to deliver a
+deferred message; prior to Postfix 2.4 the default value was
+1000s.</p>
+
+<p>maximal_backoff_time (4000s) The maximal time between
+attempts to deliver a deferred message.</p>
+
+<p>maximal_queue_lifetime (5d) The maximal time a message
+is queued before it is sent back as undeliverable.</p>
+
+<p>queue_run_delay (300s) The time between deferred queue
+scans by the queue manager; prior to Postfix 2.4 the default
+value was 1000s.</p>
+
+<p>transport_retry_time (60s) The time between attempts by
+the Postfix queue manager to con- tact a malfunctioning
+message delivery transport.</p>
+
+<p>Available in Postfix version 2.1 and later:</p>
+
+<p>bounce_queue_lifetime (5d) The maximal time a bounce
+message is queued before it is consid- ered
+undeliverable.</p>
+
+<p>Available in Postfix version 2.5 and later:</p>
+
+<p>default_destination_rate_delay (0s) The default amount
+of delay that is inserted between individual deliveries to
+the same destination; with per-destination recipi- ent limit
+&gt; 1, a destination is a domain, otherwise it is a
+recipient.</p>
+
+<p>transport_destination_rate_delay
+$default_destination_rate_delay Idem, for delivery via the
+named message transport.</p>
+
+<p>MISCELLANEOUS CONTROLS config_directory (seepostconf
+-doutput) The default location of the Postfix main.cf and
+master.cf con- figuration files.</p>
+
+<p>defer_transports (empty) The names of message delivery
+transports that should not deliver mail unless someone
+issues &quot;sendmail -q&quot; or equivalent.</p>
+
+<p>delay_logging_resolution_limit (2) The maximal number of
+digits after the decimal point when log- ging sub-second
+delay values.</p>
+
+<p>helpful_warnings (yes) Log warnings about problematic
+configuration settings, and pro- vide helpful
+suggestions.</p>
+
+<p>ipc_timeout (3600s) The time limit for sending or
+receiving information over an internal communication
+channel.</p>
+
+<p>process_id (read-only) The process ID of a Postfix
+command or daemon process.</p>
+
+<p>process_name (read-only) The process name of a Postfix
+command or daemon process.</p>
+
+<p>queue_directory (seepostconf -doutput) The location of
+the Postfix top-level queue directory.</p>
+
+<p>syslog_facility (mail) The syslog facility of Postfix
+logging.</p>
+
+<p>syslog_name (seepostconf -doutput) The mail system name
+that is prepended to the process name in syslog records, so
+that &quot;smtpd&quot; becomes, for example, &quot;post-
+fix/smtpd&quot;.</p>
+
+<p>FILES /var/spool/postfix/incoming, incoming queue
+/var/spool/postfix/active, active queue
+/var/spool/postfix/deferred, deferred queue
+/var/spool/postfix/bounce, non-delivery status
+/var/spool/postfix/defer, non-delivery status
+/var/spool/postfix/trace, delivery status</p>
+
+<p>SEE ALSO trivial-rewrite(8), address routing bounce(8),
+delivery status reports postconf(5), configuration
+parameters master(5), generic daemon options master(8),
+process manager syslogd(8), system logging</p>
+
+<p>README FILES Use &quot;postconf readme_directory&quot;
+or &quot;postconf html_directory&quot; to locate this
+information. SCHEDULER_README, scheduling algorithm
+QSHAPE_README, Postfix queue analysis</p>
+
+<p>LICENSE The Secure Mailer license must be distributed
+with this software.</p>
+
+<p>AUTHOR(S) Wietse Venema IBM T.J. Watson Research P.O.
+Box 704 Yorktown Heights, NY 10598, USA</p>
+
+<p>Preemptive scheduler enhancements: Patrik Rak Modra 6
+155 00, Prague, Czech Republic</p>
+
+<p>QMGR(8)</p>
+<hr>
+</body>
+</html>

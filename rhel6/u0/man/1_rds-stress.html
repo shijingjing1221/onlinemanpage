@@ -1,0 +1,200 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:12:39 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>RDS-STRESS(1) BSD General Commands Manual
+RDS-STRESS(1)</p>
+
+<p>NAME rds-stress - send messages between processes over
+RDS sockets</p>
+
+<p>SYNOPSIS rds-stress [-p port_number] [-r
+receive_address] [-s send_address] [-a ack_bytes] [-q
+request_bytes] [-D rdma_bytes] [-d queue_depth] [-t
+nr_tasks] [-c] [-R] [-V] [-v]</p>
+
+<p>DESCRIPTION rds-stress sends messages between groups
+tasks, usually running on seper- ate machines.</p>
+
+<p>First a passive receiving instance is started.</p>
+
+<p>$ rds-stress</p>
+
+<p>Then an active sending instance is started, giving it
+the address and port at which it will find a listening
+passive receiver. In addition, it is given configuration
+options which both instances will use.</p>
+
+<p>$ rds-stress -s recvhost -p 4000 -t 1 -d 1</p>
+
+<p>The active sender will parse the options, connect to the
+passive receiver, and send the options over this connection.
+From this point on both instances exhibit the exact same
+behaviour.</p>
+
+<p>They will create a number of child tasks as specified by
+the -t option. Once the children are created the parent
+sleeps for a second at a time, printing a summary of
+statistics at each interval.</p>
+
+<p>Each child will open an RDS socket, each binding to a
+port number in order after the port number given on the
+command line. The first child would bind to port 4001 in our
+example. Each child sets the send and receive buffers to
+exactly fit the number of messages, requests and acks, that
+will be in flight as determind by the command line
+arguments.</p>
+
+<p>The children then enter their loop. They will keep a
+number of sent mes- sages outstanding as specified by the -d
+option. When they reach this limit they will wait to receive
+acks which will allow them to send again. As they receive
+messages from their peers they immediately send acks.</p>
+
+<p>Every second, the parent process will display statistics
+of the ongoing stress test. The output is described in
+section OUTPUT below.</p>
+
+<p>If the -T option is given, the test will terminate after
+the specified time, and a summary is printed.</p>
+
+<p>Each child maintains outstanding messages to all other
+children of the other instance. They do not send to their
+siblings.</p>
+
+<p>OPTIONS The following options are available for use on
+the command line:</p>
+
+<p>-p port_number Each parent binds a TCP socket to this
+port number and their respective address. They will trade
+the negotiated options over this socket. Each child will
+bind an RDS socket to the range of ports immediately
+following this port number, for as many chil- dren as there
+are.</p>
+
+<p>-s send_address A connection attempt is made to this
+address. Once its complete and the options are sent over it
+then children will be created and work will proceed.</p>
+
+<p>-r receive_address This specifies the address that
+messages will be sent from. If -s is not specified then
+rds-stress waits for a connection on this address before
+proceeding.</p>
+
+<p>If this option is not given, rds-stress will choose an
+appropri- ate address. The passive process will accept
+connections on all local interfaces, and obtain the address
+once the control connec- tion is established. The active
+process will choose a local address based on the interface
+through which it connects to the destination address.</p>
+
+<p>-a ack_bytes This specifies the size of the ack
+messages, in bytes. There is a minimum size which depends on
+the format of the ack messages, which may change over time.
+See section &quot;Message Sizes&quot; below.</p>
+
+<p>-q request_bytes This specifies the size of the request
+messages, in bytes. It also has a minimum size which may
+change over time. See section &quot;Message Sizes&quot;
+below.</p>
+
+<p>-D rdma_bytes RDSv3 is capable of transmitting part of a
+message via RDMA directly from application buffer to
+application buffer. This option enables RDMA support in
+rds-stress: request packets include parameters for an RDMA
+READ or WRITE operation, which the receiving process
+executes at the time the ACK packet is sent. See section
+&quot;Message Sizes&quot; below.</p>
+
+<p>-d queue_depth Each child will try to maintain this many
+sent messages outstand- ing to each of its peers on the
+remote address.</p>
+
+<p>-t nr_tasks Each parent will create this many children
+tasks.</p>
+
+<p>-T seconds Specify the duration of the test run. After
+the specified number of seconds, all processes on both ends
+of the connection will terminate, and the active instance
+will print a summary. By default, rds-stress will keep on
+sending and receiving messages.</p>
+
+<p>-z This flag can be used in conjunction with -T. It
+suppresses the ongoing display of statistics, and prints a
+summary only.</p>
+
+<p>-c This causes rds-stress to create child tasks which
+just consume CPU cycles. One task is created for each CPU in
+the system. First each child observes the maximum rate at
+which it can con- sume cycles. This means that this option
+should only be given on an idle system. rds-stress can then
+calculate the CPU use of the system by observing the lesser
+rate at which the children consume cycles. This option is
+*not* shared between the active and pas- sive instances. It
+must be specified on each rds-stress command line.</p>
+
+<p>-R This tells the rds-stress parent process to run with
+SCHED_RR priority, giving it precedence over the child
+processes. This is useful when running with lots of tasks,
+where there is a risk of the child processes starving the
+parent, and skewing the results.</p>
+
+<p>-v With this option enabled, packets are filled with a
+pattern that is verified by the receiver. This check can
+help detect data cor- ruption occuring under high load.</p>
+
+<p>Message Sizes Options which set a message size (such as
+-a) specify a number of bytes by default. By appending K, M,
+or G, you can specify the size in kilo- bytes, megabytes or
+gigabytes, respectively. For instance, the following will
+run rds-stress with a message and ACK size of 1024 bytes,
+and an RDMA message size of 1048576 bytes:</p>
+
+<p>rds-stress ... -q 1K -a 1K -D 1M</p>
+
+<p>OUTPUT Each parent outputs columns of statistics at a
+regular interval:</p>
+
+<p>tsks The number of child tasks which are running.</p>
+
+<p>tx/s The number of sendmsg() calls that all children are
+executing, per second.</p>
+
+<p>tx+rx K/s The total number of bytes that are flowing
+through sendmsg() and recvmsg() for all children. This
+includes both request and ack messages.</p>
+
+<p>rw+rr K/s The total number of bytes that are being
+transferred via RDMA READs and WRITEs for all children.</p>
+
+<p>tx us/c The average number of microseconds spent in
+sendmsg() calls.</p>
+
+<p>rtt us The average round trip time for a request and ack
+message pair. This measures the total time between when a
+task sends a request and when it finally receives the ack
+for that message. Because it includes the time it takes for
+the receiver to wake up, receive the message, and send an
+ack, it can grow to be quite large under load.</p>
+
+<p>cpu % This is the percentage of available CPU resources
+on this machine that are being consumed since rds-stress
+started running. It will show -1.00 if -c is not given. It
+is calculated based on the amount of CPU resources that CPU
+soaking tasks are able to consume. This lets it measure CPU
+use by the system, say in interrupt handlers, that
+task-based CPU accounting does not include. For this to work
+rds-stress must be started with -c on an idle system.</p>
+
+<p>BSD May 15, 2007 BSD</p>
+<hr>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:07:52 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>MSGOP(2) Linux Programmer s Manual MSGOP(2)</p>
+
+<p>NAME msgrcv, msgsnd - message operations</p>
+
+<p>SYNOPSIS #include &lt;sys/types.h&gt; #include
+&lt;sys/ipc.h&gt; #include &lt;sys/msg.h&gt;</p>
+
+<p>int msgsnd(int msqid, const void *msgp, size_t msgsz,
+int msgflg);</p>
+
+<p>ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long
+msgtyp, int msgflg);</p>
+
+<p>DESCRIPTION The msgsnd() and msgrcv() system calls are
+used, respectively, to send messages to, and receive
+messages from, a message queue. The calling process must
+have write permission on the message queue in order to send
+a message, and read permission to receive a message.</p>
+
+<p>The msgp argument is a pointer to caller-defined
+structure of the fol- lowing general form:</p>
+
+<p>struct msgbuf { long mtype; /* message type, must be
+&gt; 0 */ char mtext[1]; /* message data */ };</p>
+
+<p>The mtext field is an array (or other structure) whose
+size is speci- fied by msgsz, a non-negative integer value.
+Messages of zero length (i.e., no mtext field) are
+permitted. The mtype field must have a strictly positive
+integer value. This value can be used by the receiv- ing
+process for message selection (see the description of
+msgrcv() below).</p>
+
+<p>msgsnd() The msgsnd() system call appends a copy of the
+message pointed to by msgp to the message queue whose
+identifier is specified by msqid.</p>
+
+<p>If sufficient space is available in the queue, msgsnd()
+succeeds imme- diately. (The queue capacity is defined by
+the msg_bytes field in the associated data structure for the
+message queue. During queue creation this field is
+initialized to MSGMNB bytes, but this limit can be modi-
+fied using msgctl(2).) If insufficient space is available in
+the queue, then the default behavior of msgsnd() is to block
+until space becomes available. If IPC_NOWAIT is specified in
+msgflg, then the call instead fails with the error
+EAGAIN.</p>
+
+<p>A blocked msgsnd() call may also fail if:</p>
+
+<p>* the queue is removed, in which case the system call
+fails with errno set to EIDRM; or</p>
+
+<p>* a signal is caught, in which case the system call
+fails with errno set to EINTR;see signal(7). (msgsnd() is
+never automatically restarted after being interrupted by a
+signal handler, regardless of the setting of the SA_RESTART
+flag when establishing a signal han- dler.)</p>
+
+<p>Upon successful completion the message queue data
+structure is updated as follows:</p>
+
+<p>msg_lspid is set to the process ID of the calling
+process.</p>
+
+<p>msg_qnum is incremented by 1.</p>
+
+<p>msg_stime is set to the current time.</p>
+
+<p>msgrcv() The msgrcv() system call removes a message from
+the queue specified by msqid and places it in the buffer
+pointed to by msgp.</p>
+
+<p>The argument msgsz specifies the maximum size in bytes
+for the member mtext of the structure pointed to by the msgp
+argument. If the message text has length greater than msgsz,
+then the behavior depends on whether MSG_NOERROR is
+specified in msgflg. If MSG_NOERROR is speci- fied, then the
+message text will be truncated (and the truncated part will
+be lost); if MSG_NOERROR is not specified, then the message
+isnt removed from the queue and the system call fails
+returning -1 with errno set to E2BIG.</p>
+
+<p>The argument msgtyp specifies the type of message
+requested as follows:</p>
+
+<p>* If msgtyp is 0, then the first message in the queue is
+read.</p>
+
+<p>* If msgtyp is greater than 0, then the first message in
+the queue of type msgtyp is read, unless MSG_EXCEPT was
+specified in msgflg, in which case the first message in the
+queue of type not equal to msgtyp will be read.</p>
+
+<p>* If msgtyp is less than 0, then the first message in
+the queue with the lowest type less than or equal to the
+absolute value of msgtyp will be read.</p>
+
+<p>The msgflg argument is a bit mask constructed by ORing
+together zero or more of the following flags:</p>
+
+<p>IPC_NOWAIT Return immediately if no message of the
+requested type is in the queue. The system call fails with
+errno set to ENOMSG.</p>
+
+<p>MSG_EXCEPT Used with msgtyp greater than 0 to read the
+first message in the queue with message type that differs
+from msgtyp.</p>
+
+<p>MSG_NOERROR To truncate the message text if longer than
+msgsz bytes.</p>
+
+<p>If no message of the requested type is available and
+IPC_NOWAIT isnt specified in msgflg, the calling process is
+blocked until one of the following conditions occurs:</p>
+
+<p>* A message of the desired type is placed in the
+queue.</p>
+
+<p>* The message queue is removed from the system. In this
+case the sys- tem call fails with errno set to EIDRM.</p>
+
+<p>* The calling process catches a signal. In this case the
+system call fails with errno set to EINTR. (msgrcv() is
+never automatically restarted after being interrupted by a
+signal handler, regardless of the setting of the SA_RESTART
+flag when establishing a signal han- dler.)</p>
+
+<p>Upon successful completion the message queue data
+structure is updated as follows:</p>
+
+<p>msg_lrpid is set to the process ID of the calling
+process.</p>
+
+<p>msg_qnum is decremented by 1.</p>
+
+<p>msg_rtime is set to the current time.</p>
+
+<p>RETURN VALUE On failure both functions return -1 with
+errno indicating the error, otherwise msgsnd() returns 0 and
+msgrcv() returns the number of bytes actually copied into
+the mtext array.</p>
+
+<p>ERRORS When msgsnd() fails, errno will be set to one
+among the following val- ues:</p>
+
+<p>EACCES The calling process does not have write
+permission on the mes- sage queue, and does not have the
+CAP_IPC_OWNER capability.</p>
+
+<p>EAGAIN The message cant be sent due to the msg_qbytes
+limit for the queue and IPC_NOWAIT was specified in
+msgflg.</p>
+
+<p>EFAULT The address pointed to by msgp isnt
+accessible.</p>
+
+<p>EIDRM The message queue was removed.</p>
+
+<p>EINTR Sleeping on a full message queue condition, the
+process caught a signal.</p>
+
+<p>EINVAL Invalid msqid value, or non-positive mtype value,
+or invalid msgsz value (less than 0 or greater than the
+system value MSG- MAX).</p>
+
+<p>ENOMEM The system does not have enough memory to make a
+copy of the message pointed to by msgp.</p>
+
+<p>When msgrcv() fails, errno will be set to one among the
+following val- ues:</p>
+
+<p>E2BIG The message text length is greater than msgsz and
+MSG_NOERROR isnt specified in msgflg.</p>
+
+<p>EACCES The calling process does not have read permission
+on the message queue, and does not have the CAP_IPC_OWNER
+capability.</p>
+
+<p>EAGAIN No message was available in the queue and
+IPC_NOWAIT was speci- fied in msgflg.</p>
+
+<p>EFAULT The address pointed to by msgp isnt
+accessible.</p>
+
+<p>EIDRM While the process was sleeping to receive a
+message, the message queue was removed.</p>
+
+<p>EINTR While the process was sleeping to receive a
+message, the process caught a signal; see signal(7).</p>
+
+<p>EINVAL msgqid was invalid, or msgsz was less than 0.</p>
+
+<p>ENOMSG IPC_NOWAIT was specified in msgflg and no message
+of the requested type existed on the message queue.</p>
+
+<p>CONFORMING TO SVr4, POSIX.1-2001.</p>
+
+<p>NOTES The msgp argument is declared as struct msgbuf *
+with libc4, libc5, glibc 2.0, glibc 2.1. It is declared as
+void * with glibc 2.2 and later, as required by SUSv2 and
+SUSv3.</p>
+
+<p>The following limits on message queue resources affect
+the msgsnd() call:</p>
+
+<p>MSGMAX Maximum size for a message text: 8192 bytes (on
+Linux, this limit can be read and modified via
+/proc/sys/kernel/msgmax).</p>
+
+<p>MSGMNB Default maximum size in bytes of a message queue:
+16384 bytes (on Linux, this limit can be read and modified
+via /proc/sys/kernel/msgmnb). The superuser can increase the
+size of a message queue beyond MSGMNB by a msgctl(2) system
+call.</p>
+
+<p>The implementation has no intrinsic limits for the
+system wide maximum number of message headers (MSGTQL) and
+for the system wide maximum size in bytes of the message
+pool (MSGPOOL).</p>
+
+<p>SEE ALSO msgctl(2), msgget(2), capabilities(7),
+mq_overview(7), svipc(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-04-23 MSGOP(2)</p>
+<hr>
+</body>
+</html>

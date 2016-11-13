@@ -1,0 +1,173 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:01:07 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>GETIFADDRS(3) Linux Programmer s Manual
+GETIFADDRS(3)</p>
+
+<p>NAME getifaddrs, freeifaddrs - get interface
+addresses</p>
+
+<p>SYNOPSIS #include &lt;sys/types.h&gt; #include
+&lt;ifaddrs.h&gt;</p>
+
+<p>int getifaddrs(struct ifaddrs **ifap);</p>
+
+<p>void freeifaddrs(struct ifaddrs *ifa);</p>
+
+<p>DESCRIPTION The getifaddrs() function creates a linked
+list of structures describ- ing the network interfaces of
+the local system, and stores the address of the first item
+of the list in *ifap. The list consists of ifaddrs
+structures, defined as follows:</p>
+
+<p>struct ifaddrs { struct ifaddrs *ifa_next; /* Next item
+in list */ char *ifa_name; /* Name of interface */ unsigned
+int ifa_flags; /* Flags from SIOCGIFFLAGS */ struct sockaddr
+*ifa_addr; /* Address of interface */ struct sockaddr
+*ifa_netmask; /* Netmask of interface */ union { struct
+sockaddr *ifu_broadaddr; /* Broadcast address of interface
+*/ struct sockaddr *ifu_dstaddr; /* Point-to-point
+destination address */ } ifa_ifu; #define ifa_broadaddr
+ifa_ifu.ifu_broadaddr #define ifa_dstaddr
+ifa_ifu.ifu_dstaddr void *ifa_data; /* Address-specific data
+*/ };</p>
+
+<p>The ifa_next field contains a pointer to the next
+structure on the list, or NULL if this is the last item of
+the list.</p>
+
+<p>The ifa_name points to the null-terminated interface
+name.</p>
+
+<p>The ifa_flags field contains the interface flags, as
+returned by the SIOCGIFFLAGS ioctl(2) operation (see
+netdevice(7) for a list of these flags).</p>
+
+<p>The ifa_addr field points to a structure containing the
+interface address. (The sa_family sub-field should be
+consulted to determine the format of the address
+structure.)</p>
+
+<p>The ifa_netmask field points to a structure containing
+the netmask associated with ifa_addr, if applicable for the
+address family.</p>
+
+<p>Depending on whether the bit IFF_BROADCAST or
+IFF_POINTOPOINT is set in ifa_flags (only one can be set at
+a time), either ifa_broadaddr will contain the broadcast
+address associated with ifa_addr (if applicable for the
+address family) or ifa_dstaddr will contain the destination
+address of the point-to-point interface.</p>
+
+<p>The ifa_data field points to a buffer containing
+address-family-spe- cific data; this field may be NULL if
+there is no such data for this interface.</p>
+
+<p>The data returned by getifaddrs() is dynamically
+allocated and should be freed using freeifaddrs() when no
+longer needed.</p>
+
+<p>RETURN VALUES On success, getifaddrs() returns zero; on
+error, -1 is returned, and errno is set appropriately.</p>
+
+<p>ERRORS getifaddrs() may fail and set errno for any of
+the errors specified for socket(2), bind(2), getsockname(2),
+recvmsg(2), sendto(2), malloc(3), or realloc(3).</p>
+
+<p>VERSIONS The getifaddrs() function first appeared in
+glibc 2.3, but before glibc 2.3.3, the implementation only
+supported IPv4 addresses; IPv6 support was added in glibc
+2.3.3. Support of address families other than IPv4 is only
+available on kernels that support netlink.</p>
+
+<p>CONFORMING TO Not in POSIX.1-2001. This function first
+appeared in BSDi and is present on the BSD systems, but with
+slightly different semantics docu- mentedreturning one entry
+per interface, not per address. This means ifa_addr and
+other fields can actually be NULL if the interface has no
+address, and no link-level address is returned if the
+interface has an IP address assigned. Also, the way of
+choosing either ifa_broadaddr or ifa_dstaddr differs on
+various systems.</p>
+
+<p>NOTES The addresses returned on Linux will usually be
+the IPv4 and IPv6 addresses assigned to the interface, but
+also one AF_PACKET address per interface containing
+lower-level details about the interface and its physical
+layer. In this case, the ifa_data field may contain a
+pointer to a struct net_device_stats, defined in
+&lt;linux/netdevice.h&gt;, which contains various interface
+attributes and statistics.</p>
+
+<p>EXAMPLE The program below demonstrates the use of
+getifaddrs(), freeifaddrs(), and getnameinfo(3). Here is
+what we see when running this program on one system:</p>
+
+<p>$ ./a.out lo address family: 17 (AF_PACKET) eth0 address
+family: 17 (AF_PACKET) lo address family: 2 (AF_INET)
+address: &lt;127.0.0.1&gt; eth0 address family: 2 (AF_INET)
+address: &lt;10.1.1.4&gt; lo address family: 10 (AF_INET6)
+address: &lt;::1&gt; eth0 address family: 10 (AF_INET6)
+address: &lt;fe80::2d0:59ff:feda:eb51%eth0&gt;</p>
+
+<p>Program source</p>
+
+<p>#include &lt;arpa/inet.h&gt; #include
+&lt;sys/socket.h&gt; #include &lt;netdb.h&gt; #include
+&lt;ifaddrs.h&gt; #include &lt;stdio.h&gt; #include
+&lt;stdlib.h&gt; #include &lt;unistd.h&gt;</p>
+
+<p>int main(int argc, char *argv[]) { struct ifaddrs
+*ifaddr, *ifa; int family, s; char host[NI_MAXHOST];</p>
+
+<p>if (getifaddrs(&amp;ifaddr) == -1) {
+perror(&quot;getifaddrs&quot;); exit(EXIT_FAILURE); }</p>
+
+<p>/* Walk through linked list, maintaining head pointer so
+we can free list later */</p>
+
+<p>for (ifa = ifaddr; ifa != NULL; ifa = ifa-&gt;ifa_next)
+{ family = ifa-&gt;ifa_addr-&gt;sa_family;</p>
+
+<p>/* Display interface name and family (including symbolic
+form of the latter for the common families) */</p>
+
+<p>printf(&quot;%s address family: %d%s0, ifa-&gt;ifa_name,
+family, (family == AF_PACKET) ? &quot; (AF_PACKET)&quot; :
+(family == AF_INET) ? &quot; (AF_INET)&quot; : (family ==
+AF_INET6) ? &quot; (AF_INET6)&quot; : &quot;&quot;);</p>
+
+<p>/* For an AF_INET* interface address, display the
+address */</p>
+
+<p>if (family == AF_INET || family == AF_INET6) { s =
+getnameinfo(ifa-&gt;ifa_addr, (family == AF_INET) ?
+sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
+host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST); if (s != 0) {
+printf(&quot;getnameinfo() failed: %s0, gai_strerror(s));
+exit(EXIT_FAILURE); } printf(&quot;address: &lt;%s&gt;0,
+host); } }</p>
+
+<p>freeifaddrs(ifaddr); exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO bind(2), getsockname(2), socket(2), packet(7),
+ifconfig(8)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>GNU 2009-01-23 GETIFADDRS(3)</p>
+<hr>
+</body>
+</html>

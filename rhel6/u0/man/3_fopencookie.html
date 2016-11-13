@@ -1,0 +1,296 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:59:59 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>FOPENCOOKIE(2) Linux Programmer s Manual
+FOPENCOOKIE(2)</p>
+
+<p>NAME fopencookie - opening a custom stream</p>
+
+<p>SYNOPSIS #define _GNU_SOURCE #include
+&lt;stdio.h&gt;</p>
+
+<p>FILE *fopencookie(void *cookie, const char *mode,
+cookie_io_functions_t io_funcs);</p>
+
+<p>DESCRIPTION The fopencookie() function allows the
+programmer to create a custom implementation for a standard
+I/O stream. This implementation can store the streams data
+at a location of its own choosing; for example,
+fopencookie() is used to implement fmemopen(3), which
+provides a steam interface to data that is stored in a
+buffer in memory.</p>
+
+<p>In order to create a custom stream the programmer
+must:</p>
+
+<p>* Implement four &quot;hook&quot; functions that are
+used internally by the standard I/O library when performing
+I/O on the stream.</p>
+
+<p>* Define a &quot;cookie&quot; data type, a structure
+that provides bookkeeping information (e.g., where to store
+data) used by the aforementioned hook functions. The
+standard I/O package knows nothing about the contents of
+this cookie (thus it is typed as void * when passed to
+fopencookie()), but automatically supplies the cookie as the
+first argument when calling the hook functions.</p>
+
+<p>* Call fopencookie() to open a new stream and associate
+the cookie and hook functions with that stream.</p>
+
+<p>The fopencookie() function serves a purpose similar to
+fopen(3): it opens a new stream and returns a pointer to a
+FILE object that is used to operate on that stream.</p>
+
+<p>The cookie argument is a pointer to the caller s cookie
+structure that is to be associated with the new stream. This
+pointer is supplied as the first argument when the standard
+I/O library invokes any of the hook functions described
+below.</p>
+
+<p>The mode argument serves the same purpose as for
+fopen(3). The follow- ing modes are supported: r, w, a, r+,
+w+, and a+. See fopen(3) for details.</p>
+
+<p>The io_funcs argument is a structure that contains four
+fields pointing to the programmer-defined hook functions
+that are used to implement this stream. The structure is
+defined as follows</p>
+
+<p>struct cookie_io_functions_t { cookie_read_function_t
+*read; cookie_write_function_t *write;
+cookie_seek_function_t *seek; cookie_close_function_t
+*close; };</p>
+
+<p>The four fields are as follows:</p>
+
+<p>cookie_read_function_t *read This function implements
+read operations for the stream. When called, it receives
+three arguments:</p>
+
+<p>ssize_t read(void *cookie, char *buf, size_t size);</p>
+
+<p>The buf and size arguments are, respectively, a buffer
+into which input data can be placed and the size of that
+buffer. As its function result, the read function should
+return the number of bytes copied into buf, 0 on end of
+file, or -1 on error. The read function should update the
+stream offset appropriately.</p>
+
+<p>If *read is a NULL pointer, then reads from the custom
+stream always return end of file.</p>
+
+<p>cookie_write_function_t *write This function implements
+write operations for the stream. When called, it receives
+three arguments:</p>
+
+<p>ssize_t write(void *cookie, const char *buf, size_t
+size);</p>
+
+<p>The buf and size arguments are, respectively, a buffer
+of data to be output to the stream and the size of that
+buffer. As its function result, the write function should
+return the number of bytes copied from buf, or -1 on error.
+The write function should update the stream offset
+appropriately.</p>
+
+<p>If *write is a NULL pointer, then output to the stream
+is dis- carded.</p>
+
+<p>cookie_seek_function_t *seek This function implements
+seek operations on the stream. When called, it receives
+three arguments:</p>
+
+<p>int seek(void *cookie, off64_t *offset, int whence);</p>
+
+<p>The *offset argument specifies the new file offset
+depending on which of the following three values is supplied
+in whence:</p>
+
+<p>SEEK_SET The stream offset should be set *offset bytes
+from the start of the stream.</p>
+
+<p>SEEK_CUR *offset should be added to the current stream
+offset.</p>
+
+<p>SEEK_END The stream offset should be set to the size of
+the stream plus *offset.</p>
+
+<p>Before returning, the seek function should update
+*offset to indicate the new stream offset.</p>
+
+<p>As its function result, the seek function should return
+0 on success, and -1 on error.</p>
+
+<p>If *seek is a NULL pointer, then it is not possible to
+perform seek operations on the stream.</p>
+
+<p>cookie_close_function_t *close This function closes the
+stream. The hook function can do things such as freeing
+buffers allocated for the stream. When called, it receives
+one argument:</p>
+
+<p>int close(void *cookie);</p>
+
+<p>The cookie argument is the cookie that the programmer
+supplied when calling fopencookie().</p>
+
+<p>As its function result, the close function should return
+0 on success, and EOF on error.</p>
+
+<p>If *close is NULL, then no special action is performed
+when the stream is closed.</p>
+
+<p>RETURN VALUE On success fopencookie() returns a pointer
+to the new stream. On error, NULL is returned.</p>
+
+<p>CONFORMING TO This function is a non-standard GNU
+extension.</p>
+
+<p>EXAMPLE The program below implements a custom stream
+whose functionality is similar (but not identical) to that
+available via fmemopen(3). It implements a stream whose data
+is stored in a memory buffer. The pro- gram writes its
+command-line arguments to the stream, and then seeks through
+the stream reading two out of every five characters and
+writing them to standard output. The following shell session
+demonstrates the use of the program:</p>
+
+<p>$ ./a.out &rsquo;hello world&rsquo; /he/ / w/ /d/
+Reached end of file</p>
+
+<p>Note that a more general version of the program below
+could be improved to more robustly handle various error
+situations (e.g., opening a stream with a cookie that
+already has an open stream; closing a stream that has
+already been closed).</p>
+
+<p>Program source</p>
+
+<p>#define _GNU_SOURCE #include &lt;sys/types.h&gt;
+#include &lt;stdio.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;unistd.h&gt; #include &lt;string.h&gt;</p>
+
+<p>#define INIT_BUF_SIZE 4</p>
+
+<p>struct memfile_cookie { char *buf; /* Dynamically sized
+buffer for data */ size_t allocated; /* Size of buf */
+size_t endpos; /* Number of characters in buf */ off_t
+offset; /* Current file offset in buf */ };</p>
+
+<p>ssize_t memfile_write(void *c, const char *buf, size_t
+size) { char *new_buff; struct memfile_cookie *cookie =
+c;</p>
+
+<p>/* Buffer too small? Keep doubling size until big enough
+*/</p>
+
+<p>while (size + cookie-&gt;offset &gt;
+cookie-&gt;allocated) { new_buff = realloc(cookie-&gt;buf,
+cookie-&gt;allocated * 2); if (new_buff == NULL) { return
+-1; } else { cookie-&gt;allocated *= 2; cookie-&gt;buf =
+new_buff; } }</p>
+
+<p>memcpy(cookie-&gt;buf + cookie-&gt;offset, buf,
+size);</p>
+
+<p>cookie-&gt;offset += size; if (cookie-&gt;offset &gt;
+cookie-&gt;endpos) cookie-&gt;endpos =
+cookie-&gt;offset;</p>
+
+<p>return size; }</p>
+
+<p>ssize_t memfile_read(void *c, char *buf, size_t size) {
+ssize_t xbytes; struct memfile_cookie *cookie = c;</p>
+
+<p>/* Fetch minimum of bytes requested and bytes available
+*/</p>
+
+<p>xbytes = size; if (cookie-&gt;offset + size &gt;
+cookie-&gt;endpos) xbytes = cookie-&gt;endpos -
+cookie-&gt;offset; if (xbytes &lt; 0) /* offset may be past
+endpos */ xbytes = 0;</p>
+
+<p>memcpy(buf, cookie-&gt;buf + cookie-&gt;offset,
+xbytes);</p>
+
+<p>cookie-&gt;offset += xbytes; return xbytes; }</p>
+
+<p>int memfile_seek(void *c, off64_t *offset, int whence) {
+off64_t new_offset; struct memfile_cookie *cookie = c;</p>
+
+<p>if (whence == SEEK_SET) new_offset = *offset; else if
+(whence == SEEK_END) new_offset = cookie-&gt;endpos +
+*offset; else if (whence == SEEK_CUR) new_offset =
+cookie-&gt;offset + *offset; else return -1;</p>
+
+<p>if (new_offset &lt; 0) return -1;</p>
+
+<p>cookie-&gt;offset = new_offset; *offset = new_offset;
+return 0; }</p>
+
+<p>int memfile_close(void *c) { struct memfile_cookie
+*cookie = c;</p>
+
+<p>free(cookie-&gt;buf); cookie-&gt;allocated = 0;
+cookie-&gt;buf = NULL;</p>
+
+<p>return 0; }</p>
+
+<p>int main(int argc, char *argv[]) { cookie_io_functions_t
+memfile_func = { .read = memfile_read, .write =
+memfile_write, .seek = memfile_seek, .close = memfile_close
+}; FILE *fp; struct memfile_cookie mycookie; ssize_t nread;
+long p; int j; char buf[1000];</p>
+
+<p>/* Set up the cookie before calling fopencookie() */</p>
+
+<p>mycookie.buf = malloc(INIT_BUF_SIZE); if (mycookie.buf
+== NULL) { perror(&quot;malloc&quot;); exit(EXIT_FAILURE);
+}</p>
+
+<p>mycookie.allocated = INIT_BUF_SIZE; mycookie.offset = 0;
+mycookie.endpos = 0;</p>
+
+<p>fp = fopencookie(&amp;mycookie,&quot;w+&quot;,
+memfile_func); if (fp == NULL) {
+perror(&quot;fopencookie&quot;); exit(EXIT_FAILURE); }</p>
+
+<p>/* Write command-line arguments to our file */</p>
+
+<p>for (j = 1; j &lt; argc; j++) if (fputs(argv[j], fp) ==
+EOF) { perror(&quot;fputs&quot;); exit(EXIT_FAILURE); }</p>
+
+<p>/* Read two bytes out of every five, until EOF */</p>
+
+<p>for (p = 0; ; p += 5) { if (fseek(fp, p, SEEK_SET) ==
+-1) { perror(&quot;fseek&quot;); exit(EXIT_FAILURE); } nread
+= fread(buf, 1, 2, fp); if (nread == -1) {
+perror(&quot;fread&quot;); exit(EXIT_FAILURE); } if (nread
+== 0) { printf(&quot;Reached end of file0); break; }</p>
+
+<p>printf(&quot;/%.*s/0, nread, buf); }</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>SEE ALSO fclose(3), fmemopen(3), fopen(3), fseek(3),
+feature_test_macros(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-12-05 FOPENCOOKIE(2)</p>
+<hr>
+</body>
+</html>

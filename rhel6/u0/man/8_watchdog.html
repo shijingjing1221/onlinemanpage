@@ -1,0 +1,309 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:25:10 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>WATCHDOG(8) WATCHDOG(8)</p>
+
+<p>NAME watchdog - a software watchdog daemon</p>
+
+<p>SYNOPSIS watchdog [-f|--force] [-c
+filename|--config-file filename] [-v|--ver- bose]
+[-s|--sync] [-b|--softboot] [-q|--no-action]</p>
+
+<p>DESCRIPTION The Linux kernel can reset the system if
+serious problems are detected. This can be implemented via
+special watchdog hardware, or via a slightly less reliable
+software-only watchdog inside the kernel. Either way, there
+needs to be a daemon that tells the kernel the system is
+working fine. If the daemon stops doing that, the system is
+reset.</p>
+
+<p>watchdog is such a daemon. It opens /dev/watchdog, and
+keeps writing to it often enough to keep the kernel from
+resetting, at least once per minute. Each write delays the
+reboot time another minute. After a minute of inactivity the
+watchdog hardware will cause the reset. In the case of the
+software watchdog the ability to reboot will depend on the
+state of the machines and interrupts.</p>
+
+<p>The watchdog daemon can be stopped without causing a
+reboot if the device /dev/watchdog is closed correctly,
+unless your kernel is com- piled with the
+CONFIG_WATCHDOG_NOWAYOUT option enabled.</p>
+
+<p>TESTS The watchdog daemon does several tests to check
+the system status:</p>
+
+<p>&middot; Is the process table full?</p>
+
+<p>&middot; Is there enough free memory?</p>
+
+<p>&middot; Are some files accessible?</p>
+
+<p>&middot; Have some files changed within a given
+interval?</p>
+
+<p>&middot; Is the average work load too high?</p>
+
+<p>&middot; Has a file table overflow occurred?</p>
+
+<p>&middot; Is a process still running? The process is
+specified by a pid file.</p>
+
+<p>&middot; Do some IP addresses answer to ping?</p>
+
+<p>&middot; Do network interfaces receive traffic?</p>
+
+<p>&middot; Is the temperature too high? (Temperature data
+not always avail- able.)</p>
+
+<p>&middot; Execute a user defined command to do arbitrary
+tests.</p>
+
+<p>If any of these checks fail watchdog will cause a
+shutdown. Should any of these tests except the user defined
+binary last longer than one minute the machine will be
+rebooted, too.</p>
+
+<p>OPTIONS Available command line options are the
+following:</p>
+
+<p>-v, --verbose Set verbose mode. Only implemented if
+compiled with SYSLOG fea- ture. This mode will log each
+several infos in LOG_DAEMON with priority LOG_INFO. This is
+useful if you want to see exactly what happened until the
+watchdog rebooted the system. Currently it logs the
+temperature (if available), the load average, the change
+date of the files it checks and how often it went to
+sleep.</p>
+
+<p>-s, --sync Try to synchronize the filesystem every time
+the process is awake. Note that the system is rebooted if
+for any reason the synchronizing lasts longer than a
+minute.</p>
+
+<p>-b, --softboot Soft-boot the system if an error occurs
+during the main loop, e.g. if a given file is not accessible
+via the stat(2) call. Note that this does not apply to the
+opening of /dev/watchdog and /proc/loadavg, which are opened
+before the main loop starts.</p>
+
+<p>-f, --force Force the usage of the interval given or the
+maximal load aver- age given in the config file.</p>
+
+<p>-c config-file, --config-file config-file Use
+config-file as the configuration file instead of the default
+/etc/watchdog.conf.</p>
+
+<p>-q, --no-action Do not reboot or halt the machine. This
+is for testing purposes. All checks are executed and the
+results are logged as usual, but no action is taken. Also
+your hardware card or the kernel soft- ware watchdog driver
+is not enabled. Temperature checking is also disabled since
+this triggers the hardware watchdog on some cards.</p>
+
+<p>FUNCTION After watchdog starts, it puts itself into the
+background and then tries all checks specified in its
+configuration file in turn. Between each two tests it will
+write to the kernel device to prevent a reset. After
+finishing all tests watchdog goes to sleep for some time.
+The kernel drivers expects a write to the watchdog device
+every minute. Otherwise the system will be reset. As a
+default watchdog will sleep for only 10 seconds so it
+triggers the device early enough.</p>
+
+<p>Under high system load watchdog might be swapped out of
+memory and may fail to make it back in in time. Under these
+circumstances the Linux kernel will reset the machine. To
+make sure you wont get unnecessary reboots make sure you
+have the variable realtime set to yes in the con- figuration
+file watchdog.conf. This adds real time support to watch-
+dog: it will lock itself into memory and there should be no
+problem even under the highest of loads.</p>
+
+<p>Also you can specify a maximal allowed load average.
+Once this load average is reached the system is rebooted.
+You may specify maximal load averages for 1 minute, 5
+minutes or 15 minutes. The default values is to disable this
+test. Be careful not to set this parameter too low. To set a
+value less then the predefined minimal value of 2, you have
+to use the -f option.</p>
+
+<p>You can also specify a minimal amount of virtual memory
+you want to have available as free. As soon as more virtual
+memory is used action is taken by watchdog. Note, however,
+that watchdog does not distin- guish between different types
+of memory usage. It just checks for free virtual memory.</p>
+
+<p>If you have a watchdog card with temperature sensor you
+can specify the maximal allowed temperature. Once this
+temperature is reached the sys- tem is halted. The default
+value is 120. There is no unit conversion so make sure you
+use the same unit as your hardware. watchdog will issue
+warnings once the temperature increases 90%, 95% and 98% of
+this tem- perature.</p>
+
+<p>When using file mode watchdog will try to stat(2) the
+given files. Errors returned by stat will not cause a
+reboot. For a reboot the stat call has to last at least one
+minute. This may happen if the file is located on an NFS
+mounted filesystem. If your system relies on an NFS mounted
+filesystem you might try this option. However, in such a
+case the sync option may not work if the NFS server is not
+answering.</p>
+
+<p>watchdog can read the pid from a pid file and see
+whether the process still exists. If not, action is taken by
+watchdog. So you can for instance restart the server from
+your repair-binary.</p>
+
+<p>watchdog will try periodically to fork itself to see
+whether the pro- cess table is full. This process will leave
+a zombie process until watchdog wakes up again and catches
+it; this is harmless, dont worry about it.</p>
+
+<p>In ping mode watchdog tries to ping the given IP
+addresses. These addresses do not have to be a single
+machine. It is possible to ping to a broadcast address
+instead to see if at least one machine in a subnet is still
+living.</p>
+
+<p>Do not use this broadcast ping unless your MIS person a)
+knows about it and b) has given you explicit permission to
+use it!</p>
+
+<p>watchdog will send out three ping packages and wait up
+to &lt;interval&gt; seconds for the reply with
+&lt;interval&gt; being the time it goes to sleep between two
+times triggering the watchdog device. Thus a unreachable
+network will not cause a hard reset but a soft reboot.</p>
+
+<p>You can also test passively for an unreachable network
+by just monitor- ing a given interface for traffic. If no
+traffic arrives the network is considered unreachable
+causing a soft reboot or action from the repair binary.</p>
+
+<p>watchdog can run an external command for user-defined
+tests. A return code not equal 0 means an error occured and
+watchdog should react. If the external command is killed by
+an uncaught signal this is considered an error by watchdog
+too. The command may take longer than the time slice defined
+for the kernel device without a problem. However, error
+messages are generated into the syslog facility. If you have
+enabled softboot on error the machine will be rebooted if
+the binary doesnt exit in half the time watchdog sleeps
+between two tries triggering the kernel device.</p>
+
+<p>If you specify a repair binary it will be started
+instead of shutting down the system. If this binary is not
+able to fix the problem watchdog will still cause a reboot
+afterwards.</p>
+
+<p>If the machine is halted an email is sent to notify a
+human that the machine is going down. Starting with version
+4.4 watchdog will also notify the human in charge if the
+machine is rebooted.</p>
+
+<p>SOFT REBOOT A soft reboot (i.e. controlled shutdown and
+reboot) is initiated for every error that is found. Since
+there might be no more processes available, watchdog does it
+all by himself. That means:</p>
+
+<p>1. Kill all processes with SIGTERM.</p>
+
+<p>2. After a short pause kill all remaining processes with
+SIGKILL.</p>
+
+<p>3. Record a shutdown entry in wtmp.</p>
+
+<p>4. Save the random seed from /dev/urandom. If the device
+is non-exis- tant or there is no filename for saving this
+step is skipped.</p>
+
+<p>5. Turn off accounting.</p>
+
+<p>6. Turn off quota and swap.</p>
+
+<p>7. Unmount all partitions except the root partition.</p>
+
+<p>8. Remount the root partition read-only.</p>
+
+<p>9. Shut down all network interfaces.</p>
+
+<p>10. Finally reboot.</p>
+
+<p>CHECK BINARY If the return code of the check binary is
+not zero watchdog will assume an error and reboot the
+system. Be careful with this if you are using the real-time
+properties of watchdog since watchdog will wait for the
+return of this binary before proceeding. An positive exit
+code is interpreted as an system error code (see errno.h for
+details). Negative values are special to watchdog:</p>
+
+<p>-1 Reboot the system. This is not exactly an error
+message but a command to watchdog. If the return code is -1
+watchdog will not try to run a shutdown script instead.</p>
+
+<p>-2 Reset the system. This is not exactly an error
+message but a command to watchdog. If the return code is -2
+watchdog will simply refuse to write the kernel device
+again.</p>
+
+<p>-3 Maximum load average exceeded.</p>
+
+<p>-4 The temperature inside is too high.</p>
+
+<p>-5 /proc/loadavg contains no (or not enough) data.</p>
+
+<p>-6 The given file was not changed in the given
+interval.</p>
+
+<p>-7 /proc/meminfo contains invalid data.</p>
+
+<p>-8 Child process was killed by a signal.</p>
+
+<p>-9 Child process did not return in time.</p>
+
+<p>-10 Free for personal use.</p>
+
+<p>REPAIR BINARY The repair binary is started with one
+parameter: the error number that caused watchdog to initiate
+the boot process. After trying to repair the system the
+binary should exit with 0 if the system was successfully
+repaired and thus there is no need to boot anymore. A return
+value not equal 0 tells watchdog to reboot. The return code
+of the repair binary should be the error number of the error
+causing watchdog to reboot. Be careful with this if you are
+using the real-time properties since watchdog will wait for
+the return of this binary before proceeding.</p>
+
+<p>BUGS None known so far.</p>
+
+<p>AUTHORS The original code is an example written by Alan
+Cox &lt;alan@lxorguk.ukuu.org.uk&gt;, the author of the
+kernel driver. All addi- tions were written by Michael
+Meskes &lt;meskes@debian.org&gt;. Johnie Ingram
+&lt;johnie@netgod.net&gt; had the idea of testing the load
+average. He also took over the Debian specific work. Dave
+Cinege &lt;dcinege@psychosis.com&gt; brought up some
+hardware watchdog issues and helped testing this stuff.</p>
+
+<p>FILES /dev/watchdog The watchdog device.</p>
+
+<p>/var/run/watchdog.pid The pid file of the running
+watchdog.</p>
+
+<p>SEE ALSO watchdog.conf(5)</p>
+
+<p>4th Berkeley Distribution January 2005 WATCHDOG(8)</p>
+<hr>
+</body>
+</html>

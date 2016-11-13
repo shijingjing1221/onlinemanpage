@@ -1,0 +1,187 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:08:30 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>NSSWITCH.CONF(5) Linux Programmer s Manual
+NSSWITCH.CONF(5)</p>
+
+<p>NAME nsswitch.conf - System Databases and Name Service
+Switch configuration file</p>
+
+<p>DESCRIPTION Various functions in the C Library need to
+be configured to work cor- rectly in the local environment.
+Traditionally, this was done by using files (e.g.,
+/etc/passwd), but other nameservices (like the Network
+Information Service (NIS) and the Domain Name Service (DNS))
+became popular, and were hacked into the C library, usually
+with a fixed search order.</p>
+
+<p>The Linux libc5 with NYS support and the GNU C Library
+2.x (libc.so.6) contain a cleaner solution of this problem.
+It is designed after a method used by Sun Microsystems in
+the C library of Solaris 2. We fol- low their name and call
+this scheme &quot;Name Service Switch&quot; (NSS). The
+sources for the &quot;databases&quot; and their lookup order
+are specified in the /etc/nsswitch.conf file.</p>
+
+<p>The following databases are available in the NSS:</p>
+
+<p>aliases Mail aliases, provides a system-wide mechanism
+to redirect mail for local recipients. Used by mail transfer
+agents such as Post- fix or sendmail(8). Note: On Linux, not
+like on other Unices, Sendmail uses its own aliases
+resolution system independent on /etc/nsswitch.conf.</p>
+
+<p>ethers Ethernet numbers.</p>
+
+<p>group Groups of users, used by getgrent(3)
+functions.</p>
+
+<p>hosts Host names and numbers, used by gethostbyname(3)
+and similar functions.</p>
+
+<p>netgroup Network wide list of hosts and users, used for
+access rules. C libraries before glibc 2.1 only support
+netgroups over NIS.</p>
+
+<p>networks Network names and numbers, used by getnetent(3)
+functions.</p>
+
+<p>passwd User passwords, used by getpwent(3)
+functions.</p>
+
+<p>protocols Network protocols, used by getprotoent(3)
+functions.</p>
+
+<p>publickey Public and secret keys for Secure_RPC used by
+NFS and NIS+.</p>
+
+<p>rpc Remote procedure call names and numbers, used by
+getrpcbyname(3) and similar functions.</p>
+
+<p>services Network services, used by getservent(3)
+functions.</p>
+
+<p>shadow Shadow user passwords, used by getspnam(3).</p>
+
+<p>An example /etc/nsswitch.conf (namely, the default used
+when /etc/nss- witch.conf is missing):</p>
+
+<p>passwd: compat group: compat shadow: compat</p>
+
+<p>hosts: dns [!UNAVAIL=return] files networks: nis
+[NOTFOUND=return] files ethers: nis [NOTFOUND=return] files
+protocols: nis [NOTFOUND=return] files rpc: nis
+[NOTFOUND=return] files services: nis [NOTFOUND=return]
+files</p>
+
+<p>The first column is the database. The rest of the line
+specifies how the lookup process works. You can specify the
+way it works for each database individually.</p>
+
+<p>The configuration specification for each database can
+contain two dif- ferent items: * The service specification
+like files, db, or nis. * The reaction on lookup result like
+[NOTFOUND=return].</p>
+
+<p>For libc5 with NYS, the allowed service specifications
+are files, nis, and nisplus. For hosts, you could specify
+dns as extra ser- vice, for passwd and group compat, but not
+for shadow.</p>
+
+<p>For glibc, you must have a file called
+/lib/libnss_SERVICE.so.X for every SERVICE you are using. On
+a standard installation, you could use files , db, nis, and
+nisplus. For hosts, you could specify dns as extra service,
+for passwd, group, and shadow compat . These services will
+not be used by libc5 with NYS. The version number X is 1 for
+glibc 2.0 and 2 for glibc 2.1.</p>
+
+<p>The second item in the specification gives the user much
+finer control on the lookup process. Action items are placed
+between two service names and are written within brackets.
+The general form is</p>
+
+<p>[ ( !? STATUS = ACTION )+ ]</p>
+
+<p>where</p>
+
+<p>STATUS =&gt; success | notfound | unavail | tryagain
+ACTION =&gt; return | continue</p>
+
+<p>The case of the keywords is insignificant. The STATUS
+values are the results of a call to a lookup function of a
+specific service. They mean:</p>
+
+<p>success No error occurred and the wanted entry is
+returned. The default action for this is return.</p>
+
+<p>notfound The lookup process works ok but the needed
+value was not found. The default action is continue.</p>
+
+<p>unavail The service is permanently unavailable. This can
+either mean the needed file is not available, or, for DNS,
+the server is not available or does not allow queries. The
+default action is continue.</p>
+
+<p>tryagain The service is temporarily unavailable. This
+could mean a file is locked or a server currently cannot
+accept more connections. The default action is continue.</p>
+
+<p>Interaction with +/- syntax (compat mode) Linux libc5
+without NYS does not have the name service switch but does
+allow the user some policy control. In /etc/passwd you could
+have entries of the form +user or +@netgroup (include the
+specified user from the NIS passwd map), -user or -@netgroup
+(exclude the specified user), and + (include every user,
+except the excluded ones, from the NIS passwd map). Since
+most people only put a + at the end of /etc/passwd to
+include everything from NIS, the switch provides a faster
+alternative for this case (passwd: files nis) which doesnt
+require the single + entry in /etc/passwd, /etc/group, and
+/etc/shadow. If this is not sufficient, the NSS compat
+service provides full +/- semantics. By default, the source
+is nis, but this may be overridden by specifying nisplus as
+source for the pseudo-databases passwd_com- pat,
+group_compat and shadow_compat. These pseudo-databases are
+only available in GNU C Library.</p>
+
+<p>FILES A service named SERVICE is implemented by a shared
+object library named libnss_SERVICE.so.X that resides in
+/lib.</p>
+
+<p>/etc/nsswitch.conf configuration file
+/lib/libnss_compat.so.X implements compat source for glibc2
+/lib/libnss_db.so.X implements db source for glibc2
+/lib/libnss_dns.so.X implements dns source for glibc2
+/lib/libnss_files.so.X implements files source for glibc2
+/lib/libnss_hesiod.so.X implements hesiod source for glibc2
+/lib/libnss_nis.so.X implements nis source for glibc2
+/lib/libnss_nisplus.so.2 implements nisplus source for glibc
+2.1</p>
+
+<p>NOTES Within each process that uses nsswitch.conf, the
+entire file is read only once; if the file is later changed,
+the process will continue using the old configuration.</p>
+
+<p>With Solaris, it isnt possible to link programs using
+the NSS Service statically. With Linux, this is no
+problem.</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 1999-01-17 NSSWITCH.CONF(5)</p>
+<hr>
+</body>
+</html>

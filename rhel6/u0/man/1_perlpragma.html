@@ -1,0 +1,141 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:10:14 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PERLPRAGMA(1) Perl Programmers Reference Guide
+PERLPRAGMA(1)</p>
+
+<p>NAME perlpragma - how to write a user pragma</p>
+
+<p>DESCRIPTION A pragma is a module which influences some
+aspect of the compile time or run time behaviour of Perl,
+such as &quot;strict&quot; or &quot;warnings&quot;. With
+Perl 5.10 you are no longer limited to the built in
+pragmata; you can now create user pragmata that modify the
+behaviour of user functions within a lexical scope.</p>
+
+<p>A basic example For example, say you need to create a
+class implementing overloaded mathematical operators, and
+would like to provide your own pragma that functions much
+like &quot;use integer;&quot; Youd like this code</p>
+
+<p>use MyMaths;</p>
+
+<p>my $l = MyMaths-&gt;new(1.2); my $r =
+MyMaths-&gt;new(3.4);</p>
+
+<p>print &quot;A: &quot;, $l + $r, &quot;0;</p>
+
+<p>use myint; print &quot;B: &quot;, $l + $r, &quot;0;</p>
+
+<p>{ no myint; print &quot;C: &quot;, $l + $r, &quot;0;
+}</p>
+
+<p>print &quot;D: &quot;, $l + $r, &quot;0;</p>
+
+<p>no myint; print &quot;E: &quot;, $l + $r, &quot;0;</p>
+
+<p>to give the output</p>
+
+<p>A: 4.6 B: 4 C: 4.6 D: 4 E: 4.6</p>
+
+<p>i.e., where &quot;use myint;&quot; is in effect,
+addition operations are forced to integer, whereas by
+default they are not, with the default behaviour being
+restored via &quot;no myint;&quot;</p>
+
+<p>The minimal implementation of the package
+&quot;MyMaths&quot; would be something like this:</p>
+
+<p>package MyMaths; use warnings; use strict; use myint();
+use overload &rsquo;+&rsquo; =&gt; sub { my ($l, $r) = @_; #
+Pass 1 to check up one call level from here if
+(myint::in_effect(1)) { int($$l) + int($$r); } else { $$l +
+$$r; } };</p>
+
+<p>sub new { my ($class, $value) = @_; bless alue, $class;
+}</p>
+
+<p>1;</p>
+
+<p>Note how we load the user pragma &quot;myint&quot; with
+an empty list &quot;()&quot; to prevent its
+&quot;import&quot; being called.</p>
+
+<p>The interaction with the Perl compilation happens inside
+package &quot;myint&quot;:</p>
+
+<p>package myint;</p>
+
+<p>use strict; use warnings;</p>
+
+<p>sub import { $^H{myint} = 1; }</p>
+
+<p>sub unimport { $^H{myint} = 0; }</p>
+
+<p>sub in_effect { my $level = shift // 0; my $hinthash =
+(caller($level))[10]; return $hinthash-&gt;{myint}; }</p>
+
+<p>1;</p>
+
+<p>As pragmata are implemented as modules, like any other
+module, &quot;use myint;&quot; becomes</p>
+
+<p>BEGIN { require myint; myint-&gt;import(); }</p>
+
+<p>and &quot;no myint;&quot; is</p>
+
+<p>BEGIN { require myint; myint-&gt;unimport(); }</p>
+
+<p>Hence the &quot;import&quot; and &quot;unimport&quot;
+routines are called at compile time for the users code.</p>
+
+<p>User pragmata store their state by writing to the
+magical hash &quot;%^H&quot;, hence these two routines
+manipulate it. The state information in &quot;%^H&quot; is
+stored in the optree, and can be retrieved at runtime with
+&quot;caller()&quot;, at index 10 of the list of returned
+results. In the example pragma, retrieval is encapsulated
+into the routine &quot;in_effect()&quot;, which takes as
+parameter the number of call frames to go up to find the
+value of the pragma in the users script. This uses
+&quot;caller()&quot; to determine the value of $^H{myint}
+when each line of the users script was called, and therefore
+provide the correct semantics in the subroutine implementing
+the overloaded addition.</p>
+
+<p>Implementation details The optree is shared between
+threads. This means there is a possibility that the optree
+will outlive the particular thread (and therefore the
+interpreter instance) that created it, so true Perl scalars
+cannot be stored in the optree. Instead a compact form is
+used, which can only store values that are integers (signed
+and unsigned), strings or &quot;undef&quot; - references and
+floating point values are stringified. If you need to store
+multiple values or complex structures, you should serialise
+them, for example with &quot;pack&quot;. The deletion of a
+hash key from &quot;%^H&quot; is recorded, and as ever can
+be distinguished from the existence of a key with value
+&quot;undef&quot; with &quot;exists&quot;.</p>
+
+<p>Dot attempt to store references to data structures as
+integers which are retrieved via &quot;caller&quot; and
+converted back, as this will not be threadsafe. Accesses
+would be to the structure without locking (which is not safe
+for Perls scalars), and either the structure has to leak, or
+it has to be freed when its creating thread terminates,
+which may be before the optree referencing it is deleted, if
+other threads outlive it.</p>
+
+<p>perl v5.10.1 2009-02-12 PERLPRAGMA(1)</p>
+<hr>
+</body>
+</html>

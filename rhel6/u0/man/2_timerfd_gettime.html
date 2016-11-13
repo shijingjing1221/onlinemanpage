@@ -1,0 +1,330 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:22:09 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>TIMERFD_CREATE(2) Linux Programmer s Manual
+TIMERFD_CREATE(2)</p>
+
+<p>NAME timerfd_create, timerfd_settime, timerfd_gettime -
+timers that notify via file descriptors</p>
+
+<p>SYNOPSIS #include &lt;sys/timerfd.h&gt;</p>
+
+<p>int timerfd_create(int clockid, int flags);</p>
+
+<p>int timerfd_settime(int fd, int flags, const struct
+itimerspec *new_value, struct itimerspec *old_value);</p>
+
+<p>int timerfd_gettime(int fd, struct itimerspec
+*curr_value);</p>
+
+<p>DESCRIPTION These system calls create and operate on a
+timer that delivers timer expiration notifications via a
+file descriptor. They provide an alter- native to the use of
+setitimer(2) or timer_create(2), with the advan- tage that
+the file descriptor may be monitored by select(2), poll(2),
+and epoll(7).</p>
+
+<p>The use of these three system calls is analogous to the
+use of timer_create(2), timer_settime(2), and
+timer_gettime(2). (There is no analog of
+timer_getoverrun(2), since that functionality is provided by
+read(2), as described below.)</p>
+
+<p>timerfd_create() timerfd_create() creates a new timer
+object, and returns a file descriptor that refers to that
+timer. The clockid argument specifies the clock that is used
+to mark the progress of the timer, and must be either
+CLOCK_REALTIME or CLOCK_MONOTONIC. CLOCK_REALTIME is a
+settable system-wide clock. CLOCK_MONOTONIC is a
+non-settable clock that is not affected by discontinuous
+changes in the system clock (e.g., manual changes to system
+time). The current value of each of these clocks can be
+retrieved using clock_gettime(2).</p>
+
+<p>Starting with Linux 2.6.27, the following values may be
+bitwise ORed in flags to change the behavior of
+timerfd_create():</p>
+
+<p>TFD_NONBLOCK Set the O_NONBLOCK file status flag on the
+new open file description. Using this flag saves extra calls
+to fcntl(2) to achieve the same result.</p>
+
+<p>TFD_CLOEXEC Set the close-on-exec (FD_CLOEXEC) flag on
+the new file descriptor. See the description of the
+O_CLOEXEC flag in open(2) for reasons why this may be
+useful.</p>
+
+<p>In Linux versions up to and including 2.6.26, flags must
+be specified as zero.</p>
+
+<p>timerfd_settime() timerfd_settime() arms (starts) or
+disarms (stops) the timer referred to by the file descriptor
+fd.</p>
+
+<p>The new_value argument specifies the initial expiration
+and interval for the timer. The itimer structure used for
+this argument contains two fields, each of which is in turn
+a structure of type timespec:</p>
+
+<p>struct timespec { time_t tv_sec; /* Seconds */ long
+tv_nsec; /* Nanoseconds */ };</p>
+
+<p>struct itimerspec { struct timespec it_interval; /*
+Interval for periodic timer */ struct timespec it_value; /*
+Initial expiration */ };</p>
+
+<p>new_value.it_value specifies the initial expiration of
+the timer, in seconds and nanoseconds. Setting either field
+of new_value.it_value to a non-zero value arms the timer.
+Setting both fields of new_value.it_value to zero disarms
+the timer.</p>
+
+<p>Setting one or both fields of new_value.it_interval to
+non-zero values specifies the period, in seconds and
+nanoseconds, for repeated timer expirations after the
+initial expiration. If both fields of new_value.it_interval
+are zero, the timer expires just once, at the time specified
+by new_value.it_value.</p>
+
+<p>The flags argument is either 0, to start a relative
+timer (new_value.it_interval specifies a time relative to
+the current value of the clock specified by clockid), or
+TFD_TIMER_ABSTIME, to start an absolute timer
+(new_value.it_value specifies an absolute time for the clock
+specified by clockid; that is, the timer will expire when
+the value of that clock reaches the value specified in
+new_value.it_value).</p>
+
+<p>The old_value argument returns a structure containing
+the setting of the timer that was current at the time of the
+call; see the description of timerfd_gettime()
+following.</p>
+
+<p>timerfd_gettime() timerfd_gettime() returns, in
+curr_value, an itimerspec structure that contains the
+current setting of the timer referred to by the file
+descriptor fd.</p>
+
+<p>The it_value field returns the amount of time until the
+timer will next expire. If both fields of this structure are
+zero, then the timer is currently disarmed. This field
+always contains a relative value, regardless of whether the
+TFD_TIMER_ABSTIME flag was specified when setting the
+timer.</p>
+
+<p>The it_interval field returns the interval of the timer.
+If both fields of this structure are zero, then the timer is
+set to expire just once, at the time specified by
+curr_value.it_value.</p>
+
+<p>Operating on a timer file descriptor The file descriptor
+returned by timerfd_create() supports the following
+operations:</p>
+
+<p>read(2) If the timer has already expired one or more
+times since its settings were last modified using
+timerfd_settime(), or since the last successful read(2),
+then the buffer given to read(2) returns an unsigned 8-byte
+integer (uint64_t) containing the number of expirations that
+have occurred. (The returned value is in host byte order,
+i.e., the native byte order for integers on the host
+machine.)</p>
+
+<p>If no timer expirations have occurred at the time of the
+read(2), then the call either blocks until the next timer
+expi- ration, or fails with the error EAGAIN if the file
+descriptor has been made non-blocking (via the use of the
+fcntl(2) F_SETFL operation to set the O_NONBLOCK flag).</p>
+
+<p>A read(2) will fail with the error EINVAL if the size of
+the supplied buffer is less than 8 bytes.</p>
+
+<p>poll(2), select(2) (and similar) The file descriptor is
+readable (the select(2) readfds argument; the poll(2) POLLIN
+flag) if one or more timer expirations have occurred.</p>
+
+<p>The file descriptor also supports the other
+file-descriptor mul- tiplexing APIs: pselect(2), ppoll(2),
+and epoll(7).</p>
+
+<p>close(2) When the file descriptor is no longer required
+it should be closed. When all file descriptors associated
+with the same timer object have been closed, the timer is
+disarmed and its resources are freed by the kernel.</p>
+
+<p>fork(2) semantics After a fork(2), the child inherits a
+copy of the file descriptor cre- ated by timerfd_create().
+The file descriptor refers to the same underlying timer
+object as the corresponding file descriptor in the parent,
+and read(2)s in the child will return information about
+expira- tions of the timer.</p>
+
+<p>execve(2) semantics A file descriptor created by
+timerfd_create() is preserved across execve(2), and
+continues to generate timer expirations if the timer was
+armed.</p>
+
+<p>RETURN VALUE On success, timerfd_create() returns a new
+file descriptor. On error, -1 is returned and errno is set
+to indicate the error.</p>
+
+<p>timerfd_settime() and timerfd_gettime() return 0 on
+success; on error they return -1, and set errno to indicate
+the error.</p>
+
+<p>ERRORS timerfd_create() can fail with the following
+errors:</p>
+
+<p>EINVAL The clockid argument is neither CLOCK_MONOTONIC
+nor CLOCK_REAL- TIME;</p>
+
+<p>EINVAL flags is invalid; or, in Linux 2.6.26 or earlier,
+flags is non- zero.</p>
+
+<p>EMFILE The per-process limit of open file descriptors
+has been reached.</p>
+
+<p>ENFILE The system-wide limit on the total number of open
+files has been reached.</p>
+
+<p>ENODEV Could not mount (internal) anonymous inode
+device.</p>
+
+<p>ENOMEM There was insufficient kernel memory to create
+the timer.</p>
+
+<p>timerfd_settime() and timerfd_gettime() can fail with
+the following errors:</p>
+
+<p>EBADF fd is not a valid file descriptor.</p>
+
+<p>EFAULT new_value, old_value, or curr_value is not valid
+a pointer.</p>
+
+<p>EINVAL fd is not a valid timerfd file descriptor.</p>
+
+<p>timerfd_settime() can also fail with the following
+errors:</p>
+
+<p>EINVAL new_value is not properly initialized (one of the
+tv_nsec falls outside the range zero to 999,999,999).</p>
+
+<p>EINVAL flags is invalid.</p>
+
+<p>VERSIONS These system calls are available on Linux since
+kernel 2.6.25. Library support is provided by glibc since
+version 2.8.</p>
+
+<p>CONFORMING TO These system calls are Linux-specific.</p>
+
+<p>EXAMPLE The following program creates a timer and then
+monitors its progress. The program accepts up to three
+command-line arguments. The first argument specifies the
+number of seconds for the initial expiration of the timer.
+The second argument specifies the interval for the timer, in
+seconds. The third argument specifies the number of times
+the pro- gram should allow the timer to expire before
+terminating. The second and third command-line arguments are
+optional.</p>
+
+<p>The following shell session demonstrates the use of the
+program:</p>
+
+<p>$ a.out 3 1 100 0.000: timer started 3.000: read: 1;
+total=1 4.000: read: 1; total=2 ^Z # type control-Z to
+suspend the program [1]+ Stopped ./timerfd3_demo 3 1 100 $
+fg # Resume execution after a few seconds a.out 3 1 100
+9.660: read: 5; total=7 10.000: read: 1; total=8 11.000:
+read: 1; total=9 ^C # type control-C to suspend the
+program</p>
+
+<p>Program source</p>
+
+<p>#include &lt;sys/timerfd.h&gt; #include &lt;time.h&gt;
+#include &lt;unistd.h&gt; #include &lt;stdlib.h&gt; #include
+&lt;stdio.h&gt; #include &lt;stdint.h&gt; /* Definition of
+uint64_t */</p>
+
+<p>#define handle_error(msg) do { perror(msg);
+exit(EXIT_FAILURE); } while (0)</p>
+
+<p>static void print_elapsed_time(void) { static struct
+timespec start; struct timespec curr; static int first_call
+= 1; int secs, nsecs;</p>
+
+<p>if (first_call) { first_call = 0; if
+(clock_gettime(CLOCK_MONOTONIC, &amp;start) == -1)
+handle_error(&quot;clock_gettime&quot;); }</p>
+
+<p>if (clock_gettime(CLOCK_MONOTONIC, &amp;curr) == -1)
+handle_error(&quot;clock_gettime&quot;);</p>
+
+<p>secs = curr.tv_sec - start.tv_sec; nsecs = curr.tv_nsec
+- start.tv_nsec; if (nsecs &lt; 0) { secs--; nsecs +=
+1000000000; } printf(&quot;%d.%03d: &quot;, secs, (nsecs +
+500000) / 1000000); }</p>
+
+<p>int main(int argc, char *argv[]) { struct itimerspec
+new_value; int max_exp, fd; struct timespec now; uint64_t
+exp, tot_exp; ssize_t s;</p>
+
+<p>if ((argc != 2) &amp;&amp; (argc != 4)) {
+fprintf(stderr, &quot;%s init-secs [interval-secs max-exp]0,
+argv[0]); exit(EXIT_FAILURE); }</p>
+
+<p>if (clock_gettime(CLOCK_REALTIME, &amp;now) == -1)
+handle_error(&quot;clock_gettime&quot;);</p>
+
+<p>/* Create a CLOCK_REALTIME absolute timer with initial
+expiration and interval as specified in command line */</p>
+
+<p>new_value.it_value.tv_sec = now.tv_sec + atoi(argv[1]);
+new_value.it_value.tv_nsec = now.tv_nsec; if (argc == 2) {
+new_value.it_interval.tv_sec = 0; max_exp = 1; } else {
+new_value.it_interval.tv_sec = atoi(argv[2]); max_exp =
+atoi(argv[3]); } new_value.it_interval.tv_nsec = 0;</p>
+
+<p>fd = timerfd_create(CLOCK_REALTIME, 0); if (fd == -1)
+handle_error(&quot;timerfd_create&quot;);</p>
+
+<p>if (timerfd_settime(fd, TFD_TIMER_ABSTIME,
+&amp;new_value, NULL) == -1)
+handle_error(&quot;timerfd_settime&quot;);</p>
+
+<p>print_elapsed_time(); printf(&quot;timer started0);</p>
+
+<p>for (tot_exp = 0; tot_exp &lt; max_exp;) { s = read(fd,
+&amp;exp, sizeof(uint64_t)); if (s != sizeof(uint64_t))
+handle_error(&quot;read&quot;);</p>
+
+<p>tot_exp += exp; print_elapsed_time(); printf(&quot;read:
+%llu; total=%llu0, (unsigned long long) exp, (unsigned long
+long) tot_exp); }</p>
+
+<p>exit(EXIT_SUCCESS); }</p>
+
+<p>BUGS Currently, timerfd_create() supports fewer types of
+clock IDs than timer_create(2).</p>
+
+<p>SEE ALSO eventfd(2), poll(2), read(2), select(2),
+setitimer(2), signalfd(2), timer_create(2),
+timer_gettime(2), timer_settime(2), epoll(7), time(7)</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2009-03-10 TIMERFD_CREATE(2)</p>
+<hr>
+</body>
+</html>

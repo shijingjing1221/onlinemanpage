@@ -1,0 +1,237 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:52:59 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>ARP(7) Linux Programmer s Manual ARP(7)</p>
+
+<p>NAME arp - Linux ARP kernel module.</p>
+
+<p>DESCRIPTION This kernel protocol module implements the
+Address Resolution Protocol defined in RFC 826. It is used
+to convert between Layer2 hardware addresses and IPv4
+protocol addresses on directly connected networks. The user
+normally doesn t interact directly with this module except
+to configure it; instead it provides a service for other
+protocols in the kernel.</p>
+
+<p>A user process can receive ARP packets by using
+packet(7) sockets. There is also a mechanism for managing
+the ARP cache in user-space by using netlink(7) sockets. The
+ARP table can also be controlled via ioctl(2) on any AF_INET
+socket.</p>
+
+<p>The ARP module maintains a cache of mappings between
+hardware addresses and protocol addresses. The cache has a
+limited size so old and less frequently used entries are
+garbage-collected. Entries which are marked as permanent are
+never deleted by the garbage-collector. The cache can be
+directly manipulated by the use of ioctls and its behavior
+can be tuned by the /proc interfaces described below.</p>
+
+<p>When there is no positive feedback for an existing
+mapping after some time (see the /proc interfaces below), a
+neighbor cache entry is con- sidered stale. Positive
+feedback can be gotten from a higher layer; for example from
+a successful TCP ACK. Other protocols can signal for- ward
+progress using the MSG_CONFIRM flag to sendmsg(2). When
+there is no forward progress, ARP tries to reprobe. It first
+tries to ask a local arp daemon app_solicit times for an
+updated MAC address. If that fails and an old MAC address is
+known, a unicast probe is sent ucast_solicit times. If that
+fails too, it will broadcast a new ARP request to the
+network. Requests are only sent when there is data queued
+for sending.</p>
+
+<p>Linux will automatically add a non-permanent proxy arp
+entry when it receives a request for an address it forwards
+to and proxy arp is enabled on the receiving interface. When
+there is a reject route for the target, no proxy arp entry
+is added.</p>
+
+<p>Ioctls Three ioctls are available on all AF_INET
+sockets. They take a pointer to a struct arpreq as their
+argument.</p>
+
+<p>struct arpreq { struct sockaddr arp_pa; /* protocol
+address */ struct sockaddr arp_ha; /* hardware address */
+int arp_flags; /* flags */ struct sockaddr arp_netmask; /*
+netmask of protocol address */ char arp_dev[16]; };</p>
+
+<p>SIOCSARP, SIOCDARP and SIOCGARP respectively set, delete
+and get an ARP mapping. Setting and deleting ARP maps are
+privileged operations and may only be performed by a process
+with the CAP_NET_ADMIN capability or an effective UID of
+0.</p>
+
+<p>arp_pa must be an AF_INET socket and arp_ha must have
+the same type as the device which is specified in arp_dev.
+arp_dev is a zero-terminated string which names a
+device.</p>
+
+<p>+-------------------------------------+ | arp_flags |
++----------------+--------------------+ |flag | meaning |
++----------------+--------------------+ |ATF_COM | Lookup
+complete | +----------------+--------------------+ |ATF_PERM
+| Permanent entry | +----------------+--------------------+
+|ATF_PUBL | Publish entry |
++----------------+--------------------+ |ATF_USETRAILERS |
+Trailers requested | +----------------+--------------------+
+|ATF_NETMASK | Use a netmask |
++----------------+--------------------+ |ATF_DONTPUB | Dont
+answer | +----------------+--------------------+</p>
+
+<p>If the ATF_NETMASK flag is set, then arp_netmask should
+be valid. Linux 2.2 does not support proxy network ARP
+entries, so this should be set to 0xffffffff, or 0 to remove
+an existing proxy arp entry. ATF_USETRAILERS is obsolete and
+should not be used.</p>
+
+<p>/proc interfaces ARP supports a range of /proc
+interfaces to configure parameters on a global or
+per-interface basis. The interfaces can be accessed by read-
+ing or writing the /proc/sys/net/ipv4/neigh/*/* files. Each
+interface in the system has its own directory in
+/proc/sys/net/ipv4/neigh/. The setting in the
+&quot;default&quot; directory is used for all newly created
+devices. Unless otherwise specified, time-related interfaces
+are spec- ified in seconds.</p>
+
+<p>anycast_delay (since Linux 2.2) The maximum number of
+jiffies to delay before replying to a IPv6 neighbor
+solicitation message. Anycast support is not yet
+implemented. Defaults to 1 second.</p>
+
+<p>app_solicit (since Linux 2.2) The maximum number of
+probes to send to the user space ARP dae- mon via netlink
+before dropping back to multicast probes (see
+mcast_solicit). Defaults to 0.</p>
+
+<p>base_reachable_time (since Linux 2.2) Once a neighbor
+has been found, the entry is considered to be valid for at
+least a random value between base_reachable_time/2 and
+3*base_reachable_time/2. An entry s validity will be
+extended if it receives positive feedback from higher level
+pro- tocols. Defaults to 30 seconds. This file is now
+obsolete in favor of base_reachable_time_ms.</p>
+
+<p>base_reachable_time_ms (since Linux 2.6.12) As for
+base_reachable_time, but measures time in milliseconds.
+Defaults to 30000 milliseconds.</p>
+
+<p>delay_first_probe_time (since Linux 2.2) Delay before
+first probe after it has been decided that a neigh- bor is
+stale. Defaults to 5 seconds.</p>
+
+<p>gc_interval (since Linux 2.2) How frequently the garbage
+collector for neighbor entries should attempt to run.
+Defaults to 30 seconds.</p>
+
+<p>gc_stale_time (since Linux 2.2) Determines how often to
+check for stale neighbor entries. When a neighbor entry is
+considered stale, it is resolved again before sending data
+to it. Defaults to 60 seconds.</p>
+
+<p>gc_thresh1 (since Linux 2.2) The minimum number of
+entries to keep in the ARP cache. The garbage collector will
+not run if there are fewer than this num- ber of entries in
+the cache. Defaults to 128.</p>
+
+<p>gc_thresh2 (since Linux 2.2) The soft maximum number of
+entries to keep in the ARP cache. The garbage collector will
+allow the number of entries to exceed this for 5 seconds
+before collection will be performed. Defaults to 512.</p>
+
+<p>gc_thresh3 (since Linux 2.2) The hard maximum number of
+entries to keep in the ARP cache. The garbage collector will
+always run if there are more than this number of entries in
+the cache. Defaults to 1024.</p>
+
+<p>locktime (since Linux 2.2) The minimum number of jiffies
+to keep an ARP entry in the cache. This prevents ARP cache
+thrashing if there is more than one potential mapping
+(generally due to network misconfiguration). Defaults to 1
+second.</p>
+
+<p>mcast_solicit (since Linux 2.2) The maximum number of
+attempts to resolve an address by multi- cast/broadcast
+before marking the entry as unreachable. Defaults to 3.</p>
+
+<p>proxy_delay (since Linux 2.2) When an ARP request for a
+known proxy-ARP address is received, delay up to proxy_delay
+jiffies before replying. This is used to prevent network
+flooding in some cases. Defaults to 0.8 sec- onds.</p>
+
+<p>proxy_qlen (since Linux 2.2) The maximum number of
+packets which may be queued to proxy-ARP addresses. Defaults
+to 64.</p>
+
+<p>retrans_time (since Linux 2.2) The number of jiffies to
+delay before retransmitting a request. Defaults to 1 second.
+This file is now obsolete in favor of retrans_time_ms.</p>
+
+<p>retrans_time_ms (since Linux 2.6.12) The number of
+milliseconds to delay before retransmitting a request.
+Defaults to 1000 milliseconds.</p>
+
+<p>ucast_solicit (since Linux 2.2) The maximum number of
+attempts to send unicast probes before asking the ARP daemon
+(see app_solicit). Defaults to 3.</p>
+
+<p>unres_qlen (since Linux 2.2) The maximum number of
+packets which may be queued for each unre- solved address by
+other network layers. Defaults to 3.</p>
+
+<p>VERSIONS The struct arpreq changed in Linux 2.0 to
+include the arp_dev member and the ioctl numbers changed at
+the same time. Support for the old ioctls was dropped in
+Linux 2.2.</p>
+
+<p>Support for proxy arp entries for networks (netmask not
+equal 0xffffffff) was dropped in Linux 2.2. It is replaced
+by automatic proxy arp setup by the kernel for all reachable
+hosts on other inter- faces (when forwarding and proxy arp
+is enabled for the interface).</p>
+
+<p>The neigh/* interfaces did not exist before Linux
+2.2.</p>
+
+<p>BUGS Some timer settings are specified in jiffies, which
+is architecture- and kernel version-dependent; see
+time(7).</p>
+
+<p>There is no way to signal positive feedback from user
+space. This means connection-oriented protocols implemented
+in user space will gen- erate excessive ARP traffic, because
+ndisc will regularly reprobe the MAC address. The same
+problem applies for some kernel protocols (e.g., NFS over
+UDP).</p>
+
+<p>This man page mashes IPv4 specific and shared between
+IPv4 and IPv6 functionality together.</p>
+
+<p>SEE ALSO capabilities(7), ip(7)</p>
+
+<p>RFC 826 for a description of ARP. RFC 2461 for a
+description of IPv6 neighbor discovery and the base
+algorithms used.</p>
+
+<p>Linux 2.2+ IPv4 ARP uses the IPv6 algorithms when
+applicable.</p>
+
+<p>COLOPHON This page is part of release 3.22 of the Linux
+man-pages project. A description of the project, and
+information about reporting bugs, can be found at
+http://www.kernel.org/doc/man-pages/.</p>
+
+<p>Linux 2008-11-25 ARP(7)</p>
+<hr>
+</body>
+</html>

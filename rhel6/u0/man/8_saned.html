@@ -1,0 +1,173 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:13:46 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>saned(8) SANE Scanner Access Now Easy saned(8)</p>
+
+<p>NAME saned - SANE network daemon</p>
+
+<p>SYNOPSIS saned [ -a [ username ] | -d [ n ] | -s [ n ]
+]</p>
+
+<p>DESCRIPTION saned is the SANE (Scanner Access Now Easy)
+daemon that allows remote clients to access image
+acquisition devices available on the local host.</p>
+
+<p>OPTIONS The -a flag requests that saned run in
+standalone daemon mode. In this mode, saned will detach from
+the console and run in the background, listening for
+incoming client connections; inetd is not required for saned
+operations in this mode. If the optional username is given
+after -a , saned will drop root privileges and run as this
+user (and group).</p>
+
+<p>The -d and -s flags request that saned run in debug mode
+(as opposed to inetd(8) mode). In this mode, saned
+explicitly waits for a connection request. When compiled
+with debugging enabled, these flags may be fol- lowed by a
+number to request debug info. The larger the number, the
+more verbose the debug output. E.g., -d128 will request
+printing of all debug info. Debug level 0 means no debug
+output at all. The default value is 2. If flag -d is used,
+the debug messages will be printed to stderr while -s
+requests using syslog.</p>
+
+<p>If saned is run from inetd or xinetd, no option can be
+given.</p>
+
+<p>CONFIGURATION First and foremost: saned is not intended
+to be exposed to the internet or other non-trusted networks.
+Make sure that access is limited by tcp- wrappers and/or a
+firewall setup. Dont depend only on saneds own
+authentication. Don t run saned as root if it s not
+necessary. And do not install saned as setuid root.</p>
+
+<p>The saned.conf configuration file contains both options
+for the daemon and the access list.</p>
+
+<p>data_portrange = min_port - max_port Specify the port
+range to use for the data connection. Pick a port range
+between 1024 and 65535; dont pick a too large port range, as
+it may have performance issues. Use this option if your
+saned server is sitting behind a firewall. If that firewall
+is a Linux machine, we strongly recommend using the
+Netfilter nf_conntrack_sane module instead.</p>
+
+<p>The access list is a list of host names, IP addresses or
+IP subnets (CIDR notation) that are permitted to use local
+SANE devices. IPv6 addresses must be enclosed in brackets,
+and should always be specified in their compressed form.
+Connections from localhost are always permit- ted. Empty
+lines and lines starting with a hash mark (#) are ignored. A
+line containing the single character + is interpreted to
+match any hostname. This allows any remote machine to use
+your scanner and may present a security risk, so this
+shouldnt be used unless you know what youre doing.</p>
+
+<p>A sample configuration file is shown below:</p>
+
+<p># Daemon options data_portrange = 10000 - 10100 # Access
+list scan-client.somedomain.firm # this is a comment
+192.168.0.1 192.168.2.12/29 [::1]
+[2001:7a8:185e::42:12]/64</p>
+
+<p>The case of the host names does not matter, so AHost.COM
+is considered identical to ahost.com.</p>
+
+<p>INETD CONFIGURATION For saned to work properly in its
+default mode of operation, it is also necessary to add a
+configuration line to /etc/inetd.conf. Note that your inetd
+must support IPv6 if you want to connect to saned over IPv6
+; xinetd and openbsd-inetd are known to support IPv6, check
+the docu- mentation for your inetd daemon.</p>
+
+<p>The configuration line normally looks like this:</p>
+
+<p>sane-port stream tcp nowait saned.saned /usr/sbin/saned
+saned</p>
+
+<p>However, if your system uses tcpd(8) for additional
+security screening, you may want to disable saned access
+control by putting + in saned.conf and use a line of the
+following form in /etc/inetd.conf instead:</p>
+
+<p>sane-port stream tcp nowait saned.saned /usr/sbin/tcpd
+/usr/sbin/saned</p>
+
+<p>Note that both examples assume that there is a saned
+group and a saned user. If you follow this example, please
+make sure that the access permissions on the special device
+are set such that saned can access the scanner (the program
+generally needs read and write access to scan- ner
+devices).</p>
+
+<p>If xinetd is installed on your system instead of inetd
+the following example for xinetd.conf may be helpful:</p>
+
+<p># default: off # description: The sane server accepts
+requests # for network access to a local scanner via the #
+network. service sane-port { port = 6566 socket_type =
+stream wait = no user = saned group = saned server =
+/usr/sbin/saned }</p>
+
+<p>Finally, it is also necessary to add a line of the
+following form to /etc/services:</p>
+
+<p>sane-port 6566/tcp # SANE network scanner daemon</p>
+
+<p>The official IANA short name for port 6566 is
+&quot;sane-port&quot;. The older name &quot;sane&quot; is
+now deprecated.</p>
+
+<p>FILES /etc/hosts.equiv The hosts listed in this file are
+permitted to access all local SANE devices. Caveat: this
+file imposes serious security risks and its use is not
+recommended.</p>
+
+<p>/etc/sane.d/saned.conf Contains a list of hosts
+permitted to access local SANE devices (see also description
+of SANE_CONFIG_DIR below).</p>
+
+<p>/etc/sane.d/saned.users If this file contains lines of
+the form</p>
+
+<p>user:password:backend</p>
+
+<p>access to the listed backends is restricted. A backend
+may be listed multiple times for different user/password
+combinations. The server uses MD5 hashing if supported by
+the client.</p>
+
+<p>ENVIRONMENT SANE_CONFIG_DIR This environment variable
+specifies the list of directories that may contain the
+configuration file. Under UNIX, the directories are
+separated by a colon (:), under OS/2, they are separated by
+a semi-colon (;). If this variable is not set, the config-
+uration file is searched in two default directories: first,
+the current working directory (&quot;.&quot;) and then in
+/etc/sane.d. If the value of the environment variable ends
+with the directory sepa- rator character, then the default
+directories are searched after the explicitly specified
+directories. For example, setting SANE_CONFIG_DIR to
+&quot;/tmp/config:&quot; would result in directories
+&quot;tmp/config&quot;, &quot;.&quot;, and
+&quot;/etc/sane.d&quot; being searched (in this order).</p>
+
+<p>SEE ALSO sane(7), scanimage(1), xscanimage(1), xcam(1),
+sane-dll(5), sane-net(5), sane-&quot;backendname&quot;(5)
+http://www.penguin-breeder.org/?page=sane-net</p>
+
+<p>AUTHOR David Mosberger</p>
+
+<p>20 Apr 2009 saned(8)</p>
+<hr>
+</body>
+</html>

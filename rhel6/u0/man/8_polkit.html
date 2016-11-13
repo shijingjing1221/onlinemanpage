@@ -1,0 +1,270 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:10:58 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>POLKIT(8) polkit POLKIT(8)</p>
+
+<p>NAME polkit - Authorization Framework</p>
+
+<p>OVERVIEW PolicyKit provides an authorization API
+intended to be used by privileged programs ( MECHANISMS )
+offering service to unprivileged programs (CLIENTS) through
+some form of IPC mechanism such as D-Bus or Unix pipes. In
+this scenario, the mechanism typically treats the client as
+untrusted. For every request from a client, the mechanism
+needs to determine if the request is authorized or if it
+should refuse to service the client. Using the PolicyKit
+API, a mechanism can offload this decision to a trusted
+party: The PolicyKit Authority.</p>
+
+<p>In addition to acting as an authority, PolicyKit allows
+users to obtain temporary authorization through
+authenticating either an administrative user or the owner of
+the session the client belongs to. This is useful for
+scenarios where a mechanism needs to verify that the
+operator of the system really is the user or really is an
+administrative user.</p>
+
+<p>SYSTEM ARCHITECTURE The system architecture of PolicyKit
+is comprised of the Authority (implemented as a service on
+the system message bus) and a Authentication Agent per user
+session (provided and started by the user session e.g. GNOME
+or KDE). Additionally, PolicyKit supports a number of
+extension points specifically, vendors and/or sites can
+write extensions to completely control authorization policy.
+In a block diagram, the architecture looks like this:</p>
+
+<p>[IMAGE][1]</p>
+
+<p>+-------------------+ | Authentication | | Agent |
++-------------------+ | libpolkit-agent-1 |
++-------------------+ ^ +--------+ | | Client |
++--------------+ +--------+ | ^ | | User Session | |
+=======================|========================|=============
+System Context | | | | | +---+ V | /------------ | | System
+Bus | | &minus;-----------/ | ^ ^ V | |
++---------------------+ +--------------+ | | Mechanism | | |
++---------------------+ V +----&gt; | libpolkit-gobject-1 |
++------------------+ +---------------------+ |
+org.freedesktop. | | PolicyKit1 | +------------------+ |
+Backends and | | Extensions | +------------------+</p>
+
+<p>For convenience, the libpolkit-gobject-1 library wraps
+the PolicyKit D-Bus API using GObject. However, a mechanism
+can also use the D-Bus API or the pkcheck(1) command to
+check authorizations.</p>
+
+<p>The libpolkit-agent-1 library provides an abstraction of
+the native authentication system, e.g. pam(8) and also
+facilities registration and communication with the PolicyKit
+D-Bus service.</p>
+
+<p>PolicyKit extensions and authority backends are
+implemented using the libpolkit-backend-1 library.</p>
+
+<p>See the developer documentation[2] for more information
+about using and extending PolicyKit.</p>
+
+<p>See pklocalauthority(8) for information about the Local
+Authority - the default authority implementation shipped
+with PolicyKit.</p>
+
+<p>AUTHENTICATION AGENTS An authentication agent is used to
+make the user of a session prove that the user of the
+session really is the user (by authenticating as the user)
+or an administrative user (by authenticating as a
+administrator). In order to integrate well with the rest of
+the user session (e.g. match the look and feel),
+authentication agents are meant to be provided by the user
+session that the user uses. For example, an authentication
+agent may look like this:</p>
+
+<p>[IMAGE][3]</p>
+
+
+<p>+----------------------------------------------------------+
+| Authenticate [X] |
++----------------------------------------------------------+
+| | | [Icon] Authentication is required to run ATA SMART | |
+self tests | | | | An application is attempting to perform
+an | | action that requires privileges. Authentication | |
+as the super user is required to perform this | | action. |
+| | | Password for root: [_________________________] | | | |
+[V] Details: | | Drive: ATA INTEL SSDSA2MH08 (045C) | |
+Device: /dev/sda | | Action:
+org.fd.devicekit.disks.drive-ata-smart-selftest | | Vendor:
+The DeviceKit Project | | | | [Cancel] [Authenticate] |
++----------------------------------------------------------+</p>
+
+<p>If the system is configured without a root account it
+may allow you to select the administrative user who is
+authenticating:</p>
+
+<p>[IMAGE][4]</p>
+
+
+<p>+----------------------------------------------------------+
+| Authenticate [X] |
++----------------------------------------------------------+
+| | | [Icon] Authentication is required to run ATA SMART | |
+self tests | | | | An application is attempting to perform
+an | | action that requires privileges. Authentication | |
+as one of the users below is required to | | perform this
+action. | | | | [[Face] Patrick Bateman (bateman) [V]] | | |
+| Password for bateman: [______________________] | | | | [V]
+Details: | | Drive: ATA INTEL SSDSA2MH08 (045C) | | Device:
+/dev/sda | | Action:
+org.fd.devicekit.disks.drive-ata-smart-selftest | | Vendor:
+The DeviceKit Project | | | | [Cancel] [Authenticate] |
++----------------------------------------------------------+</p>
+
+<p>See pklocalauthority(8) on how to set up the local
+authority implemention for systems without a root
+account.</p>
+
+<p>DECLARING ACTIONS A mechanism need to declare a set of
+ACTIONS in order to use PolicyKit. Actions correspond to
+operations that clients can request the mechanism to carry
+out and are defined in XML files that the mechanism installs
+into the /usr/share/polkit-1/actions directory.</p>
+
+<p>PolicyKit actions are namespaced and can only contain
+the characters [a-z][0-9].- e.g. lower-case ASCII, digits,
+period and hyphen. Each XML file can contain more than one
+action but all actions need to be in the same namespace and
+the file needs to be named after the namespace and have the
+extension .policy.</p>
+
+<p>The XML file must have the following doctype
+declaration</p>
+
+<p>&lt;?xml version=&quot;1.0&quot;
+encoding=&quot;UTF-8&quot;?&gt; &lt;!DOCTYPE policyconfig
+PUBLIC &quot;-//freedesktop//DTD PolicyKit Policy
+Configuration 1.0//EN&quot;
+&quot;http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd&quot;&gt;</p>
+
+<p>The policyconfig element must be present exactly once.
+Elements that can be used inside policyconfig includes:</p>
+
+<p>vendor The name of the project or vendor that is
+supplying the actions in the XML document. Optional.</p>
+
+<p>vendor_url A URL to the project or vendor that is
+supplying the actions in the XML document. Optional.</p>
+
+<p>icon_name An icon representing the project or vendor
+that is supplying the actions in the XML document. The icon
+name must adhere to the Freedesktop.org Icon Naming
+Specification[5]. Optional.</p>
+
+<p>action Declares an action. The action name is specified
+using the id attribute and can only contain the characters
+[a-z][0-9].- e.g. lower-case ASCII, digits, period and
+hyphen.</p>
+
+<p>Elements that can be used inside action includes:</p>
+
+<p>description A human readable description of the action,
+e.g. Install unsigned software.</p>
+
+<p>message A human readable message displayed to the user
+when asking for credentials when authentication is needed,
+e.g. Installing unsigned software requires
+authentication.</p>
+
+<p>defaults This element is used to specify implicit
+authorizations for clients.</p>
+
+<p>Elements that can be used inside defaults includes:</p>
+
+<p>allow_any Implicit authorizations that apply to any
+client. Optional.</p>
+
+<p>allow_inactive Implicit authorizations that apply to
+clients in inactive sessions on local consoles.
+Optional.</p>
+
+<p>allow_active Implicit authorizations that apply to
+clients in active sessions on local consoles. Optional.</p>
+
+<p>Each of the allow_any, allow_inactive and allow_active
+elements can contain the following values:</p>
+
+<p>no Not authorized.</p>
+
+<p>yes Authorized.</p>
+
+<p>auth_self Authentication by the owner of the session
+that the client originates from is required.</p>
+
+<p>auth_admin Authentication by an administrative user is
+required.</p>
+
+<p>auth_self_keep Like auth_self but the authorization is
+kept for a brief period.</p>
+
+<p>auth_admin_keep Like auth_admin but the authorization is
+kept for a brief period.</p>
+
+<p>annotate Used for annotating an action with a key/value
+pair. The key is specified using the the key attribute and
+the value is specified using the value attribute. This
+element may appear zero or more times. See pkexec(1) for an
+example of how this can be used.</p>
+
+<p>vendor Used for overriding the vendor on a per-action
+basis. Optional.</p>
+
+<p>vendor_url Used for overriding the vendor URL on a
+per-action basis. Optional.</p>
+
+<p>icon_name Used for overriding the icon name on a
+per-action basis. Optional.</p>
+
+<p>For localization, description and message elements may
+occur multiple times with different xml:lang attributes.</p>
+
+<p>To list installed PolicyKit actions, use the pkaction(1)
+command.</p>
+
+<p>AUTHOR Written by David Zeuthen davidz@redhat.com with a
+lot of help from many others.</p>
+
+<p>BUGS Please send bug reports to either the distribution
+or the polkit-devel mailing list, see the link
+http://lists.freedesktop.org/mailman/listinfo/polkit-devel
+on how to subscribe.</p>
+
+<p>SEE ALSO pklocalauthority(8) polkitd(8) pkaction(1),
+pkcheck(1), pkexec(1),</p>
+
+<p>NOTES 1.
+/usr/share/gtk-doc/html/polkit-1/polkit-architecture.png</p>
+
+<p>2. developer documentation
+file:///usr/share/gtk-doc/html/polkit-1/index.html</p>
+
+<p>3.
+/usr/share/gtk-doc/html/polkit-1/polkit-authentication-agent-
+example.png</p>
+
+<p>4.
+/usr/share/gtk-doc/html/polkit-1/polkit-authentication-agent-
+example-wheel.png</p>
+
+<p>5. Freedesktop.org Icon Naming Specification
+http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html</p>
+
+<p>polkit January 2009 POLKIT(8)</p>
+<hr>
+</body>
+</html>

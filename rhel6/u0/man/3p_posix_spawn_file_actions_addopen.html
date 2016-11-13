@@ -1,0 +1,218 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:11:03 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>POSIX_SPAWN_FILE_ACTIONS_ADPOSIXEProgrammPO
+SIX_SPAWN_FILE_ACTIONS_ADDCLOSE(3P)</p>
+
+<p>PROLOG This manual page is part of the POSIX Programmer
+s Manual. The Linux implementation of this interface may
+differ (consult the corresponding Linux manual page for
+details of Linux behavior), or the interface may not be
+implemented on Linux.</p>
+
+<p>NAME posix_spawn_file_actions_addclose,
+posix_spawn_file_actions_addopen - add close or open action
+to spawn file actions object (ADVANCED REAL- TIME)</p>
+
+<p>SYNOPSIS #include &lt;spawn.h&gt;</p>
+
+<p>int
+posix_spawn_file_actions_addclose(posix_spawn_file_actions_t
+* file_actions, int fildes); int
+posix_spawn_file_actions_addopen(posix_spawn_file_actions_t
+* restrict file_actions, int fildes, const char *restrict
+path, int oflag, mode_t mode);</p>
+
+<p>DESCRIPTION These functions shall add or delete a close
+or open action to a spawn file actions object.</p>
+
+<p>A spawn file actions object is of type
+posix_spawn_file_actions_t (defined in &lt;spawn.h&gt;) and
+is used to specify a series of actions to be performed by a
+posix_spawn() or posix_spawnp() operation in order to arrive
+at the set of open file descriptors for the child process
+given the set of open file descriptors of the parent. IEEE
+Std 1003.1-2001 does not define comparison or assignment
+operators for the type posix_spawn_file_actions_t.</p>
+
+<p>A spawn file actions object, when passed to
+posix_spawn() or posix_spawnp(), shall specify how the set
+of open file descriptors in the calling process is
+transformed into a set of potentially open file descriptors
+for the spawned process. This transformation shall be as if
+the specified sequence of actions was performed exactly
+once, in the context of the spawned process (prior to
+execution of the new process image), in the order in which
+the actions were added to the object; additionally, when the
+new process image is executed, any file descrip- tor (from
+this new set) which has its FD_CLOEXEC flag set shall be
+closed (see posix_spawn()).</p>
+
+<p>The posix_spawn_file_actions_addclose() function shall
+add a close action to the object referenced by file_actions
+that shall cause the file descriptor fildes to be closed (as
+if close( fildes) had been called) when a new process is
+spawned using this file actions object.</p>
+
+<p>The posix_spawn_file_actions_addopen() function shall
+add an open action to the object referenced by file_actions
+that shall cause the file named by path to be opened (as if
+open( path, oflag, mode) had been called, and the returned
+file descriptor, if not fildes, had been changed to fildes)
+when a new process is spawned using this file actions
+object. If fildes was already an open file descriptor, it
+shall be closed before the new file is opened.</p>
+
+<p>The string described by path shall be copied by the
+posix_spawn_file_actions_addopen() function.</p>
+
+<p>RETURN VALUE Upon successful completion, these functions
+shall return zero; other- wise, an error number shall be
+returned to indicate the error.</p>
+
+<p>ERRORS These functions shall fail if:</p>
+
+<p>EBADF The value specified by fildes is negative or
+greater than or equal to {OPEN_MAX}.</p>
+
+<p>These functions may fail if:</p>
+
+<p>EINVAL The value specified by file_actions is
+invalid.</p>
+
+<p>ENOMEM Insufficient memory exists to add to the spawn
+file actions object.</p>
+
+<p>It shall not be considered an error for the fildes
+argument passed to these functions to specify a file
+descriptor for which the specified operation could not be
+performed at the time of the call. Any such error will be
+detected when the associated file actions object is later
+used during a posix_spawn() or posix_spawnp() operation.</p>
+
+<p>The following sections are informative.</p>
+
+<p>EXAMPLES None.</p>
+
+<p>APPLICATION USAGE These functions are part of the Spawn
+option and need not be provided on all implementations.</p>
+
+<p>RATIONALE A spawn file actions object may be initialized
+to contain an ordered sequence of close(), dup2(), and
+open() operations to be used by posix_spawn() or
+posix_spawnp() to arrive at the set of open file descriptors
+inherited by the spawned process from the set of open file
+descriptors in the parent at the time of the posix_spawn()
+or posix_spawnp() call. It had been suggested that the
+close() and dup2() operations alone are sufficient to
+rearrange file descriptors, and that files which need to be
+opened for use by the spawned process can be handled either
+by having the calling process open them before the
+posix_spawn() or posix_spawnp() call (and close them after),
+or by passing filenames to the spawned process (in argv) so
+that it may open them itself. The standard developers
+recommend that applications use one of these two methods
+when practical, since detailed error status on a failed open
+operation is always available to the application this way.
+However, the standard developers feel that allowing a spawn
+file actions object to specify open operations is still
+appropriate because:</p>
+
+<p>1. It is consistent with equivalent POSIX.5 (Ada)
+functionality.</p>
+
+<p>2. It supports the I/O redirection paradigm commonly
+employed by POSIX programs designed to be invoked from a
+shell. When such a program is the child process, it may not
+be designed to open files on its own.</p>
+
+<p>3. It allows file opens that might otherwise fail or
+violate file own- ership/access rights if executed by the
+parent process.</p>
+
+<p>Regarding 2. above, note that the spawn open file action
+provides to posix_spawn() and posix_spawnp() the same
+capability that the shell redirection operators provide to
+system(), only without the intervening execution of a shell;
+for example:</p>
+
+<p>system (&quot;myprog &lt;file1 3&lt;file2&quot;);</p>
+
+<p>Regarding 3. above, note that if the calling process
+needs to open one or more files for access by the spawned
+process, but has insufficient spare file descriptors, then
+the open action is necessary to allow the open() to occur in
+the context of the child process after other file
+descriptors have been closed (that must remain open in the
+parent).</p>
+
+<p>Additionally, if a parent is executed from a file having
+a &quot;set-user- id&quot; mode bit set and the
+POSIX_SPAWN_RESETIDS flag is set in the spawn attributes, a
+file created within the parent process will (possibly
+incorrectly) have the parent s effective user ID as its
+owner, whereas a file created via an open() action during
+posix_spawn() or posix_spawnp() will have the parents real
+ID as its owner; and an open by the parent process may
+successfully open a file to which the real user should not
+have access or fail to open a file to which the real user
+should have access.</p>
+
+<p>File Descriptor Mapping The standard developers had
+originally proposed using an array which specified the
+mapping of child file descriptors back to those of the
+parent. It was pointed out by the ballot group that it is
+not possible to reshuffle file descriptors arbitrarily in a
+library implementation of posix_spawn() or posix_spawnp()
+without provision for one or more spare file descriptor
+entries (which simply may not be available). Such an array
+requires that an implementation develop a complex strategy
+to achieve the desired mapping without inadvertently closing
+the wrong file descriptor at the wrong time.</p>
+
+<p>It was noted by a member of the Ada Language Bindings
+working group that the approved Ada Language Start_Process
+family of POSIX process primitives use a caller-specified
+set of file actions to alter the nor- mal fork()/ exec
+semantics for inheritance of file descriptors in a very
+flexible way, yet no such problems exist because the burden
+of determining how to achieve the final file descriptor
+mapping is com- pletely on the application. Furthermore,
+although the file actions interface appears frightening at
+first glance, it is actually quite simple to implement in
+either a library or the kernel.</p>
+
+<p>FUTURE DIRECTIONS None.</p>
+
+<p>SEE ALSO close(), dup(), open(), posix_spawn(),
+posix_spawn_file_actions_adddup2(),
+posix_spawn_file_actions_destroy(), posix_spawnp(), the Base
+Definitions volume of IEEE Std 1003.1-2001,
+&lt;spawn.h&gt;</p>
+
+<p>COPYRIGHT Portions of this text are reprinted and
+reproduced in electronic form from IEEE Std 1003.1, 2003
+Edition, Standard for Information Technology -- Portable
+Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the
+Institute of Electrical and Electronics Engineers, Inc and
+The Open Group. In the event of any discrepancy between this
+version and the original IEEE and The Open Group Standard,
+the original IEEE and The Open Group Standard is the referee
+document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .</p>
+
+<p>IEEE/The Open Group
+2003POSIX_SPAWN_FILE_ACTIONS_ADDCLOSE(3P)</p>
+<hr>
+</body>
+</html>

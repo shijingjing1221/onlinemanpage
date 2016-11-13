@@ -1,0 +1,261 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:55:31 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>CGCONFIG.CONF(5) CGCONFIG.CONF(5)</p>
+
+<p>NAME cgconfig.conf - libcgroup configuration file</p>
+
+<p>DESCRIPTION cgconfig.conf is the configuration file used
+by libcgroup to define control groups, their parameters and
+also mount points. The file con- sists of mount and group
+sections. These sections can be in arbitrary order. Any line
+starting with # is considered as comment line and is
+ignored.</p>
+
+<p>mount section has the form:</p>
+
+<p>mount { &lt;controller&gt; = &lt;path&gt;; ... }</p>
+
+<p>controller Name of kernel subsystem. List of subsystems
+supported by kernel can be found in /proc/cgroups file.
+Libcgroup merges all sub- systems mounted to the same
+directory (see Example 1) and the directory is mounted only
+once.</p>
+
+<p>path The directory path, where group hierarchy
+associated to given controller, shall be mounted. The
+directory is created automati- cally on cgconfig service
+startup if it does not exist and is deleted on service
+shutdown.</p>
+
+<p>group section has the form:</p>
+
+<p>group &lt;name&gt; { [permissions] &lt;controller&gt; {
+&lt;param name&gt; = &lt;param value&gt;; ... } ... }</p>
+
+<p>name Name of the control group. It can contain only
+characters, which are allowed for directory names. The
+groups form a tree, i.e. a control group can contain zero or
+more subgroups. Subgroups can be specified using /
+delimiter.</p>
+
+<p>The root control group is always created automatically
+in all hierarchies and it is the base of the group
+hierarchy. It can be explicitly specified in cgconfig.conf
+file by using . as group name. This can be used e.g. to set
+its permissions, as shown in Example 5.</p>
+
+<p>When the parent control group of a subgroup is not
+specified, then it is created automatically.</p>
+
+<p>permissions Permissions of the given control group on
+mounted filesystem. root has always permission to do
+anything with the control group. Permissions have the
+following syntax: perm { task { uid = &lt;task user&gt;; gid
+= &lt;task group&gt;; } admin { uid = &lt;admin name&gt;;
+gid = &lt;admin group&gt;; } }</p>
+
+<p>task user/group Name of the user and the group, which
+owns tasks file of the control group. I.e. this user and
+members of this group has write access to the file.</p>
+
+<p>admin user/group Name of the user and the group, which
+owns the rest of control group s files. These users are
+allowed to set subsystem parameters and create
+subgroups.</p>
+
+<p>Permissions are related only to enclosing control group
+and are not inherited by subgroups. If there is no perm
+section in con- trol group definition, root:root is owner of
+all files.</p>
+
+<p>controller Name of the kernel subsystem. The section can
+be empty, default kernel parameters will be used in this
+case. By specifying con- troller the control group and all
+its parents are controlled by the specific subsystem. One
+control group can be controlled by multiple subsystems, even
+if the subsystems are mounted to dif- ferent directories.
+Each control group must be controlled by at least one
+subsystem, so libcgroup knows, in which hierarchies the
+control group should be created.</p>
+
+<p>The parameters of given controller can be modified in
+following section enclosed in brackets.</p>
+
+<p>param name Name of the file to set. Each controller can
+have zero or more parameters.</p>
+
+<p>param value Value, which should be written to the file
+when the con- trol group is created.</p>
+
+<p>EXAMPLES Example 1 The configuration file:</p>
+
+<p>mount { cpu = /mnt/cgroups/cpu; cpuacct =
+/mnt/cgroups/cpu; }</p>
+
+<p>creates the hierarchy controlled by two subsystems, with
+no groups inside. It corresponds to following
+operations:</p>
+
+<p>mkdir /mnt/cgroups/cpu mount -t cgroup -o cpu,cpuacct
+cpu /mnt/cgroups/cpu</p>
+
+<p>Example 2 The configuration file:</p>
+
+<p>mount { cpu = /mnt/cgroups/cpu; cpuacct =
+/mnt/cgroups/cpu; }</p>
+
+<p>group daemons/www { perm { task { uid = root; gid =
+webmaster; } admin { uid = root; gid = root; } } cpu {
+cpu.shares = 1000; } }</p>
+
+<p>group daemons/ftp { perm { task { uid = root; gid =
+ftpmaster; } admin { uid = root; gid = root; } } cpu {
+cpu.shares = 500; } } creates the hierarchy controlled by
+two subsystems with one group and two subgroups inside,
+setting one parameter. It corresponds to follow- ing
+operations:</p>
+
+<p>mkdir /mnt/cgroups/cpu mount -t cgroup -o cpu,cpuacct
+cpu /mnt/cgroups/cpu</p>
+
+<p>mkdir /mnt/cgroups/cpu/daemons</p>
+
+<p>mkdir /mnt/cgroups/cpu/daemons/www chown root:root
+/mnt/cgroups/cpu/daemons/www/* chown root:webmaster
+/mnt/cgroups/cpu/daemons/www/tasks echo 1000 &gt;
+/mnt/cgroups/cpu/daemons/www/cpu.shares</p>
+
+<p>mkdir /mnt/cgroups/cpu/daemons/ftp chown root:root
+/mnt/cgroups/cpu/daemons/ftp/* chown root:ftpmaster
+/mnt/cgroups/cpu/daemons/ftp/tasks echo 500 &gt;
+/mnt/cgroups/cpu/daemons/ftp/cpu.shares</p>
+
+<p>The daemons group is created automatically when its
+first subgroup is created. All its parameters have the
+default value and only root can access groups files.</p>
+
+<p>Since both cpuacct and cpu subsystems are mounted to the
+same direc- tory, all groups are implicitly controlled also
+by cpuacct subsystem, even if there is no cpuacct section in
+any of the groups.</p>
+
+<p>Example 3 The configuration file:</p>
+
+<p>mount { cpu = /mnt/cgroups/cpu; cpuacct =
+/mnt/cgroups/cpuacct; }</p>
+
+<p>group daemons { cpuacct{ } cpu { } } creates two
+hierarchies and one common group in both of them. It cor-
+responds to following operations:</p>
+
+<p>mkdir /mnt/cgroups/cpu mkdir /mnt/cgroups/cpuacct mount
+-t cgroup -o cpu cpu /mnt/cgroups/cpu mount -t cgroup -o
+cpuacct cpuacct /mnt/cgroups/cpuacct</p>
+
+<p>mkdir /mnt/cgroups/cpu/daemons mkdir
+/mnt/cgroups/cpuacct/daemons</p>
+
+<p>In fact there are two groups created. One in cpuacct
+hierarchy, the second in cpu hierarchy. These two groups
+have nothing in common and can contain different subgroups
+and different tasks.</p>
+
+<p>Example 4 The configuration file:</p>
+
+<p>mount { cpu = /mnt/cgroups/cpu; cpuacct =
+/mnt/cgroups/cpuacct; }</p>
+
+<p>group daemons { cpuacct{ } }</p>
+
+<p>group daemons/www { cpu { cpu.shares = 1000; } }</p>
+
+<p>group daemons/ftp { cpu { cpu.shares = 500; } } creates
+two hierarchies with few groups inside. One of groups is
+cre- ated in both hierarchies.</p>
+
+<p>It corresponds to following operations:</p>
+
+<p>mkdir /mnt/cgroups/cpu mkdir /mnt/cgroups/cpuacct mount
+-t cgroup -o cpu cpu /mnt/cgroups/cpu mount -t cgroup -o
+cpuacct cpuacct /mnt/cgroups/cpuacct</p>
+
+<p>mkdir /mnt/cgroups/cpuacct/daemons mkdir
+/mnt/cgroups/cpu/daemons mkdir /mnt/cgroups/cpu/daemons/www
+mkdir /mnt/cgroups/cpu/daemons/ftp Group daemons is created
+in both hierarchies. In cpuacct hierarchy the group is
+explicitly mentioned in the configuration file. In cpu
+hierar- chy is the group created implicitly when www is
+created there. These two groups have nothing in common, for
+example they do not share pro- cesses and subgroups. Groups
+www and ftp are created only in cpu hier- archy and are not
+controlled by cpuacct subsystem.</p>
+
+<p>Example 5 The configuration file:</p>
+
+<p>mount { cpu = /mnt/cgroups/cpu; cpuacct =
+/mnt/cgroups/cpu; }</p>
+
+<p>group . { perm { task { uid = root; gid = operator; }
+admin { uid = root; gid = operator; } } cpu { } }</p>
+
+<p>group daemons { perm { task { uid = root; gid =
+daemonmaster; } admin { uid = root; gid = operator; } } cpu
+{ } } creates the hierarchy controlled by two subsystems
+with one group with some special permissions. It corresponds
+to following operations:</p>
+
+<p>mkdir /mnt/cgroups/cpu mount -t cgroup -o cpu,cpuacct
+cpu /mnt/cgroups/cpu</p>
+
+<p>chown root:operator /mnt/cgroups/cpu/* chown
+root:operator /mnt/cgroups/cpu/tasks</p>
+
+<p>mkdir /mnt/cgroups/cpu/daemons chown root:operator
+/mnt/cgroups/cpu/daemons/* chown root:daemonmaster
+/mnt/cgroups/cpu/daemons/tasks</p>
+
+<p>Users, which are members of the operator group are
+allowed to adminis- ter the control groups, i.e. create new
+control groups and can move processes between these groups
+without having root privileges.</p>
+
+<p>Members of daemonmaster group can move processes to
+daemons control group, but they can not move the process out
+of the group. Only opera- tor or root can do that.</p>
+
+<p>RECOMMENDATIONS Keep hierarchies separated Having
+multiple hierarchies is perfectly valid and can be useful in
+various scenarios. To keeps things clean, do not create one
+group in multiple hierarchies. Examples 3 and 4 shows, how
+unreadable and con- fusing it can be, especially when
+reading somebody others configuration file.</p>
+
+<p>Explicit is better than implicit libcgroup can
+implicitly create groups which are needed for creation of
+configured subgroups. This may be useful and save some
+typing in simple scenarios. When it comes to multiple
+hierarchies, its better to explicitly specify all groups and
+all controllers related to them.</p>
+
+<p>FILES /etc/cgconfig.conf default libcgroup configuration
+file</p>
+
+<p>SEE ALSO To be defined...</p>
+
+<p>BUGS Parameter values can be only single string without
+spaces. Parsing of quoted strings is not implemented.</p>
+
+<p>CGCONFIG.CONF(5)</p>
+<hr>
+</body>
+</html>

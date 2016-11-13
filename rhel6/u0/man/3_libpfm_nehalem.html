@@ -1,0 +1,165 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:06:12 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>LIBPFM(3) Linux Programmer s Manual LIBPFM(3)</p>
+
+<p>NAME libpfm_nehalem - support for Intel Nehalem
+processor family</p>
+
+<p>SYNOPSIS #include &lt;perfmon/pfmlib.h&gt; #include
+&lt;perfmon/pfmlib_intel_nhm.h&gt;</p>
+
+<p>DESCRIPTION The libpfm library provides full support for
+the Intel Nehalem proces- sor family, such as Intel Core i7.
+The interface is defined in pfm- lib_intel_nhm.h. It
+consists of a set of functions and structures describing the
+Intel Nehalem processor specific PMU features. The Intel
+Nehalem processor is a quad core, dual thread processor. It
+includes two types of PMU: core and uncore. The latter
+measures events at the socket level and is therefore
+disconnected from any of the four cores. The core PMU
+implements Intel architectural perfmon version 3 with four
+generic counters and three fixed counters. The uncore has
+eight generic counters and one fixed counter. Each Intel
+Nehalem core also implement a 16-deep branch trace buffer,
+called Last Branch Record (LBR), which can be used in
+combination with the core PMU. Intel Nehalem implements a
+newer version of the Precise Event-Based Sampling (PEBS)
+mechanism which has the ability to capture where cache
+misses occur.</p>
+
+<p>When Intel Nehalem processor specific features are
+needed to support a measurement, their descriptions must be
+passed as model-specific input arguments to the
+pfm_dispatch_events() function. The Intel Nehalem pro-
+cessors specific input arguments are described in the pfm-
+lib_nhm_input_param_t structure. No output parameters are
+currently defined. The input parameters are defined as
+follows:</p>
+
+<p>typedef struct { unsigned long cnt_mask; unsigned int
+flags; } pfmlib_nhm_counter_t;</p>
+
+<p>typedef struct { unsigned int lbr_used; unsigned int
+lbr_plm; unsigned int lbr_filter; } pfmlib_nhm_lbr_t;</p>
+
+<p>typedef struct { unsigned int pebs_used; unsigned int
+ld_lat_thres; } pfmlib_nhm_pebs_t;</p>
+
+<p>typedef struct { pfmlib_nhm_counter_t
+pfp_nhm_counters[PMU_NHM_NUM_COUNTERS]; pfmlib_nhm_pebs_t
+pfp_nhm_pebs; pfmlib_nhm_lbr_t pfm_nhm_lbr; uint64_t
+reserved[4]; } pfmlib_nhm_input_param_t;</p>
+
+<p>The Intel Nehalem processor provides a few additional
+per-event fea- tures for counters: thresholding, inversion,
+edge detection, monitoring of both threads, occupancy. They
+can be set using the pfp_nhm_counters data structure for
+each event. The flags field can be initialized with the
+following values, depending on the event:</p>
+
+<p>PFMLIB_NHM_SEL_INV Inverse the results of the cnt_mask
+comparison when set. This flag is supported for core and
+uncore PMU events.</p>
+
+<p>PFMLIB_NHM_SEL_EDGE Enables edge detection of events.
+This flag is supported for core and uncore PMU events.</p>
+
+<p>PFMLIB_NHM_SEL_ANYTHR Enable measuring the event in any
+of the two processor threads assuming hyper-threading is
+enabled. By default, only the cur- rent thread is measured.
+This flag is restricted to core PMU events.</p>
+
+<p>PFMLIB_NHM_SEL_OCC_RST When set, the queue occupancy
+counter associated with the event is cleared. This flag is
+only available to uncore PMU events.</p>
+
+<p>The cnt_mask field is used to set the event threshold.
+The value of the counter is incremented for each cycle in
+which the number of occur- rences of the event is greater or
+equal to the value of the field. Thus, the event is modified
+to actually measure the number of qualify- ing cycles. When
+zero all occurrences are counted (this is the default). This
+flag is supported for core and uncore PMU events.</p>
+
+<p>Support for Precise-Event Based Sampling (PEBS) The
+library can be used to setup the PMC registers associated
+with PEBS. In this case, the pfp_nhm_pebs_t structure must
+be used and the pebs_used field must be set to 1.</p>
+
+<p>To enable the PEBS load latency filtering capability, it
+is necessary to program the
+MEM_INST_RETIRED:LATENCY_ABOVE_THRESHOLD event into one
+generic counter. The latency threshold must be passed to the
+library in the ld_lat_thres field. It is expressed in core
+cycles and must greater than 3. Note that pebs_used must be
+set as well.</p>
+
+<p>Support for Last Branch Record (LBR) The library can be
+used to setup LBR registers. On Intel Nehalem pro- cessors,
+the LBR is 16-entry deep and it is possible to filter
+branches, based on privilege level or type. To configure the
+LBR, the pfm_nhm_lbr_t structure must be used.</p>
+
+<p>Like core PMU counters, LBR only distinguishes two
+privilege levels, 0 and the rest (1,2,3). When running Linux
+natively, the kernel is at privilege level 0, applications
+at level 3. It is possible to specify the privilege level of
+LBR using the lbr_plm. Any attempt to pass PFM_PLM1 or
+PFM_PLM2 will be rejected. If _plm is 0, then the global
+value in pfmlib_input_param_t and the pfp_dfl_plm is
+used.</p>
+
+<p>By default, LBR captures all branches. It is possible to
+filter out branches by passing a set of flags in lbr_select.
+The flags are as fol- lows:</p>
+
+<p>PFMLIB_NHM_LBR_JCC When set, LBR does not capture
+conditional branches. Default: off.</p>
+
+<p>PFM_NHM_LBR_NEAR_REL_CALL When set, LBR does not capture
+near calls. Default: off.</p>
+
+<p>PFM_NHM_LBR_NEAR_IND_CALL When set, LBR does not capture
+indirect calls. Default: off.</p>
+
+<p>PFM_NHM_LBR_NEAR_RET When set, LBR does not capture
+return branches. Default: off.</p>
+
+<p>PFM_NHM_LBR_NEAR_IND_JMP When set, LBR does not capture
+indirect branches. Default: off.</p>
+
+<p>PFM_NHM_LBR_NEAR_REL_JMP When set, LBR does not capture
+relative branches. Default: off.</p>
+
+<p>PFM_NHM_LBR_FAR_BRANCH When set, LBR does not capture
+far branches. Default: off.</p>
+
+<p>Support for uncore PMU By nature, the uncore PMU does
+not distinguish privilege levels, there- fore it captures
+events at all privilege levels. To avoid any misinter-
+pretation, the library enforces that uncore events be
+measured with both PFM_PLM0 and PFM_PLM3 set.</p>
+
+<p>Tools and operating system kernel interfaces may impose
+further restrictions on how the uncore PMU can be
+accessed.</p>
+
+<p>SEE ALSO pfm_dispatch_events(3) and set of examples
+shipped with the library</p>
+
+<p>AUTHOR Stephane Eranian &lt;eranian@gmail.com&gt;</p>
+
+<p>January, 2009 LIBPFM(3)</p>
+<hr>
+</body>
+</html>

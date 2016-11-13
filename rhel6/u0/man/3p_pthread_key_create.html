@@ -1,0 +1,209 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:12:08 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>PTHREAD_KEY_CREATE(3P) POSIX Programmer s Manual
+PTHREAD_KEY_CREATE(3P)</p>
+
+<p>PROLOG This manual page is part of the POSIX Programmer
+s Manual. The Linux implementation of this interface may
+differ (consult the corresponding Linux manual page for
+details of Linux behavior), or the interface may not be
+implemented on Linux.</p>
+
+<p>NAME pthread_key_create - thread-specific data key
+creation</p>
+
+<p>SYNOPSIS #include &lt;pthread.h&gt;</p>
+
+<p>int pthread_key_create(pthread_key_t *key, void
+(*destructor)(void*));</p>
+
+<p>DESCRIPTION The pthread_key_create() function shall
+create a thread-specific data key visible to all threads in
+the process. Key values provided by pthread_key_create() are
+opaque objects used to locate thread-specific data. Although
+the same key value may be used by different threads, the
+values bound to the key by pthread_setspecific() are
+maintained on a per-thread basis and persist for the life of
+the calling thread.</p>
+
+<p>Upon key creation, the value NULL shall be associated
+with the new key in all active threads. Upon thread
+creation, the value NULL shall be associated with all
+defined keys in the new thread.</p>
+
+<p>An optional destructor function may be associated with
+each key value. At thread exit, if a key value has a
+non-NULL destructor pointer, and the thread has a non-NULL
+value associated with that key, the value of the key is set
+to NULL, and then the function pointed to is called with the
+previously associated value as its sole argument. The order
+of destructor calls is unspecified if more than one
+destructor exists for a thread when it exits.</p>
+
+<p>If, after all the destructors have been called for all
+non-NULL values with associated destructors, there are still
+some non-NULL values with associated destructors, then the
+process is repeated. If, after at least
+{PTHREAD_DESTRUCTOR_ITERATIONS} iterations of destructor
+calls for outstanding non-NULL values, there are still some
+non-NULL values with associated destructors, implementations
+may stop calling destruc- tors, or they may continue calling
+destructors until no non-NULL values with associated
+destructors exist, even though this might result in an
+infinite loop.</p>
+
+<p>RETURN VALUE If successful, the pthread_key_create()
+function shall store the newly created key value at *key and
+shall return zero. Otherwise, an error number shall be
+returned to indicate the error.</p>
+
+<p>ERRORS The pthread_key_create() function shall fail
+if:</p>
+
+<p>EAGAIN The system lacked the necessary resources to
+create another thread-specific data key, or the
+system-imposed limit on the total number of keys per process
+{PTHREAD_KEYS_MAX} has been exceeded.</p>
+
+<p>ENOMEM Insufficient memory exists to create the key.</p>
+
+<p>The pthread_key_create() function shall not return an
+error code of [EINTR].</p>
+
+<p>The following sections are informative.</p>
+
+<p>EXAMPLES The following example demonstrates a function
+that initializes a thread-specific data key when it is first
+called, and associates a thread-specific object with each
+calling thread, initializing this object when necessary.</p>
+
+<p>static pthread_key_t key; static pthread_once_t key_once
+= PTHREAD_ONCE_INIT;</p>
+
+<p>static void make_key() { (void)
+pthread_key_create(&amp;key, NULL); }</p>
+
+<p>func() { void *ptr;</p>
+
+<p>(void) pthread_once(&amp;key_once, make_key); if ((ptr =
+pthread_getspecific(key)) == NULL) { ptr =
+malloc(OBJECT_SIZE); ... (void) pthread_setspecific(key,
+ptr); } ... }</p>
+
+<p>Note that the key has to be initialized before
+pthread_getspecific() or pthread_setspecific() can be used.
+The pthread_key_create() call could either be explicitly
+made in a module initialization routine, or it can be done
+implicitly by the first call to a module as in this example.
+Any attempt to use the key before it is initialized is a
+programming error, making the code below incorrect.</p>
+
+<p>static pthread_key_t key;</p>
+
+<p>func() { void *ptr;</p>
+
+<p>/* KEY NOT INITIALIZED!!! THIS WOT WORK!!! */ if ((ptr =
+pthread_getspecific(key)) == NULL &amp;&amp;
+pthread_setspecific(key, NULL) != 0) {
+pthread_key_create(&amp;key, NULL); ... } }</p>
+
+<p>APPLICATION USAGE None.</p>
+
+<p>RATIONALE Destructor Functions Normally, the value bound
+to a key on behalf of a particular thread is a pointer to
+storage allocated dynamically on behalf of the calling
+thread. The destructor functions specified with
+pthread_key_create() are intended to be used to free this
+storage when the thread exits. Thread cancellation cleanup
+handlers cannot be used for this purpose because
+thread-specific data may persist outside the lexical scope
+in which the cancellation cleanup handlers operate.</p>
+
+<p>If the value associated with a key needs to be updated
+during the life- time of the thread, it may be necessary to
+release the storage associ- ated with the old value before
+the new value is bound. Although the pthread_setspecific()
+function could do this automatically, this fea- ture is not
+needed often enough to justify the added complexity.
+Instead, the programmer is responsible for freeing the stale
+storage:</p>
+
+<p>pthread_getspecific(key, &amp;old); new = allocate();
+destructor(old); pthread_setspecific(key, new);</p>
+
+<p>Note: The above example could leak storage if run with
+asynchronous cancellation enabled. No such problems occur in
+the default can- cellation state if no cancellation points
+occur between the get and set.</p>
+
+<p>There is no notion of a destructor-safe function. If an
+application does not call pthread_exit() from a signal
+handler, or if it blocks any signal whose handler may call
+pthread_exit() while calling async-unsafe functions, all
+functions may be safely called from destructors.</p>
+
+<p>Non-Idempotent Data Key Creation There were requests to
+make pthread_key_create() idempotent with respect to a given
+key address parameter. This would allow applications to call
+pthread_key_create() multiple times for a given key address
+and be guaranteed that only one key would be created. Doing
+so would require the key value to be previously initialized
+(possibly at compile time) to a known null value and would
+require that implicit mutual- exclusion be performed based
+on the address and contents of the key parameter in order to
+guarantee that exactly one key would be created.</p>
+
+<p>Unfortunately, the implicit mutual-exclusion would not
+be limited to only pthread_key_create(). On many
+implementations, implicit mutual- exclusion would also have
+to be performed by pthread_getspecific() and
+pthread_setspecific() in order to guard against using
+incompletely stored or not-yet-visible key values. This
+could significantly increase the cost of important
+operations, particularly pthread_getspecific().</p>
+
+<p>Thus, this proposal was rejected. The
+pthread_key_create() function performs no implicit
+synchronization. It is the responsibility of the programmer
+to ensure that it is called exactly once per key before use
+of the key. Several straightforward mechanisms can already
+be used to accomplish this, including calling explicit
+module initialization func- tions, using mutexes, and using
+pthread_once(). This places no signifi- cant burden on the
+programmer, introduces no possibly confusing ad hoc implicit
+synchronization mechanism, and potentially allows commonly
+used thread-specific data operations to be more
+efficient.</p>
+
+<p>FUTURE DIRECTIONS None.</p>
+
+<p>SEE ALSO pthread_getspecific(), pthread_key_delete(),
+the Base Definitions vol- ume of IEEE Std 1003.1-2001,
+&lt;pthread.h&gt;</p>
+
+<p>COPYRIGHT Portions of this text are reprinted and
+reproduced in electronic form from IEEE Std 1003.1, 2003
+Edition, Standard for Information Technology -- Portable
+Operating System Interface (POSIX), The Open Group Base
+Specifications Issue 6, Copyright (C) 2001-2003 by the
+Institute of Electrical and Electronics Engineers, Inc and
+The Open Group. In the event of any discrepancy between this
+version and the original IEEE and The Open Group Standard,
+the original IEEE and The Open Group Standard is the referee
+document. The original Standard can be obtained online at
+http://www.opengroup.org/unix/online.html .</p>
+
+<p>IEEE/The Open Group 2003 PTHREAD_KEY_CREATE(3P)</p>
+<hr>
+</body>
+</html>

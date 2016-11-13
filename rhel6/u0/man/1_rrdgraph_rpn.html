@@ -1,0 +1,326 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 22:13:34 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>RRDGRAPH_RPN(1) rrdtool RRDGRAPH_RPN(1)</p>
+
+<p>NAME rrdgraph_rpn - About RPN Math in rrdtool graph</p>
+
+<p>SYNOPSIS RPN expression:=vname|operator|value[,RPN
+expression]</p>
+
+<p>DESCRIPTION If you have ever used a traditional HP
+calculator you already know RPN (Reverse Polish Notation).
+The idea behind RPN is that you have a stack and push your
+data onto this stack. Whenever you execute an operation, it
+takes as many elements from the stack as needed. Pushing is
+done implicitly, so whenever you specify a number or a
+variable, it gets pushed onto the stack automatically.</p>
+
+<p>At the end of the calculation there should be one and
+only one value left on the stack. This is the outcome of the
+function and this is what is put into the vname. For CDEF
+instructions, the stack is processed for each data point on
+the graph. VDEF instructions work on an entire data set in
+one run. Note, that currently VDEF instructions only support
+a limited list of functions.</p>
+
+<p>Example: &quot;VDEF:maximum=mydata,MAXIMUM&quot;</p>
+
+<p>This will set variable &quot;maximum&quot; which you now
+can use in the rest of your RRD script.</p>
+
+<p>Example: &quot;CDEF:mydatabits=mydata,8,*&quot;</p>
+
+<p>This means: push variable mydata, push the number 8,
+execute the operator *. The operator needs two elements and
+uses those to return one value. This value is then stored in
+mydatabits. As you may have guessed, this instruction means
+nothing more than mydatabits = mydata * 8. The real power of
+RPN lies in the fact that it is always clear in which order
+to process the input. For expressions like &quot;a = b + 3 *
+5&quot; you need to multiply 3 with 5 first before you add b
+to get a. However, with parentheses you could change this
+order: &quot;a = (b + 3) * 5&quot;. In RPN, you would do
+&quot;a = b, 3, +, 5, *&quot; without the need for
+parentheses.</p>
+
+<p>OPERATORS Boolean operators LT, LE, GT, GE, EQ, NE</p>
+
+<p>Pop two elements from the stack, compare them for the
+selected condition and return 1 for true or 0 for false.
+Comparing an unknown or an infinite value will always result
+in 0 (false).</p>
+
+<p>UN, ISINF</p>
+
+<p>Pop one element from the stack, compare this to unknown
+respectively to positive or negative infinity. Returns 1 for
+true or 0 for false.</p>
+
+<p>IF</p>
+
+<p>Pops three elements from the stack. If the element
+popped last is 0 (false), the value popped first is pushed
+back onto the stack, otherwise the value popped second is
+pushed back. This does, indeed, mean that any value other
+than 0 is considered to be true.</p>
+
+<p>Example: &quot;A,B,C,IF&quot; should be read as &quot;if
+(A) then (B) else (C)&quot;</p>
+
+<p>Comparing values MIN, MAX</p>
+
+<p>Pops two elements from the stack and returns the smaller
+or larger, respectively. Note that infinite is larger than
+anything else. If one of the input numbers is unknown then
+the result of the operation will be unknown too.</p>
+
+<p>LIMIT</p>
+
+<p>Pops two elements from the stack and uses them to define
+a range. Then it pops another element and if it falls inside
+the range, it is pushed back. If not, an unknown is
+pushed.</p>
+
+<p>The range defined includes the two boundaries (so: a
+number equal to one of the boundaries will be pushed back).
+If any of the three numbers involved is either unknown or
+infinite this function will always return an unknown</p>
+
+<p>Example: &quot;CDEF:a=alpha,0,100,LIMIT&quot; will
+return unknown if alpha is lower than 0 or if it is higher
+than 100.</p>
+
+<p>Arithmetics +, -, *, /, %</p>
+
+<p>Add, subtract, multiply, divide, modulo</p>
+
+<p>ADDNAN</p>
+
+<p>NAN-safe addition. If one parameter is NAN/UNKNOWN it ll
+be treated as zero. If both parameters are NAN/UNKNOWN,
+NAN/UNKNOWN will be returned.</p>
+
+<p>SIN, COS, LOG, EXP, SQRT</p>
+
+<p>Sine and cosine (input in radians), log and exp (natural
+logarithm), square root.</p>
+
+<p>ATAN</p>
+
+<p>Arctangent (output in radians).</p>
+
+<p>ATAN2</p>
+
+<p>Arctangent of y,x components (output in radians). This
+pops one element from the stack, the x (cosine) component,
+and then a second, which is the y (sine) component. It then
+pushes the arctangent of their ratio, resolving the
+ambiguity between quadrants.</p>
+
+<p>Example: &quot;CDEF:angle=Y,X,ATAN2,RAD2DEG&quot; will
+convert &quot;X,Y&quot; components into an angle in
+degrees.</p>
+
+<p>FLOOR, CEIL</p>
+
+<p>Round down or up to the nearest integer.</p>
+
+<p>DEG2RAD, RAD2DEG</p>
+
+<p>Convert angle in degrees to radians, or radians to
+degrees.</p>
+
+<p>ABS</p>
+
+<p>Take the absolute value.</p>
+
+<p>Set Operations SORT, REV</p>
+
+<p>Pop one element from the stack. This is the count of
+items to be sorted (or reversed). The top count of the
+remaining elements are then sorted (or reversed) in place on
+the stack.</p>
+
+<p>Example:
+&quot;CDEF:x=v1,v2,v3,v4,v5,v6,6,SORT,POP,5,REV,POP,+,+,+,4,/&quot;
+will compute the average of the values v1 to v6 after
+removing the smallest and largest.</p>
+
+<p>AVG</p>
+
+<p>Pop one element (count) from the stack. Now pop count
+elements and build the average, ignoring all UNKNOWN values
+in the process.</p>
+
+<p>Example: &quot;CDEF:x=a,b,c,d,4,AVG&quot;</p>
+
+<p>TREND, TRENDNAN</p>
+
+<p>Create a &quot;sliding window&quot; average of another
+data series.</p>
+
+<p>Usage: CDEF:smoothed=x,1800,TREND</p>
+
+<p>This will create a half-hour (1800 second) sliding
+window average of x. The average is essentially computed as
+shown here:</p>
+
+<p>+---!---!---!---!---!---!---!---!---&gt; now delay t0
+&lt;---------------&gt; delay t1 &lt;---------------&gt;
+delay t2 &lt;---------------&gt;</p>
+
+<p>Value at sample (t0) will be the average between
+(t0-delay) and (t0) Value at sample (t1) will be the average
+between (t1-delay) and (t1) Value at sample (t2) will be the
+average between (t2-delay) and (t2)</p>
+
+<p>TRENDNAN is - in contrast to TREND - NAN-safe. If you
+use TREND and one source value is NAN the complete sliding
+window is affected. The TRENDNAN operation ignores all
+NAN-values in a sliding window and computes the average of
+the remaining values.</p>
+
+<p>Special values UNKN</p>
+
+<p>Pushes an unknown value on the stack</p>
+
+<p>INF, NEGINF</p>
+
+<p>Pushes a positive or negative infinite value on the
+stack. When such a value is graphed, it appears at the top
+or bottom of the graph, no matter what the actual value on
+the y-axis is.</p>
+
+<p>PREV</p>
+
+<p>Pushes an unknown value if this is the first value of a
+data set or otherwise the result of this CDEF at the
+previous time step. This allows you to do calculations
+across the data. This function cannot be used in VDEF
+instructions.</p>
+
+<p>PREV(vname)</p>
+
+<p>Pushes an unknown value if this is the first value of a
+data set or otherwise the result of the vname variable at
+the previous time step. This allows you to do calculations
+across the data. This function cannot be used in VDEF
+instructions.</p>
+
+<p>COUNT</p>
+
+<p>Pushes the number 1 if this is the first value of the
+data set, the number 2 if it is the second, and so on. This
+special value allows you to make calculations based on the
+position of the value within the data set. This function
+cannot be used in VDEF instructions.</p>
+
+<p>Time Time inside RRDtool is measured in seconds since
+the epoch. The epoch is defined to be &quot;Thu Jan 1
+00:00:00 UTC 1970&quot;.</p>
+
+<p>NOW</p>
+
+<p>Pushes the current time on the stack.</p>
+
+<p>TIME</p>
+
+<p>Pushes the time the currently processed value was taken
+at onto the stack.</p>
+
+<p>LTIME</p>
+
+<p>Takes the time as defined by TIME, applies the time zone
+offset valid at that time including daylight saving time if
+your OS supports it, and pushes the result on the stack.
+There is an elaborate example in the examples section below
+on how to use this.</p>
+
+<p>Processing the stack directly DUP, POP, EXC</p>
+
+<p>Duplicate the top element, remove the top element,
+exchange the two top elements.</p>
+
+<p>VARIABLES These operators work only on VDEF statements.
+Note that currently ONLY these work for VDEF.</p>
+
+<p>MAXIMUM, MINIMUM, AVERAGE Return the corresponding
+value, MAXIMUM and MINIMUM also return the first occurrence
+of that value in the time component.</p>
+
+<p>Example: &quot;VDEF:avg=mydata,AVERAGE&quot;</p>
+
+<p>STDEV Returns the standard deviation of the values.</p>
+
+<p>Example: &quot;VDEF:stdev=mydata,STDEV&quot;</p>
+
+<p>LAST, FIRST Return the last/first value including its
+time. The time for FIRST is actually the start of the
+corresponding interval, whereas LAST returns the end of the
+corresponding interval.</p>
+
+<p>Example: &quot;VDEF:first=mydata,FIRST&quot;</p>
+
+<p>TOTAL Returns the rate from each defined time slot
+multiplied with the step size. This can, for instance,
+return total bytes transfered when you have logged bytes per
+second. The time component returns the number of
+seconds.</p>
+
+<p>Example: &quot;VDEF:total=mydata,TOTAL&quot;</p>
+
+<p>PERCENT This should follow a DEF or CDEF vname. The
+vname is popped, another number is popped which is a certain
+percentage (0..100). The data set is then sorted and the
+value returned is chosen such that percentage percent of the
+values is lower or equal than the result. Unknown values are
+considered lower than any finite number for this purpose so
+if this operator returns an unknown you have quite a lot of
+them in your data. Infinite numbers are lesser, or more,
+than the finite numbers and are always more than the Unknown
+numbers. (NaN &lt; -INF &lt; finite values &lt; INF)</p>
+
+<p>Example: &quot;VDEF:perc95=mydata,95,PERCENT&quot;</p>
+
+<p>LSLSLOPE, LSLINT, LSLCORREL Return the parameters for a
+Least Squares Line (y = mx +b) which approximate the
+provided dataset. LSLSLOPE is the slope (m) of the line
+related to the COUNT position of the data. LSLINT is the
+y-intercept (b), which happens also to be the first data
+point on the graph. LSLCORREL is the Correlation Coefficient
+(also know as Pearson s Product Moment Correlation
+Coefficient). It will range from 0 to +/-1 and represents
+the quality of fit for the approximation.</p>
+
+<p>Example: &quot;VDEF:slope=mydata,LSLSLOPE&quot;</p>
+
+<p>SEE ALSO rrdgraph gives an overview of how rrdtool graph
+works. rrdgraph_data describes DEF,CDEF and VDEF in detail.
+rrdgraph_rpn describes the RPN language used in the ?DEF
+statements. rrdgraph_graph page describes all of the graph
+and print functions.</p>
+
+<p>Make sure to read rrdgraph_examples for
+tips&amp;tricks.</p>
+
+<p>AUTHOR Program by Tobias Oetiker
+&lt;tobi@oetiker.ch&gt;</p>
+
+<p>This manual page by Alex van den Bogaerdt
+&lt;alex@vandenbogaerdt.nl&gt; with corrections and/or
+additions by several people</p>
+
+<p>1.3.8 2009-02-21 RRDGRAPH_RPN(1)</p>
+<hr>
+</body>
+</html>

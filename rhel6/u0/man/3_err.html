@@ -1,0 +1,193 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:58:33 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>err(3) OpenSSL err(3)</p>
+
+<p>NAME err - error codes</p>
+
+<p>SYNOPSIS #include &lt;openssl/err.h&gt;</p>
+
+<p>unsigned long ERR_get_error(void); unsigned long
+ERR_peek_error(void); unsigned long ERR_get_error_line(const
+char **file, int *line); unsigned long
+ERR_peek_error_line(const char **file, int *line); unsigned
+long ERR_get_error_line_data(const char **file, int *line,
+const char **data, int *flags); unsigned long
+ERR_peek_error_line_data(const char **file, int *line, const
+char **data, int *flags);</p>
+
+<p>int ERR_GET_LIB(unsigned long e); int
+ERR_GET_FUNC(unsigned long e); int ERR_GET_REASON(unsigned
+long e);</p>
+
+<p>void ERR_clear_error(void);</p>
+
+<p>char *ERR_error_string(unsigned long e, char *buf);
+const char *ERR_lib_error_string(unsigned long e); const
+char *ERR_func_error_string(unsigned long e); const char
+*ERR_reason_error_string(unsigned long e);</p>
+
+<p>void ERR_print_errors(BIO *bp); void
+ERR_print_errors_fp(FILE *fp);</p>
+
+<p>void ERR_load_crypto_strings(void); void
+ERR_free_strings(void);</p>
+
+<p>void ERR_remove_state(unsigned long pid);</p>
+
+<p>void ERR_put_error(int lib, int func, int reason, const
+char *file, int line); void ERR_add_error_data(int num,
+...);</p>
+
+<p>void ERR_load_strings(int lib,ERR_STRING_DATA str[]);
+unsigned long ERR_PACK(int lib, int func, int reason); int
+ERR_get_next_error_library(void);</p>
+
+<p>DESCRIPTION When a call to the OpenSSL library fails,
+this is usually signalled by the return value, and an error
+code is stored in an error queue associated with the current
+thread. The err library provides functions to obtain these
+error codes and textual error messages.</p>
+
+<p>The ERR_get_error(3) manpage describes how to access
+error codes.</p>
+
+<p>Error codes contain information about where the error
+occurred, and what went wrong. ERR_GET_LIB(3) describes how
+to extract this information. A method to obtain
+human-readable error messages is described in
+ERR_error_string(3).</p>
+
+<p>ERR_clear_error(3) can be used to clear the error
+queue.</p>
+
+<p>Note that ERR_remove_state(3) should be used to avoid
+memory leaks when threads are terminated.</p>
+
+<p>ADDING NEW ERROR CODES TO OPENSSL See ERR_put_error(3)
+if you want to record error codes in the OpenSSL error
+system from within your application.</p>
+
+<p>The remainder of this section is of interest only if you
+want to add new error codes to OpenSSL or add error codes
+from external libraries.</p>
+
+<p>Reporting errors Each sub-library has a specific macro
+XXXerr() that is used to report errors. Its first argument
+is a function code XXX_F_..., the second argument is a
+reason code XXX_R_.... Function codes are derived from the
+function names; reason codes consist of textual error
+descriptions. For example, the function ssl23_read() reports
+a &quot;handshake failure&quot; as follows:</p>
+
+<p>SSLerr(SSL_F_SSL23_READ,
+SSL_R_SSL_HANDSHAKE_FAILURE);</p>
+
+<p>Function and reason codes should consist of upper case
+characters, numbers and underscores only. The error file
+generation script translates function codes into function
+names by looking in the header files for an appropriate
+function name, if none is found it just uses the capitalized
+form such as &quot;SSL23_READ&quot; in the above
+example.</p>
+
+<p>The trailing section of a reason code (after the
+&quot;_R_&quot;) is translated into lower case and
+underscores changed to spaces.</p>
+
+<p>When you are using new function or reason codes, run
+make errors. The necessary #defines will then automatically
+be added to the sub- librarys header file.</p>
+
+<p>Although a library will normally report errors using its
+own specific XXXerr macro, another librarys macro can be
+used. This is normally only done when a library wants to
+include ASN1 code which must use the ASN1err() macro.</p>
+
+<p>Adding new libraries When adding a new sub-library to
+OpenSSL, assign it a library number ERR_LIB_XXX, define a
+macro XXXerr() (both in err.h), add its name to
+ERR_str_libraries[] (in crypto/err/err.c), and add
+&quot;ERR_load_XXX_strings()&quot; to the
+ERR_load_crypto_strings() function (in
+crypto/err/err_all.c). Finally, add an entry</p>
+
+<p>L XXX xxx.h xxx_err.c</p>
+
+<p>to crypto/err/openssl.ec, and add xxx_err.c to the
+Makefile. Running make errors will then generate a file
+xxx_err.c, and add all error codes used in the library to
+xxx.h.</p>
+
+<p>Additionally the library include file must have a
+certain form. Typically it will initially look like
+this:</p>
+
+<p>#ifndef HEADER_XXX_H #define HEADER_XXX_H</p>
+
+<p>#ifdef __cplusplus extern &quot;C&quot; { #endif</p>
+
+<p>/* Include files */</p>
+
+<p>#include &lt;openssl/bio.h&gt; #include
+&lt;openssl/x509.h&gt;</p>
+
+<p>/* Macros, structures and function prototypes */</p>
+
+<p>/* BEGIN ERROR CODES */</p>
+
+<p>The BEGIN ERROR CODES sequence is used by the error code
+generation script as the point to place new error codes, any
+text after this point will be overwritten when make errors
+is run. The closing #endif etc will be automatically added
+by the script.</p>
+
+<p>The generated C error code file xxx_err.c will load the
+header files stdio.h, openssl/err.h and openssl/xxx.h so the
+header file must load any additional header files containing
+any definitions it uses.</p>
+
+<p>USING ERROR CODES IN EXTERNAL LIBRARIES It is also
+possible to use OpenSSLs error code scheme in external
+libraries. The library needs to load its own codes and call
+the OpenSSL error code insertion script mkerr.pl explicitly
+to add codes to the header file and generate the C error
+code file. This will normally be done if the external
+library needs to generate new ASN1 structures but it can
+also be used to add more general purpose error code
+handling.</p>
+
+<p>TBA more details</p>
+
+<p>INTERNALS The error queues are stored in a hash table
+with one ERR_STATE entry for each pid. ERR_get_state()
+returns the current threads ERR_STATE. An ERR_STATE can hold
+up to ERR_NUM_ERRORS error codes. When more error codes are
+added, the old ones are overwritten, on the assumption that
+the most recent errors are most important.</p>
+
+<p>Error strings are also stored in hash table. The hash
+tables can be obtained by calling
+ERR_get_err_state_table(void) and ERR_get_string_table(void)
+respectively.</p>
+
+<p>SEE ALSO CRYPTO_set_id_callback(3),
+CRYPTO_set_locking_callback(3), ERR_get_error(3),
+ERR_GET_LIB(3), ERR_clear_error(3), ERR_error_string(3),
+ERR_print_errors(3), ERR_load_crypto_strings(3),
+ERR_remove_state(3), ERR_put_error(3), ERR_load_strings(3),
+SSL_get_error(3)</p>
+
+<p>1.0.0 2002-07-10 err(3)</p>
+<hr>
+</body>
+</html>

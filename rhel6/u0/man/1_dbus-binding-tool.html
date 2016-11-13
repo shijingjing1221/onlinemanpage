@@ -1,0 +1,226 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Sat Nov 12 21:57:00 2016 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title></title>
+</head>
+<body>
+
+<hr>
+
+<p>dbus-binding-tool(1) User Commands
+dbus-binding-tool(1)</p>
+
+<p>NAME dbus-binding-tool - C language GLib bindings
+generation utility.</p>
+
+<p>SYNOPSIS dbus-binding-tool [--force] [--help]
+[--ignore-unsupported]
+[--mode=pretty|glib-client|glib-server] [--output=file]
+[--prefix=sym- bol-prefix] [--version] [file...]</p>
+
+<p>DESCRIPTION dbus-binding-tool is used to expose a
+GObject via D-Bus. As input, dbus-binding-tool uses a D-Bus
+Introspection XML file. As output, the client-side or
+server-side bindings is generated. This output is a header
+file which eases the use of a remote D-Bus object. Output is
+sent to standard out or to the filename specified with the
+--output argument.</p>
+
+<p>EXTENDED DESCRIPTION</p>
+
+<p>The following is a sample D-Bus Introspection XML file
+which describes an object that exposes one method, named
+ManyArgs:</p>
+
+<p>&lt;?xml version=&quot;1.0&quot;
+encoding=&quot;UTF-8&quot; ?&gt; &lt;node
+name=&quot;/com/example/MyObject&quot;&gt; &lt;interface
+name=&quot;com.example.MyObject&quot;&gt; &lt;method
+name=&quot;ManyArgs&quot;&gt; &lt;arg type=&quot;u&quot;
+name=&quot;x&quot; direction=&quot;in&quot; /&gt; &lt;arg
+type=&quot;s&quot; name=&quot;str&quot;
+direction=&quot;in&quot; /&gt; &lt;arg type=&quot;d&quot;
+name=&quot;trouble&quot; direction=&quot;in&quot; /&gt;
+&lt;arg type=&quot;d&quot; name=&quot;d_ret&quot;
+direction=&quot;out&quot; /&gt; &lt;arg type=&quot;s&quot;
+name=&quot;str_ret&quot; direction=&quot;out&quot; /&gt;
+&lt;/method&gt; &lt;/interface&gt; &lt;/node&gt;</p>
+
+<p>dbus-binding-tool supports annotations in the XML format
+to further control how the bindings are generated.</p>
+
+<p>client-side bindings When building client-side bindings,
+the --mode=glib-client argument is used. The client-side
+bindings support the &quot;org.freedesk-
+top.DBus.Glib.NoReply&quot; annotation. This is specified
+within the &lt;method&gt; tag to indicate that the client is
+not expecting a reply to the method call, so a reply should
+not be sent. This is often used to speed up rapid method
+calls where there are no &quot;out&quot; arguments, and not
+knowing if the method succeeded is an acceptable compromise
+to halve the traffic on the bus. For example:</p>
+
+<p>&lt;method name &quot;FooMethod&quot;&gt; [...]
+&lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.NoReply&quot;
+value=&quot;yes&quot;/&gt; [...] &lt;/method&gt;</p>
+
+<p>server-side bindings When building server-side bindings,
+the --mode=glib-server argument is used. Also the --prefix
+argument must be used when building server- side bindings so
+that functions in the generated output are prefexed with the
+specified value. The server-side bindings support the
+follow- ing annotations:</p>
+
+<p>&quot;org.freedesktop.DBus.GLib.CSymbol&quot;</p>
+
+<p>This annotation is used to specify the C symbol names
+for the various types (interface, method, etc.), if it
+differs from the name D-Bus gen- erates.</p>
+
+<p>&lt;interface name=&quot;com.example.MyObject&quot;&gt;
+&lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.CSymbol&quot;
+value=&quot;my_object&quot;/&gt; [...] &lt;method name
+&quot;ManyArgs&quot;&gt; &lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.CSymbol&quot;
+value=&quot;my_object_many_args&quot;/&gt; [...]
+&lt;/method&gt; &lt;/interface&gt;</p>
+
+<p>&quot;org.freedesktop.DBus.GLib.Async&quot;</p>
+
+<p>This annotation marks the method implementation as an
+asynchronous function, which does not return a response
+straight away but will send the response at some later point
+to complete the call. This is used to implement non-blocking
+services where method calls can take time.</p>
+
+<p>When a method is asynchronous, the function prototype is
+different. It is required that the function conform to the
+following rules:</p>
+
+<p>&middot; The function must return a value of type
+gboolean; TRUE on suc- cess, and FALSE otherwise. &middot;
+The first parameter is a pointer to an instance of the
+object. &middot; Following the object instance pointer are
+the method input values. &middot; The final parameter must
+be a (DBusGMethodInvocation *). This is used when sending
+the response message back to the client, by calling
+dbus_g_method_return or dbus_g_method_return_error.</p>
+
+<p>For example:</p>
+
+<p>&lt;method name &quot;FooMethod&quot;&gt; [...]
+&lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.Async&quot;
+value=&quot;yes&quot;/&gt; [...] &lt;/method&gt;</p>
+
+<p>&quot;org.freedesktop.DBus.GLib.Const&quot;</p>
+
+<p>This attribute can only be applied to &quot;out&quot;
+&lt;arg&gt; nodes, and specifies that the parameter is not
+being copied when returned. For example, this turns a s
+argument from a (char **) to a (const char **), and results
+in the argument not being freed by D-Bus after the message
+is sent. For example:</p>
+
+<p>&lt;arg type=&quot;u&quot; name=&quot;x&quot;
+direction=&quot;out&quot;&gt; &lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.Const&quot;
+value=&quot;&quot;/&gt; &lt;/arg&gt;</p>
+
+<p>&quot;org.freedesktop.DBus.GLib.ReturnVal&quot;</p>
+
+<p>This attribute can only be applied to &quot;out&quot;
+&lt;arg&gt; nodes, and alters the expected function
+signature. It currently can be set to two values:
+&quot;&quot; or &quot;error&quot;. The argument marked with
+this attribute is not returned via a pointer argument, but
+by the functions return value. If the attributes value is
+the empty string, the (GError *) argument is also omitted so
+there is no standard way to return an error value. This is
+very useful for interfacing with existing code, as it is
+possible to match existing APIs. If the attribute s value is
+&quot;error&quot;, then the final argument is a (GError *)
+as usual. For example:</p>
+
+<p>&lt;arg type=&quot;u&quot; name=&quot;x&quot;
+direction=&quot;out&quot;&gt; &lt;annotation
+name=&quot;org.freedesktop.DBus.GLib.ReturnVal&quot;
+value=&quot;&quot;/&gt; &lt;/arg&gt;</p>
+
+<p>OPTIONS The following options are supported:</p>
+
+<p>--force</p>
+
+<p>Overwrite the output file if it already exists with a
+newer times- tamp than the source files.</p>
+
+<p>--help</p>
+
+<p>Display usage information.</p>
+
+<p>--ignore-unsupported</p>
+
+<p>If set, then unsupported signatures for &lt;method&gt;
+parameters are ignored.</p>
+
+<p>--mode=pretty|glib-client|glib-server</p>
+
+<p>If the value is &quot;glib-client&quot;, then client
+bindings are generated. If the value is
+&quot;glib-server&quot;, then server bindings are generated.
+If the value is &quot;pretty&quot;, then the output is in a
+more human read- able format.</p>
+
+<p>--output=file</p>
+
+<p>Specify the output file.</p>
+
+<p>--prefix=symbol-prefix</p>
+
+<p>Functions in the generated output are prefixed with the
+symbol-pre- fix value.</p>
+
+<p>--version</p>
+
+<p>Display the version number of the dbus-binding-tool
+command.</p>
+
+<p>OPERANDS The following operands are supported:</p>
+
+<p>file A list of one or more input D-Bus Introspection XML
+files to include in the generated output.</p>
+
+<p>FILES The following files are used by this
+application:</p>
+
+<p>/usr/bin/dbus-binding-tool Executable for the D-Bus
+Binding Tool application.</p>
+
+<p>ATTRIBUTES See attributes(5) for descriptions of the
+following attributes:</p>
+
+
+<p>+-----------------------------+-----------------------------+
+| ATTRIBUTE TYPE | ATTRIBUTE VALUE |
++-----------------------------+-----------------------------+
+|Availability |SUNWdbus-bindings |
++-----------------------------+-----------------------------+
+|Interface stability |Volatile |
++-----------------------------+-----------------------------+</p>
+
+<p>SEE ALSO dbus-cleanup-sockets(1), dbus-daemon(1),
+dbus-monitor(1), dbus-send(1), dbus-uuidgen(1),
+libdbus-glib-1(3), attributes(5)</p>
+
+<p>NOTES Written by Brian Cameron, Sun Microsystems Inc.,
+2009.</p>
+
+<p>SunOS 5.11 26 Feb 2009 dbus-binding-tool(1)</p>
+<hr>
+</body>
+</html>
