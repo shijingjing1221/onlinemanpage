@@ -4,7 +4,7 @@ Find the different rhel linux man pages online
 [Live Demo](http://man.linuxtool.net)
 
 ### Snapshot
-![snapshot](http://man.linuxtool.net/img/snapshot1.png)
+![snapshot](img/onlinemanpage.png)
 
 ### Usage
 ```sh
